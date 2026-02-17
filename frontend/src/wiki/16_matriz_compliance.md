@@ -2,7 +2,7 @@
 Modulo: wiki
 Arquivo: frontend/src/wiki/16_matriz_compliance.md
 Funcao no sistema: matriz de compliance (ATN 303/2008) mapeando artigo -> regra -> implementacao -> evidencia.
-Fonte: planilha `ATN_STM_303_2008.xlsx` (aba "Index da Norma").
+Fonte: planilha `ATN_STM_303_2008.xlsx` (abas "Index da Norma" e "Norma Detalhada").
 -->
 
 # Matriz de compliance (ATN 303/2008)
@@ -20,6 +20,7 @@ Esta matriz responde, de forma auditável, às perguntas:
 
 - Documento: `ATN_STM_303_2008.xlsx`
 - Aba: `Index da Norma` (capítulos e faixas de artigos)
+- Aba: `Norma Detalhada` (dispositivo + ID normalizado + resumo interpretativo)
 
 Observação:
 
@@ -56,6 +57,21 @@ Legenda:
 | Transparência e Regras Finais | 188–189 | Pendente | Falta painel/rotina de publicidade mensal. |
 
 ## 2) Regras críticas (mapeamento artigo -> implementação)
+
+### 2.0 Quadro de artigos críticos (mapa rápido)
+
+Quadro (mínimo) exigido para auditoria: **Artigo → Regra do sistema → Onde está implementado (DB/API/UI/n8n) → Evidência/auditoria**.
+
+| Artigo (ID) | Resumo interpretativo (planilha) | Regra do sistema | Implementação (DB/API/UI/n8n) | Evidência/auditoria |
+|---|---|---|---|---|
+| Art. 183 (AN303_Art183) | “Congelamento” físico e sistêmico dos ativos durante a contagem. | Com inventário `EM_ANDAMENTO`, é vedada movimentação que altere **carga** (unidade dona). | DB: trigger/função `fn_bloqueio_movimentacao_art183()` em `bens`. UI: banner “Inventário ativo”. | Erro Postgres (`P0001`) + `auditoria_log` para tentativas. |
+| Art. 185 (AN303_Art185) | Dever de sanear o sistema corrigindo locais ou dados dos bens. | Divergência vira ocorrência (`ENCONTRADO_EM_LOCAL_DIVERGENTE`) e **não** muda dono durante o inventário; regulariza depois. | DB: `contagens` + view `vw_forasteiros` + regra `regularizacao_pendente`. API: `POST /inventario/sync`, `GET /inventario/forasteiros`, `POST /inventario/regularizacoes`. UI: “Modo Inventário” + aba “Regularização”. n8n: relatório (quando importado). | Linhas em `contagens`/`vw_forasteiros` + histórico de regularização (Art. 185) + PDF no Drive (quando automatizado). |
+| Art. 124 (AN303_Art124) | Termo de Responsabilidade formaliza o dever de guarda. | Transferência muda carga e deve ter referência documental (termo) e responsável. | DB: `historico_transferencias` + trigger `trg_track_owner_change`. API/UI: `POST /movimentar` (TRANSFERENCIA) com `termo_referencia`. | `historico_transferencias` + `movimentacoes` + `auditoria_log`. (PDF: pendente n8n). |
+| Art. 127 (AN303_Art127) | Saída física só com aval prévio da DIPAT. | Cautela registra saída/retorno sem mudar carga; deve registrar autorizador/termo. | API/UI: `POST /movimentar` (`CAUTELA_SAIDA`/`CAUTELA_RETORNO`) + campos de termo/autorização. DB: status `EM_CAUTELA` + `movimentacoes`. | `movimentacoes` com termo + histórico de status do bem. (PDF: pendente n8n). |
+| Art. 141 (AN303_Art141_*) | 4 categorias obrigatórias: Ocioso, Recuperável, Antieconômico, Irrecuperável. | Classificação de inservíveis deve ser **guiada** e auditável (decisão + justificativa). | UI: Wizard Art. 141. DB: enum `tipo_inservivel`. | (Pendente) persistir resultado do wizard + relatórios. |
+| Art. 99 (AN303_Art99) | Proíbe tombamento de bens que não pertencem ao STM (controle à parte). | Bens de terceiros não são incorporados ao acervo STM; cadastro segregado e rastreável. | DB: `bens.eh_bem_terceiro`, `identificador_externo`, `proprietario_externo` + constraints. UI/Wiki: fluxo “Bem de terceiro”. | Registros com `eh_bem_terceiro=TRUE` + auditoria. |
+| Art. 110, VI (AN303_Art110_VI) | Controlar itens alugados/terceiros e informar ao Patrimônio. | Controle segregado com rastreabilidade (quem, onde, quando). | DB/UI/Wiki: mesmo mecanismo de “bens de terceiros”, com relatórios dedicados. | Relatório (pendente n8n) + trilha de auditoria. |
+| Art. 175, IX (AN303_Art175_IX) | Controle de bens de terceiros que estão no prédio. | Inventário consegue registrar bem externo sem forçar tombamento STM/GEAFIN. | UI: registrar “Bem de terceiro” no inventário; DB: campos externos e ocorrência segregada. | Itens de terceiros cadastrados + ocorrências por evento/sala. |
 
 ### 2.1 Congelamento de movimentação durante inventário
 
