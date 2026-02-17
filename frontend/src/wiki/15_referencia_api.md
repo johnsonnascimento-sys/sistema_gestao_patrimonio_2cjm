@@ -2,35 +2,31 @@
 Modulo: wiki
 Arquivo: frontend/src/wiki/15_referencia_api.md
 Funcao no sistema: referencia rapida de endpoints usados pela UI, com exemplos basicos.
+Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
-# Referência rápida da API (para admin/suporte)
+# Referência rápida da API (admin/suporte)
 
-Base URL no dominio:
+Base URL no domínio:
 
 - `https://patrimonio2cjm.johnsontn.com.br/api`
 
-Obs.:
+Observações:
 
 - A UI chama sempre via `/api/...` (proxy Nginx).
+- Quando `AUTH_ENABLED=true`, as rotas protegidas exigem `Authorization: Bearer <JWT>`.
 
 ## Health
 
 ### GET `/health`
 
-Uso: confirmar que backend esta vivo.
-
-Resposta: `200 OK`
+Uso: confirmar que o backend está vivo.
 
 Campos (importantes para a UI):
 
-- `authEnabled`: `true|false` (se a autenticacao estiver ativa na VPS).
+- `authEnabled`: `true|false` (se a autenticação está ativa na VPS).
 
-## Autenticacao (quando `AUTH_ENABLED=true`)
-
-Quando a autenticacao estiver ativa, a maioria das rotas exige:
-
-- Header: `Authorization: Bearer <JWT>`
+## Autenticação (quando `AUTH_ENABLED=true`)
 
 ### POST `/auth/login`
 
@@ -46,13 +42,13 @@ Retorna:
 
 ### POST `/auth/primeiro-acesso`
 
-Uso: definir senha para um perfil ja cadastrado.
+Uso: definir senha para um perfil já cadastrado (bootstrap controlado).
 
 Body JSON:
 
 - `matricula`
 - `nome` (deve conferir com o cadastro do perfil)
-- `senha` (min. 8)
+- `senha` (mín. 8)
 
 Retorna:
 
@@ -61,9 +57,9 @@ Retorna:
 
 ### GET `/auth/me`
 
-Uso: identificar usuario logado.
+Uso: identificar usuário logado.
 
-## Estatisticas
+## Estatísticas
 
 ### GET `/stats`
 
@@ -75,7 +71,7 @@ Uso: cards da tela "Consulta de Bens".
 
 Uso: listagem e filtros.
 
-Parametros comuns (query):
+Parâmetros comuns (query):
 
 - `limit` / `offset`
 - `numeroTombamento=1290001788`
@@ -99,7 +95,7 @@ Retorna:
 
 ### POST `/perfis`
 
-Uso: criar operador (matricula/nome/unidade).
+Uso: criar operador (matrícula/nome/unidade).
 
 Quando `AUTH_ENABLED=true`:
 
@@ -123,7 +119,7 @@ Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
 
-Campos tipicos:
+Campos típicos:
 
 - `status`: `EM_ANDAMENTO|CONCLUIDO|ERRO`
 - `totalLinhas`
@@ -137,17 +133,30 @@ Campos tipicos:
 
 ### GET `/inventario/eventos?status=EM_ANDAMENTO`
 
-Uso: status do inventario na barra do topo.
+Uso: status do inventário na barra do topo.
 
 ### GET `/inventario/forasteiros`
 
-Uso: listar divergências pendentes (intrusos/forasteiros) para regularização pós-inventário.
+Uso: listar divergências pendentes (intrusos/forasteiros) para regularização pós-inventário (Art. 185).
 
-Filtros (query) mais comuns:
+Filtros (query) comuns:
 
 - `eventoInventarioId=<uuid>`
 - `salaEncontrada=Sala 101`
 - `numeroTombamento=1290001788`
+
+### GET `/inventario/bens-terceiros`
+
+Uso: listar ocorrências de "bens de terceiros" registradas durante o inventário (controle segregado).
+
+Fonte:
+
+- `vw_bens_terceiros_inventario` (derivado de `contagens`).
+
+Filtros (query) comuns:
+
+- `eventoInventarioId=<uuid>`
+- `salaEncontrada=Sala 101`
 
 ### POST `/inventario/sync`
 
@@ -155,7 +164,7 @@ Uso: sincronizar scans/contagens (inclusive offline).
 
 Comportamento:
 
-- Se unidade dona do bem != unidade encontrada: registra divergencia (Art. 185), sem transferir carga.
+- Se unidade dona do bem != unidade encontrada: registra divergência (Art. 185), sem transferir carga.
 
 ### POST `/inventario/regularizacoes`
 
@@ -245,17 +254,17 @@ Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
 
-
 ## Documentos (evidências)
 
 ### GET `/documentos`
 
-Uso: listar evidências (metadados) associadas a movimentações/regularizações.
+Uso: listar evidências (metadados) associadas a movimentações/regularizações/avaliações.
 
 Filtros (query):
 
 - `movimentacaoId=<uuid>`
 - `contagemId=<uuid>`
+- `avaliacaoInservivelId=<uuid>` (exige migration `database/013_documentos_avaliacoes_inserviveis.sql`)
 
 ### POST `/documentos`
 
@@ -270,6 +279,7 @@ Campos (JSON):
 - `tipo`: `TERMO_TRANSFERENCIA|TERMO_CAUTELA|TERMO_REGULARIZACAO|RELATORIO_FORASTEIROS|OUTRO`
 - `movimentacaoId` (opcional)
 - `contagemId` (opcional)
+- `avaliacaoInservivelId` (opcional; exige migration 013)
 - `termoReferencia` (opcional)
 - `driveUrl` (obrigatório)
 
@@ -289,3 +299,22 @@ Campos (JSON):
 - `mime` (opcional)
 - `bytes` (opcional)
 - `sha256` (opcional)
+
+## PDFs (saídas oficiais via API, para n8n)
+
+### GET `/pdf/forasteiros`
+
+Uso: gerar PDF do relatório de forasteiros (Art. 185) para upload no Drive via n8n.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+### POST `/pdf/termos`
+
+Uso: gerar PDF de termo patrimonial (transferência/cautela/regularização) para upload no Drive via n8n.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+

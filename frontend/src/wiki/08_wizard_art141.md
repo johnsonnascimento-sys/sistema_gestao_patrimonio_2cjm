@@ -2,6 +2,7 @@
 Modulo: wiki
 Arquivo: frontend/src/wiki/08_wizard_art141.md
 Funcao no sistema: orientar uso do Wizard de classificacao de inserviveis (Art. 141) com persistencia e auditoria.
+Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
 # Wizard Art. 141 (classificação de inservíveis)
@@ -14,11 +15,11 @@ Para reduzir erro humano e garantir conformidade, o sistema usa um **fluxo guiad
 
 Base legal:
 
-- Art. 141, Caput (AN303_Art141_Cap).
-- Art. 141, I (AN303_Art141_I).
-- Art. 141, II (AN303_Art141_II).
-- Art. 141, III (AN303_Art141_III).
-- Art. 141, IV (AN303_Art141_IV).
+- Art. 141, Caput (AN303_Art141_Cap)
+- Art. 141, I (AN303_Art141_I)
+- Art. 141, II (AN303_Art141_II)
+- Art. 141, III (AN303_Art141_III)
+- Art. 141, IV (AN303_Art141_IV)
 
 ## 2) Como usar (passo a passo)
 
@@ -40,11 +41,24 @@ No mínimo:
 - `bem_id`
 - `tipo_inservivel`
 - `justificativa`
-- `critérios` (respostas do wizard)
+- `criterios` (respostas do wizard)
 - data/hora (`avaliado_em`)
 - executor (`avaliado_por_perfil_id`, quando autenticado)
 
 Importante:
 
 - O Wizard **não efetiva baixa automaticamente**. A baixa é etapa administrativa posterior (documentos, autorização etc.).
+
+## 4) Evidências (opcional, recomendado)
+
+Se existir laudo/foto/arquivo no Drive vinculado à avaliação, registre o link para auditoria.
+
+Como:
+
+- UI: após salvar a avaliação, usar o bloco **"Evidência (opcional)"** e colar a URL do Drive.
+- API: `POST /documentos` com `avaliacaoInservivelId`.
+
+Pré-requisito:
+
+- Aplicar a migration `database/013_documentos_avaliacoes_inserviveis.sql`.
 

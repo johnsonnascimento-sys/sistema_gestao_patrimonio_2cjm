@@ -1,0 +1,128 @@
+{
+  "name": "Gerador de Termos (PDF + Drive) - 2a CJM",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "0b7d5d1c-9d7d-4c3d-b9e4-9b93c8f1c0c1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 260]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "matricula_admin", "value": "{{$env.PATRIMONIO_ADMIN_MATRICULA}}" },
+            { "name": "senha_admin", "value": "{{$env.PATRIMONIO_ADMIN_SENHA}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4f88e6c8-1e60-4b31-8e1e-2c7d99a9022e",
+      "name": "Config (env)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 260],
+      "notesInFlow": true,
+      "notes": "Configure as variaveis de ambiente do n8n:\n- PATRIMONIO_ADMIN_MATRICULA\n- PATRIMONIO_ADMIN_SENHA"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            { "name": "tipo_termo", "value": "TERMO_TRANSFERENCIA" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c12df7aa-9a2e-4125-9d62-c4a52a83d8d4",
+      "name": "Payload (exemplo)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 420],
+      "notesInFlow": true,
+      "notes": "Edite este node para montar o termo real.\nSugestao: substituir por dados do Supabase (consulta SQL) antes de gerar o PDF.\n\nCampos aceitos pelo backend (POST /api/pdf/termos):\n- tipo_termo\n- bem: { tombamento, descricao, status }\n- responsavel: { nome, matricula, cargo }\n- detentor_temporario (cautela): { nome, matricula, data_prevista_devolucao }\n- base_legal: [\"Art. 124 (AN303_Art124)\", ...]"
+    },
+    {
+      "parameters": {
+        "url": "https://patrimonio2cjm.johnsontn.com.br/api/auth/login",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\"matricula\": \"{{$json.matricula_admin}}\", \"senha\": \"{{$json.senha_admin}}\"}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "af8f4eaf-4f41-4b2a-9c6a-2c7b7e3a4c11",
+      "name": "Login (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 260]
+    },
+    {
+      "parameters": {
+        "url": "https://patrimonio2cjm.johnsontn.com.br/api/pdf/termos",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{$node[\"Payload (exemplo)\"].json}}",
+        "options": {
+          "responseFormat": "file",
+          "timeout": 300000
+        },
+        "headerParametersUi": {
+          "parameter": [
+            { "name": "Authorization", "value": "=Bearer {{$node[\"Login (API)\"].json.token}}" }
+          ]
+        }
+      },
+      "id": "f1f2e6ab-14b7-4f3b-9b5a-f0e7f1c6d8dd",
+      "name": "Gerar PDF (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [940, 340],
+      "notesInFlow": true,
+      "notes": "Endpoint: POST /api/pdf/termos\nRegra legal: Arts. 124/127 (AN303_Art124 / AN303_Art127) e Art. 185 (AN303_Art185) quando for termo de regularizacao."
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "fileName": "=TERMO_{{$now.toFormat('yyyy-LL-dd_HHmm')}}.pdf"
+      },
+      "id": "f4f7a2ab-0c1d-41c1-a3d5-1cb084a1d2f9",
+      "name": "Upload PDF (Drive)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [1220, 340]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Config (env)", "type": "main", "index": 0 }]]
+    },
+    "Config (env)": {
+      "main": [
+        [{ "node": "Login (API)", "type": "main", "index": 0 }],
+        [{ "node": "Payload (exemplo)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Login (API)": {
+      "main": [[{ "node": "Gerar PDF (API)", "type": "main", "index": 0 }]]
+    },
+    "Payload (exemplo)": {
+      "main": [[{ "node": "Gerar PDF (API)", "type": "main", "index": 0 }]]
+    },
+    "Gerar PDF (API)": {
+      "main": [[{ "node": "Upload PDF (Drive)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "timezone": "America/Sao_Paulo"
+  }
+}
+

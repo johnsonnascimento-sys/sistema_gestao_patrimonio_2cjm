@@ -3,7 +3,7 @@
  * Arquivo: InventoryRoomPanel.jsx
  * Funcao no sistema: modo inventario (offline-first) com contagens por sala e sincronizacao deterministica.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get as idbGet, set as idbSet } from "idb-keyval";
 import useOfflineSync from "../hooks/useOfflineSync.js";
@@ -13,6 +13,7 @@ import {
   criarEventoInventario,
   listarContagensInventario,
   listarBens,
+  listarBensTerceirosInventario,
   listarEventosInventario,
   registrarBemTerceiroInventario,
 } from "../services/apiClient.js";
@@ -127,6 +128,11 @@ export default function InventoryRoomPanel() {
   const [terceiroStatus, setTerceiroStatus] = useState(null);
   const [catalogMeta, setCatalogMeta] = useState({ source: null, loadedAt: null, count: 0 });
 
+  useEffect(() => {
+    // UX: quando o usuario esta autenticado, nao faz sentido obrigar colar UUID manualmente.
+    if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
+  }, [auth?.perfil?.id, perfilId]);
+
   if (initialUi && !initialUi._migrated) {
     // Marca como migrado para evitar reprocessamento em renders futuros.
     saveInventoryUiState({ _migrated: true });
@@ -178,6 +184,9 @@ export default function InventoryRoomPanel() {
       await qc.invalidateQueries({ queryKey: ["inventarioContagens", selectedEventoIdFinal, salaEncontrada] }).catch(
         () => undefined,
       );
+      await qc.invalidateQueries({ queryKey: ["inventarioBensTerceiros", selectedEventoIdFinal, salaEncontrada] }).catch(
+        () => undefined,
+      );
     },
   });
 
@@ -210,6 +219,19 @@ export default function InventoryRoomPanel() {
         eventoInventarioId: selectedEventoIdFinal,
         salaEncontrada: salaEncontrada.trim(),
         limit: 2000,
+      });
+      return data.items || [];
+    },
+  });
+
+  const terceirosSalaQuery = useQuery({
+    queryKey: ["inventarioBensTerceiros", selectedEventoIdFinal, salaEncontrada],
+    enabled: Boolean(selectedEventoIdFinal && salaEncontrada.trim().length >= 2 && navigator.onLine),
+    queryFn: async () => {
+      const data = await listarBensTerceirosInventario({
+        eventoInventarioId: selectedEventoIdFinal,
+        salaEncontrada: salaEncontrada.trim(),
+        limit: 500,
       });
       return data.items || [];
     },
@@ -319,7 +341,7 @@ export default function InventoryRoomPanel() {
     }
 
     if (!canRegisterTerceiro) {
-      setUiError("Preencha descriÃ§Ã£o e proprietÃ¡rio do bem de terceiro.");
+      setUiError("Preencha descrição e proprietário do bem de terceiro.");
       return;
     }
 
@@ -332,7 +354,7 @@ export default function InventoryRoomPanel() {
       descricao: terceiroDescricao.trim(),
       proprietarioExterno: terceiroProprietario.trim(),
       identificadorExterno: terceiroIdentificador.trim() || undefined,
-      observacoes: "UI: registro de bem de terceiro durante inventÃ¡rio.",
+      observacoes: "UI: registro de bem de terceiro durante inventário.",
     });
   };
 
@@ -707,7 +729,7 @@ export default function InventoryRoomPanel() {
 
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               <label className="space-y-1 md:col-span-2">
-                <span className="text-xs text-slate-300">DescriÃ§Ã£o</span>
+                <span className="text-xs text-slate-300">Descrição</span>
                 <input
                   value={terceiroDescricao}
                   onChange={(e) => setTerceiroDescricao(e.target.value)}
@@ -716,7 +738,7 @@ export default function InventoryRoomPanel() {
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">ProprietÃ¡rio externo</span>
+                <span className="text-xs text-slate-300">Proprietário externo</span>
                 <input
                   value={terceiroProprietario}
                   onChange={(e) => setTerceiroProprietario(e.target.value)}
@@ -756,9 +778,57 @@ export default function InventoryRoomPanel() {
             ) : null}
           </form>
 
+          <section className="mt-4 rounded-xl border border-white/10 bg-slate-950/25 p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-100">Bens de terceiros registrados (esta sala)</p>
+              <p className="text-[11px] text-slate-400">
+                Fonte: `vw_bens_terceiros_inventario` (derivado de contagens). Controle segregado.
+              </p>
+            </div>
+
+            {!selectedEventoIdFinal || !salaEncontrada.trim() ? (
+              <p className="mt-2 text-sm text-slate-300">Selecione evento e sala para listar os registros.</p>
+            ) : !navigator.onLine ? (
+              <p className="mt-2 text-sm text-slate-300">
+                Offline: a lista de bens de terceiros depende da API (os registros feitos offline ainda ficam na fila de sincronização).
+              </p>
+            ) : terceirosSalaQuery.isFetching ? (
+              <p className="mt-2 text-sm text-slate-300">Carregando...</p>
+            ) : (terceirosSalaQuery.data || []).length === 0 ? (
+              <p className="mt-2 text-sm text-slate-300">Nenhum bem de terceiro registrado para esta sala.</p>
+            ) : (
+              <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                    <tr>
+                      <th className="px-3 py-2">Identificador</th>
+                      <th className="px-3 py-2">Descrição</th>
+                      <th className="px-3 py-2">Proprietário</th>
+                      <th className="px-3 py-2">Quando</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {(terceirosSalaQuery.data || []).slice(0, 30).map((t) => (
+                      <tr key={t.contagemId} className="hover:bg-white/5">
+                        <td className="px-3 py-2 font-mono text-[11px] text-slate-200">
+                          {t.identificadorExterno || "-"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-200">{t.descricao || "-"}</td>
+                        <td className="px-3 py-2 text-slate-300">{t.proprietarioExterno || "-"}</td>
+                        <td className="px-3 py-2 text-slate-300">
+                          {t.encontradoEm ? new Date(t.encontradoEm).toLocaleString("pt-BR") : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
           {lastScans.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-xs uppercase tracking-widest text-slate-400">Ultimos registros</p>
+              <p className="text-xs uppercase tracking-widest text-slate-400">Últimos registros</p>
               {lastScans.map((s) => (
                 <div key={s.id} className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">

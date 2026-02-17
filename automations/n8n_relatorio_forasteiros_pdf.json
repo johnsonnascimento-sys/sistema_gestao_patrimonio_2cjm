@@ -1,0 +1,115 @@
+{
+  "name": "Relatorio de Forasteiros (PDF + Drive) - 2a CJM",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "cc5a8a1f-4d0b-44e5-84cc-7b1c2f85c1c2",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "matricula_admin",
+              "value": "{{$env.PATRIMONIO_ADMIN_MATRICULA}}"
+            },
+            {
+              "name": "senha_admin",
+              "value": "{{$env.PATRIMONIO_ADMIN_SENHA}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3e2b5b2-1ce4-4a5d-87b8-6b4d7c2b44f1",
+      "name": "Config (env)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "notesInFlow": true,
+      "notes": "Configure as variaveis de ambiente do n8n:\n- PATRIMONIO_ADMIN_MATRICULA\n- PATRIMONIO_ADMIN_SENHA\n\nAlternativa: trocar por valores fixos (nao recomendado)."
+    },
+    {
+      "parameters": {
+        "url": "https://patrimonio2cjm.johnsontn.com.br/api/auth/login",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\"matricula\": \"{{$json.matricula_admin}}\", \"senha\": \"{{$json.senha_admin}}\"}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a01c2f43-7d35-4c34-bf6e-8ea6aa0f3a12",
+      "name": "Login (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 300],
+      "notesInFlow": true,
+      "notes": "Login para obter JWT ADMIN.\nIsso evita token manual e funciona mesmo com expiração (ex.: 12h)."
+    },
+    {
+      "parameters": {
+        "url": "https://patrimonio2cjm.johnsontn.com.br/api/pdf/forasteiros?limit=500",
+        "options": {
+          "responseFormat": "file",
+          "timeout": 300000
+        },
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.token}}"
+            }
+          ]
+        }
+      },
+      "id": "e1f8f4d7-7b2c-4d62-a84d-5d0d2a9f1a8b",
+      "name": "Gerar PDF (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [940, 300],
+      "notesInFlow": true,
+      "notes": "Endpoint: GET /api/pdf/forasteiros\nRegra legal: Art. 185 (AN303_Art185).\nFonte: vw_forasteiros (fila pos-inventario)."
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "fileName": "=RELATORIO_FORASTEIROS_{{$now.toFormat('yyyy-LL-dd_HHmm')}}.pdf"
+      },
+      "id": "6c7d9d2c-3c7a-4f58-9a37-0b42f4b8c2e1",
+      "name": "Upload PDF (Drive)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [1220, 300],
+      "notesInFlow": true,
+      "notes": "Configure credencial Google Drive e pasta de destino.\nEste node faz upload do binario retornado pela API."
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Config (env)", "type": "main", "index": 0 }]]
+    },
+    "Config (env)": {
+      "main": [[{ "node": "Login (API)", "type": "main", "index": 0 }]]
+    },
+    "Login (API)": {
+      "main": [[{ "node": "Gerar PDF (API)", "type": "main", "index": 0 }]]
+    },
+    "Gerar PDF (API)": {
+      "main": [[{ "node": "Upload PDF (Drive)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "timezone": "America/Sao_Paulo"
+  }
+}
+

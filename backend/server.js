@@ -16,6 +16,7 @@ const { Pool } = require("pg");
 const { randomUUID, createHash } = require("node:crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { generateTermoPdf, generateTablePdf } = require("./src/services/pdfReports");
 
 const { setDbContext } = require("./src/services/dbContext");
 const { createInventarioController } = require("./src/controllers/inventarioController");
@@ -60,6 +61,27 @@ const UNIT_MAP = new Map([
   ["almox2 sp", 4],
   ["almox2sp", 4],
 ]);
+
+// Cache simples de compatibilidade de schema: evita derrubar a API quando o backend sobe antes das migrations.
+let _documentosHasAvaliacaoInservivelId = null;
+
+async function documentosHasAvaliacaoInservivelIdColumn() {
+  if (_documentosHasAvaliacaoInservivelId != null) return _documentosHasAvaliacaoInservivelId;
+  try {
+    const r = await pool.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'documentos'
+         AND column_name = 'avaliacao_inservivel_id'
+       LIMIT 1;`,
+    );
+    _documentosHasAvaliacaoInservivelId = Boolean(r.rowCount);
+  } catch (_error) {
+    _documentosHasAvaliacaoInservivelId = false;
+  }
+  return _documentosHasAvaliacaoInservivelId;
+}
 
 class HttpError extends Error {
   constructor(status, code, message, details) {
@@ -854,6 +876,7 @@ const inventario = createInventarioController({
 app.get("/inventario/eventos", mustAuth, inventario.getEventos);
 app.get("/inventario/contagens", mustAuth, inventario.getContagens);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
+app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.post("/inventario/eventos", mustAuth, inventario.postEvento);
 app.patch("/inventario/eventos/:id/status", mustAuth, inventario.patchEventoStatus);
 app.post("/inventario/sync", mustAuth, inventario.postSync);
@@ -870,18 +893,23 @@ app.post("/inventario/regularizacoes", mustAdmin, inventario.postRegularizacao);
  * Query params:
  * - movimentacaoId: UUID (opcional)
  * - contagemId: UUID (opcional)
+ * - avaliacaoInservivelId: UUID (opcional; exige migration 013)
  */
 app.get("/documentos", mustAuth, async (req, res, next) => {
   try {
     const q = req.query || {};
     const movimentacaoId = q.movimentacaoId != null ? String(q.movimentacaoId).trim() : "";
     const contagemId = q.contagemId != null ? String(q.contagemId).trim() : "";
+    const avaliacaoInservivelId = q.avaliacaoInservivelId != null ? String(q.avaliacaoInservivelId).trim() : "";
 
     if (movimentacaoId && !UUID_RE.test(movimentacaoId)) {
       throw new HttpError(422, "MOVIMENTACAO_ID_INVALIDO", "movimentacaoId deve ser UUID.");
     }
     if (contagemId && !UUID_RE.test(contagemId)) {
       throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId deve ser UUID.");
+    }
+    if (avaliacaoInservivelId && !UUID_RE.test(avaliacaoInservivelId)) {
+      throw new HttpError(422, "AVALIACAO_ID_INVALIDO", "avaliacaoInservivelId deve ser UUID.");
     }
 
     const where = ["1=1"];
@@ -899,6 +927,13 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
       i += 1;
     }
 
+    const supportsAvaliacao = await documentosHasAvaliacaoInservivelIdColumn();
+    if (supportsAvaliacao && avaliacaoInservivelId) {
+      where.push(`avaliacao_inservivel_id = $${i}`);
+      params.push(avaliacaoInservivelId);
+      i += 1;
+    }
+
     const r = await pool.query(
       `SELECT
          id,
@@ -906,6 +941,7 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
          titulo,
          movimentacao_id AS "movimentacaoId",
          contagem_id AS "contagemId",
+         ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
          termo_referencia AS "termoReferencia",
          arquivo_nome AS "arquivoNome",
          mime,
@@ -953,8 +989,10 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
 
     const movimentacaoId = body.movimentacaoId != null ? String(body.movimentacaoId).trim() : "";
     const contagemId = body.contagemId != null ? String(body.contagemId).trim() : "";
+    const avaliacaoInservivelId = body.avaliacaoInservivelId != null ? String(body.avaliacaoInservivelId).trim() : "";
     if (movimentacaoId && !UUID_RE.test(movimentacaoId)) throw new HttpError(422, "MOVIMENTACAO_ID_INVALIDO", "movimentacaoId deve ser UUID.");
     if (contagemId && !UUID_RE.test(contagemId)) throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId deve ser UUID.");
+    if (avaliacaoInservivelId && !UUID_RE.test(avaliacaoInservivelId)) throw new HttpError(422, "AVALIACAO_ID_INVALIDO", "avaliacaoInservivelId deve ser UUID.");
 
     const termoReferencia = body.termoReferencia != null ? String(body.termoReferencia).trim().slice(0, 120) : null;
     const titulo = body.titulo != null ? String(body.titulo).trim().slice(0, 180) : null;
@@ -972,15 +1010,24 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
 
     const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
 
+    const supportsAvaliacao = await documentosHasAvaliacaoInservivelIdColumn();
+    if (!supportsAvaliacao && avaliacaoInservivelId) {
+      throw new HttpError(
+        409,
+        "SCHEMA_DESATUALIZADO",
+        "Banco de dados ainda nao tem avaliacaoInservivelId em documentos. Aplique a migration 013.",
+      );
+    }
+
     const r = await pool.query(
       `INSERT INTO documentos (
-         tipo, titulo, movimentacao_id, contagem_id, termo_referencia,
+         tipo, titulo, movimentacao_id, contagem_id, ${supportsAvaliacao ? "avaliacao_inservivel_id," : ""} termo_referencia,
          arquivo_nome, mime, bytes, sha256, drive_file_id, drive_url,
          gerado_por_perfil_id, observacoes
        ) VALUES (
-         $1::public.tipo_documento, $2, $3, $4, $5,
-         $6, $7, $8, $9, $10, $11,
-         $12, $13
+         $1::public.tipo_documento, $2, $3, $4, ${supportsAvaliacao ? "$5," : ""} $${supportsAvaliacao ? 6 : 5},
+         $${supportsAvaliacao ? 7 : 6}, $${supportsAvaliacao ? 8 : 7}, $${supportsAvaliacao ? 9 : 8}, $${supportsAvaliacao ? 10 : 9}, $${supportsAvaliacao ? 11 : 10}, $${supportsAvaliacao ? 12 : 11},
+         $${supportsAvaliacao ? 13 : 12}, $${supportsAvaliacao ? 14 : 13}
        )
        RETURNING
          id,
@@ -988,25 +1035,43 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
          titulo,
          movimentacao_id AS "movimentacaoId",
          contagem_id AS "contagemId",
+         ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
          termo_referencia AS "termoReferencia",
          drive_file_id AS "driveFileId",
          drive_url AS "driveUrl",
          gerado_em AS "geradoEm";`,
-      [
-        tipo,
-        titulo,
-        movimentacaoId || null,
-        contagemId || null,
-        termoReferencia,
-        arquivoNome,
-        mime,
-        bytes,
-        sha256,
-        driveFileId,
-        driveUrl,
-        req.user?.id || null,
-        observacoes,
-      ],
+      supportsAvaliacao
+        ? [
+            tipo,
+            titulo,
+            movimentacaoId || null,
+            contagemId || null,
+            avaliacaoInservivelId || null,
+            termoReferencia,
+            arquivoNome,
+            mime,
+            bytes,
+            sha256,
+            driveFileId,
+            driveUrl,
+            req.user?.id || null,
+            observacoes,
+          ]
+        : [
+            tipo,
+            titulo,
+            movimentacaoId || null,
+            contagemId || null,
+            termoReferencia,
+            arquivoNome,
+            mime,
+            bytes,
+            sha256,
+            driveFileId,
+            driveUrl,
+            req.user?.id || null,
+            observacoes,
+          ],
     );
 
     res.status(201).json({ requestId: req.requestId, documento: r.rows[0] });
@@ -1226,6 +1291,57 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
     );
 
     res.status(201).json({ requestId: req.requestId, local: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PDF: termo patrimonial (para n8n -> Drive).
+ * Regra legal: Arts. 124/127 (AN303_Art124 / AN303_Art127) e Art. 185 (AN303_Art185) quando regularizacao.
+ */
+app.post("/pdf/termos", mustAdmin, async (req, res, next) => {
+  try {
+    const buf = await generateTermoPdf(req.body || {});
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline; filename=\"termo.pdf\"");
+    res.send(buf);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PDF: relatorio de forasteiros (Art. 185) derivado de vw_forasteiros.
+ */
+app.get("/pdf/forasteiros", mustAdmin, async (req, res, next) => {
+  try {
+    const limitRaw = req.query?.limit != null ? Number(req.query.limit) : 500;
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(2000, Math.trunc(limitRaw))) : 500;
+
+    const r = await pool.query(
+      `SELECT contagem_id, codigo_evento, numero_tombamento, descricao, unidade_dona_id, unidade_encontrada_id, sala_encontrada, encontrado_em
+       FROM public.vw_forasteiros
+       ORDER BY encontrado_em DESC
+       LIMIT $1;`,
+      [limit],
+    );
+
+    const cols = ["Tombo", "Descricao", "Unid. carga", "Unid. encontrada", "Sala", "Evento", "Encontrado em"];
+    const rows = r.rows.map((x) => [
+      x.numero_tombamento || "",
+      x.descricao || "",
+      String(x.unidade_dona_id || ""),
+      String(x.unidade_encontrada_id || ""),
+      x.sala_encontrada || "",
+      x.codigo_evento || "",
+      x.encontrado_em ? new Date(x.encontrado_em).toLocaleString("pt-BR") : "",
+    ]);
+
+    const buf = await generateTablePdf("RELATORIO DE FORASTEIROS (Art. 185 - AN303_Art185)", cols, rows);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline; filename=\"relatorio_forasteiros.pdf\"");
+    res.send(buf);
   } catch (error) {
     next(error);
   }

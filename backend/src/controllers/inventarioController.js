@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, getBensTerceiros: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -245,6 +245,86 @@ function createInventarioController(deps) {
         LIMIT $${i};`;
 
       const r = await pool.query(sql, [...params, limitFinal]);
+      res.json({ requestId: req.requestId, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Lista ocorrencias de "bens de terceiros" registradas no inventario.
+   *
+   * Regra legal:
+   * - Controle segregado de bens de terceiros.
+   *   Art. 99 (AN303_Art99), Art. 110, VI (AN303_Art110_VI), Art. 175, IX (AN303_Art175_IX).
+   *
+   * Query params:
+   * - eventoInventarioId: UUID (opcional)
+   * - salaEncontrada: string (opcional)
+   * - limit: number (opcional; default 200; max 2000)
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getBensTerceiros(req, res, next) {
+    try {
+      const q = req.query || {};
+
+      const eventoInventarioId = q.eventoInventarioId != null && String(q.eventoInventarioId).trim() !== ""
+        ? String(q.eventoInventarioId).trim()
+        : null;
+      if (eventoInventarioId && !UUID_RE.test(eventoInventarioId)) {
+        throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+      }
+
+      const salaRaw = q.salaEncontrada || q.sala || q.local || null;
+      const salaEncontrada = salaRaw != null && String(salaRaw).trim() !== ""
+        ? String(salaRaw).trim().slice(0, 180)
+        : null;
+
+      const limitRaw = q.limit != null ? Number(q.limit) : 200;
+      const limit = Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 200;
+      const limitFinal = Math.max(1, Math.min(2000, limit));
+
+      const where = ["1=1"];
+      const params = [];
+      let i = 1;
+
+      if (eventoInventarioId) {
+        where.push(`t.evento_inventario_id = $${i}`);
+        params.push(eventoInventarioId);
+        i += 1;
+      }
+      if (salaEncontrada) {
+        where.push(`lower(trim(t.sala_encontrada)) = lower(trim($${i}))`);
+        params.push(salaEncontrada);
+        i += 1;
+      }
+
+      const r = await pool.query(
+        `SELECT
+           t.contagem_id AS "contagemId",
+           t.evento_inventario_id AS "eventoInventarioId",
+           t.codigo_evento AS "codigoEvento",
+           t.status_inventario AS "statusInventario",
+           t.unidade_encontrada_id AS "unidadeEncontradaId",
+           t.sala_encontrada AS "salaEncontrada",
+           t.encontrado_em AS "encontradoEm",
+           t.encontrado_por_perfil_id AS "encontradoPorPerfilId",
+           t.observacoes,
+           t.bem_id AS "bemId",
+           t.identificador_externo AS "identificadorExterno",
+           t.descricao,
+           t.proprietario_externo AS "proprietarioExterno",
+           t.contrato_referencia AS "contratoReferencia"
+         FROM public.vw_bens_terceiros_inventario t
+         WHERE ${where.join(" AND ")}
+         ORDER BY t.encontrado_em DESC
+         LIMIT $${i};`,
+        [...params, limitFinal],
+      );
+
       res.json({ requestId: req.requestId, items: r.rows });
     } catch (error) {
       next(error);
@@ -854,6 +934,7 @@ function createInventarioController(deps) {
     getEventos,
     getContagens,
     getForasteiros,
+    getBensTerceiros,
     postEvento,
     patchEventoStatus,
     postSync,

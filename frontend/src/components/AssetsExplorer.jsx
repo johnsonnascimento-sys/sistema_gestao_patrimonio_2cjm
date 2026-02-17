@@ -4,7 +4,16 @@
  * Funcao no sistema: consulta paginada do cadastro de bens via API backend.
  */
 import { useEffect, useMemo, useState } from "react";
-import { getBemDetalhe, getStats, listarBens } from "../services/apiClient.js";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useAuth } from "../context/AuthContext.jsx";
+import {
+  atualizarBemOperacional,
+  atualizarFotoCatalogo,
+  getBemDetalhe,
+  getStats,
+  listarBens,
+  listarLocais,
+} from "../services/apiClient.js";
 
 const STATUS_OPTIONS = ["", "OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
 const UNIT_OPTIONS = ["", "1", "2", "3", "4"];
@@ -18,6 +27,7 @@ function formatUnidade(id) {
 }
 
 export default function AssetsExplorer() {
+  const auth = useAuth();
   const [stats, setStats] = useState({ loading: false, data: null, error: null });
   const [list, setList] = useState({ loading: false, data: null, error: null });
   const [formError, setFormError] = useState(null);
@@ -322,18 +332,89 @@ export default function AssetsExplorer() {
       </article>
 
       {detail.open && (
-        <BemDetailModal state={detail} onClose={closeDetail} />
+        <BemDetailModal
+          state={detail}
+          onClose={closeDetail}
+          onReload={() => openDetail(detail?.data?.bem?.id)}
+          isAdmin={String(auth?.role || "").toUpperCase() === "ADMIN"}
+        />
       )}
     </section>
   );
 }
 
-function BemDetailModal({ state, onClose }) {
+function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const imp = state?.data?.bem || null;
   const catalogo = state?.data?.catalogo || null;
   const responsavel = state?.data?.responsavel || null;
   const movs = state?.data?.movimentacoes || [];
   const hist = state?.data?.historicoTransferencias || [];
+
+  const [edit, setEdit] = useState({
+    localFisico: imp?.localFisico || "",
+    localId: imp?.localId || "",
+    fotoUrl: imp?.fotoUrl || "",
+    fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
+  });
+  const [editMsg, setEditMsg] = useState(null);
+  const [editErr, setEditErr] = useState(null);
+
+  useEffect(() => {
+    setEdit({
+      localFisico: imp?.localFisico || "",
+      localId: imp?.localId || "",
+      fotoUrl: imp?.fotoUrl || "",
+      fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
+    });
+    setEditMsg(null);
+    setEditErr(null);
+  }, [imp?.id, catalogo?.id]);
+
+  const locaisQuery = useQuery({
+    queryKey: ["locais", imp?.unidadeDonaId || null],
+    enabled: Boolean(isAdmin && imp?.id),
+    queryFn: async () => {
+      const data = await listarLocais({ unidadeId: Number(imp.unidadeDonaId) || undefined });
+      return data.items || [];
+    },
+  });
+
+  const salvarOperacionalMut = useMutation({
+    mutationFn: async () => {
+      if (!imp?.id) throw new Error("BemId ausente.");
+      return atualizarBemOperacional(imp.id, {
+        localFisico: edit.localFisico.trim() || null,
+        localId: edit.localId ? String(edit.localId) : null,
+        fotoUrl: edit.fotoUrl.trim() || null,
+      });
+    },
+    onSuccess: async () => {
+      setEditMsg("Dados operacionais atualizados.");
+      setEditErr(null);
+      await onReload?.();
+    },
+    onError: (e) => {
+      setEditErr(String(e?.message || "Falha ao atualizar dados operacionais."));
+      setEditMsg(null);
+    },
+  });
+
+  const salvarFotoCatalogoMut = useMutation({
+    mutationFn: async () => {
+      const catalogoId = catalogo?.id || imp?.catalogoBemId;
+      if (!catalogoId) throw new Error("catalogoBemId ausente.");
+      return atualizarFotoCatalogo(catalogoId, edit.fotoReferenciaUrl.trim() || "");
+    },
+    onSuccess: async () => {
+      setEditMsg("Foto de referência do catálogo atualizada.");
+      setEditErr(null);
+      await onReload?.();
+    },
+    onError: (e) => {
+      setEditErr(String(e?.message || "Falha ao atualizar foto do catálogo."));
+      setEditMsg(null);
+    },
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/70 p-4 backdrop-blur">
@@ -367,40 +448,117 @@ function BemDetailModal({ state, onClose }) {
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="BemId" v={imp.id} mono />
                     <Row k="Unidade (carga)" v={imp.unidadeDonaId} />
-                    <Row k="Local fisico" v={imp.localFisico} />
+                    <Row k="Local físico" v={imp.localFisico} />
+                    <Row k="LocalId" v={imp.localId} mono />
                     <Row k="Status" v={imp.status} />
-                    <Row k="Valor aquisicao" v={imp.valorAquisicao} />
-                    <Row k="Data aquisicao" v={imp.dataAquisicao} />
+                    <Row k="Valor aquisição" v={imp.valorAquisicao} />
+                    <Row k="Data aquisição" v={imp.dataAquisicao} />
                     <Row k="Contrato" v={imp.contratoReferencia} />
+                    <Row k="Foto (item)" v={imp.fotoUrl} />
                     <Row k="Criado em" v={imp.createdAt} />
                     <Row k="Atualizado em" v={imp.updatedAt} />
                   </dl>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                  <p className="text-xs uppercase tracking-widest text-slate-400">Catalogo (SKU)</p>
+                  <p className="text-xs uppercase tracking-widest text-slate-400">Catálogo (SKU)</p>
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="CatalogoBemId" v={catalogo?.id || imp.catalogoBemId} mono />
                     <Row k="Código catálogo" v={catalogo?.codigoCatalogo} />
                     <Row k="Descrição" v={catalogo?.descricao} />
                     <Row k="Grupo" v={catalogo?.grupo} />
                     <Row k="Material permanente" v={String(Boolean(catalogo?.materialPermanente))} />
+                    <Row k="Foto (referência)" v={catalogo?.fotoReferenciaUrl} />
                   </dl>
                 </div>
               </section>
 
+              {isAdmin ? (
+                <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-xs uppercase tracking-widest text-slate-400">Editar (ADMIN)</p>
+                    <p className="text-[11px] text-slate-400">Camada operacional melhorada (fotos/locais).</p>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Local físico (texto)</span>
+                      <input
+                        value={edit.localFisico}
+                        onChange={(e) => setEdit((p) => ({ ...p, localFisico: e.target.value }))}
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Local (padronizado)</span>
+                      <select
+                        value={edit.localId || ""}
+                        onChange={(e) => setEdit((p) => ({ ...p, localId: e.target.value }))}
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      >
+                        <option value="">(nenhum)</option>
+                        {(locaisQuery.data || []).map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-300">Foto do item (URL)</span>
+                      <input
+                        value={edit.fotoUrl}
+                        onChange={(e) => setEdit((p) => ({ ...p, fotoUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-300">Foto de referência do catálogo (URL)</span>
+                      <input
+                        value={edit.fotoReferenciaUrl}
+                        onChange={(e) => setEdit((p) => ({ ...p, fotoReferenciaUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => salvarOperacionalMut.mutate()}
+                      disabled={salvarOperacionalMut.isPending}
+                      className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                    >
+                      {salvarOperacionalMut.isPending ? "Salvando..." : "Salvar bem"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => salvarFotoCatalogoMut.mutate()}
+                      disabled={salvarFotoCatalogoMut.isPending}
+                      className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                    >
+                      {salvarFotoCatalogoMut.isPending ? "Salvando..." : "Salvar foto do catálogo"}
+                    </button>
+                    {editMsg ? <span className="text-xs text-emerald-200">{editMsg}</span> : null}
+                    {editErr ? <span className="text-xs text-rose-200">{editErr}</span> : null}
+                  </div>
+                </section>
+              ) : null}
+
               <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Responsavel</p>
+                <p className="text-xs uppercase tracking-widest text-slate-400">Responsável</p>
                 <dl className="mt-2 space-y-1 text-sm">
                   <Row k="PerfilId" v={responsavel?.id || imp.responsavelPerfilId} mono />
-                  <Row k="Matricula" v={responsavel?.matricula} />
+                  <Row k="Matrícula" v={responsavel?.matricula} />
                   <Row k="Nome" v={responsavel?.nome} />
                 </dl>
               </section>
 
               <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Historico de transferencias</p>
+                <p className="text-xs uppercase tracking-widest text-slate-400">Histórico de transferências</p>
                 {hist.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-300">Nenhuma transferencia registrada.</p>
+                  <p className="mt-2 text-sm text-slate-300">Nenhuma transferência registrada.</p>
                 ) : (
                   <div className="mt-2 overflow-auto rounded-lg border border-white/10">
                     <table className="min-w-full text-left text-xs">

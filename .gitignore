@@ -43,6 +43,10 @@ cjm-patrimonio-vps*.tar.gz
 # Test artifacts
 test_upload.txt
 
+# Design mockups (local experiments; do not version)
+frontend/public/mockup_preview.html
+frontend/public/mockup_v2.html
+
 # OS/editor
 .DS_Store
 Thumbs.db

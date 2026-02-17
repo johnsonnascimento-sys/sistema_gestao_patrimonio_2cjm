@@ -4,7 +4,7 @@
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
  */
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
@@ -16,6 +16,7 @@ import WikiManual from "./components/WikiManual.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import {
   criarAvaliacaoInservivel,
+  criarDocumento,
   listarAvaliacoesInservivel,
   listarBens,
   listarEventosInventario,
@@ -29,6 +30,10 @@ function AppShell() {
   const [wizardBem, setWizardBem] = useState(null);
   const [wizardPersistMsg, setWizardPersistMsg] = useState(null);
   const [wizardPersistErr, setWizardPersistErr] = useState(null);
+  const [wizardLastAvaliacao, setWizardLastAvaliacao] = useState(null);
+  const [wizardDocUrl, setWizardDocUrl] = useState("");
+  const [wizardDocMsg, setWizardDocMsg] = useState(null);
+  const [wizardDocErr, setWizardDocErr] = useState(null);
 
   const eventosQuery = useQuery({
     queryKey: ["inventarioEventos", "EM_ANDAMENTO"],
@@ -64,14 +69,46 @@ function AppShell() {
     },
   });
 
+  const wizardDocumentoMut = useMutation({
+    mutationFn: async () => {
+      const avaliacaoId = wizardLastAvaliacao?.id ? String(wizardLastAvaliacao.id) : "";
+      if (!avaliacaoId) throw new Error("Nenhuma avaliação selecionada para anexar evidência.");
+      const driveUrl = String(wizardDocUrl || "").trim();
+      if (!driveUrl) throw new Error("Informe a URL do Drive.");
+
+      // Regra legal: evidências do processo de inservíveis devem ser auditáveis.
+      // Art. 141 (AN303_Art141_Cap / AN303_Art141_I / AN303_Art141_II / AN303_Art141_III / AN303_Art141_IV).
+      return criarDocumento({
+        tipo: "OUTRO",
+        titulo: "Evidência - Avaliação de inservível (Art. 141)",
+        avaliacaoInservivelId: avaliacaoId,
+        driveUrl,
+        observacoes: `Wizard Art. 141: tipo=${wizardLastAvaliacao?.tipoInservivel || "?"}`,
+      });
+    },
+    onSuccess: () => {
+      setWizardDocMsg("Evidência anexada (Drive).");
+      setWizardDocErr(null);
+      setWizardDocUrl("");
+    },
+    onError: (e) => {
+      setWizardDocErr(String(e?.message || "Falha ao anexar evidência."));
+      setWizardDocMsg(null);
+    },
+  });
+
   const loadBemByTombo = async () => {
     setWizardPersistMsg(null);
     setWizardPersistErr(null);
     setWizardBem(null);
+    setWizardLastAvaliacao(null);
+    setWizardDocUrl("");
+    setWizardDocMsg(null);
+    setWizardDocErr(null);
 
     const tombo = String(wizardBemTombo || "").trim();
     if (!/^\d{10}$/.test(tombo)) {
-      setWizardPersistErr("Informe um tombamento GEAFIN com 10 dÃ­gitos.");
+      setWizardPersistErr("Informe um tombamento GEAFIN com 10 dígitos.");
       return;
     }
 
@@ -79,7 +116,7 @@ function AppShell() {
       const data = await listarBens({ numeroTombamento: tombo, limit: 1, offset: 0 });
       const it = (data.items || [])[0] || null;
       if (!it) {
-        setWizardPersistErr("Bem nÃ£o encontrado para este tombamento.");
+        setWizardPersistErr("Bem não encontrado para este tombamento.");
         return;
       }
       setWizardBem(it);
@@ -222,12 +259,12 @@ function AppShell() {
 
             <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
               <div className="rounded-xl border border-white/10 bg-slate-950/25 p-4">
-                <p className="text-xs uppercase tracking-widest text-slate-300">SeleÃ§Ã£o do bem (obrigatÃ³rio)</p>
+                <p className="text-xs uppercase tracking-widest text-slate-300">Seleção do bem (obrigatório)</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                   <input
                     value={wizardBemTombo}
                     onChange={(e) => setWizardBemTombo(e.target.value.replace(/\\D+/g, "").slice(0, 10))}
-                    placeholder="Tombamento (10 dÃ­gitos)"
+                    placeholder="Tombamento (10 dígitos)"
                     inputMode="numeric"
                     className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
                   />
@@ -256,7 +293,7 @@ function AppShell() {
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-slate-300">
-                    Carregue um bem pelo tombamento para persistir a classificaÃ§Ã£o no banco.
+                    Carregue um bem pelo tombamento para persistir a classificação no banco.
                   </p>
                 )}
 
@@ -270,16 +307,51 @@ function AppShell() {
                     {wizardPersistMsg}
                   </p>
                 )}
+
+                {wizardLastAvaliacao?.id ? (
+                  <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3">
+                    <p className="text-xs uppercase tracking-widest text-slate-300">Evidência (opcional)</p>
+                    <p className="mt-2 text-xs text-slate-300">
+                      Se existir laudo/foto/arquivo no Drive para esta avaliação, registre o link para auditoria.
+                    </p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <input
+                        value={wizardDocUrl}
+                        onChange={(e) => {
+                          setWizardDocUrl(e.target.value);
+                          setWizardDocMsg(null);
+                          setWizardDocErr(null);
+                        }}
+                        placeholder="URL do Google Drive"
+                        className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => wizardDocumentoMut.mutate()}
+                        disabled={wizardDocumentoMut.isPending}
+                        className="rounded-lg border border-white/25 px-4 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
+                      >
+                        {wizardDocumentoMut.isPending ? "Anexando..." : "Anexar"}
+                      </button>
+                    </div>
+                    {wizardDocErr ? (
+                      <p className="mt-2 text-sm text-rose-200">{wizardDocErr}</p>
+                    ) : null}
+                    {wizardDocMsg ? (
+                      <p className="mt-2 text-sm text-emerald-200">{wizardDocMsg}</p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-xl border border-white/10 bg-slate-950/25 p-4">
-                <p className="text-xs uppercase tracking-widest text-slate-300">HistÃ³rico (Art. 141)</p>
+                <p className="text-xs uppercase tracking-widest text-slate-300">Histórico (Art. 141)</p>
                 {wizardAvaliacoesQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando...</p>}
                 {!wizardBem && (
-                  <p className="mt-3 text-sm text-slate-300">Selecione um bem para ver histÃ³rico.</p>
+                  <p className="mt-3 text-sm text-slate-300">Selecione um bem para ver histórico.</p>
                 )}
                 {wizardBem && !wizardAvaliacoesQuery.isLoading && (wizardAvaliacoesQuery.data || []).length === 0 && (
-                  <p className="mt-3 text-sm text-slate-300">Nenhuma avaliaÃ§Ã£o registrada para este bem.</p>
+                  <p className="mt-3 text-sm text-slate-300">Nenhuma avaliação registrada para este bem.</p>
                 )}
                 {(wizardAvaliacoesQuery.data || []).slice(0, 8).map((it) => (
                   <article key={it.id} className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3 text-sm">
@@ -306,23 +378,27 @@ function AppShell() {
           setWizardPersistErr(null);
 
           if (!wizardBem?.id) {
-            setWizardPersistErr("Selecione um bem antes de salvar a classificaÃ§Ã£o.");
+            setWizardPersistErr("Selecione um bem antes de salvar a classificação.");
             return;
           }
 
           try {
-            await criarAvaliacaoInservivel({
+            const saved = await criarAvaliacaoInservivel({
               bemId: wizardBem.id,
               tipoInservivel: result.classificacao,
               descricaoInformada: result.descricaoBem,
               justificativa: result.justificativa,
               criterios: result.criterios || null,
             });
+            setWizardLastAvaliacao(saved?.avaliacao || null);
+            setWizardDocMsg(null);
+            setWizardDocErr(null);
+            setWizardDocUrl("");
             await wizardAvaliacoesQuery.refetch().catch(() => undefined);
-            setWizardPersistMsg(`ClassificaÃ§Ã£o salva: ${result.classificacao}.`);
+            setWizardPersistMsg(`Classificação salva: ${result.classificacao}.`);
             setWizardOpen(false);
           } catch (e) {
-            setWizardPersistErr(String(e?.message || "Falha ao salvar classificaÃ§Ã£o."));
+            setWizardPersistErr(String(e?.message || "Falha ao salvar classificação."));
           }
         }}
       />

@@ -286,14 +286,15 @@ export async function movimentarBem(payload) {
 }
 
 /**
- * Lista documentos/evidencias (metadados) associados a movimentacoes/contagens.
- * @param {{movimentacaoId?: string, contagemId?: string}} filters Filtros.
+ * Lista documentos/evidencias (metadados) associados a movimentacoes/contagens/avaliacoes.
+ * @param {{movimentacaoId?: string, contagemId?: string, avaliacaoInservivelId?: string}} filters Filtros.
  * @returns {Promise<{requestId: string, items: any[]}>} Lista de documentos.
  */
 export async function listarDocumentos(filters = {}) {
   const params = new URLSearchParams();
   if (filters.movimentacaoId) params.set("movimentacaoId", String(filters.movimentacaoId));
   if (filters.contagemId) params.set("contagemId", String(filters.contagemId));
+  if (filters.avaliacaoInservivelId) params.set("avaliacaoInservivelId", String(filters.avaliacaoInservivelId));
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   const response = await safeFetch(`${API_BASE_URL}/documentos${suffix}`, {
@@ -317,6 +318,25 @@ export async function criarDocumento(payload) {
       Accept: "application/json",
     },
     body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista ocorrencias de bens de terceiros registradas no inventario (controle segregado).
+ * @param {{eventoInventarioId?: string, salaEncontrada?: string, limit?: number}} params Filtros.
+ * @returns {Promise<{requestId: string, items: any[]}>} Lista de bens de terceiros.
+ */
+export async function listarBensTerceirosInventario(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.eventoInventarioId) usp.set("eventoInventarioId", String(params.eventoInventarioId));
+  if (params.salaEncontrada) usp.set("salaEncontrada", String(params.salaEncontrada));
+  if (params.limit != null) usp.set("limit", String(params.limit));
+
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inventario/bens-terceiros${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
   });
   return parseResponse(response);
 }
