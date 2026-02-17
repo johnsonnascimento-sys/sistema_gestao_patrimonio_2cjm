@@ -4,34 +4,34 @@ Arquivo: frontend/src/wiki/06_inventario_sala_a_sala.md
 Funcao no sistema: manual do inventario com UX agrupada por catalogo (SKU) e fluxo deterministico.
 -->
 
-# Inventario sala a sala (modo agrupado por catalogo)
+# Inventário sala a sala (modo agrupado por catálogo)
 
-## Objetivo do modo inventario
+## Objetivo do modo inventário
 
 O modo inventario existe para conferencia fisica "sala a sala" com rastreabilidade e respeito ao ATN 303:
 
 - Registrar o que foi encontrado em cada ambiente.
-- Identificar divergencias sem "consertar no grito".
-- Produzir base para regularizacao posterior (termos/documentos).
+- Identificar divergências sem "consertar no grito".
+- Produzir base para regularização posterior (termos/documentos).
 
 ## Regra-chave (congelamento)
 
-Durante inventario `EM_ANDAMENTO`, **transferencias** ficam bloqueadas pelo banco.
+Durante inventário `EM_ANDAMENTO`, **transferências** ficam bloqueadas pelo banco.
 
 - Regra legal: Art. 183 (AN303_Art183)
 
 Na pratica:
 
-- Voce ainda pode registrar contagens e divergencias.
-- Voce nao pode mudar a carga do bem (unidade dona) enquanto o inventario esta em andamento.
+- Você ainda pode registrar contagens e divergências.
+- Você não pode mudar a carga do bem (unidade dona) enquanto o inventário está em andamento.
 
-## Filosofia visual: agrupamento por catalogo (SKU)
+## Filosofia visual: agrupamento por catálogo (SKU)
 
 ### Problema que o agrupamento resolve
 
 Uma sala pode ter 50 cadeiras. Se o sistema listar 50 linhas, o operador perde tempo e se confunde.
 
-### Solucao
+### Solução
 
 Mostrar um resumo por catalogo:
 
@@ -62,25 +62,25 @@ Observacao:
 
 O sistema pode baixar a lista de bens daquele ambiente para facilitar:
 
-- agrupar por catalogo
+- agrupar por catálogo
 - exibir total esperado
 
 ### 3) Scanner (input de tombamento)
 
-Use o campo de scanner para bipar ou digitar o tombamento (10 digitos).
+Use o campo de scanner para bipar ou digitar o tombamento (10 dígitos).
 
 Comportamentos:
 
 - Se o bem existe e pertence a mesma unidade do ambiente: marca como encontrado (contagem conforme).
-- Se o bem existe mas pertence a outra unidade: alerta de intruso e registra divergencia (sem transferir).
-- Se o bem nao existe (tombamento nao cadastrado): registra ocorrencia para investigacao (dependendo do modo).
+- Se o bem existe mas pertence a outra unidade: alerta de intruso e registra divergência (sem transferir).
+- Se o bem não existe (tombamento não cadastrado): registra ocorrência para investigação (dependendo do modo).
 
-## Intruso no inventario (Art. 185)
+## Intruso no inventário (Art. 185)
 
-Se um bem de outra unidade esta na sala:
+Se um bem de outra unidade está na sala:
 
-- Nao transfira carga durante inventario.
-- Registre a divergencia e deixe pendente para regularizacao.
+- Não transfira carga durante inventário.
+- Registre a divergência e deixe pendente para regularização.
 
 Regra legal:
 
@@ -88,7 +88,7 @@ Regra legal:
 
 ## Offline-first (quando habilitado)
 
-Em ambiente com internet instavel:
+Em ambiente com internet instável:
 
 - O sistema pode guardar bipes em cache local (IndexedDB).
 - Quando a internet voltar, ele sincroniza as contagens.
@@ -96,22 +96,21 @@ Em ambiente com internet instavel:
 Importante:
 
 - O operador deve sempre ver a fila pendente (quantidade).
-- A sincronizacao deve ser deterministica (sem "reconciliacao inteligente").
+- A sincronização deve ser determinística (sem "reconciliação inteligente").
 
 ## O que o operador deve verificar no fim da sala
 
 Antes de sair da sala:
 
-- Se o total encontrado bate com o esperado (por catalogo).
-- Se existem divergencias registradas (intrusos).
+- Se o total encontrado bate com o esperado (por catálogo).
+- Se existem divergências registradas (intrusos).
 - Se existem itens pendentes de sync (modo offline).
 
-## Encerramento do inventario
+## Encerramento do inventário
 
-Encerrar inventario e um ato formal (quando a tela/fluxo estiver completo):
+Encerrar inventário é um ato formal (quando a tela/fluxo estiver completo):
 
-- Ele libera novamente transferencias (fim do congelamento).
-- Ele consolida pendencias para regularizacao.
+- Ele libera novamente transferências (fim do congelamento).
+- Ele consolida pendências para regularização.
 
-Nunca encerre se ainda houver contagens pendentes de sincronizacao.
-
+Nunca encerre se ainda houver contagens pendentes de sincronização.

@@ -4,21 +4,21 @@ Arquivo: frontend/src/wiki/05_movimentacoes.md
 Funcao no sistema: explicar cautela vs transferencia e o que o usuario deve fazer.
 -->
 
-# Movimentacoes: cautela x transferencia
+# Movimentações: cautela x transferência
 
 ## Por que isso e importante
 
 O ATN 303 distingue claramente:
 
-- **Transferencia**: muda a **carga** (unidade dona).
-- **Cautela**: bem sai fisicamente (conserto/home office/etc), mas a **carga nao muda**.
+- **Transferência**: muda a **carga** (unidade dona).
+- **Cautela**: bem sai fisicamente (conserto/home office/etc), mas a **carga não muda**.
 
 Essa distincao evita:
 
 - "perder" a responsabilidade do bem.
 - transferir sem documento durante inventario (o banco bloqueia).
 
-## Transferencia (muda carga)
+## Transferência (muda carga)
 
 Quando usar:
 
@@ -34,13 +34,13 @@ Regra legal:
 - Transferencia muda carga: Art. 124 (AN303_Art124)
 - Requisitos formais/termo: Art. 127 (AN303_Art127)
 
-### Bloqueio durante inventario
+### Bloqueio durante inventário
 
-Se existir inventario `EM_ANDAMENTO`, o banco impede a transferencia:
+Se existir inventário `EM_ANDAMENTO`, o banco impede a transferência:
 
 // Regra legal: bloqueio de movimentacao em inventario - Art. 183 (AN303_Art183)
 
-## Cautela (nao muda carga)
+## Cautela (não muda carga)
 
 Quando usar:
 
@@ -53,9 +53,8 @@ Efeito no sistema:
 - Mantem `unidade_dona_id` intacto.
 - Registra detentor temporario e datas (saida/retorno).
 
-## Recomendações praticas (operacao)
+## Recomendações práticas (operação)
 
-- Se a duvida for "o bem vai sair do predio mas continua sendo da unidade": e cautela.
-- Se a duvida for "o bem vai mudar de responsavel/patrimonio da unidade": e transferencia.
-- Nunca use transferencia para "ajustar inventario" durante contagem. No inventario, registre divergencia e regularize depois.
-
+- Se a dúvida for "o bem vai sair do prédio mas continua sendo da unidade": é cautela.
+- Se a dúvida for "o bem vai mudar de responsável/patrimônio da unidade": é transferência.
+- Nunca use transferência para "ajustar inventário" durante contagem. No inventário, registre divergência e regularize depois.

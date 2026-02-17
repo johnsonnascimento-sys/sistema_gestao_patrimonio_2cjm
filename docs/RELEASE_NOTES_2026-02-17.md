@@ -13,7 +13,7 @@
 ## 1. Objetivo
 
 Concluir a Fase 2 com foco em:
-- Importacao GEAFIN deterministica, auditavel e robusta a variacoes de CSV.
+- Importação GEAFIN determinística, auditável e robusta a variações de CSV.
 - Observabilidade e UX: barra de progresso real na UI.
 - Consulta de bens com detalhe completo (sem poluir a tabela).
 
@@ -28,7 +28,7 @@ Concluir a Fase 2 com foco em:
 
 ### 2.2 Backend (Node/Express)
 
-- Importacao GEAFIN (`POST /importar-geafin`):
+- Importação GEAFIN (`POST /importar-geafin`):
   - Registra espelho raw e commit em lotes (batch) para permitir acompanhamento durante execucao.
   - Corrige casos comuns de encoding (mojibake) e normaliza tombamento para apenas digitos.
   - Corrige `ON CONFLICT` para bater com indice UNIQUE parcial do Postgres.
@@ -43,10 +43,10 @@ Concluir a Fase 2 com foco em:
 
 ### 2.3 Frontend (React/Vite)
 
-- Operacoes API:
+- Operações API:
   - Barra de progresso real do GEAFIN com polling em `GET /importacoes/geafin/ultimo`.
-  - Persistencia do estado: ao dar refresh/trocar de aba, consulta a ultima importacao e retoma polling se estiver `EM_ANDAMENTO`.
-  - Quando estiver em 0% no inicio, exibe estado indeterminado ("Preparando importacao...") + tempo decorrido.
+  - Persistência do estado: ao dar refresh/trocar de aba, consulta a última importação e retoma polling se estiver `EM_ANDAMENTO`.
+  - Quando estiver em 0% no início, exibe estado indeterminado ("Preparando importação...") + tempo decorrido.
 
 - Consulta de Bens:
   - Tabela continua enxuta.
@@ -55,7 +55,7 @@ Concluir a Fase 2 com foco em:
 - Wiki / Manual (self-hosted):
   - Nova aba "Wiki / Manual" com manual extremamente detalhado para usuarios e administradores.
   - Conteudo em Markdown versionado junto do frontend (`frontend/src/wiki/*.md`).
-  - Persistencia de pagina no `#hash` para nao sumir no refresh.
+  - Persistência de página no `#hash` para não sumir no refresh.
   - Estilo de Markdown padronizado no CSS global.
 
 ## 3. Como Validar (checklist rapido)
@@ -72,6 +72,6 @@ Concluir a Fase 2 com foco em:
 
 ## 4. Observacao de Cache (Service Worker)
 
-Se a UI nao atualizar apos deploy:
+Se a UI não atualizar após deploy:
 - Hard refresh (`Ctrl+F5`).
 - Se necessario: DevTools -> Application -> Service Workers -> Unregister e "Clear site data".

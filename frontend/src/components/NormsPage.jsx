@@ -10,12 +10,12 @@ const LINKS = [
     url: "#",
   },
   {
-    titulo: "Manual Interno de Inventario da 2a CJM",
+    titulo: "Manual Interno de Inventário da 2a CJM",
     descricao: "Procedimentos de contagem sala a sala e registro de divergencias.",
     url: "#",
   },
   {
-    titulo: "Modelo de Termo de Transferencia e Cautela",
+    titulo: "Modelo de Termo de Transferência e Cautela",
     descricao: "Padroes de formalizacao exigidos para controle de carga e detencao temporaria.",
     url: "#",
   },
@@ -29,7 +29,7 @@ const LINKS = [
 export default function NormsPage() {
   return (
     <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
-      <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Gestao de Normas e Referencias</h2>
+      <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Gestão de Normas e Referências</h2>
       <p className="mt-2 text-sm text-slate-300">
         Central de consulta rapida para atos normativos e documentos de apoio da operacao patrimonial.
       </p>

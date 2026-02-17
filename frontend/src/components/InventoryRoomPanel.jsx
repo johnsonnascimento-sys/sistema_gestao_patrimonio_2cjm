@@ -65,7 +65,7 @@ function playAlertBeep() {
       ctx.close().catch(() => undefined);
     }, 180);
   } catch (_error) {
-    // Sem audio em alguns navegadores; nao impede o fluxo.
+    // Sem audio em alguns navegadores; não impede o fluxo.
   }
 }
 
@@ -126,7 +126,7 @@ export default function InventoryRoomPanel() {
       const local = salaEncontrada.trim();
       if (!local) return [];
 
-      // Offline-first: se nao houver conexao, tenta carregar o ultimo catalogo baixado para esta sala.
+      // Offline-first: se não houver conexao, tenta carregar o ultimo catalogo baixado para esta sala.
       if (!navigator.onLine) {
         const cached = await loadRoomCatalogFromCache(local);
         if (cached.length) return cached;
@@ -168,7 +168,7 @@ export default function InventoryRoomPanel() {
       const key = b.catalogoBemId || "sem-catalogo";
       const group = map.get(key) || {
         catalogoBemId: key,
-        catalogoDescricao: b.catalogoDescricao || "Sem catalogo",
+        catalogoDescricao: b.catalogoDescricao || "Sem catálogo",
         items: [],
       };
       group.items.push(b);
@@ -242,14 +242,14 @@ export default function InventoryRoomPanel() {
   const onLoadSala = async () => {
     setUiError(null);
     if (salaEncontrada.trim().length < 2) {
-      setUiError("Informe a sala/local para baixar o catalogo da sala.");
+      setUiError("Informe a sala/local para baixar o catálogo da sala.");
       return;
     }
     try {
       await bensSalaQuery.refetch();
     } catch (error) {
       if (String(error?.message || "").includes("SEM_CACHE_OFFLINE")) {
-        setUiError("Sem cache offline para esta sala. Conecte-se e baixe o catalogo da sala pelo menos uma vez.");
+        setUiError("Sem cache offline para esta sala. Conecte-se e baixe o catálogo da sala pelo menos uma vez.");
       }
     }
   };
@@ -265,7 +265,7 @@ export default function InventoryRoomPanel() {
     }
     const codigo = codigoEvento.trim();
     if (!codigo) {
-      setUiError("Informe um codigoEvento.");
+      setUiError("Informe um códigoEvento.");
       return;
     }
 
@@ -307,20 +307,20 @@ export default function InventoryRoomPanel() {
 
     const numeroTombamento = normalizeTombamentoInput(scannerValue);
     if (!TOMBAMENTO_RE.test(numeroTombamento)) {
-      setUiError("Tombamento invalido. Use 10 digitos (ex.: 1290001788).");
+      setUiError("Tombamento inválido. Use 10 dígitos (ex.: 1290001788).");
       return;
     }
 
     const unidadeEncontrada = Number(unidadeEncontradaId);
     let bem = bemByTombamento.get(numeroTombamento) || null;
 
-    // Scanner hibrido: se o tombo nao estiver no catalogo da sala carregado, tenta lookup rapido no backend (quando online).
+    // Scanner hibrido: se o tombo não estiver no catálogo da sala carregado, tenta lookup rapido no backend (quando online).
     if (!bem && navigator.onLine) {
       try {
         const lookup = await listarBens({ numeroTombamento, limit: 1, offset: 0, incluirTerceiros: false });
         bem = (lookup.items || [])[0] || null;
       } catch (_error) {
-        // Falha de lookup nao impede enfileirar o scan.
+        // Falha de lookup não impede enfileirar o scan.
       }
     }
 
@@ -365,7 +365,7 @@ export default function InventoryRoomPanel() {
     <section className="rounded-2xl border border-white/15 bg-slate-900/55 p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo Inventario (offline-first)</h2>
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo Inventário (offline-first)</h2>
           <p className="mt-2 text-sm text-slate-300">
             Contagens sao persistidas no navegador e sincronizadas com a API quando houver conexao.
           </p>
@@ -394,7 +394,7 @@ export default function InventoryRoomPanel() {
         <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-4">
           <h3 className="font-semibold">Evento de inventario (EM_ANDAMENTO)</h3>
           <p className="mt-1 text-xs text-slate-300">
-            Inventario ativo bloqueia mudanca de carga (Art. 183 - AN303_Art183).
+            Inventário ativo bloqueia mudança de carga (Art. 183 - AN303_Art183).
           </p>
 
           <label className="mt-3 block space-y-1">
@@ -402,7 +402,7 @@ export default function InventoryRoomPanel() {
             <input
               value={perfilId}
               onChange={(e) => setPerfilId(e.target.value)}
-              placeholder="UUID do perfil (crie em Operacoes API)"
+              placeholder="UUID do perfil (crie em Operações API)"
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -463,7 +463,7 @@ export default function InventoryRoomPanel() {
                 Nenhum evento ativo. Abra um evento para iniciar o inventario.
               </p>
               <label className="block space-y-1">
-                <span className="text-xs text-slate-300">codigoEvento</span>
+                <span className="text-xs text-slate-300">códigoEvento</span>
                 <input
                   value={codigoEvento}
                   onChange={(e) => setCodigoEvento(e.target.value)}
@@ -530,7 +530,7 @@ export default function InventoryRoomPanel() {
                 disabled={bensSalaQuery.isFetching}
                 className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
               >
-                {bensSalaQuery.isFetching ? "Carregando..." : "Baixar catalogo da sala"}
+                {bensSalaQuery.isFetching ? "Carregando..." : "Baixar catálogo da sala"}
               </button>
               <button
                 type="button"
@@ -589,7 +589,7 @@ export default function InventoryRoomPanel() {
 
       <article className="mt-5 rounded-2xl border border-white/15 bg-slate-950/30 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold">Bens da sala (agrupado por catalogo)</h3>
+          <h3 className="font-semibold">Bens da sala (agrupado por catálogo)</h3>
           <p className="text-xs text-slate-300">
             Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
           </p>
@@ -600,7 +600,7 @@ export default function InventoryRoomPanel() {
         )}
         {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && (
           <p className="mt-3 text-sm text-slate-300">
-            Carregue uma sala para ver o catalogo agrupado (usa filtro por <code className="px-1">local_fisico</code>).
+            Carregue uma sala para ver o catálogo agrupado (usa filtro por <code className="px-1">local_fisico</code>).
           </p>
         )}
 

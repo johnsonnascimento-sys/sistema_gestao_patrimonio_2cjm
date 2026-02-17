@@ -13,9 +13,9 @@
 
 ## 1. Escopo do Projeto (resumo)
 
-- Sistema de Gestao Patrimonial da 2a CJM.
-- Execucao deterministica (sem IA em runtime).
-- Alta auditabilidade (auditoria + historico de carga + rastreio de inventario).
+- Sistema de Gestão Patrimonial da 2a CJM.
+- Execução determinística (sem IA em runtime).
+- Alta auditabilidade (auditoria + histórico de carga + rastreio de inventário).
 - Compliance ATN 303/2008 com citacao legal obrigatoria no codigo no formato `Art. X (AN303_ArtX)`.
 
 ## 2. Infra (VPS) - o que esta rodando
@@ -75,7 +75,7 @@ No importador:
 - O bem referencia o catalogo por `bens.catalogo_bem_id`.
 
 Nota:
-- `bens.descricao_complementar` existe para anotacoes locais (ex.: observacao, info adicional), nao para duplicar a descricao do catalogo.
+- `bens.descricao_complementar` existe para anotações locais (ex.: observação, info adicional), não para duplicar a descrição do catálogo.
 
 ## 4. Backend (Node.js/Express)
 
@@ -99,7 +99,7 @@ Nota:
   - Novo tombamento: `status='AGUARDANDO_RECEBIMENTO'` + `local_fisico=NULL`.
   - Mudanca de `unidade_dona_id` e registrada automaticamente em `historico_transferencias` via trigger.
   - Regra legal aplicada via banco:
-    - Inventario em andamento bloqueia mudanca de carga (Art. 183 - AN303_Art183).
+    - Inventário em andamento bloqueia mudança de carga (Art. 183 - AN303_Art183).
   - Observabilidade e execucao longa:
     - O endpoint registra logs por requestId e imprime progresso por lote no stdout do container (`docker logs cjm_backend`).
     - O processamento e commitado em lotes (batch) para permitir acompanhamento no Supabase durante a execucao, evitando "transacao invisivel" ate o final.
@@ -110,7 +110,7 @@ Nota:
   - Transferencia altera `unidade_dona_id` (gera historico via trigger).
     - Regra legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
   - Cautela altera `status` para `EM_CAUTELA` sem mudar carga.
-- Inventario (offline-first):
+- Inventário (offline-first):
   - `GET /inventario/eventos?status=...`
   - `POST /inventario/eventos`
   - `PATCH /inventario/eventos/:id/status`
@@ -127,8 +127,8 @@ Nota:
 
 - Consulta de bens (dados reais via `/stats` e `/bens`).
   - Detalhe do bem via drawer/modal (botao "Detalhes"), consumindo `GET /bens/{id}`.
-- Operacoes API (health, importacao, movimentacao, criacao de perfil).
-  - Importacao GEAFIN com barra de progresso (polling no endpoint `GET /importacoes/geafin/ultimo`).
+- Operações API (health, importação, movimentação, criação de perfil).
+  - Importação GEAFIN com barra de progresso (polling no endpoint `GET /importacoes/geafin/ultimo`).
 - Modo inventario:
   - Baixa bens por sala via filtro `localFisico`.
   - Agrupa por catalogo (accordion com `details/summary`).
@@ -136,7 +136,7 @@ Nota:
 - Wizard Art. 141: UI de fluxo guiado (mock) para classificacao de inserviveis.
 - Wiki / Manual (self-hosted):
   - Manual completo para usuarios e administradores.
-  - Persistencia de pagina via `#hash` (nao some no refresh).
+  - Persistência de página via `#hash` (não some no refresh).
   - Conteudo versionado em `frontend/src/wiki/*.md` e renderizado na aba "Wiki / Manual".
 
 Arquivos principais:
@@ -165,7 +165,7 @@ O modo agrupado por catalogo ja existe e ja apresenta:
 - Checklist por tombamento (checkbox read-only).
 - Offline-first: fila de scans + cache local do catalogo da sala (para funcionar sem internet apos baixar uma vez).
 
-### 5.4 Equivalencia com a TAREFA 3 (UX de Inventario) do prompt do Gemini
+### 5.4 Equivalência com a TAREFA 3 (UX de Inventário) do prompt do Gemini
 
 Requisitos do Gemini vs implementacao atual:
 
@@ -178,7 +178,7 @@ Requisitos do Gemini vs implementacao atual:
 | Checklist por tombamento (check encontrado) | Implementado | `frontend/src/components/InventoryRoomPanel.jsx` (checkbox read-only) |
 | Persistencia offline (IndexedDB) para contagem | Implementado | `frontend/src/hooks/useOfflineSync.js` (fila de scans) + cache do catalogo da sala em IndexedDB |
 | Scanner: bipar bem da lista marca encontrado | Implementado | Scan entra na fila e ja marca check (via pending queue) |
-| Scanner: bem de outra unidade toca alerta ("Intruso") | Implementado (quando online) | Lookup rapido via `GET /bens?numeroTombamento=...` se nao estiver no catalogo carregado |
+| Scanner: bem de outra unidade toca alerta ("Intruso") | Implementado (quando online) | Lookup rápido via `GET /bens?numeroTombamento=...` se não estiver no catálogo carregado |
 | Intruso vira LOCAL_DIVERGENTE sem mudar dono | Implementado | Backend `POST /inventario/sync` + DB (`contagens.tipo_ocorrencia`) |
 
 ## 6. Automacoes (n8n)
@@ -189,7 +189,7 @@ Entregaveis no repo:
   - Regra legal: Art. 185 (AN303_Art185).
 
 Observacao:
-- O workflow e importavel, mas depende de credenciais/configuracoes no n8n (nao versionadas).
+- O workflow é importável, mas depende de credenciais/configurações no n8n (não versionadas).
 
 ## 7. Conformidade (onde cada regra esta aplicada)
 
@@ -208,6 +208,6 @@ Observacao:
 ## 8. Proximos passos recomendados (incrementos opcionais)
 
 1. Cachear contagens por sala em IndexedDB para consultas/relatorios offline apos reload.
-2. Criar um painel "Divergencias da sala" para listar contagens divergentes que nao estao no catalogo carregado da sala.
+2. Criar um painel "Divergências da sala" para listar contagens divergentes que não estão no catálogo carregado da sala.
 3. Adicionar busca por QR/barcode com foco automatico e suporte a coletores (melhor UX de scanner).
 4. (Opcional) Exportar Wiki para PDF interno (somente leitura) para distribuicao offline controlada.

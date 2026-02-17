@@ -29,22 +29,22 @@ import mdAdminVps from "../wiki/14_admin_operacao_vps.md?raw";
 import mdApiRef from "../wiki/15_referencia_api.md?raw";
 
 const WIKI_PAGES = [
-  { id: "indice", title: "Indice", md: mdIndice },
-  { id: "visao-geral", title: "Visao geral do sistema", md: mdVisaoGeral },
+  { id: "indice", title: "Índice", md: mdIndice },
+  { id: "visao-geral", title: "Visão geral do sistema", md: mdVisaoGeral },
   { id: "perfis", title: "Perfis e acesso", md: mdPerfisAcesso },
   { id: "consulta-bens", title: "Consulta de bens", md: mdConsultaBens },
-  { id: "importacao-geafin", title: "Importacao GEAFIN (CSV)", md: mdImportacaoGeafin },
-  { id: "movimentacoes", title: "Movimentacoes: cautela x transferencia", md: mdMovimentacoes },
-  { id: "inventario", title: "Inventario sala a sala", md: mdInventario },
+  { id: "importacao-geafin", title: "Importação GEAFIN (CSV)", md: mdImportacaoGeafin },
+  { id: "movimentacoes", title: "Movimentações: cautela x transferência", md: mdMovimentacoes },
+  { id: "inventario", title: "Inventário sala a sala", md: mdInventario },
   { id: "intrusos-terceiros", title: "Intrusos e bens de terceiros", md: mdIntrusosTerceiros },
   { id: "wizard-art141", title: "Wizard Art. 141 (inserviveis)", md: mdWizard141 },
-  { id: "relatorios-auditoria", title: "Relatorios e auditoria", md: mdRelatoriosAuditoria },
-  { id: "troubleshooting", title: "Solucao de problemas", md: mdTroubleshooting },
-  { id: "glossario", title: "Glossario", md: mdGlossario },
-  { id: "seguranca", title: "Seguranca e sigilo operacional", md: mdSeguranca },
+  { id: "relatorios-auditoria", title: "Relatórios e auditoria", md: mdRelatoriosAuditoria },
+  { id: "troubleshooting", title: "Solução de problemas", md: mdTroubleshooting },
+  { id: "glossario", title: "Glossário", md: mdGlossario },
+  { id: "seguranca", title: "Segurança e sigilo operacional", md: mdSeguranca },
   { id: "compliance", title: "Compliance ATN 303/2008", md: mdCompliance },
-  { id: "admin-vps", title: "Admin: operacao na VPS", md: mdAdminVps },
-  { id: "api-ref", title: "Referencia rapida da API", md: mdApiRef },
+  { id: "admin-vps", title: "Admin: operação na VPS", md: mdAdminVps },
+  { id: "api-ref", title: "Referência rápida da API", md: mdApiRef },
 ];
 
 function readWikiHash() {
@@ -103,19 +103,19 @@ export default function WikiManual() {
       <aside className="rounded-2xl border border-white/15 bg-slate-900/55 p-4 backdrop-blur">
         <h2 className="font-[Space_Grotesk] text-xl font-semibold">Wiki do Sistema</h2>
         <p className="mt-2 text-sm text-slate-300">
-          Manual completo (usuarios e admin). Conteudo versionado e publicado junto do site.
+          Manual completo (usuários e admin). Conteúdo versionado e publicado junto do site.
         </p>
 
         <div className="mt-4">
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-300" htmlFor="wikiSearch">
-            Buscar pagina
+            Buscar página
           </label>
           <input
             id="wikiSearch"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="mt-2 w-full rounded-xl border border-white/15 bg-slate-950/40 px-3 py-2 text-sm outline-none focus:border-cyan-300/80"
-            placeholder="Ex.: inventario, GEAFIN, cautela..."
+            placeholder="Ex.: inventário, GEAFIN, cautela..."
           />
         </div>
 
@@ -139,10 +139,10 @@ export default function WikiManual() {
         </nav>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/35 p-3 text-xs text-slate-300">
-          <p className="font-semibold">Regra de operacao</p>
+          <p className="font-semibold">Regra de operação</p>
           <p className="mt-1">
             Se este Wiki estiver desatualizado, considere o sistema em{" "}
-            <span className="font-semibold">nao-conformidade</span> e pare a implantacao ate corrigir.
+            <span className="font-semibold">não-conformidade</span> e pare a implantação até corrigir.
           </p>
         </div>
       </aside>
@@ -157,7 +157,7 @@ export default function WikiManual() {
             className="rounded-lg border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-white/5"
             href={`#wiki=${encodeURIComponent(activePage.id)}`}
           >
-            Link desta pagina
+            Link desta página
           </a>
         </div>
 

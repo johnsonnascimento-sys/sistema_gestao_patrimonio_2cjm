@@ -8,7 +8,7 @@ Funcao no sistema: orientar criacao e uso de perfis (matricula), e como isso ent
 
 ## O que e um "perfil"
 
-Um **perfil** representa uma pessoa que opera o sistema (servidor/usuario), com:
+Um **perfil** representa uma pessoa que opera o sistema (servidor/usuário), com:
 
 - `matricula` (obrigatorio)
 - `nome`
@@ -57,7 +57,7 @@ Quando o perfil e criado, o backend retorna um JSON parecido com:
 ## Boas praticas de operacao
 
 - Nao crie perfis duplicados com a mesma matricula.
-- Ao desligar um operador, marque `ativo=false` (nao apague) para manter trilha historica.
+- Ao desligar um operador, marque `ativo=false` (não apague) para manter trilha histórica.
 - Se um perfil estiver incorreto (nome/unidade), corrija e registre em observacao/controle interno.
 
 ## Perguntas comuns
@@ -67,11 +67,10 @@ Quando o perfil e criado, o backend retorna um JSON parecido com:
 No banco, "perfil" e a identidade de quem executa. "Admin" pode ser:
 
 - Um perfil com permissao ampliada no sistema (quando o controle de acesso for ativado).
-- Um operador do CloudPanel/Docker (administracao da VPS), que e outra camada e nao deve se misturar com dados do sistema.
+- Um operador do CloudPanel/Docker (administração da VPS), que é outra camada e não deve se misturar com dados do sistema.
 
 ### Onde isso aparece no sistema?
 
 - Em historicos de transferencia (quando um bem muda de carga).
 - Em movimentacoes (cautela/transferencia).
 - Em eventos/contagens de inventario (quando o modulo estiver com persistencia completa).
-

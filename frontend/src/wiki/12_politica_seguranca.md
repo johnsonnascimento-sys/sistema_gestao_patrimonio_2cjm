@@ -4,13 +4,13 @@ Arquivo: frontend/src/wiki/12_politica_seguranca.md
 Funcao no sistema: orientar usuarios/admin sobre sigilo, senhas e boas praticas (sem colocar segredos reais).
 -->
 
-# Seguranca e sigilo operacional
+# Segurança e sigilo operacional
 
 ## 1) Principios
 
-- Nao compartilhar credenciais.
-- Nao deixar tokens/senhas em documentos publicos.
-- Nao colar credenciais em prints, tickets, chats ou Wiki.
+- Não compartilhar credenciais.
+- Não deixar tokens/senhas em documentos públicos.
+- Não colar credenciais em prints, tickets, chats ou Wiki.
 
 ## 2) Onde ficam segredos
 
@@ -18,7 +18,7 @@ Segredos devem existir apenas:
 
 - Em variaveis de ambiente (`.env`) na VPS (fora do repositorio).
 - Em secret manager (se houver).
-- Em credenciais configuradas no n8n (UI do n8n), nao no Git.
+- Em credenciais configuradas no n8n (UI do n8n), não no Git.
 
 ## 3) O que o usuario comum deve fazer
 
@@ -33,7 +33,7 @@ Segredos devem existir apenas:
 - Ajustar Nginx somente quando necessario.
 - Garantir que backups existam (se politica interna exigir).
 
-## 5) Logs e dados sensiveis
+## 5) Logs e dados sensíveis
 
 O sistema usa `requestId` para correlacionar chamadas. Em caso de suporte:
 
@@ -49,4 +49,3 @@ Se um segredo for exposto em qualquer lugar (Git, Wiki, chat, print):
 - Registrar incidente interno.
 
 Obs.: esta regra existe mesmo quando "parece improvavel". E requisito minimo de seguranca.
-

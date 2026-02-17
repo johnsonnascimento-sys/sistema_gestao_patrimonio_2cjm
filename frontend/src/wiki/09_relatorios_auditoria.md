@@ -4,17 +4,17 @@ Arquivo: frontend/src/wiki/09_relatorios_auditoria.md
 Funcao no sistema: orientar como extrair evidencias e entender trilhas (historicos, espelho GEAFIN, forasteiros).
 -->
 
-# Relatorios e auditoria
+# Relatórios e auditoria
 
 ## Objetivo
 
 Este sistema foi desenhado para "aguentar auditoria". Isso significa:
 
-- Ser possivel provar o que foi importado (GEAFIN).
-- Ser possivel provar quando e por que um bem mudou de carga.
-- Ser possivel listar divergencias de inventario (intrusos) sem alterar carga no ato.
+- Ser possível provar o que foi importado (GEAFIN).
+- Ser possível provar quando e por que um bem mudou de carga.
+- Ser possível listar divergências de inventário (intrusos) sem alterar carga no ato.
 
-## 1) Auditoria de importacao GEAFIN
+## 1) Auditoria de importação GEAFIN
 
 Evidencias:
 
@@ -26,7 +26,7 @@ Uso tipico:
 
 - "As 3833 linhas do CSV foram processadas?": verificar `status=CONCLUIDO` e `percent=100`.
 
-## 2) Auditoria de mudanca de carga (transferencias)
+## 2) Auditoria de mudança de carga (transferências)
 
 Quando uma transferencia acontece (mudanca de `unidade_dona_id`), o banco registra em historico dedicado.
 
@@ -38,9 +38,9 @@ Evidencias:
 - Origem (IMPORTACAO/APP/SISTEMA)
 - Usuario (quando aplicavel)
 
-## 3) Forasteiros / Intrusos (inventario)
+## 3) Forasteiros / Intrusos (inventário)
 
-Um "forasteiro" e um intruso registrado no inventario:
+Um "forasteiro" é um intruso registrado no inventário:
 
 - tipo_ocorrencia = ENCONTRADO_EM_LOCAL_DIVERGENTE
 - regularizacao_pendente = true
@@ -51,7 +51,7 @@ Relatorio tipico:
 
 Observacao:
 
-- O sistema prioriza derivar isso de `contagens` (inventario), nao de coluna "unidade_local_atual" no bem.
+- O sistema prioriza derivar isso de `contagens` (inventário), não de coluna "unidade_local_atual" no bem.
 
 ## 4) Onde ver "mais detalhes"
 
@@ -65,9 +65,8 @@ No banco:
 - Movimentacoes
 - Eventos/contagens do inventario
 
-## 5) Boas praticas para auditoria
+## 5) Boas práticas para auditoria
 
 - Guarde sempre o CSV original importado (fora do repositorio).
 - Registre quem executa operacoes criticas (perfil).
-- Nao use "transferencia" para consertar inventario durante congelamento: registre divergencia e regularize depois.
-
+- Não use "transferência" para consertar inventário durante congelamento: registre divergência e regularize depois.

@@ -20,7 +20,7 @@ O sistema possui 2 camadas complementares:
 
 2. **Camada espelho (auditoria 1:1)**: guarda o CSV "como veio do GEAFIN".
    - Objetivo: permitir auditoria e reprocessamento sem perder o original.
-   - Regra operacional: esta camada nao e fonte de verdade operacional do sistema; ela e um registro fiel e consultavel.
+   - Regra operacional: esta camada não é fonte de verdade operacional do sistema; ela é um registro fiel e consultável.
 
 ## 2. Estruturas do banco (public.*)
 
@@ -93,7 +93,7 @@ limit 50;
 ## 4. Relacao com a camada normalizada (SKU vs Item)
 
 Regras operacionais:
-- O espelho nao "manda" no operacional; ele registra o original.
+- O espelho não "manda" no operacional; ele registra o original.
 - O operacional e alimentado pelo importador:
   - primeiro garante `catalogo_bens` (SKU)
   - depois faz upsert em `bens` (item fisico) apontando para `catalogo_bem_id`
@@ -109,4 +109,3 @@ Quando voce diz "colunas iguais ao GEAFIN", existem 2 interpretacoes:
    - Em vez disso, usamos:
      - operacional normalizado (`catalogo_bens` + `bens`)
      - espelho para auditoria (este modulo)
-

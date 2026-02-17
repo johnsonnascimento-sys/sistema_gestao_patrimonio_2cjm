@@ -88,7 +88,7 @@ export default function AssetsExplorer() {
 
     const tombo = String(filters.numeroTombamento || "").trim();
     if (tombo && !/^\d{10}$/.test(tombo)) {
-      setFormError("Tombamento invalido: informe exatamente 10 digitos (ex.: 1290001788).");
+      setFormError("Tombamento inválido: informe exatamente 10 dígitos (ex.: 1290001788).");
       return;
     }
     loadList(0);
@@ -268,7 +268,7 @@ export default function AssetsExplorer() {
             <thead className="bg-slate-900/70 text-xs uppercase tracking-wider text-slate-300">
               <tr>
                 <th className="px-3 py-2">Tombo</th>
-                <th className="px-3 py-2">Descricao</th>
+                <th className="px-3 py-2">Descrição</th>
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
                 <th className="px-3 py-2">Status</th>
@@ -380,8 +380,8 @@ function BemDetailModal({ state, onClose }) {
                   <p className="text-xs uppercase tracking-widest text-slate-400">Catalogo (SKU)</p>
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="CatalogoBemId" v={catalogo?.id || imp.catalogoBemId} mono />
-                    <Row k="Codigo catalogo" v={catalogo?.codigoCatalogo} />
-                    <Row k="Descricao" v={catalogo?.descricao} />
+                    <Row k="Código catálogo" v={catalogo?.codigoCatalogo} />
+                    <Row k="Descrição" v={catalogo?.descricao} />
                     <Row k="Grupo" v={catalogo?.grupo} />
                     <Row k="Material permanente" v={String(Boolean(catalogo?.materialPermanente))} />
                   </dl>
@@ -428,7 +428,7 @@ function BemDetailModal({ state, onClose }) {
               </section>
 
               <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Movimentacoes</p>
+                <p className="text-xs uppercase tracking-widest text-slate-400">Movimentações</p>
                 {movs.length === 0 ? (
                   <p className="mt-2 text-sm text-slate-300">Nenhuma movimentacao registrada.</p>
                 ) : (

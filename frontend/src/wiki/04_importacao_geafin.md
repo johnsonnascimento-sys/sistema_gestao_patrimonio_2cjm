@@ -4,7 +4,7 @@ Arquivo: frontend/src/wiki/04_importacao_geafin.md
 Funcao no sistema: manual detalhado da importacao GEAFIN (CSV Latin1) e como auditar o espelho.
 -->
 
-# Importacao GEAFIN (CSV)
+# Importação GEAFIN (CSV)
 
 ## O que esta importacao faz
 
@@ -22,7 +22,7 @@ Quando voce importa o CSV do GEAFIN (relatorio), o sistema faz duas coisas:
 
 No site, abra:
 
-- Aba **Operacoes API**
+- Aba **Operações API**
 - Secao **Importacao GEAFIN (CSV Latin1)**
 
 Passos:
@@ -62,7 +62,7 @@ Causa comum:
 
 - Timeout do proxy Nginx.
 
-Solucao:
+Solução:
 
 - Ajustar `proxy_read_timeout`/`proxy_send_timeout` no Nginx (host e/ou container) e recarregar.
 
@@ -88,7 +88,7 @@ O sistema guarda metadados do arquivo (hash, bytes, total de linhas) e as linhas
 
 Importante:
 
-- O espelho nao substitui a camada operacional.
+- O espelho não substitui a camada operacional.
 - Ele existe para rastreabilidade e comparacao.
 
 ## Boas praticas
@@ -96,4 +96,3 @@ Importante:
 - Importe sempre um arquivo por vez (aguarde `CONCLUIDO`).
 - Guarde o CSV original em arquivo interno (fora do repositorio) para auditoria externa.
 - Se importar novamente o mesmo arquivo, o sistema deve reconhecer duplicidade via hash e ainda assim registrar um novo evento (dependendo do modo configurado).
-

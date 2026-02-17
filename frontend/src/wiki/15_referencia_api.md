@@ -4,7 +4,7 @@ Arquivo: frontend/src/wiki/15_referencia_api.md
 Funcao no sistema: referencia rapida de endpoints usados pela UI, com exemplos basicos.
 -->
 
-# Referencia rapida da API (para admin/suporte)
+# Referência rápida da API (para admin/suporte)
 
 Base URL no dominio:
 
@@ -60,7 +60,7 @@ Retorna:
 
 Uso: criar operador (matricula/nome/unidade).
 
-## Importacao GEAFIN
+## Importação GEAFIN
 
 ### POST `/importar-geafin`
 
@@ -84,7 +84,7 @@ Campos tipicos:
 - `falhaPersistencia`
 - `falhaNormalizacao`
 
-## Inventario
+## Inventário
 
 ### GET `/inventario/eventos?status=EM_ANDAMENTO`
 
@@ -97,4 +97,3 @@ Uso: sincronizar scans/contagens (inclusive offline).
 Comportamento:
 
 - Se unidade dona do bem != unidade encontrada: registra divergencia (Art. 185), sem transferir carga.
-

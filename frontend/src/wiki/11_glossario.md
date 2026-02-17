@@ -4,7 +4,7 @@ Arquivo: frontend/src/wiki/11_glossario.md
 Funcao no sistema: glossario dos termos usados nas telas e documentos.
 -->
 
-# Glossario
+# Glossário
 
 ## Bem
 
@@ -26,9 +26,9 @@ Unidade responsavel pelo bem no cadastro (propriedade/carga patrimonial).
 
 Ambiente onde o bem esta (ou deveria estar) no predio.
 
-## Inventario (evento)
+## Inventário (evento)
 
-Periodo/atividade de conferencia fisica. Enquanto `EM_ANDAMENTO`, ha congelamento de transferencias (Art. 183).
+Período/atividade de conferência física. Enquanto `EM_ANDAMENTO`, há congelamento de transferências (Art. 183).
 
 ## Intruso / Local divergente
 
@@ -45,4 +45,3 @@ Saida fisica do bem sem mudar carga (detentor temporario, data de retorno).
 ## Transferencia
 
 Mudanca de carga (unidade dona). Exige formalizacao.
-

@@ -17,13 +17,13 @@ Esta e a tela do dia a dia para:
 
 ## Como pesquisar corretamente
 
-### 1) Tombamento (10 digitos)
+### 1) Tombamento (10 dígitos)
 
 - Digite **somente numeros**, com **10 digitos**.
 - Exemplo valido: `1290001788`
-- Exemplo invalido: `TMB-00772` (isso nao e tombamento GEAFIN; e outro tipo de numeracao/etiqueta)
+- Exemplo inválido: `TMB-00772` (isso não é tombamento GEAFIN; é outro tipo de numeração/etiqueta)
 
-Se voce colar algo com espacos/pontos/traços, o sistema pode limpar e manter apenas os digitos. Se ainda assim nao der 10 digitos, vai avisar.
+Se você colar algo com espaços/pontos/traços, o sistema pode limpar e manter apenas os dígitos. Se ainda assim não der 10 dígitos, vai avisar.
 
 ### 2) Texto na descricao
 
@@ -43,10 +43,10 @@ Use quando voce quer ver apenas itens de uma unidade (carga).
 
 As colunas visiveis na lista sao um "resumo operacional". O sistema guarda mais campos no detalhe.
 
-Campos tipicos no resumo:
+Campos típicos no resumo:
 
 - Tombo (tombamento)
-- Descricao (do catalogo ou descricao consolidada)
+- Descrição (do catálogo ou descrição consolidada)
 - Unidade (carga)
 - Local (local fisico)
 - Status (OK/EM_CAUTELA/BAIXADO/AGUARDANDO_RECEBIMENTO quando aplicavel)
@@ -68,6 +68,5 @@ Use isso quando precisar:
 
 ## Dicas de uso (operacao rapida)
 
-- Se voce estiver no inventario e nao encontrou um item, use a Consulta para ver "onde deveria estar" e "onde esta cadastrado".
-- Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda nao foi localizado/recebido fisicamente.
-
+- Se você estiver no inventário e não encontrou um item, use a Consulta para ver "onde deveria estar" e "onde está cadastrado".
+- Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda não foi localizado/recebido fisicamente.

@@ -4,7 +4,7 @@ Arquivo: frontend/src/wiki/08_wizard_art141.md
 Funcao no sistema: orientar uso do wizard de classificacao de inserviveis (Art. 141).
 -->
 
-# Wizard Art. 141 (classificacao de inserviveis)
+# Wizard Art. 141 (classificação de inservíveis)
 
 ## Por que existe um wizard
 
@@ -24,19 +24,19 @@ Base legal:
 
 1. Abra a aba **Wizard Art. 141**.
 2. Clique em **Iniciar wizard**.
-3. Preencha a descricao do bem (ou selecione pelo cadastro quando integrado).
+3. Preencha a descrição do bem (ou selecione pelo cadastro quando integrado).
 4. Responda as perguntas do fluxo:
-   - O bem esta ocioso? (nao utilizado mas em condicao)
-   - O bem e recuperavel? (custo/viabilidade de reparo)
-   - O bem e antieconomico? (manter e mais caro que substituir)
-   - O bem e irrecuperavel? (sem condicoes de uso)
+   - O bem está ocioso? (não utilizado mas em condição)
+   - O bem é recuperável? (custo/viabilidade de reparo)
+   - O bem é antieconômico? (manter é mais caro que substituir)
+   - O bem é irrecuperável? (sem condições de uso)
 5. Salve o resultado.
 
 ## O que o sistema registra
 
 No minimo:
 
-- Classificacao final
+- Classificação final
 - Justificativa (texto)
 - Data/hora
 - Operador (quando perfil estiver integrado em persistencia)
@@ -45,4 +45,3 @@ No minimo:
 
 - Evite "chutar" a classificacao. Use justificativa clara.
 - Se for antieconomico/irrecuperavel, anexe laudos/documentos no fluxo administrativo (quando habilitado).
-

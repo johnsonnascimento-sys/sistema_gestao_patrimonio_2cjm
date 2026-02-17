@@ -4,7 +4,7 @@ Arquivo: frontend/src/wiki/00_indice.md
 Funcao no sistema: indice navegavel do manual/wiki self-hosted do patrimonio2cjm.
 -->
 
-# Indice (Manual do Sistema)
+# Índice (Manual do Sistema)
 
 Este Wiki e o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele foi feito para:
 
@@ -19,17 +19,16 @@ Este Wiki e o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele f
 
 ## Paginas
 
-- Visao geral do sistema
+- Visão geral do sistema
 - Perfis e acesso
 - Consulta de bens
-- Importacao GEAFIN (CSV)
-- Movimentacoes: cautela x transferencia
-- Inventario sala a sala (modo agrupado/SKU)
+- Importação GEAFIN (CSV)
+- Movimentações: cautela x transferência
+- Inventário sala a sala (modo agrupado/SKU)
 - Intrusos e bens de terceiros ("bem de terceiro")
 - Wizard Art. 141 (inserviveis)
 - Relatorios e auditoria
-- Solucao de problemas (erros comuns)
-- Glossario
-- Seguranca e sigilo operacional
+- Solução de problemas (erros comuns)
+- Glossário
+- Segurança e sigilo operacional
 - Compliance ATN 303/2008 (resumo operacional + citacoes)
-

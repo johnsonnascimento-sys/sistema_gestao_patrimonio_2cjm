@@ -21,7 +21,7 @@
 ### Observacao: IPv6 (Supabase)
 
 - Alguns projetos Supabase expõem o host do Postgres apenas em IPv6 (registro DNS `AAAA`, sem `A`).
-- Se o backend em Docker nao conseguir conectar (erro tipo `ENETUNREACH` para endereco IPv6), o servidor precisa ter conectividade IPv6 ativa.
+- Se o backend em Docker não conseguir conectar (erro tipo `ENETUNREACH` para endereço IPv6), o servidor precisa ter conectividade IPv6 ativa.
 - Alternativa: usar a string de conexao do **pooler** do Supabase (quando disponivel) que costuma oferecer IPv4.
 
 ## 3. Build e subida do backend
@@ -51,7 +51,7 @@ Para rodar tudo por Docker na VPS (frontend + backend):
 
 ## 5. Validacao funcional
 
-1. Testar `/health` pela tela `Operacoes API`.
+1. Testar `/health` pela tela `Operações API`.
 2. Testar upload de CSV no `POST /importar-geafin`.
 3. Testar fluxo de transferencia/cautela no `POST /movimentar`.
 
@@ -61,9 +61,9 @@ Para rodar tudo por Docker na VPS (frontend + backend):
 2. Monitorar logs do container backend.
 3. Registrar versao implantada em changelog interno.
 
-## 7. Migracoes SQL (quando nao houver `psql` no host)
+## 7. Migrações SQL (quando não houver `psql` no host)
 
-Se o host nao tiver `psql` instalado, execute migracoes usando um container temporario do Postgres:
+Se o host não tiver `psql` instalado, execute migrações usando um container temporário do Postgres:
 
 ```bash
 cd /opt/cjm-patrimonio/current

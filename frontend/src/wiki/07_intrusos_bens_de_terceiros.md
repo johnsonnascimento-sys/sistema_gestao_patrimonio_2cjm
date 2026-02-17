@@ -15,7 +15,7 @@ Um **intruso** (no contexto do sistema) e:
 - Um bem **tombado e pertencente a uma unidade A** (carga no banco),
 - mas que foi **encontrado fisicamente** no ambiente inventariado de uma unidade B.
 
-Isso e uma **divergencia de localizacao**, nao uma transferencia automatica.
+Isso é uma **divergência de localização**, não uma transferência automática.
 
 ### O que o sistema deve fazer
 
@@ -31,7 +31,7 @@ Regra legal:
 
 ### Definicao simples
 
-**Bem de terceiro** e um objeto que esta no predio/ambiente, mas **nao pertence ao patrimonio da 2a CJM / STM**.
+**Bem de terceiro** é um objeto que está no prédio/ambiente, mas **não pertence ao patrimônio da 2a CJM / STM**.
 
 Exemplos comuns (na pratica):
 
@@ -47,12 +47,12 @@ Base legal (controle segregado):
 
 ### Por que existe um botao "Bem de Terceiro"
 
-Durante inventario, voce pode encontrar itens **sem tombamento do GEAFIN** ou itens que claramente nao sao do acervo.
+Durante inventário, você pode encontrar itens **sem tombamento do GEAFIN** ou itens que claramente não são do acervo.
 
 Nesse caso:
 
-- Voce nao deve "criar tombamento" no ato.
-- Voce nao deve transferir nada.
+- Você não deve "criar tombamento" no ato.
+- Você não deve transferir nada.
 
 O botao permite registrar a existencia do item como **ocorrencia segregada**, para:
 
@@ -62,22 +62,21 @@ O botao permite registrar a existencia do item como **ocorrencia segregada**, pa
 
 ## 3) Diferenca pratica: intruso x bem de terceiro
 
-- Intruso: tem tombamento conhecido no sistema, mas esta no lugar errado.
-- Bem de terceiro: nao e do patrimonio (ou nao tem tombamento STM), deve ficar segregado.
+- Intruso: tem tombamento conhecido no sistema, mas está no lugar errado.
+- Bem de terceiro: não é do patrimônio (ou não tem tombamento STM), deve ficar segregado.
 
-Se voce tiver duvida:
+Se você tiver dúvida:
 
-1. Procure o tombamento (10 digitos).
+1. Procure o tombamento (10 dígitos).
 2. Se existe no sistema: trate como intruso quando unidade divergir.
-3. Se nao existe e voce suspeita que e item externo: registre como bem de terceiro.
+3. Se não existe e você suspeita que é item externo: registre como bem de terceiro.
 
 ## 4) O que acontece depois (regularizacao)
 
-Depois do inventario:
+Depois do inventário:
 
-- A equipe analisa divergencias.
+- A equipe analisa divergências.
 - Emite termo/documento quando for transferencia real.
 - Atualiza cadastro de localizacao e/ou cautela quando for o caso.
 
 O inventario registra fatos. A regularizacao formaliza.
-

@@ -4,11 +4,11 @@ Arquivo: frontend/src/wiki/14_admin_operacao_vps.md
 Funcao no sistema: manual de operacao para administradores (VPS + Docker + Nginx), sem segredos.
 -->
 
-# Admin: operacao na VPS (Docker/Nginx)
+# Admin: operação na VPS (Docker/Nginx)
 
 Esta pagina e para quem administra o servidor (VPS Hostinger + CloudPanel).
 
-## Premissas (o que nao mudar sem motivo)
+## Premissas (o que não mudar sem motivo)
 
 - Docker Compose roda com `network_mode: host`.
 - Frontend (container Nginx) atende em `127.0.0.1:8080`.
@@ -18,7 +18,7 @@ Esta pagina e para quem administra o servidor (VPS Hostinger + CloudPanel).
   - reverse proxy para `127.0.0.1:8080`
   - proxy dedicado `/api/` para `127.0.0.1:3001` (recomendado para evitar 504)
 
-## Ver se o site esta de pe
+## Ver se o site está de pé
 
 No host:
 
@@ -57,7 +57,7 @@ Observacao:
 
 ## Importacao GEAFIN e timeouts
 
-Importacao pode demorar (milhares de linhas). Para evitar 504:
+Importação pode demorar (milhares de linhas). Para evitar 504:
 
 - Aumente timeouts no Nginx (host e/ou container).
 - Garanta `proxy_request_buffering off` no `location /api/`.
@@ -67,7 +67,7 @@ Importacao pode demorar (milhares de linhas). Para evitar 504:
 
 Por padrao:
 
-- `.env` fica apenas na VPS, nao versionado.
+- `.env` fica apenas na VPS, não versionado.
 - `DATABASE_URL` aponta para Supabase (Postgres).
 
 Nunca coloque segredos no repositorio nem no Wiki.
@@ -80,4 +80,3 @@ Se "Failed to fetch" aparecer no site:
 2. Se falhar: backend caiu (ver logs).
 3. Se ok: conferir Nginx `/api` no host e no container frontend.
 4. Recarregar Nginx host: `nginx -t && systemctl reload nginx`.
-

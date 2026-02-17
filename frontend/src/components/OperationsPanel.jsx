@@ -68,10 +68,10 @@ export default function OperationsPanel() {
 
   const helperText = useMemo(() => {
     if (movPayload.tipoMovimentacao === "TRANSFERENCIA") {
-      return "Transferencia muda carga; exige unidadeDestinoId e autorizadaPorPerfilId (Arts. 124 e 127).";
+      return "Transferência muda carga; exige unidadeDestinoId e autorizadaPorPerfilId (Arts. 124 e 127).";
     }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela nao muda carga; exige detentorTemporarioPerfilId e dataPrevistaDevolucao.";
+      return "Cautela não muda carga; exige detentorTemporarioPerfilId e dataPrevistaDevolucao.";
     }
     return "Retorno de cautela exige bem atualmente EM_CAUTELA.";
   }, [movPayload.tipoMovimentacao]);
@@ -247,7 +247,7 @@ export default function OperationsPanel() {
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
       <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Operacoes API</h2>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Operações API</h2>
         <p className="mt-2 text-sm text-slate-300">
           Integracao direta com backend em{" "}
           <code className="rounded bg-slate-950/70 px-1 py-0.5 text-cyan-200">
@@ -280,7 +280,7 @@ export default function OperationsPanel() {
       </article>
 
       <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
-        <h3 className="font-semibold">Importacao GEAFIN (CSV Latin1)</h3>
+        <h3 className="font-semibold">Importação GEAFIN (CSV Latin1)</h3>
         <form onSubmit={onImport} className="mt-3 grid gap-3 md:grid-cols-[1.2fr_auto_auto]">
           <input
             type="file"
@@ -317,7 +317,7 @@ export default function OperationsPanel() {
       <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
         <h3 className="font-semibold">Criar perfil (para testes locais)</h3>
         <p className="mt-1 text-xs text-slate-300">
-          Movimentacoes exigem perfis reais (autorizador/executor). Crie um aqui e o sistema preenche automaticamente no formulario abaixo.
+          Movimentações exigem perfis reais (autorizador/executor). Crie um aqui e o sistema preenche automaticamente no formulário abaixo.
         </p>
         <form onSubmit={onCreatePerfil} className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
@@ -580,7 +580,7 @@ function ImportProgressBar({ progressState }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-widest text-slate-400">
-            Progresso da importacao (GEAFIN)
+            Progresso da importação (GEAFIN)
           </p>
           <p className="mt-1 text-sm text-slate-200">
             {imp?.originalFilename ? (

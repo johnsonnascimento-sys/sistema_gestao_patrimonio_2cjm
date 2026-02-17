@@ -113,7 +113,7 @@ export default function useOfflineSync() {
       setPendingCount(remaining.length);
 
       if (failedIds.size) {
-        setLastError("Alguns itens nao foram sincronizados. Tente novamente quando a conexao estiver estavel.");
+        setLastError("Alguns itens não foram sincronizados. Tente novamente quando a conexão estiver estável.");
       }
 
       return { synced, remaining: remaining.length };

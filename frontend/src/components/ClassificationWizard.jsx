@@ -58,7 +58,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
       const classificacao = deriveClassification(answers);
       const justificativa =
         classificacao === "IRRECUPERAVEL"
-          ? "Nao atende criterios de uso, recuperacao economica ou manutencao viavel."
+          ? "Não atende critérios de uso, recuperação econômica ou manutenção viável."
           : `Classificado como ${classificacao} pelos criterios informados no wizard.`;
       onSave({
         descricaoBem: answers.descricao,
@@ -91,7 +91,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
         <div className="mt-5 rounded-2xl border border-white/15 bg-slate-950/40 p-4">
           {current.id === "descricao" ? (
             <label className="space-y-2">
-              <span className="text-sm text-slate-200">Descricao do bem</span>
+              <span className="text-sm text-slate-200">Descrição do bem</span>
               <input
                 value={answers.descricao}
                 onChange={(e) =>
@@ -123,7 +123,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
                     : "border-white/20 bg-slate-800 hover:border-amber-300/70"
                 }`}
               >
-                Nao
+                Não
               </button>
             </div>
           )}

@@ -35,12 +35,12 @@ export default function App() {
 
   const bannerMessage = useMemo(() => {
     if (inventoryStatus === "EM_ANDAMENTO") {
-      return "Inventario ativo: movimentacoes de transferencia ficam bloqueadas pelo Art. 183 (AN303_Art183).";
+      return "Inventário ativo: movimentações de transferência ficam bloqueadas pelo Art. 183 (AN303_Art183).";
     }
     if (inventoryStatus === "CARREGANDO") {
-      return "Consultando status do inventario no banco...";
+      return "Consultando status do inventário no banco...";
     }
-    return "Sem evento ativo: transferencias e regularizacoes podem ser executadas.";
+    return "Sem evento ativo: transferências e regularizações podem ser executadas.";
   }, [inventoryStatus]);
 
   const handleWizardResult = (result) => {
@@ -52,13 +52,13 @@ export default function App() {
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         <header className="rounded-3xl border border-white/15 bg-slate-900/60 p-6 shadow-2xl backdrop-blur">
           <p className="font-[Space_Grotesk] text-sm uppercase tracking-[0.28em] text-amber-300">
-            2a Circunscricao Judiciaria Militar
+            2a Circunscrição Judiciária Militar
           </p>
           <h1 className="mt-3 font-[Space_Grotesk] text-3xl font-bold md:text-5xl">
-            Painel de Patrimonio e Compliance
+            Painel de Patrimônio e Compliance
           </h1>
           <p className="mt-3 max-w-3xl text-slate-200/85">
-            Execucao deterministica para inventario, cautela e transferencia com rastreabilidade legal ATN 303/2008.
+            Execução determinística para inventário, cautela e transferência com rastreabilidade legal ATN 303/2008.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -74,7 +74,7 @@ export default function App() {
               onClick={() => setTab("inventario")}
               className={`pill ${tab === "inventario" ? "pill-active" : ""}`}
             >
-              Modo Inventario
+              Modo Inventário
             </button>
             <button
               type="button"
@@ -88,14 +88,14 @@ export default function App() {
               onClick={() => setTab("normas")}
               className={`pill ${tab === "normas" ? "pill-active" : ""}`}
             >
-              Gestao de Normas
+              Gestão de Normas
             </button>
             <button
               type="button"
               onClick={() => setTab("operacoes")}
               className={`pill ${tab === "operacoes" ? "pill-active" : ""}`}
             >
-              Operacoes API
+              Operações API
             </button>
             <button
               type="button"
@@ -109,7 +109,7 @@ export default function App() {
 
         <section className="mt-6 rounded-2xl border border-amber-300/30 bg-amber-100/10 p-4 text-sm text-amber-100">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="font-semibold uppercase tracking-wide">Status inventario:</span>
+            <span className="font-semibold uppercase tracking-wide">Status inventário:</span>
             <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
               {inventoryStatus}
             </span>
