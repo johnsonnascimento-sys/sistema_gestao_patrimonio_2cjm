@@ -18,6 +18,7 @@ import {
 
 const TOMBAMENTO_RE = /^\d{10}$/;
 const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v1|";
+const INVENTORY_UI_KEY = "cjm_inventory_ui_v1";
 
 function normalizeRoomKey(raw) {
   if (raw == null) return "";
@@ -79,22 +80,50 @@ function playAlertBeep() {
   }
 }
 
+function loadInventoryUiState() {
+  try {
+    const raw = window.localStorage.getItem(INVENTORY_UI_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === "object" ? obj : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveInventoryUiState(patch) {
+  try {
+    const prev = loadInventoryUiState() || {};
+    const next = { ...prev, ...patch, updatedAt: new Date().toISOString() };
+    window.localStorage.setItem(INVENTORY_UI_KEY, JSON.stringify(next));
+  } catch {
+    // sem fatal
+  }
+}
+
 export default function InventoryRoomPanel() {
   const qc = useQueryClient();
   const auth = useAuth();
   const offline = useOfflineSync();
 
+  const initialUi = loadInventoryUiState();
   const [perfilId, setPerfilId] = useState("");
-  const [selectedEventoId, setSelectedEventoId] = useState("");
+  const [selectedEventoId, setSelectedEventoId] = useState(initialUi?.selectedEventoId || "");
   const [codigoEvento, setCodigoEvento] = useState("");
   const [unidadeInventariadaId, setUnidadeInventariadaId] = useState("");
   const [encerramentoObs, setEncerramentoObs] = useState("");
 
-  const [unidadeEncontradaId, setUnidadeEncontradaId] = useState("");
-  const [salaEncontrada, setSalaEncontrada] = useState("");
+  const [unidadeEncontradaId, setUnidadeEncontradaId] = useState(initialUi?.unidadeEncontradaId || "");
+  const [salaEncontrada, setSalaEncontrada] = useState(initialUi?.salaEncontrada || "");
   const [scannerValue, setScannerValue] = useState("");
   const [uiError, setUiError] = useState(null);
   const [lastScans, setLastScans] = useState([]);
+  const [catalogMeta, setCatalogMeta] = useState({ source: null, loadedAt: null, count: 0 });
+
+  if (initialUi && !initialUi._migrated) {
+    // Marca como migrado para evitar reprocessamento em renders futuros.
+    saveInventoryUiState({ _migrated: true });
+  }
 
   const eventosQuery = useQuery({
     queryKey: ["inventarioEventos", "EM_ANDAMENTO"],
@@ -257,7 +286,14 @@ export default function InventoryRoomPanel() {
       return;
     }
     try {
-      await bensSalaQuery.refetch();
+      const r = await bensSalaQuery.refetch();
+      const items = Array.isArray(r.data) ? r.data : [];
+      setCatalogMeta({
+        source: navigator.onLine ? "API" : "CACHE_OFFLINE",
+        loadedAt: new Date().toISOString(),
+        count: items.length,
+      });
+      saveInventoryUiState({ salaEncontrada, unidadeEncontradaId, selectedEventoId: selectedEventoIdFinal });
     } catch (error) {
       if (String(error?.message || "").includes("SEM_CACHE_OFFLINE")) {
         setUiError("Sem cache offline para esta sala. Conecte-se e baixe o catálogo da sala pelo menos uma vez.");
@@ -296,6 +332,28 @@ export default function InventoryRoomPanel() {
       return;
     }
     if (!selectedEventoIdFinal) return;
+
+    if (offline.pendingCount > 0) {
+      const msgBase = `Há ${offline.pendingCount} item(ns) pendente(s) de sincronização offline.`;
+      if (navigator.onLine) {
+        const sync = window.confirm(`${msgBase}\n\nDeseja sincronizar agora antes de ${status.toLowerCase()} o evento?`);
+        if (sync) {
+          try {
+            await offline.syncNow();
+            await contagensSalaQuery.refetch().catch(() => undefined);
+          } catch (_e) {
+            // sem fatal; a tela vai mostrar erro do hook se falhar
+          }
+        }
+      }
+
+      if (status === "ENCERRADO" && offline.pendingCount > 0) {
+        const proceed = window.confirm(
+          `${msgBase}\n\nEncerrar com pendências pode fazer você "perder" registros no servidor até sincronizar.\n\nDeseja encerrar mesmo assim?`,
+        );
+        if (!proceed) return;
+      }
+    }
 
     atualizarStatusMut.mutate({
       id: selectedEventoIdFinal,
@@ -354,6 +412,7 @@ export default function InventoryRoomPanel() {
 
     await offline.enqueue(payload);
     setScannerValue("");
+    saveInventoryUiState({ salaEncontrada, unidadeEncontradaId, selectedEventoId: selectedEventoIdFinal });
     setLastScans((prev) => [
       {
         id: payload.id,
@@ -614,6 +673,21 @@ export default function InventoryRoomPanel() {
           </p>
         </div>
 
+        {catalogMeta?.source && (
+          <p className="mt-2 text-[11px] text-slate-400">
+            fonte:{" "}
+            <span className="font-semibold text-slate-200">
+              {catalogMeta.source === "API" ? "API (online)" : "CACHE (offline)"}
+            </span>
+            {catalogMeta.loadedAt ? (
+              <span>
+                {" "}
+                | carregado em: {new Date(catalogMeta.loadedAt).toLocaleString()}
+              </span>
+            ) : null}
+          </p>
+        )}
+
         {bensSalaQuery.error && (
           <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
         )}
@@ -630,6 +704,10 @@ export default function InventoryRoomPanel() {
                 const total = g.items.length;
                 const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
                 const faltantes = Math.max(0, total - encontrados);
+                const divergentes = g.items.reduce((acc, b) => {
+                  const meta = getConferenciaMeta(b);
+                  return acc + (meta.encontrado && meta.divergente ? 1 : 0);
+                }, 0);
                 return (
                   <summary className="cursor-pointer select-none">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
@@ -637,6 +715,7 @@ export default function InventoryRoomPanel() {
                       <span className="text-xs font-normal text-slate-300">
                         Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
                         | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
+                        | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
                         | Faltantes: <span className="font-semibold text-amber-200">{faltantes}</span>
                       </span>
                     </div>
@@ -678,6 +757,131 @@ export default function InventoryRoomPanel() {
           ))}
         </div>
       </article>
+
+      <DivergencesPanel
+        salaEncontrada={salaEncontrada}
+        contagens={contagensSalaQuery.data || []}
+        offlineItems={offline.items || []}
+        bensSala={bensSalaQuery.data || []}
+        eventoInventarioId={selectedEventoIdFinal}
+      />
     </section>
+  );
+}
+
+function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, eventoInventarioId }) {
+  const salaKey = normalizeRoomKey(salaEncontrada);
+
+  const bemByTomb = useMemo(() => {
+    const m = new Map();
+    for (const b of bensSala || []) {
+      if (b?.numeroTombamento) m.set(String(b.numeroTombamento), b);
+    }
+    return m;
+  }, [bensSala]);
+
+  const serverDivergences = useMemo(() => {
+    const out = [];
+    for (const c of contagens || []) {
+      if (c?.tipoOcorrencia !== "ENCONTRADO_EM_LOCAL_DIVERGENTE") continue;
+      if (normalizeRoomKey(c.salaEncontrada) !== salaKey) continue;
+      if (c?.regularizacaoPendente === false) continue;
+      out.push({
+        fonte: "SERVIDOR",
+        numeroTombamento: c.numeroTombamento,
+        unidadeDonaId: c.unidadeDonaId,
+        unidadeEncontradaId: c.unidadeEncontradaId,
+        encontradoEm: c.encontradoEm,
+      });
+    }
+    return out;
+  }, [contagens, salaKey]);
+
+  const pendingDivergences = useMemo(() => {
+    const out = [];
+    for (const it of offlineItems || []) {
+      if (!eventoInventarioId || it.eventoInventarioId !== eventoInventarioId) continue;
+      if (normalizeRoomKey(it.salaEncontrada) !== salaKey) continue;
+      const b = it.numeroTombamento ? bemByTomb.get(String(it.numeroTombamento)) : null;
+      const unidadeDonaId = b?.unidadeDonaId != null ? Number(b.unidadeDonaId) : null;
+      const unidadeEncontradaId = it.unidadeEncontradaId != null ? Number(it.unidadeEncontradaId) : null;
+      const divergente =
+        Number.isInteger(unidadeDonaId) && Number.isInteger(unidadeEncontradaId) ? unidadeDonaId !== unidadeEncontradaId : false;
+      if (!divergente) continue;
+      out.push({
+        fonte: "PENDENTE",
+        numeroTombamento: it.numeroTombamento,
+        unidadeDonaId,
+        unidadeEncontradaId,
+        encontradoEm: it.encontradoEm,
+      });
+    }
+    return out;
+  }, [offlineItems, eventoInventarioId, salaKey, bemByTomb]);
+
+  const all = useMemo(() => {
+    const map = new Map();
+    for (const row of [...serverDivergences, ...pendingDivergences]) {
+      if (!row.numeroTombamento) continue;
+      // Preferir servidor quando existir, para refletir persistencia real.
+      const key = String(row.numeroTombamento);
+      const prev = map.get(key);
+      if (!prev || prev.fonte === "PENDENTE") map.set(key, row);
+    }
+    return Array.from(map.values()).sort((a, b) => String(b.encontradoEm || "").localeCompare(String(a.encontradoEm || "")));
+  }, [serverDivergences, pendingDivergences]);
+
+  if (!salaEncontrada.trim()) return null;
+
+  return (
+    <article className="mt-5 rounded-2xl border border-white/15 bg-slate-950/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">Divergências na sala (Art. 185)</h3>
+        <p className="text-xs text-slate-300">
+          Pendentes: <span className="font-semibold text-rose-200">{all.length}</span>
+        </p>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">
+        Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
+      </p>
+
+      {all.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
+      ) : (
+        <div className="mt-3 overflow-auto rounded-xl border border-white/10">
+          <table className="min-w-[820px] w-full text-sm">
+            <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
+              <tr>
+                <th className="px-3 py-3 text-left">Tombo</th>
+                <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
+                <th className="px-3 py-3 text-left">Unid. dona</th>
+                <th className="px-3 py-3 text-left">Unid. encontrada</th>
+                <th className="px-3 py-3 text-left">Fonte</th>
+                <th className="px-3 py-3 text-left">Quando</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10 bg-slate-900/40">
+              {all.slice(0, 120).map((d) => {
+                const b = d.numeroTombamento ? bemByTomb.get(String(d.numeroTombamento)) : null;
+                return (
+                  <tr key={`${d.fonte}|${d.numeroTombamento}`}>
+                    <td className="px-3 py-3 font-mono text-xs text-slate-100">{d.numeroTombamento}</td>
+                    <td className="px-3 py-3 text-slate-200">{b?.catalogoDescricao || "-"}</td>
+                    <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(d.unidadeDonaId))}</td>
+                    <td className="px-3 py-3 text-amber-100">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] ${d.fonte === "SERVIDOR" ? "border-emerald-300/40 bg-emerald-200/10 text-emerald-200" : "border-amber-300/40 bg-amber-200/10 text-amber-200"}`}>
+                        {d.fonte}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-slate-300">{d.encontradoEm ? new Date(d.encontradoEm).toLocaleString() : "-"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </article>
   );
 }

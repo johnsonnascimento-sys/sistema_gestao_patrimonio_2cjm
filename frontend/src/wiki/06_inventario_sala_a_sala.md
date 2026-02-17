@@ -57,6 +57,7 @@ No inventario, selecione:
 Observacao:
 
 - A unidade "encontrada" e a unidade do ambiente sendo inventariado naquele momento.
+- Com autenticação ativa, o executor e o usuario logado (nao precisa digitar perfilId).
 
 ### 2) Baixar lista da sala (quando suportado)
 
@@ -64,6 +65,11 @@ O sistema pode baixar a lista de bens daquele ambiente para facilitar:
 
 - agrupar por catálogo
 - exibir total esperado
+
+Offline:
+
+- Se estiver sem internet, o sistema tenta usar o **cache offline** (IndexedDB) da sala.
+- Se nao houver cache, voce precisa conectar e baixar o catalogo pelo menos uma vez.
 
 ### 3) Scanner (input de tombamento)
 
@@ -98,6 +104,18 @@ Importante:
 - O operador deve sempre ver a fila pendente (quantidade).
 - A sincronização deve ser determinística (sem "reconciliação inteligente").
 
+## Divergencias por sala (lista)
+
+A tela mostra um painel de **Divergencias na sala** com:
+
+- Itens divergentes ja persistidos no servidor (fonte `SERVIDOR`).
+- Itens divergentes ainda pendentes offline (fonte `PENDENTE`).
+
+Isso ajuda a equipe a:
+
+- enxergar intrusos antes de sair da sala
+- preparar a regularizacao pos-inventario (Art. 185)
+
 ## O que o operador deve verificar no fim da sala
 
 Antes de sair da sala:
@@ -113,4 +131,7 @@ Encerrar inventário é um ato formal (quando a tela/fluxo estiver completo):
 - Ele libera novamente transferências (fim do congelamento).
 - Ele consolida pendências para regularização.
 
-Nunca encerre se ainda houver contagens pendentes de sincronização.
+Guardrail:
+
+- A UI alerta se houver itens pendentes offline e oferece sincronizar antes de encerrar.
+- Evite encerrar se ainda houver contagens pendentes de sincronização.
