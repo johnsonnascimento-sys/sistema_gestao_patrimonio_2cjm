@@ -474,6 +474,56 @@ app.get("/bens", mustAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * Sugestoes de "local_fisico" a partir dos dados reais de bens.
+ * Uso: UX de inventario ("Baixar catalogo da sala") quando o filtro retorna 0 itens.
+ *
+ * Regra operacional:
+ * - Nao altera o modelo. Apenas ajuda o usuario a encontrar o texto correto do local.
+ */
+app.get("/bens/locais-sugestoes", mustAuth, async (req, res, next) => {
+  try {
+    const q = req.query || {};
+    const termo = q.termo != null ? String(q.termo).trim() : "";
+    const termo2 = q.q != null ? String(q.q).trim() : "";
+    const busca = (termo || termo2).slice(0, 180);
+    if (busca.length < 2) {
+      res.json({ requestId: req.requestId, items: [] });
+      return;
+    }
+
+    const unidadeDonaId = q.unidadeDonaId != null && String(q.unidadeDonaId).trim() !== ""
+      ? Number(q.unidadeDonaId)
+      : null;
+    if (unidadeDonaId != null && (!Number.isInteger(unidadeDonaId) || !VALID_UNIDADES.has(unidadeDonaId))) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+    }
+
+    const where = ["eh_bem_terceiro = FALSE", "local_fisico IS NOT NULL", "local_fisico <> ''", "local_fisico ILIKE $1"];
+    const params = [`%${busca}%`];
+    let i = 2;
+    if (unidadeDonaId != null) {
+      where.push(`unidade_dona_id = $${i}`);
+      params.push(unidadeDonaId);
+      i += 1;
+    }
+
+    const r = await pool.query(
+      `SELECT local_fisico AS "localFisico", COUNT(*)::int AS total
+       FROM bens
+       WHERE ${where.join(" AND ")}
+       GROUP BY local_fisico
+       ORDER BY total DESC, local_fisico ASC
+       LIMIT 25;`,
+      params,
+    );
+
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/bens/:id", mustAuth, async (req, res, next) => {
   try {
     const id = String(req.params?.id || "").trim();

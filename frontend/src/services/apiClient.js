@@ -185,6 +185,26 @@ export async function listarBens(filters = {}) {
 }
 
 /**
+ * Sugestoes de "local_fisico" a partir dos bens reais.
+ * Usado para orientar o usuario quando "Baixar catalogo da sala" retorna 0 itens.
+ *
+ * @param {{ q: string, unidadeDonaId?: number }} params Filtros.
+ * @returns {Promise<{requestId: string, items: {localFisico: string, total: number}[]}>} Lista de sugestoes.
+ */
+export async function listarSugestoesLocaisBens(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.q) usp.set("q", String(params.q));
+  if (params.unidadeDonaId) usp.set("unidadeDonaId", String(params.unidadeDonaId));
+
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/bens/locais-sugestoes${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Registra bem de terceiro durante inventario (sem tombamento GEAFIN).
  * @param {object} payload Payload.
  * @returns {Promise<object>} Bem + contagem criada.

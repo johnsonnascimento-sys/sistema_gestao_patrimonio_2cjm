@@ -66,6 +66,13 @@ O sistema pode baixar a lista de bens daquele ambiente para facilitar:
 - agrupar por catálogo
 - exibir total esperado
 
+Importante (quando vier 0 itens):
+
+- O botão "Baixar catálogo da sala" usa o filtro `local_fisico` (texto) dos bens importados do GEAFIN.
+- Se você digitar "Sala 101" mas no banco o local estiver como "1ª Aud - Sala 101 - Secretaria", o filtro deve funcionar (parcial).
+- Se vier **0 itens**, normalmente significa que o texto digitado **não aparece** em nenhum `local_fisico`.
+- Use as **Sugestões** que aparecem na tela, ou copie um valor real da coluna "Local" na aba "Consulta de Bens" e cole no campo "Sala/local".
+
 Offline:
 
 - Se estiver sem internet, o sistema tenta usar o **cache offline** (IndexedDB) da sala.

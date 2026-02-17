@@ -13,6 +13,7 @@ import {
   criarEventoInventario,
   listarContagensInventario,
   listarBens,
+  listarSugestoesLocaisBens,
   listarBensTerceirosInventario,
   listarEventosInventario,
   registrarBemTerceiroInventario,
@@ -215,6 +216,22 @@ export default function InventoryRoomPanel() {
       const items = data.items || [];
       await saveRoomCatalogToCache(local, items);
       return items;
+    },
+  });
+
+  const sugestoesLocaisQuery = useQuery({
+    queryKey: ["bensSalaSugestoes", salaEncontrada, unidadeEncontradaId],
+    enabled: Boolean(
+      navigator.onLine &&
+        catalogMeta?.loadedAt &&
+        Number(catalogMeta?.count || 0) === 0 &&
+        salaEncontrada.trim().length >= 2,
+    ),
+    queryFn: async () => {
+      const termo = salaEncontrada.trim();
+      const unidade = unidadeEncontradaId ? Number(unidadeEncontradaId) : null;
+      const data = await listarSugestoesLocaisBens({ q: termo, unidadeDonaId: unidade != null ? unidade : undefined });
+      return data.items || [];
     },
   });
 
@@ -884,10 +901,51 @@ export default function InventoryRoomPanel() {
         {bensSalaQuery.error && (
           <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
         )}
-        {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && (
+        {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
           <p className="mt-3 text-sm text-slate-300">
             Carregue uma sala para ver o catálogo agrupado (usa filtro por <code className="px-1">local_fisico</code>).
           </p>
+        )}
+        {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
+          <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
+            <p className="text-sm text-slate-200">
+              Nenhum bem encontrado para <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
+            </p>
+            <p className="text-xs text-slate-400">
+              Isso significa que nenhum bem possui <code className="px-1">local_fisico</code> contendo esse texto. Dica: abra a aba
+              "Consulta de Bens", copie um valor real da coluna "Local" e cole aqui, ou use apenas uma parte do texto (ex.: "Almox",
+              "Hall", "Material Permanente").
+            </p>
+
+            {navigator.onLine ? (
+              sugestoesLocaisQuery.isFetching ? (
+                <p className="text-xs text-slate-400">Buscando sugestões de locais...</p>
+              ) : (sugestoesLocaisQuery.data || []).length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-widest text-slate-400">Sugestões encontradas</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(sugestoesLocaisQuery.data || []).slice(0, 10).map((s) => (
+                      <button
+                        key={s.localFisico}
+                        type="button"
+                        onClick={() => setSalaEncontrada(String(s.localFisico))}
+                        className="rounded-full border border-white/20 bg-slate-900/40 px-3 py-1 text-xs text-slate-200 hover:bg-white/10"
+                        title={`${s.total} bem(ns)`}
+                      >
+                        {s.localFisico} <span className="text-slate-400">({s.total})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Nenhuma sugestão encontrada para este termo.</p>
+              )
+            ) : (
+              <p className="text-xs text-slate-400">
+                Offline: sem sugestões. Conecte-se para pesquisar valores reais de <code className="px-1">local_fisico</code>.
+              </p>
+            )}
+          </div>
         )}
 
         <div className="mt-3 space-y-2">
