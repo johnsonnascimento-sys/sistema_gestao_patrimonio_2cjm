@@ -105,6 +105,7 @@ Pré-requisitos:
 1. Banco (Supabase) precisa ter as colunas de autenticação em `perfis`.
    - Migração: `database/006_auth_and_access.sql`
 2. Backend precisa de um segredo JWT configurado no `.env`.
+3. O `docker-compose.vps.yml` precisa repassar `AUTH_*` para o serviço `backend` (já previsto no repo).
 
 Passo a passo (VPS):
 

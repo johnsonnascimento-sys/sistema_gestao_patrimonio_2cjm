@@ -19,6 +19,11 @@ services:
       DB_SSL: "${DB_SSL:-require}"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-*}"
       DATABASE_URL: "${DATABASE_URL}"
+      # Modulo: backend/auth
+      # Funcao: repassar AUTH_* do .env para habilitar login via JWT (quando ativado).
+      AUTH_ENABLED: "${AUTH_ENABLED:-false}"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-}"
+      AUTH_JWT_EXPIRES_IN: "${AUTH_JWT_EXPIRES_IN:-12h}"
 
   frontend:
     container_name: cjm_frontend
@@ -30,4 +35,3 @@ services:
     image: cjm-patrimonio-frontend:latest
     restart: unless-stopped
     network_mode: host
-
