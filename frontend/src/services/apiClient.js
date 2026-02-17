@@ -269,6 +269,42 @@ export async function movimentarBem(payload) {
 }
 
 /**
+ * Lista documentos/evidencias (metadados) associados a movimentacoes/contagens.
+ * @param {{movimentacaoId?: string, contagemId?: string}} filters Filtros.
+ * @returns {Promise<{requestId: string, items: any[]}>} Lista de documentos.
+ */
+export async function listarDocumentos(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.movimentacaoId) params.set("movimentacaoId", String(filters.movimentacaoId));
+  if (filters.contagemId) params.set("contagemId", String(filters.contagemId));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  const response = await safeFetch(`${API_BASE_URL}/documentos${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Registra metadados de documento (Drive/PDF) para auditoria.
+ * Endpoint restrito a ADMIN quando autenticacao estiver ativa.
+ * @param {object} payload Payload.
+ * @returns {Promise<{requestId: string, documento: object}>} Documento criado.
+ */
+export async function criarDocumento(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/documentos`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Lista eventos de inventario.
  * @param {string=} status Filtra por status (ex.: EM_ANDAMENTO).
  * @returns {Promise<object>} Lista de eventos.

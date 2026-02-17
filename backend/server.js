@@ -859,6 +859,161 @@ app.patch("/inventario/eventos/:id/status", mustAuth, inventario.patchEventoStat
 app.post("/inventario/sync", mustAuth, inventario.postSync);
 app.post("/inventario/regularizacoes", mustAdmin, inventario.postRegularizacao);
 
+/**
+ * Lista documentos/evidencias vinculados a movimentacoes/contagens.
+ *
+ * Regra operacional:
+ * - Nao retorna conteudo binario. Apenas metadados (Drive URL/ID/hash).
+ * - Util para auditoria e para a UI exibir links dos termos.
+ *
+ * Query params:
+ * - movimentacaoId: UUID (opcional)
+ * - contagemId: UUID (opcional)
+ */
+app.get("/documentos", mustAuth, async (req, res, next) => {
+  try {
+    const q = req.query || {};
+    const movimentacaoId = q.movimentacaoId != null ? String(q.movimentacaoId).trim() : "";
+    const contagemId = q.contagemId != null ? String(q.contagemId).trim() : "";
+
+    if (movimentacaoId && !UUID_RE.test(movimentacaoId)) {
+      throw new HttpError(422, "MOVIMENTACAO_ID_INVALIDO", "movimentacaoId deve ser UUID.");
+    }
+    if (contagemId && !UUID_RE.test(contagemId)) {
+      throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId deve ser UUID.");
+    }
+
+    const where = ["1=1"];
+    const params = [];
+    let i = 1;
+
+    if (movimentacaoId) {
+      where.push(`movimentacao_id = $${i}`);
+      params.push(movimentacaoId);
+      i += 1;
+    }
+    if (contagemId) {
+      where.push(`contagem_id = $${i}`);
+      params.push(contagemId);
+      i += 1;
+    }
+
+    const r = await pool.query(
+      `SELECT
+         id,
+         tipo::text AS "tipo",
+         titulo,
+         movimentacao_id AS "movimentacaoId",
+         contagem_id AS "contagemId",
+         termo_referencia AS "termoReferencia",
+         arquivo_nome AS "arquivoNome",
+         mime,
+         bytes,
+         sha256,
+         drive_file_id AS "driveFileId",
+         drive_url AS "driveUrl",
+         gerado_por_perfil_id AS "geradoPorPerfilId",
+         gerado_em AS "geradoEm",
+         observacoes
+       FROM documentos
+       WHERE ${where.join(" AND ")}
+       ORDER BY gerado_em DESC
+       LIMIT 500;`,
+      params,
+    );
+
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Registra metadados de documento (evidencia) gerado no n8n/Drive.
+ *
+ * Regra legal:
+ * - Evidencia documental e obrigatoria para transferencia/cautela (Arts. 124/127 - AN303_Art124/AN303_Art127).
+ *
+ * Observacao:
+ * - Endpoint ADMIN: evita spam e garante consistencia de auditoria.
+ */
+app.post("/documentos", mustAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const tipo = String(body.tipo || "").trim().toUpperCase();
+    const allowed = new Set([
+      "TERMO_TRANSFERENCIA",
+      "TERMO_CAUTELA",
+      "TERMO_REGULARIZACAO",
+      "RELATORIO_FORASTEIROS",
+      "OUTRO",
+    ]);
+    if (!allowed.has(tipo)) throw new HttpError(422, "TIPO_INVALIDO", "tipo de documento invalido.");
+
+    const movimentacaoId = body.movimentacaoId != null ? String(body.movimentacaoId).trim() : "";
+    const contagemId = body.contagemId != null ? String(body.contagemId).trim() : "";
+    if (movimentacaoId && !UUID_RE.test(movimentacaoId)) throw new HttpError(422, "MOVIMENTACAO_ID_INVALIDO", "movimentacaoId deve ser UUID.");
+    if (contagemId && !UUID_RE.test(contagemId)) throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId deve ser UUID.");
+
+    const termoReferencia = body.termoReferencia != null ? String(body.termoReferencia).trim().slice(0, 120) : null;
+    const titulo = body.titulo != null ? String(body.titulo).trim().slice(0, 180) : null;
+    const arquivoNome = body.arquivoNome != null ? String(body.arquivoNome).trim().slice(0, 200) : null;
+    const mime = body.mime != null ? String(body.mime).trim().slice(0, 120) : null;
+    const bytes = body.bytes != null && body.bytes !== "" ? Number(body.bytes) : null;
+    if (bytes != null && (!Number.isFinite(bytes) || bytes < 0)) throw new HttpError(422, "BYTES_INVALIDO", "bytes deve ser >= 0.");
+
+    const sha256 = body.sha256 != null ? String(body.sha256).trim() : null;
+    if (sha256 && !/^[0-9a-f]{64}$/i.test(sha256)) throw new HttpError(422, "SHA256_INVALIDO", "sha256 deve ter 64 hex chars.");
+
+    const driveFileId = body.driveFileId != null ? String(body.driveFileId).trim().slice(0, 200) : null;
+    const driveUrl = body.driveUrl != null ? String(body.driveUrl).trim() : null;
+    if (!driveUrl) throw new HttpError(422, "DRIVE_URL_OBRIGATORIA", "driveUrl e obrigatorio.");
+
+    const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+
+    const r = await pool.query(
+      `INSERT INTO documentos (
+         tipo, titulo, movimentacao_id, contagem_id, termo_referencia,
+         arquivo_nome, mime, bytes, sha256, drive_file_id, drive_url,
+         gerado_por_perfil_id, observacoes
+       ) VALUES (
+         $1::public.tipo_documento, $2, $3, $4, $5,
+         $6, $7, $8, $9, $10, $11,
+         $12, $13
+       )
+       RETURNING
+         id,
+         tipo::text AS "tipo",
+         titulo,
+         movimentacao_id AS "movimentacaoId",
+         contagem_id AS "contagemId",
+         termo_referencia AS "termoReferencia",
+         drive_file_id AS "driveFileId",
+         drive_url AS "driveUrl",
+         gerado_em AS "geradoEm";`,
+      [
+        tipo,
+        titulo,
+        movimentacaoId || null,
+        contagemId || null,
+        termoReferencia,
+        arquivoNome,
+        mime,
+        bytes,
+        sha256,
+        driveFileId,
+        driveUrl,
+        req.user?.id || null,
+        observacoes,
+      ],
+    );
+
+    res.status(201).json({ requestId: req.requestId, documento: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, req, res, _next) => {
   if (error instanceof multer.MulterError) {
     res.status(400).json({ error: { code: "UPLOAD_INVALIDO", message: "Falha no upload do arquivo." }, requestId: req.requestId });

@@ -169,3 +169,30 @@ Regras:
 Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
+
+## Documentos (evidências)
+
+### GET `/documentos`
+
+Uso: listar evidências (metadados) associadas a movimentações/regularizações.
+
+Filtros (query):
+
+- `movimentacaoId=<uuid>`
+- `contagemId=<uuid>`
+
+### POST `/documentos`
+
+Uso: registrar metadados do documento gerado no n8n/Drive (PDF), para auditoria.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Campos (JSON):
+
+- `tipo`: `TERMO_TRANSFERENCIA|TERMO_CAUTELA|TERMO_REGULARIZACAO|RELATORIO_FORASTEIROS|OUTRO`
+- `movimentacaoId` (opcional)
+- `contagemId` (opcional)
+- `termoReferencia` (opcional)
+- `driveUrl` (obrigatório)
