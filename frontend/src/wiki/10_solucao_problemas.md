@@ -70,6 +70,22 @@ Se sumir:
 - Verifique se existe uma importacao em andamento ou concluida no endpoint de progresso (admin).
 - Se a pagina estiver usando cache, force recarregar (Ctrl+F5).
 
+## Modo Inventário fica em branco
+
+Sintoma:
+
+- Ao clicar em "Modo Inventário", a área principal fica vazia.
+
+O que significa:
+
+- Normalmente é erro de JavaScript no navegador ou um deploy incompleto.
+
+O que fazer (rápido):
+
+1. Force refresh (Ctrl+F5).
+2. Se continuar, limpe os dados do site (DevTools -> Application -> Clear storage) e recarregue.
+3. Confirme que o deploy foi feito com `./scripts/vps_deploy.sh all`.
+
 ## "Un" ao lado do botão Importar
 
 Isso é um fragmento visual do layout atual (botão/rótulo) e não representa uma unidade.

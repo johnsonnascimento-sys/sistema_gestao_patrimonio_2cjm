@@ -157,18 +157,6 @@ export default function InventoryRoomPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidadeEncontradaId]);
 
-  useEffect(() => {
-    // Mantem salaEncontrada coerente com o local selecionado (evita texto "solto" no estado).
-    if (!selectedLocalId) {
-      if (salaEncontrada) setSalaEncontrada("");
-      return;
-    }
-    const local = (locaisQuery.data || []).find((l) => String(l.id) === String(selectedLocalId));
-    if (local?.nome && String(local.nome) !== String(salaEncontrada || "")) {
-      setSalaEncontrada(String(local.nome));
-    }
-  }, [locaisQuery.data, salaEncontrada, selectedLocalId]);
-
   if (initialUi && !initialUi._migrated) {
     // Marca como migrado para evitar reprocessamento em renders futuros.
     saveInventoryUiState({ _migrated: true });
@@ -263,6 +251,18 @@ export default function InventoryRoomPanel() {
       return data.items || [];
     },
   });
+
+  useEffect(() => {
+    // Mantem salaEncontrada coerente com o local selecionado (evita texto "solto" no estado).
+    if (!selectedLocalId) {
+      if (salaEncontrada) setSalaEncontrada("");
+      return;
+    }
+    const local = (locaisQuery.data || []).find((l) => String(l.id) === String(selectedLocalId));
+    if (local?.nome && String(local.nome) !== String(salaEncontrada || "")) {
+      setSalaEncontrada(String(local.nome));
+    }
+  }, [locaisQuery.data, salaEncontrada, selectedLocalId]);
 
   const contagensSalaQuery = useQuery({
     queryKey: ["inventarioContagens", selectedEventoIdFinal, salaEncontrada],
