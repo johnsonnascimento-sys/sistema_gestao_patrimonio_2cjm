@@ -30,6 +30,7 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Wizard Art. 141 (inserviveis)
 - Relatórios e auditoria
 - Solução de problemas (erros comuns)
+- Checklist de migrações (Supabase)
 - Glossário
 - Segurança e sigilo operacional
 - Compliance ATN 303/2008 (resumo operacional + citacoes)

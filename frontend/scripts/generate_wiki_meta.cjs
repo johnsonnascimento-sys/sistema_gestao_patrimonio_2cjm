@@ -38,6 +38,7 @@ const PAGES = [
   { id: "api-ref", filename: "15_referencia_api.md" },
   { id: "matriz-compliance", filename: "16_matriz_compliance.md" },
   { id: "regularizacao", filename: "17_regularizacao_pos_inventario.md" },
+  { id: "checklist-migracoes", filename: "18_checklist_migracoes.md" },
 ];
 
 function toGitPath(p) {

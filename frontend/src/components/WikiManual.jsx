@@ -29,6 +29,7 @@ import mdAdminVps from "../wiki/14_admin_operacao_vps.md?raw";
 import mdApiRef from "../wiki/15_referencia_api.md?raw";
 import mdMatrizCompliance from "../wiki/16_matriz_compliance.md?raw";
 import mdRegularizacaoPosInventario from "../wiki/17_regularizacao_pos_inventario.md?raw";
+import mdChecklistMigracoes from "../wiki/18_checklist_migracoes.md?raw";
 import { wikiMeta } from "../wiki/wikiMeta.generated.js";
 
 const WIKI_PAGES = [
@@ -44,6 +45,7 @@ const WIKI_PAGES = [
   { id: "wizard-art141", title: "Wizard Art. 141 (inserviveis)", md: mdWizard141 },
   { id: "relatorios-auditoria", title: "Relatórios e auditoria", md: mdRelatoriosAuditoria },
   { id: "troubleshooting", title: "Solução de problemas", md: mdTroubleshooting },
+  { id: "checklist-migracoes", title: "Checklist de migrações (Supabase)", md: mdChecklistMigracoes },
   { id: "glossario", title: "Glossário", md: mdGlossario },
   { id: "seguranca", title: "Segurança e sigilo operacional", md: mdSeguranca },
   { id: "compliance", title: "Compliance ATN 303/2008", md: mdCompliance },
