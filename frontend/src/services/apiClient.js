@@ -355,6 +355,75 @@ export async function listarAvaliacoesInservivel(bemId) {
 }
 
 /**
+ * Lista locais padronizados (salas).
+ * @param {{unidadeId?: number}} filters Filtros.
+ * @returns {Promise<object>} Lista de locais.
+ */
+export async function listarLocais(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.unidadeId) params.set("unidadeId", String(filters.unidadeId));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/locais${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cria/atualiza local padronizado (ADMIN).
+ * @param {object} payload Dados do local.
+ * @returns {Promise<object>} Local criado/atualizado.
+ */
+export async function salvarLocal(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/locais`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza dados operacionais do bem (local/foto) (ADMIN).
+ * @param {string} bemId UUID do bem.
+ * @param {object} payload Campos operacionais.
+ * @returns {Promise<object>} Bem atualizado.
+ */
+export async function atualizarBemOperacional(bemId, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/bens/${encodeURIComponent(bemId)}/operacional`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza foto de referencia do catalogo (ADMIN).
+ * @param {string} catalogoBemId UUID do catalogo.
+ * @param {string} fotoReferenciaUrl URL.
+ * @returns {Promise<object>} Catalogo atualizado.
+ */
+export async function atualizarFotoCatalogo(catalogoBemId, fotoReferenciaUrl) {
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens/${encodeURIComponent(catalogoBemId)}/foto`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ fotoReferenciaUrl }),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Lista eventos de inventario.
  * @param {string=} status Filtra por status (ex.: EM_ANDAMENTO).
  * @returns {Promise<object>} Lista de eventos.

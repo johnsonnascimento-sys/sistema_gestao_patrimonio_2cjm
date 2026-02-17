@@ -205,6 +205,46 @@ Campos (JSON):
 
 Uso: listar o histórico de avaliações do Art. 141 para um bem.
 
+## Locais (salas) e fotos (camada operacional)
+
+### GET `/locais`
+
+Uso: listar locais padronizados.
+
+Filtro (query):
+
+- `unidadeId=1..4` (opcional)
+
+### POST `/locais`
+
+Uso: criar/atualizar local por `nome` (upsert).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+### PATCH `/bens/{id}/operacional`
+
+Uso: atualizar dados operacionais do bem (local/foto).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Campos (JSON):
+
+- `localFisico` (opcional)
+- `localId` (opcional; UUID)
+- `fotoUrl` (opcional)
+
+### PATCH `/catalogo-bens/{id}/foto`
+
+Uso: atualizar foto de referência do catálogo (SKU).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
 
 ## Documentos (evidências)
 

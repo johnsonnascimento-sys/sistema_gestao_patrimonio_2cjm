@@ -1098,6 +1098,144 @@ app.get("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * Lista locais (salas) padronizados.
+ */
+app.get("/locais", mustAuth, async (req, res, next) => {
+  try {
+    const unidadeId = req.query?.unidadeId != null && String(req.query.unidadeId).trim() !== ""
+      ? Number(req.query.unidadeId)
+      : null;
+    if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+    }
+
+    const where = [];
+    const params = [];
+    let i = 1;
+    if (unidadeId != null) {
+      where.push(`unidade_id = $${i}`);
+      params.push(unidadeId);
+      i += 1;
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const r = await pool.query(
+      `SELECT id, nome, unidade_id AS "unidadeId", tipo, observacoes
+       FROM locais
+       ${whereSql}
+       ORDER BY nome ASC
+       LIMIT 2000;`,
+      params,
+    );
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Cria/atualiza local padronizado.
+ * Restrito a ADMIN (quando auth ativa) por ser cadastro operacional.
+ */
+app.post("/locais", mustAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const nome = String(body.nome || "").trim().slice(0, 180);
+    if (!nome) throw new HttpError(422, "NOME_OBRIGATORIO", "nome e obrigatorio.");
+
+    const unidadeId = body.unidadeId != null && String(body.unidadeId).trim() !== "" ? Number(body.unidadeId) : null;
+    if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+    }
+
+    const tipo = body.tipo != null ? String(body.tipo).trim().slice(0, 40) : null;
+    const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+
+    const r = await pool.query(
+      `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (nome) DO UPDATE SET
+         unidade_id = EXCLUDED.unidade_id,
+         tipo = EXCLUDED.tipo,
+         observacoes = EXCLUDED.observacoes,
+         updated_at = NOW()
+       RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes;`,
+      [nome, unidadeId, tipo, observacoes],
+    );
+
+    res.status(201).json({ requestId: req.requestId, local: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Atualiza localizacao e fotos de um bem (camada operacional melhorada).
+ * Restrito a ADMIN (quando auth ativa).
+ */
+app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    const localFisico = body.localFisico != null ? String(body.localFisico).trim().slice(0, 180) : null;
+    const localId = body.localId != null && String(body.localId).trim() !== "" ? String(body.localId).trim() : null;
+    if (localId && !UUID_RE.test(localId)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
+
+    const fotoUrl = body.fotoUrl != null ? String(body.fotoUrl).trim().slice(0, 2000) : null;
+
+    const r = await pool.query(
+      `UPDATE bens
+       SET
+         local_fisico = COALESCE($2, local_fisico),
+         local_id = $3,
+         foto_url = COALESCE($4, foto_url),
+         updated_at = NOW()
+       WHERE id = $1
+       RETURNING id,
+         numero_tombamento AS "numeroTombamento",
+         local_fisico AS "localFisico",
+         local_id AS "localId",
+         foto_url AS "fotoUrl";`,
+      [id, localFisico, localId, fotoUrl],
+    );
+    if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    res.json({ requestId: req.requestId, bem: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Atualiza foto de referencia do catalogo (SKU).
+ * Restrito a ADMIN (quando auth ativa).
+ */
+app.patch("/catalogo-bens/:id/foto", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "id deve ser UUID.");
+
+    const url = String(req.body?.fotoReferenciaUrl || req.body?.url || "").trim().slice(0, 2000);
+    if (!url) throw new HttpError(422, "URL_OBRIGATORIA", "fotoReferenciaUrl e obrigatorio.");
+
+    const r = await pool.query(
+      `UPDATE catalogo_bens
+       SET foto_referencia_url = $2, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, codigo_catalogo AS "codigoCatalogo", foto_referencia_url AS "fotoReferenciaUrl";`,
+      [id, url],
+    );
+    if (!r.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
+
+    res.json({ requestId: req.requestId, catalogo: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, req, res, _next) => {
   if (error instanceof multer.MulterError) {
     res.status(400).json({ error: { code: "UPLOAD_INVALIDO", message: "Falha no upload do arquivo." }, requestId: req.requestId });
