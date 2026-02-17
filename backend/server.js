@@ -857,6 +857,7 @@ app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.post("/inventario/eventos", mustAuth, inventario.postEvento);
 app.patch("/inventario/eventos/:id/status", mustAuth, inventario.patchEventoStatus);
 app.post("/inventario/sync", mustAuth, inventario.postSync);
+app.post("/inventario/bens-terceiros", mustAuth, inventario.postBemTerceiro);
 app.post("/inventario/regularizacoes", mustAdmin, inventario.postRegularizacao);
 
 /**

@@ -14,6 +14,7 @@ import {
   listarContagensInventario,
   listarBens,
   listarEventosInventario,
+  registrarBemTerceiroInventario,
 } from "../services/apiClient.js";
 
 const TOMBAMENTO_RE = /^\d{10}$/;
@@ -118,6 +119,12 @@ export default function InventoryRoomPanel() {
   const [scannerValue, setScannerValue] = useState("");
   const [uiError, setUiError] = useState(null);
   const [lastScans, setLastScans] = useState([]);
+
+  // Registro segregado: bem de terceiro (sem tombamento GEAFIN).
+  const [terceiroDescricao, setTerceiroDescricao] = useState("");
+  const [terceiroProprietario, setTerceiroProprietario] = useState("");
+  const [terceiroIdentificador, setTerceiroIdentificador] = useState("");
+  const [terceiroStatus, setTerceiroStatus] = useState(null);
   const [catalogMeta, setCatalogMeta] = useState({ source: null, loadedAt: null, count: 0 });
 
   if (initialUi && !initialUi._migrated) {
@@ -156,6 +163,21 @@ export default function InventoryRoomPanel() {
     onSuccess: async () => {
       setEncerramentoObs("");
       await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
+    },
+  });
+
+  const registrarBemTerceiroMut = useMutation({
+    mutationFn: (payload) => registrarBemTerceiroInventario(payload),
+    onSuccess: async () => {
+      setTerceiroDescricao("");
+      setTerceiroProprietario("");
+      setTerceiroIdentificador("");
+      setTerceiroStatus({ kind: "ok", at: new Date().toISOString() });
+
+      // Atualiza contagens da sala (se online) para refletir o registro.
+      await qc.invalidateQueries({ queryKey: ["inventarioContagens", selectedEventoIdFinal, salaEncontrada] }).catch(
+        () => undefined,
+      );
     },
   });
 
@@ -278,6 +300,41 @@ export default function InventoryRoomPanel() {
       Number(unidadeEncontradaId) >= 1 &&
       Number(unidadeEncontradaId) <= 4,
   );
+
+  const canRegisterTerceiro = Boolean(
+    canRegister &&
+      terceiroDescricao.trim().length >= 3 &&
+      terceiroProprietario.trim().length >= 3,
+  );
+
+  const onRegistrarBemTerceiro = async (e) => {
+    e.preventDefault();
+    setUiError(null);
+    setTerceiroStatus(null);
+
+    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
+    if (!perfilIdFinal) {
+      setUiError("Informe um perfilId (UUID) para registrar bem de terceiro.");
+      return;
+    }
+
+    if (!canRegisterTerceiro) {
+      setUiError("Preencha descriÃ§Ã£o e proprietÃ¡rio do bem de terceiro.");
+      return;
+    }
+
+    registrarBemTerceiroMut.reset();
+    registrarBemTerceiroMut.mutate({
+      eventoInventarioId: selectedEventoIdFinal,
+      unidadeEncontradaId: Number(unidadeEncontradaId),
+      salaEncontrada: salaEncontrada.trim(),
+      encontradoPorPerfilId: perfilIdFinal,
+      descricao: terceiroDescricao.trim(),
+      proprietarioExterno: terceiroProprietario.trim(),
+      identificadorExterno: terceiroIdentificador.trim() || undefined,
+      observacoes: "UI: registro de bem de terceiro durante inventÃ¡rio.",
+    });
+  };
 
   const onLoadSala = async () => {
     setUiError(null);
@@ -638,6 +695,65 @@ export default function InventoryRoomPanel() {
             >
               Registrar
             </button>
+          </form>
+
+          <form onSubmit={onRegistrarBemTerceiro} className="mt-4 rounded-xl border border-white/10 bg-slate-950/25 p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-100">Registrar bem de terceiro (segregado)</p>
+              <p className="text-[11px] text-slate-400">
+                Sem tombamento GEAFIN. Regra: Art. 99/110 VI/175 IX (AN303_Art99 / AN303_Art110_VI / AN303_Art175_IX).
+              </p>
+            </div>
+
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-xs text-slate-300">DescriÃ§Ã£o</span>
+                <input
+                  value={terceiroDescricao}
+                  onChange={(e) => setTerceiroDescricao(e.target.value)}
+                  placeholder="Ex.: Notebook do prestador de TI, impressora da empresa X..."
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">ProprietÃ¡rio externo</span>
+                <input
+                  value={terceiroProprietario}
+                  onChange={(e) => setTerceiroProprietario(e.target.value)}
+                  placeholder="Ex.: Empresa Contratada XYZ"
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Identificador externo (opcional)</span>
+                <input
+                  value={terceiroIdentificador}
+                  onChange={(e) => setTerceiroIdentificador(e.target.value)}
+                  placeholder="Ex.: ETIQ-000123 (ou deixe em branco)"
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="submit"
+                disabled={!canRegisterTerceiro || registrarBemTerceiroMut.isPending}
+                className="rounded-lg border border-white/25 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+              >
+                {registrarBemTerceiroMut.isPending ? "Registrando..." : "Registrar bem de terceiro"}
+              </button>
+
+              {terceiroStatus?.kind === "ok" ? (
+                <span className="text-xs text-emerald-200">Registrado.</span>
+              ) : null}
+            </div>
+
+            {registrarBemTerceiroMut.error ? (
+              <p className="mt-2 text-sm text-rose-200">
+                Falha ao registrar bem de terceiro: {String(registrarBemTerceiroMut.error?.message || "erro")}
+              </p>
+            ) : null}
           </form>
 
           {lastScans.length > 0 && (

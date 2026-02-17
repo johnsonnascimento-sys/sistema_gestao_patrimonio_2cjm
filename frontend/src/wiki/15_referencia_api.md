@@ -170,6 +170,20 @@ Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
 
+### POST `/inventario/bens-terceiros`
+
+Uso: registrar bem de terceiro durante inventário (sem tombamento GEAFIN), como ocorrência segregada.
+
+Body JSON (exemplo):
+
+- `eventoInventarioId` (UUID)
+- `unidadeEncontradaId` (1..4)
+- `salaEncontrada` (string)
+- `descricao` (string)
+- `proprietarioExterno` (string)
+- `identificadorExterno` (opcional)
+
+
 ## Documentos (evidências)
 
 ### GET `/documentos`

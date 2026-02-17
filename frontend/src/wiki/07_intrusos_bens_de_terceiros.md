@@ -1,82 +1,85 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/07_intrusos_bens_de_terceiros.md
-Funcao no sistema: definir "intruso" e "bem de terceiro" e como registrar sem violar o congelamento.
+Funcao no sistema: definir "intruso" e "bem de terceiro" e como registrar sem violar as regras do ATN 303/2008.
 -->
 
 # Intrusos e bens de terceiros
 
-## 1) Intruso (bem de outra unidade encontrado na sala)
+## 1) Intruso (bem STM de outra unidade encontrado na sala)
 
-### Definicao
+### Definição
 
-Um **intruso** (no contexto do sistema) e:
+Um **intruso** (no contexto do sistema) é:
 
-- Um bem **tombado e pertencente a uma unidade A** (carga no banco),
+- Um bem **tombado (GEAFIN) e pertencente a uma unidade A** (carga no banco),
 - mas que foi **encontrado fisicamente** no ambiente inventariado de uma unidade B.
 
 Isso é uma **divergência de localização**, não uma transferência automática.
 
-### O que o sistema deve fazer
+### O que o sistema faz
 
-- Registrar ocorrencia `ENCONTRADO_EM_LOCAL_DIVERGENTE`.
-- Marcar `regularizacao_pendente=true`.
-- Nunca mudar `unidade_dona_id` durante inventario.
+- Registra ocorrência `ENCONTRADO_EM_LOCAL_DIVERGENTE`.
+- Marca `regularizacao_pendente=true`.
+- Não muda `unidade_dona_id` durante inventário.
 
 Regra legal:
 
-- Art. 185 (AN303_Art185)
+- Art. 185 (AN303_Art185).
 
-## 2) "Bem de terceiro" (o que significa)
+## 2) Bem de terceiro (o que significa)
 
-### Definicao simples
+### Definição simples
 
-**Bem de terceiro** é um objeto que está no prédio/ambiente, mas **não pertence ao patrimônio da 2a CJM / STM**.
+**Bem de terceiro** é um objeto que está no prédio/ambiente, mas **não pertence ao patrimônio da 2ª CJM / STM**.
 
-Exemplos comuns (na pratica):
+Exemplos comuns:
 
-- Equipamento de empresa contratada (manutencao, TI terceirizada).
-- Equipamento emprestado por outro orgao/entidade.
-- Equipamento doado/cedido ainda sem incorporacao patrimonial.
+- Equipamento de empresa contratada (manutenção, TI terceirizada).
+- Equipamento emprestado por outro órgão/entidade.
+- Equipamento doado/cedido ainda sem incorporação patrimonial.
 
 Base legal (controle segregado):
 
-- Art. 99 (AN303_Art99)
-- Art. 110, VI (AN303_Art110_VI)
-- Art. 175, IX (AN303_Art175_IX)
+- Art. 99 (AN303_Art99).
+- Art. 110, VI (AN303_Art110_VI).
+- Art. 175, IX (AN303_Art175_IX).
 
-### Por que existe um botao "Bem de Terceiro"
+### Como registrar no sistema (durante o inventário)
 
-Durante inventário, você pode encontrar itens **sem tombamento do GEAFIN** ou itens que claramente não são do acervo.
+No **Modo Inventário**, use o bloco **"Registrar bem de terceiro (segregado)"** e informe:
 
-Nesse caso:
+- **Descrição** do item.
+- **Proprietário externo** (empresa/órgão/entidade).
+- **Identificador externo** (opcional): etiqueta, número do contrato, patrimônio do terceiro etc.
 
-- Você não deve "criar tombamento" no ato.
-- Você não deve transferir nada.
+O sistema:
 
-O botao permite registrar a existencia do item como **ocorrencia segregada**, para:
+- Cria um registro segregado em `bens` com `eh_bem_terceiro=true` (sem tombamento GEAFIN).
+- Cria uma contagem no evento com `tipo_ocorrencia='BEM_DE_TERCEIRO'`.
 
-- documentar o achado,
-- acionar regularizacao/controle correto depois,
-- evitar que o inventario fique "cego" para itens presentes no ambiente.
+Importante:
 
-## 3) Diferenca pratica: intruso x bem de terceiro
+- **Bem de terceiro não entra na fila de regularização do Art. 185** (porque não é "intruso" de carga STM).
+- Ele existe para **visibilidade e controle segregado**.
 
-- Intruso: tem tombamento conhecido no sistema, mas está no lugar errado.
-- Bem de terceiro: não é do patrimônio (ou não tem tombamento STM), deve ficar segregado.
+## 3) Diferença prática: intruso x bem de terceiro
 
-Se você tiver dúvida:
+- Intruso: tem tombamento STM e dono (carga) conhecido, mas está no lugar errado.
+- Bem de terceiro: não pertence ao patrimônio STM (sem tombamento GEAFIN), deve ficar segregado.
+
+Se tiver dúvida:
 
 1. Procure o tombamento (10 dígitos).
 2. Se existe no sistema: trate como intruso quando unidade divergir.
 3. Se não existe e você suspeita que é item externo: registre como bem de terceiro.
 
-## 4) O que acontece depois (regularizacao)
+## 4) O que acontece depois
 
 Depois do inventário:
 
-- A equipe analisa divergências.
-- Emite termo/documento quando for transferencia real.
-- Atualiza cadastro de localizacao e/ou cautela quando for o caso.
+- A equipe analisa divergências (intrusos) e regulariza quando o evento for ENCERRADO.
+- Bens de terceiros podem exigir ações administrativas (contrato, retirada, termo próprio), mas não viram transferência de carga STM.
 
-O inventario registra fatos. A regularizacao formaliza.
+O inventário registra fatos. A regularização formaliza.
+

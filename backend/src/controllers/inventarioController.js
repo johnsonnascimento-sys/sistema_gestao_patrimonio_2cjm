@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -710,7 +710,156 @@ function createInventarioController(deps) {
     }
   }
 
-  return { getEventos, getContagens, getForasteiros, postEvento, patchEventoStatus, postSync, postRegularizacao };
+  /**
+   * Registra "bem de terceiro" (sem tombamento GEAFIN) durante inventario.
+   *
+   * Regras:
+   * - Exige evento EM_ANDAMENTO (inventario aberto).
+   * - Cria um bem com `eh_bem_terceiro=true` e `identificador_externo` + `proprietario_externo`.
+   * - Cria contagem com `tipo_ocorrencia='BEM_DE_TERCEIRO'` (controle segregado).
+   *
+   * Regras legais:
+   * - Controle segregado de bens de terceiros: Art. 99 (AN303_Art99), Art. 110, VI (AN303_Art110_VI), Art. 175, IX (AN303_Art175_IX).
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function postBemTerceiro(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const body = req.body || {};
+      const eventoInventarioId = String(body.eventoInventarioId || body.eventoId || "").trim();
+      if (!UUID_RE.test(eventoInventarioId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+
+      const unidadeEncontradaId = Number(body.unidadeEncontradaId || body.unidadeId || 0);
+      if (!Number.isInteger(unidadeEncontradaId) || !VALID_UNIDADES.has(unidadeEncontradaId)) {
+        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeEncontradaId deve ser 1..4.");
+      }
+
+      const salaEncontrada = String(body.salaEncontrada || body.sala || "").trim().slice(0, 180);
+      if (!salaEncontrada) throw new HttpError(422, "SALA_OBRIGATORIA", "salaEncontrada e obrigatoria.");
+
+      const descricao = String(body.descricao || body.descricaoBem || "").trim().slice(0, 2000);
+      if (!descricao) throw new HttpError(422, "DESCRICAO_OBRIGATORIA", "descricao e obrigatoria.");
+
+      const proprietarioExterno = String(body.proprietarioExterno || body.detentorExterno || body.proprietario || "").trim().slice(0, 180);
+      if (!proprietarioExterno) throw new HttpError(422, "PROPRIETARIO_OBRIGATORIO", "proprietarioExterno e obrigatorio.");
+
+      const identificadorRaw = body.identificadorExterno != null ? String(body.identificadorExterno).trim() : "";
+      const identificadorExterno = (identificadorRaw || `TERC-${String(Date.now())}`).slice(0, 120);
+
+      const contratoReferencia = body.contratoReferencia != null ? String(body.contratoReferencia).trim().slice(0, 140) : null;
+      const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+
+      const encontradoPorPerfilId = req.user?.id ? String(req.user.id).trim() : String(body.encontradoPorPerfilId || "").trim();
+      if (!encontradoPorPerfilId || !UUID_RE.test(encontradoPorPerfilId)) {
+        throw new HttpError(422, "PERFIL_INVALIDO", "encontradoPorPerfilId (UUID) e obrigatorio.");
+      }
+
+      await client.query("BEGIN");
+
+      const ev = await client.query(
+        `SELECT id, status::text AS status, codigo_evento AS "codigoEvento"
+         FROM eventos_inventario
+         WHERE id = $1
+         LIMIT 1;`,
+        [eventoInventarioId],
+      );
+      if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento de inventario nao encontrado.");
+      if (String(ev.rows[0].status) !== "EM_ANDAMENTO") {
+        throw new HttpError(409, "EVENTO_NAO_ATIVO", "Registro de bem de terceiro exige evento EM_ANDAMENTO.");
+      }
+
+      await setDbContext(client, { changeOrigin: "APP", currentUserId: encontradoPorPerfilId });
+
+      // Catalogo "generico" para bens de terceiros (nao explode o catalogo com descricoes unicas).
+      const cat = await client.query(
+        `INSERT INTO catalogo_bens (codigo_catalogo, descricao, grupo, material_permanente)
+         VALUES ('TERCEIRO_GENERICO', 'Bem de terceiro (genérico)', 'TERCEIROS', FALSE)
+         ON CONFLICT (codigo_catalogo)
+         DO UPDATE SET updated_at = NOW()
+         RETURNING id;`,
+      );
+      const catalogoBemId = cat.rows[0].id;
+
+      const bemIns = await client.query(
+        `INSERT INTO bens (
+           numero_tombamento,
+           identificador_externo,
+           catalogo_bem_id,
+           descricao_complementar,
+           unidade_dona_id,
+           local_fisico,
+           status,
+           eh_bem_terceiro,
+           proprietario_externo,
+           contrato_referencia
+         ) VALUES (
+           NULL,
+           $1,
+           $2,
+           $3,
+           $4,
+           $5,
+           'OK',
+           TRUE,
+           $6,
+           $7
+         )
+         RETURNING
+           id,
+           identificador_externo AS "identificadorExterno",
+           descricao_complementar AS "descricao",
+           proprietario_externo AS "proprietarioExterno",
+           unidade_dona_id AS "unidadeDonaId",
+           local_fisico AS "localFisico";`,
+        [identificadorExterno, catalogoBemId, descricao, unidadeEncontradaId, salaEncontrada, proprietarioExterno, contratoReferencia],
+      );
+      const bem = bemIns.rows[0];
+
+      const cont = await client.query(
+        `INSERT INTO contagens (
+           evento_inventario_id, bem_id, unidade_encontrada_id, sala_encontrada,
+           status_apurado, tipo_ocorrencia, regularizacao_pendente,
+           encontrado_por_perfil_id, encontrado_em, observacoes
+         ) VALUES (
+           $1,$2,$3,$4,
+           'OK','BEM_DE_TERCEIRO',FALSE,
+           $5,NOW(),$6
+         )
+         RETURNING
+           id,
+           evento_inventario_id AS "eventoInventarioId",
+           bem_id AS "bemId",
+           unidade_encontrada_id AS "unidadeEncontradaId",
+           sala_encontrada AS "salaEncontrada",
+           tipo_ocorrencia::text AS "tipoOcorrencia",
+           encontrado_em AS "encontradoEm";`,
+        [eventoInventarioId, bem.id, unidadeEncontradaId, salaEncontrada, encontradoPorPerfilId, observacoes],
+      );
+      const contagem = cont.rows[0];
+
+      await client.query("COMMIT");
+      res.status(201).json({ requestId: req.requestId, bem, contagem });
+    } catch (error) {
+      await safeRollback(client);
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  return {
+    getEventos,
+    getContagens,
+    getForasteiros,
+    postEvento,
+    patchEventoStatus,
+    postSync,
+    postBemTerceiro,
+    postRegularizacao,
+  };
 }
 
 module.exports = { createInventarioController };

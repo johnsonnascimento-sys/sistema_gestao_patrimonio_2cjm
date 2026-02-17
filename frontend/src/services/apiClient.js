@@ -185,6 +185,23 @@ export async function listarBens(filters = {}) {
 }
 
 /**
+ * Registra bem de terceiro durante inventario (sem tombamento GEAFIN).
+ * @param {object} payload Payload.
+ * @returns {Promise<object>} Bem + contagem criada.
+ */
+export async function registrarBemTerceiroInventario(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/bens-terceiros`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Busca detalhes de um bem por id (UUID).
  * @param {string} id UUID do bem.
  * @returns {Promise<object>} Detalhe do bem (join com catalogo + historicos).
