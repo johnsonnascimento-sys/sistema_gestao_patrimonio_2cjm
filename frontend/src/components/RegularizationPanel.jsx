@@ -5,6 +5,7 @@
  */
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../context/AuthContext.jsx";
 import { listarForasteirosInventario, listarEventosInventario, regularizarForasteiro } from "../services/apiClient.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -19,6 +20,7 @@ function formatUnidade(id) {
 
 export default function RegularizationPanel() {
   const qc = useQueryClient();
+  const auth = useAuth();
   const [perfilId, setPerfilId] = useState("");
   const [termoReferencia, setTermoReferencia] = useState("");
   const [filterEvento, setFilterEvento] = useState("");
@@ -52,7 +54,9 @@ export default function RegularizationPanel() {
     });
   }, [forasteirosQuery.data, filterEvento, filterSala]);
 
-  const canUsePerfil = Boolean(perfilId.trim() && UUID_RE.test(perfilId.trim()));
+  const perfilIdEffective = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
+  const canUsePerfil = Boolean(perfilIdEffective && UUID_RE.test(perfilIdEffective));
+  const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
 
   const regularizarMut = useMutation({
     mutationFn: (payload) => regularizarForasteiro(payload),
@@ -66,9 +70,13 @@ export default function RegularizationPanel() {
   const onRegularizar = async (it, acao) => {
     regularizarMut.reset();
 
-    const perfilIdFinal = perfilId.trim();
+    const perfilIdFinal = perfilIdEffective;
     if (!canUsePerfil) {
       regularizarMut.setError(new Error("Informe um perfilId (UUID) valido para executar a regularizacao."));
+      return;
+    }
+    if (!canAdmin) {
+      regularizarMut.setError(new Error("Regularizacao restrita ao perfil ADMIN."));
       return;
     }
 
@@ -129,21 +137,36 @@ export default function RegularizationPanel() {
         </div>
       )}
 
+      {!canAdmin && auth.authEnabled && (
+        <div className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
+          Regularização é uma operação administrativa. Faça login com um perfil <strong>ADMIN</strong> para executar ações.
+        </div>
+      )}
+
       <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_1fr]">
-        <label className="block space-y-1">
-          <span className="text-xs text-slate-300">perfilId (UUID) do executor</span>
-          <input
-            value={perfilId}
-            onChange={(e) => setPerfilId(e.target.value)}
-            placeholder="UUID do perfil (ex.: criado em Operações API)"
-            className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-          />
-          {!perfilId.trim() ? null : (
-            <span className={`text-[11px] ${canUsePerfil ? "text-emerald-200" : "text-rose-200"}`}>
-              {canUsePerfil ? "UUID válido" : "UUID inválido"}
-            </span>
-          )}
-        </label>
+        {auth.perfil ? (
+          <div className="rounded-xl border border-white/10 bg-slate-950/25 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-slate-100">Executor</p>
+            <p className="mt-1">
+              {auth.perfil.nome} ({auth.perfil.matricula}) - perfilId {String(auth.perfil.id).slice(0, 8)}...
+            </p>
+          </div>
+        ) : (
+          <label className="block space-y-1">
+            <span className="text-xs text-slate-300">perfilId (UUID) do executor</span>
+            <input
+              value={perfilId}
+              onChange={(e) => setPerfilId(e.target.value)}
+              placeholder="UUID do perfil (ex.: criado em Operações API)"
+              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+            />
+            {!perfilId.trim() ? null : (
+              <span className={`text-[11px] ${canUsePerfil ? "text-emerald-200" : "text-rose-200"}`}>
+                {canUsePerfil ? "UUID válido" : "UUID inválido"}
+              </span>
+            )}
+          </label>
+        )}
 
         <label className="block space-y-1">
           <span className="text-xs text-slate-300">termoReferencia (obrigatório para Transferir)</span>
@@ -244,7 +267,7 @@ export default function RegularizationPanel() {
                       <button
                         type="button"
                         onClick={() => onRegularizar(it, "MANTER_CARGA")}
-                        disabled={!canUsePerfil || regularizarMut.isPending}
+                        disabled={!canAdmin || !canUsePerfil || regularizarMut.isPending}
                         className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-2 text-xs font-semibold hover:bg-white/5 disabled:opacity-50"
                         title="Encerra a pendência sem alterar a carga do bem."
                       >
@@ -253,7 +276,7 @@ export default function RegularizationPanel() {
                       <button
                         type="button"
                         onClick={() => onRegularizar(it, "TRANSFERIR_CARGA")}
-                        disabled={!canUsePerfil || !termoReferencia.trim() || regularizarMut.isPending}
+                        disabled={!canAdmin || !canUsePerfil || !termoReferencia.trim() || regularizarMut.isPending}
                         className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-50"
                         title="Executa a transferência de carga para a unidade encontrada e encerra a pendência."
                       >
@@ -273,4 +296,3 @@ export default function RegularizationPanel() {
     </section>
   );
 }
-

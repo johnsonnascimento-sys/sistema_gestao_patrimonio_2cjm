@@ -98,6 +98,47 @@ Por padrão:
 - `.env` fica apenas na VPS, não versionado.
 - `DATABASE_URL` aponta para Supabase (Postgres).
 
+## Ativar autenticação (login) em produção
+
+Pré-requisitos:
+
+1. Banco (Supabase) precisa ter as colunas de autenticação em `perfis`.
+   - Migração: `database/006_auth_and_access.sql`
+2. Backend precisa de um segredo JWT configurado no `.env`.
+
+Passo a passo (VPS):
+
+1. Editar o arquivo de ambiente do backend (no repo da VPS):
+
+```bash
+cd /opt/cjm-patrimonio/current
+nano .env
+```
+
+2. Adicionar/ajustar:
+
+```bash
+AUTH_ENABLED=true
+AUTH_JWT_SECRET=<defina_um_segredo_forte_aqui>
+AUTH_JWT_EXPIRES_IN=12h
+```
+
+3. Rebuild do backend:
+
+```bash
+./scripts/vps_deploy.sh backend
+```
+
+4. Validar:
+
+- `curl -sS https://patrimonio2cjm.johnsontn.com.br/api/health` retorna `authEnabled: true`.
+- Abrir o site e confirmar que aparece a tela de **Login**.
+
+Operação:
+
+- Um perfil existente (matrícula já cadastrada) usa "Primeiro acesso" para definir senha.
+- O primeiro "primeiro acesso" vira `ADMIN` se ainda não existir nenhum `ADMIN` cadastrado (bootstrap controlado).
+
 ## Padronização do diretório "current" (governança)
 
 Regra operacional:

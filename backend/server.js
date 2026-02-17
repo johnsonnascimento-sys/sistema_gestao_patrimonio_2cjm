@@ -14,6 +14,8 @@ const { parse } = require("csv-parse/sync");
 const swaggerUi = require("swagger-ui-express");
 const { Pool } = require("pg");
 const { randomUUID, createHash } = require("node:crypto");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const { setDbContext } = require("./src/services/dbContext");
 const { createInventarioController } = require("./src/controllers/inventarioController");
@@ -23,7 +25,13 @@ const HOST = process.env.HOST || "0.0.0.0";
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const DB_SSL = process.env.DB_SSL || "require";
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*";
+const AUTH_ENABLED = String(process.env.AUTH_ENABLED || "false").trim().toLowerCase() === "true";
+const AUTH_JWT_SECRET = process.env.AUTH_JWT_SECRET || "";
+const AUTH_JWT_EXPIRES_IN = process.env.AUTH_JWT_EXPIRES_IN || "12h";
 if (!DATABASE_URL) throw new Error("Variavel obrigatoria ausente: DATABASE_URL");
+if (AUTH_ENABLED && !AUTH_JWT_SECRET) {
+  throw new Error("Variavel obrigatoria ausente: AUTH_JWT_SECRET (AUTH_ENABLED=true)");
+}
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -38,6 +46,7 @@ const upload = multer({
 const VALID_UNIDADES = new Set([1, 2, 3, 4]);
 const VALID_MOV = new Set(["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"]);
 const VALID_STATUS_BEM = new Set(["OK", "BAIXADO", "EM_CAUTELA", "AGUARDANDO_RECEBIMENTO"]);
+const VALID_ROLES = new Set(["ADMIN", "OPERADOR"]);
 const TOMBAMENTO_GEAFIN_RE = /^\d{10}$/;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -84,19 +93,192 @@ app.use((req, res, next) => {
   next();
 });
 
+function normalizeHuman(v) {
+  return String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function extractBearerToken(req) {
+  const raw = req.headers?.authorization ? String(req.headers.authorization) : "";
+  if (!raw) return null;
+  const m = raw.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  return m[1].trim() || null;
+}
+
+function signAuthToken(perfil) {
+  if (!AUTH_JWT_SECRET) {
+    throw new HttpError(
+      500,
+      "AUTH_CONFIG_INVALIDA",
+      "AUTH_JWT_SECRET nao configurado. Defina a variavel no .env antes de usar /auth/*.",
+    );
+  }
+  return jwt.sign(
+    {
+      sub: perfil.id,
+      matricula: perfil.matricula,
+      role: perfil.role,
+    },
+    AUTH_JWT_SECRET,
+    { expiresIn: AUTH_JWT_EXPIRES_IN },
+  );
+}
+
+async function requireAuth(req, _res, next) {
+  try {
+    const token = extractBearerToken(req);
+    if (!token) throw new HttpError(401, "NAO_AUTENTICADO", "Envie Authorization: Bearer <token>.");
+
+    let payload;
+    try {
+      payload = jwt.verify(token, AUTH_JWT_SECRET);
+    } catch (_e) {
+      throw new HttpError(401, "TOKEN_INVALIDO", "Token invalido ou expirado.");
+    }
+
+    const perfilId = payload?.sub ? String(payload.sub).trim() : "";
+    if (!UUID_RE.test(perfilId)) throw new HttpError(401, "TOKEN_INVALIDO", "Token invalido (sub).");
+
+    const r = await pool.query(
+      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo
+       FROM perfis
+       WHERE id = $1
+       LIMIT 1;`,
+      [perfilId],
+    );
+
+    const perfil = r.rows[0] || null;
+    if (!perfil) throw new HttpError(401, "NAO_AUTENTICADO", "Perfil do token nao encontrado.");
+    if (!perfil.ativo) throw new HttpError(403, "PERFIL_INATIVO", "Perfil inativo.");
+
+    req.user = perfil;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+function requireAdmin(req, _res, next) {
+  try {
+    if (!req.user) throw new HttpError(401, "NAO_AUTENTICADO", "Autenticacao obrigatoria.");
+    if (String(req.user.role || "").toUpperCase() !== "ADMIN") {
+      throw new HttpError(403, "SEM_PERMISSAO", "Operacao restrita ao perfil ADMIN.");
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+const mustAuth = AUTH_ENABLED ? requireAuth : (_req, _res, next) => next();
+const mustAdmin = AUTH_ENABLED ? [requireAuth, requireAdmin] : (_req, _res, next) => next();
+
+app.post("/auth/login", async (req, res, next) => {
+  try {
+    const matricula = String(req.body?.matricula || "").trim();
+    const senha = String(req.body?.senha || "");
+    if (!matricula || !senha) throw new HttpError(422, "CREDENCIAIS_OBRIGATORIAS", "Informe matricula e senha.");
+
+    const r = await pool.query(
+      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo, senha_hash AS "senhaHash"
+       FROM perfis
+       WHERE matricula = $1
+       LIMIT 1;`,
+      [matricula],
+    );
+
+    const perfil = r.rows[0] || null;
+    if (!perfil || !perfil.senhaHash) throw new HttpError(401, "CREDENCIAIS_INVALIDAS", "Matricula/senha invalidas.");
+    if (!perfil.ativo) throw new HttpError(403, "PERFIL_INATIVO", "Perfil inativo.");
+
+    const ok = await bcrypt.compare(senha, String(perfil.senhaHash));
+    if (!ok) throw new HttpError(401, "CREDENCIAIS_INVALIDAS", "Matricula/senha invalidas.");
+
+    await pool.query("UPDATE perfis SET ultimo_login_em = NOW(), updated_at = NOW() WHERE id = $1;", [perfil.id]);
+
+    const token = signAuthToken(perfil);
+    const { senhaHash: _ignore, ...perfilOut } = perfil;
+    res.json({ requestId: req.requestId, token, perfil: perfilOut });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/auth/primeiro-acesso", async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const matricula = String(req.body?.matricula || "").trim();
+    const nome = String(req.body?.nome || "").trim();
+    const senha = String(req.body?.senha || "");
+
+    if (!matricula || !nome || !senha) {
+      throw new HttpError(422, "DADOS_OBRIGATORIOS", "Informe matricula, nome e senha.");
+    }
+    if (senha.length < 8) throw new HttpError(422, "SENHA_FRACA", "Senha deve ter pelo menos 8 caracteres.");
+
+    await client.query("BEGIN");
+
+    const r = await client.query(
+      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo, senha_hash AS "senhaHash"
+       FROM perfis
+       WHERE matricula = $1
+       FOR UPDATE;`,
+      [matricula],
+    );
+
+    const perfil = r.rows[0] || null;
+    if (!perfil) throw new HttpError(404, "PERFIL_NAO_ENCONTRADO", "Perfil nao encontrado para esta matricula.");
+    if (!perfil.ativo) throw new HttpError(403, "PERFIL_INATIVO", "Perfil inativo.");
+    if (perfil.senhaHash) throw new HttpError(409, "SENHA_JA_DEFINIDA", "Senha ja definida para este perfil.");
+
+    if (normalizeHuman(perfil.nome) !== normalizeHuman(nome)) {
+      throw new HttpError(403, "NOME_NAO_CONFERE", "Nome nao confere com o cadastro do perfil.");
+    }
+
+    const hash = await bcrypt.hash(senha, 10);
+
+    // Bootstrap controlado: se nao existe nenhum ADMIN no sistema, o primeiro "primeiro acesso" vira ADMIN.
+    const admin = await client.query("SELECT 1 FROM perfis WHERE role = 'ADMIN' LIMIT 1;");
+    const roleFinal = admin.rowCount ? String(perfil.role || "OPERADOR") : "ADMIN";
+
+    const upd = await client.query(
+      `UPDATE perfis
+       SET senha_hash = $2, senha_definida_em = NOW(), role = $3, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo;`,
+      [perfil.id, hash, roleFinal],
+    );
+
+    await client.query("COMMIT");
+
+    const perfilOut = upd.rows[0];
+    const token = signAuthToken(perfilOut);
+    res.status(201).json({ requestId: req.requestId, token, perfil: perfilOut });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/auth/me", mustAuth, async (req, res) => {
+  res.json({ requestId: req.requestId, authEnabled: AUTH_ENABLED, perfil: req.user || null });
+});
+
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi()));
 app.get("/", (_req, res) => res.json({ status: "ok", docs: "/docs" }));
 
 app.get("/health", async (req, res, next) => {
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ok", requestId: req.requestId });
+    res.json({ status: "ok", requestId: req.requestId, authEnabled: AUTH_ENABLED });
   } catch (error) {
     next(error);
   }
 });
 
-app.get("/importacoes/geafin/ultimo", async (req, res, next) => {
+app.get("/importacoes/geafin/ultimo", mustAdmin, async (req, res, next) => {
   try {
     const r = await pool.query(
       `WITH ultimo AS (
@@ -158,7 +340,7 @@ app.get("/importacoes/geafin/ultimo", async (req, res, next) => {
   }
 });
 
-app.get("/stats", async (req, res, next) => {
+app.get("/stats", mustAuth, async (req, res, next) => {
   try {
     const incluirTerceiros = parseBool(req.query?.incluirTerceiros, false);
     const where = incluirTerceiros ? "" : "WHERE eh_bem_terceiro = FALSE";
@@ -192,7 +374,7 @@ app.get("/stats", async (req, res, next) => {
   }
 });
 
-app.get("/bens", async (req, res, next) => {
+app.get("/bens", mustAuth, async (req, res, next) => {
   try {
     const q = req.query || {};
     const filters = validateBensQuery(q);
@@ -270,7 +452,7 @@ app.get("/bens", async (req, res, next) => {
   }
 });
 
-app.get("/bens/:id", async (req, res, next) => {
+app.get("/bens/:id", mustAuth, async (req, res, next) => {
   try {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(400, "BEM_ID_INVALIDO", "id deve ser UUID valido.");
@@ -394,13 +576,15 @@ app.get("/bens/:id", async (req, res, next) => {
   }
 });
 
-app.get("/perfis", async (req, res, next) => {
+app.get("/perfis", mustAdmin, async (req, res, next) => {
   try {
     const limit = parseIntOrDefault(req.query?.limit, 50);
     const limitFinal = Math.max(1, Math.min(200, limit));
 
     const r = await pool.query(
-      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, ativo, created_at AS "createdAt"
+      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo,
+              senha_definida_em AS "senhaDefinidaEm", ultimo_login_em AS "ultimoLoginEm",
+              created_at AS "createdAt"
        FROM perfis
        ORDER BY created_at DESC
        LIMIT $1;`,
@@ -413,14 +597,15 @@ app.get("/perfis", async (req, res, next) => {
   }
 });
 
-app.post("/perfis", async (req, res, next) => {
+app.post("/perfis", mustAdmin, async (req, res, next) => {
   try {
     const p = validatePerfil(req.body || {});
+    const senhaHash = p.senha ? await bcrypt.hash(p.senha, 10) : null;
     const r = await pool.query(
-      `INSERT INTO perfis (matricula, nome, email, unidade_id, cargo, ativo)
-       VALUES ($1,$2,$3,$4,$5,TRUE)
-       RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, ativo, created_at AS "createdAt";`,
-      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo],
+      `INSERT INTO perfis (matricula, nome, email, unidade_id, cargo, ativo, role, senha_hash, senha_definida_em)
+       VALUES ($1,$2,$3,$4,$5,TRUE,$6,$7,CASE WHEN $7 IS NULL THEN NULL ELSE NOW() END)
+       RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo, created_at AS "createdAt";`,
+      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo, p.role, senhaHash],
     );
     res.status(201).json({ requestId: req.requestId, perfil: r.rows[0] });
   } catch (error) {
@@ -428,7 +613,7 @@ app.post("/perfis", async (req, res, next) => {
   }
 });
 
-app.post("/importar-geafin", upload.single("arquivo"), async (req, res, next) => {
+app.post("/importar-geafin", mustAdmin, upload.single("arquivo"), async (req, res, next) => {
   const client = await pool.connect();
   let arquivoId = null;
   try {
@@ -466,7 +651,7 @@ app.post("/importar-geafin", upload.single("arquivo"), async (req, res, next) =>
     // Observacao: isso nao altera o modelo melhorado do sistema; apenas garante copia fiel.
     // Importante: este insert e commitado antes do processamento para permitir acompanhamento em tempo real.
     await client.query("BEGIN");
-    await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: "" });
+    await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: req.user?.id || "" });
     const fileMeta = await client.query(
       `INSERT INTO public.geafin_import_arquivos (request_id, original_filename, content_sha256, bytes, delimiter, total_linhas, status)
        VALUES ($1,$2,$3,$4,$5,$6,'EM_ANDAMENTO')
@@ -490,7 +675,7 @@ app.post("/importar-geafin", upload.single("arquivo"), async (req, res, next) =>
       const batchEnd = Math.min(rows.length, batchStart + BATCH_SIZE);
 
       await client.query("BEGIN");
-      await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: "" });
+      await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: req.user?.id || "" });
 
       for (let i = batchStart; i < batchEnd; i += 1) {
         const rowNo = i + 2;
@@ -612,14 +797,22 @@ app.post("/importar-geafin", upload.single("arquivo"), async (req, res, next) =>
   }
 });
 
-app.post("/movimentar", async (req, res, next) => {
+app.post("/movimentar", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const p = validateMov(req.body || {});
+    const p = validateMov(req.body || {}, { defaultPerfilId: req.user?.id || "" });
+
+    // Regra operacional (controle de acesso real):
+    // - Quando autenticacao estiver ativa, o executor deve ser SEMPRE o usuario autenticado (evita forjar perfilId).
+    // - A autorizacao pode ser informada (2 pessoas) ou, se ausente, cai no proprio executor.
+    if (AUTH_ENABLED && req.user?.id) {
+      p.executadaPorPerfilId = String(req.user.id).trim();
+      if (!p.autorizadaPorPerfilId) p.autorizadaPorPerfilId = p.executadaPorPerfilId;
+    }
     await client.query("BEGIN");
     await setDbContext(client, {
       changeOrigin: "APP",
-      currentUserId: p.executadaPorPerfilId || p.autorizadaPorPerfilId || "",
+      currentUserId: req.user?.id || p.executadaPorPerfilId || p.autorizadaPorPerfilId || "",
     });
 
     const bem = await lockBem(client, p);
@@ -658,13 +851,13 @@ const inventario = createInventarioController({
   dbError,
 });
 
-app.get("/inventario/eventos", inventario.getEventos);
-app.get("/inventario/contagens", inventario.getContagens);
-app.get("/inventario/forasteiros", inventario.getForasteiros);
-app.post("/inventario/eventos", inventario.postEvento);
-app.patch("/inventario/eventos/:id/status", inventario.patchEventoStatus);
-app.post("/inventario/sync", inventario.postSync);
-app.post("/inventario/regularizacoes", inventario.postRegularizacao);
+app.get("/inventario/eventos", mustAuth, inventario.getEventos);
+app.get("/inventario/contagens", mustAuth, inventario.getContagens);
+app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
+app.post("/inventario/eventos", mustAuth, inventario.postEvento);
+app.patch("/inventario/eventos/:id/status", mustAuth, inventario.patchEventoStatus);
+app.post("/inventario/sync", mustAuth, inventario.postSync);
+app.post("/inventario/regularizacoes", mustAdmin, inventario.postRegularizacao);
 
 app.use((error, req, res, _next) => {
   if (error instanceof multer.MulterError) {
@@ -692,7 +885,9 @@ app.use((error, req, res, _next) => {
  * @param {object} body Body JSON da requisicao.
  * @returns {object} Payload validado.
  */
-function validateMov(body) {
+function validateMov(body, opts) {
+  const defaultPerfilId = opts?.defaultPerfilId ? String(opts.defaultPerfilId).trim() : "";
+  const defaultPerfilIdFinal = defaultPerfilId && UUID_RE.test(defaultPerfilId) ? defaultPerfilId : "";
   const tipoRaw = body.tipoMovimentacao ?? body.tipo;
   const tipoMovimentacaoRaw = String(tipoRaw || "").trim().toUpperCase();
   const tipoMovimentacao = tipoMovimentacaoRaw === "CAUTELA" ? "CAUTELA_SAIDA" : tipoMovimentacaoRaw;
@@ -719,11 +914,14 @@ function validateMov(body) {
 
   const unidadeDestinoId = parseUnit(body.unidadeDestinoId, null);
   const detentorTemporarioPerfilId = body.detentorTemporarioPerfilId ? String(body.detentorTemporarioPerfilId).trim() : null;
-  const autorizadaPorPerfilId = body.autorizadaPorPerfilId ? String(body.autorizadaPorPerfilId).trim() : null;
-  const executadaPorPerfilId = body.executadaPorPerfilId ? String(body.executadaPorPerfilId).trim() : null;
+  let autorizadaPorPerfilId = body.autorizadaPorPerfilId ? String(body.autorizadaPorPerfilId).trim() : null;
+  let executadaPorPerfilId = body.executadaPorPerfilId ? String(body.executadaPorPerfilId).trim() : null;
   const dataPrevistaDevolucao = parseDateOnly(body.dataPrevistaDevolucao);
   const dataEfetivaDevolucao = parseDateTime(body.dataEfetivaDevolucao) || new Date();
   const justificativa = body.justificativa ? String(body.justificativa).trim() : null;
+
+  if (!executadaPorPerfilId && defaultPerfilIdFinal) executadaPorPerfilId = defaultPerfilIdFinal;
+  if (!autorizadaPorPerfilId && defaultPerfilIdFinal) autorizadaPorPerfilId = defaultPerfilIdFinal;
 
   if (detentorTemporarioPerfilId && !UUID_RE.test(detentorTemporarioPerfilId)) throw new HttpError(422, "DETENTOR_INVALIDO", "detentorTemporarioPerfilId deve ser UUID.");
   if (autorizadaPorPerfilId && !UUID_RE.test(autorizadaPorPerfilId)) throw new HttpError(422, "AUTORIZADOR_INVALIDO", "autorizadaPorPerfilId deve ser UUID.");
@@ -797,7 +995,7 @@ function validateBensQuery(query) {
 /**
  * Valida payload de criacao de perfil.
  * @param {object} body Body JSON da requisicao.
- * @returns {{matricula: string, nome: string, email: string|null, unidadeId: number, cargo: string|null}} Perfil validado.
+ * @returns {{matricula: string, nome: string, email: string|null, unidadeId: number, cargo: string|null, role: string, senha: (string|null)}} Perfil validado.
  */
 function validatePerfil(body) {
   const matricula = String(body.matricula || "").trim();
@@ -819,7 +1017,15 @@ function validatePerfil(body) {
   const cargoRaw = body.cargo != null ? String(body.cargo).trim() : "";
   const cargo = cargoRaw ? cargoRaw.slice(0, 120) : null;
 
-  return { matricula, nome, email, unidadeId, cargo };
+  const roleRaw = body.role != null ? String(body.role).trim().toUpperCase() : "OPERADOR";
+  const role = VALID_ROLES.has(roleRaw) ? roleRaw : null;
+  if (!role) throw new HttpError(422, "ROLE_INVALIDO", "role deve ser ADMIN ou OPERADOR.");
+
+  const senhaRaw = body.senha != null ? String(body.senha) : "";
+  const senha = senhaRaw ? senhaRaw : null;
+  if (senha && senha.length < 8) throw new HttpError(422, "SENHA_FRACA", "Senha deve ter pelo menos 8 caracteres.");
+
+  return { matricula, nome, email, unidadeId, cargo, role, senha };
 }
 
 function parseIntOrDefault(raw, fallback) {
@@ -1160,8 +1366,17 @@ function openapi() {
       version: "1.0.0",
       description: "Swagger basico para importacao GEAFIN, movimentacao patrimonial e inventario (sync offline).",
     },
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+      },
+    },
+    security: AUTH_ENABLED ? [{ bearerAuth: [] }] : [],
     paths: {
       "/health": { get: { summary: "Healthcheck", responses: { 200: { description: "OK" } } } },
+      "/auth/login": { post: { summary: "Login (matricula/senha) -> JWT", responses: { 200: { description: "OK" }, 401: { description: "Credenciais invalidas" } } } },
+      "/auth/primeiro-acesso": { post: { summary: "Definir senha no primeiro acesso (bootstrap controlado)", responses: { 201: { description: "Criado" }, 409: { description: "Senha ja definida" } } } },
+      "/auth/me": { get: { summary: "Retorna o perfil autenticado", responses: { 200: { description: "OK" }, 401: { description: "Nao autenticado" } } } },
       "/stats": { get: { summary: "Estatisticas basicas de bens", responses: { 200: { description: "OK" } } } },
       "/bens": { get: { summary: "Listagem/consulta de bens (paginado)", responses: { 200: { description: "OK" } } } },
       "/bens/{id}": { get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },

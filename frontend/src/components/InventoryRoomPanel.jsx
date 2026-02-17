@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get as idbGet, set as idbSet } from "idb-keyval";
 import useOfflineSync from "../hooks/useOfflineSync.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   atualizarStatusEventoInventario,
   criarEventoInventario,
@@ -80,6 +81,7 @@ function playAlertBeep() {
 
 export default function InventoryRoomPanel() {
   const qc = useQueryClient();
+  const auth = useAuth();
   const offline = useOfflineSync();
 
   const [perfilId, setPerfilId] = useState("");
@@ -267,7 +269,7 @@ export default function InventoryRoomPanel() {
     event.preventDefault();
     setUiError(null);
 
-    const perfilIdFinal = perfilId.trim();
+    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
     if (!perfilIdFinal) {
       setUiError("Informe um perfilId (UUID) para abrir o evento.");
       return;
@@ -288,7 +290,7 @@ export default function InventoryRoomPanel() {
 
   const onUpdateStatus = async (status) => {
     setUiError(null);
-    const perfilIdFinal = perfilId.trim();
+    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
     if (!perfilIdFinal) {
       setUiError("Informe um perfilId (UUID) para encerrar/cancelar o evento.");
       return;
@@ -344,7 +346,7 @@ export default function InventoryRoomPanel() {
       eventoInventarioId: selectedEventoIdFinal,
       unidadeEncontradaId: unidadeEncontrada,
       salaEncontrada: salaEncontrada.trim(),
-      encontradoPorPerfilId: perfilId.trim() || null,
+      encontradoPorPerfilId: auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim() || null,
       numeroTombamento,
       encontradoEm: new Date().toISOString(),
       observacoes: divergente ? "Detectado como local divergente na UI (alerta)." : null,
@@ -406,15 +408,24 @@ export default function InventoryRoomPanel() {
             Inventário ativo bloqueia mudança de carga (Art. 183 - AN303_Art183).
           </p>
 
-          <label className="mt-3 block space-y-1">
-            <span className="text-xs text-slate-300">PerfilId (UUID) para abrir/encerrar</span>
-            <input
-              value={perfilId}
-              onChange={(e) => setPerfilId(e.target.value)}
-              placeholder="UUID do perfil (crie em Operações API)"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
+          {auth.perfil ? (
+            <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/25 p-3 text-xs text-slate-300">
+              <p className="font-semibold text-slate-100">Executor</p>
+              <p className="mt-1">
+                {auth.perfil.nome} ({auth.perfil.matricula}) - perfilId {String(auth.perfil.id).slice(0, 8)}...
+              </p>
+            </div>
+          ) : (
+            <label className="mt-3 block space-y-1">
+              <span className="text-xs text-slate-300">PerfilId (UUID) para abrir/encerrar</span>
+              <input
+                value={perfilId}
+                onChange={(e) => setPerfilId(e.target.value)}
+                placeholder="UUID do perfil (crie em Operações API)"
+                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              />
+            </label>
+          )}
 
           {eventosQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando eventos...</p>}
           {eventosQuery.error && (

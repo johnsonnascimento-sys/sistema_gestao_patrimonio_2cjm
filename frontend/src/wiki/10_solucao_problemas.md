@@ -23,6 +23,21 @@ Possiveis causas:
 - Proxy Nginx sem `location /api/`.
 - Timeout do proxy em operacao longa.
 
+## "401 Nao autenticado" / "403 Sem permissao"
+
+Quando acontece:
+
+- A VPS esta com autenticacao ativa (`AUTH_ENABLED=true`).
+
+O que fazer:
+
+- `401`: faca login (ou refaca o login se o token expirou).
+- `403`: voce esta logado, mas a operacao exige `ADMIN` (ex.: importacao GEAFIN, criar perfis, regularizacao pos-inventario).
+
+Dica:
+
+- Se o navegador ficou com um token antigo, use o botao **Sair** e entre novamente.
+
 ## "504 Gateway Time-out" ao importar GEAFIN
 
 O que significa:

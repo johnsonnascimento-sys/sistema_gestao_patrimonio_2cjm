@@ -6,15 +6,18 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
+import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
 import RegularizationPanel from "./components/RegularizationPanel.jsx";
 import WikiManual from "./components/WikiManual.jsx";
+import { useAuth } from "./context/AuthContext.jsx";
 import { listarEventosInventario } from "./services/apiClient.js";
 
-export default function App() {
+function AppShell() {
+  const auth = useAuth();
   const [tab, setTab] = useState("bens");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardHistory, setWizardHistory] = useState([]);
@@ -52,6 +55,28 @@ export default function App() {
     <div className="min-h-screen bg-app text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         <header className="rounded-3xl border border-white/15 bg-slate-900/60 p-6 shadow-2xl backdrop-blur">
+          {auth.perfil && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-xs text-slate-200">
+              <div>
+                <p className="text-slate-300">Usuário autenticado</p>
+                <p className="mt-1 font-semibold text-slate-100">
+                  {auth.perfil.nome} ({auth.perfil.matricula})
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-cyan-300/40 bg-cyan-300/10 px-2 py-0.5 text-[11px] text-cyan-200">
+                  {auth.role || "OPERADOR"}
+                </span>
+                <button
+                  type="button"
+                  onClick={auth.logout}
+                  className="rounded-full border border-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide hover:bg-white/5"
+                >
+                  Sair
+                </button>
+              </div>
+            </div>
+          )}
           <p className="font-[Space_Grotesk] text-sm uppercase tracking-[0.28em] text-amber-300">
             2a Circunscrição Judiciária Militar
           </p>
@@ -197,4 +222,24 @@ export default function App() {
       />
     </div>
   );
+}
+
+export default function App() {
+  const auth = useAuth();
+
+  if (!auth.ready) {
+    return (
+      <div className="min-h-screen bg-app text-slate-100">
+        <div className="mx-auto max-w-3xl px-4 py-10">
+          <div className="rounded-2xl border border-white/15 bg-slate-900/55 p-6">
+            <p className="text-sm text-slate-300">Carregando configuração de acesso...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (auth.authEnabled && !auth.isAuthenticated) return <AuthLogin />;
+
+  return <AppShell />;
 }

@@ -22,6 +22,50 @@ O perfil e usado para:
 - Registrar quem abriu/encerrou eventos de inventario (quando habilitado).
 - Carimbar historicos (auditoria).
 
+## Controle de acesso (login) - quando esta ativo
+
+O sistema suporta **autenticação por matrícula** (JWT), com perfis e papéis (`role`).
+
+Quando a VPS estiver com:
+
+- `AUTH_ENABLED=true`
+
+Entao:
+
+- O site **exige login** para usar as telas.
+- A API passa a exigir `Authorization: Bearer <token>` nas rotas protegidas.
+
+Quando `AUTH_ENABLED=false` (default), o sistema funciona **sem login** (modo de implantação inicial / testes), mas isso **não é o modo operacional final**.
+
+## Papéis (role): ADMIN vs OPERADOR
+
+- `ADMIN`
+  - Pode importar GEAFIN, criar/gerir perfis e executar operações administrativas (ex.: regularização pós-inventário).
+- `OPERADOR`
+  - Pode consultar bens e operar inventário/movimentações conforme permissões do backend.
+
+Obs.: as permissões efetivas são aplicadas pelo backend (a UI só reflete).
+
+## Primeiro acesso (definir senha)
+
+No primeiro uso com autenticação ativa, o operador precisa **definir a senha** do seu perfil.
+
+Fluxo:
+
+1. Um `ADMIN` cria o perfil com `matricula`, `nome` e `unidadeId` (sem senha).
+2. O operador entra na tela de login e usa **"Primeiro acesso"** para definir a senha.
+   - O nome deve conferir com o cadastro (guardrail contra erro de matrícula).
+
+Bootstrap controlado:
+
+- Se ainda não existir nenhum `ADMIN` no sistema, o **primeiro** "primeiro acesso" promove o perfil a `ADMIN` automaticamente.
+
+Rotas relacionadas:
+
+- `POST /auth/primeiro-acesso`
+- `POST /auth/login`
+- `GET /auth/me`
+
 ## Matricula (por que e obrigatoria)
 
 A matricula funciona como identificador interno estavel. Evita depender de e-mail (que pode mudar).

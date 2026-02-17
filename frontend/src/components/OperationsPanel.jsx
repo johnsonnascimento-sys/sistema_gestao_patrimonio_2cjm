@@ -4,6 +4,7 @@
  * Funcao no sistema: painel operacional para consumir endpoints backend de importacao e movimentacao.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   API_BASE_URL,
   criarPerfil,
@@ -15,7 +16,15 @@ import {
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
 
+function normalizeTombamentoInput(raw) {
+  if (raw == null) return "";
+  return String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "").slice(0, 10);
+}
+
 export default function OperationsPanel() {
+  const auth = useAuth();
+  const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+
   const [healthState, setHealthState] = useState({
     loading: false,
     data: null,
@@ -110,6 +119,7 @@ export default function OperationsPanel() {
   };
 
   useEffect(() => {
+    if (!canAdmin) return () => stopImportPolling();
     let alive = true;
     (async () => {
       try {
@@ -129,7 +139,7 @@ export default function OperationsPanel() {
       stopImportPolling();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canAdmin]);
 
   const onHealth = async () => {
     setHealthState({ loading: true, data: null, error: null });
@@ -147,6 +157,10 @@ export default function OperationsPanel() {
 
   const onImport = async (event) => {
     event.preventDefault();
+    if (!canAdmin) {
+      setImportState({ loading: false, response: null, error: "Operação restrita ao perfil ADMIN." });
+      return;
+    }
     if (!csvFile) {
       setImportState({
         loading: false,
@@ -184,6 +198,10 @@ export default function OperationsPanel() {
 
   const onCreatePerfil = async (event) => {
     event.preventDefault();
+    if (!canAdmin) {
+      setPerfilState({ loading: false, response: null, error: "Operação restrita ao perfil ADMIN." });
+      return;
+    }
     const payload = {
       matricula: perfilForm.matricula.trim(),
       nome: perfilForm.nome.trim(),
@@ -281,11 +299,17 @@ export default function OperationsPanel() {
 
       <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
         <h3 className="font-semibold">Importação GEAFIN (CSV Latin1)</h3>
+        {!canAdmin && auth.authEnabled && (
+          <p className="mt-2 text-xs text-rose-200">
+            Operação restrita ao perfil <strong>ADMIN</strong>.
+          </p>
+        )}
         <form onSubmit={onImport} className="mt-3 grid gap-3 md:grid-cols-[1.2fr_auto_auto]">
           <input
             type="file"
             accept=".csv,text/csv"
             onChange={(event) => setCsvFile(event.target.files?.[0] || null)}
+            disabled={!canAdmin && auth.authEnabled}
             className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
           />
           <input
@@ -295,11 +319,12 @@ export default function OperationsPanel() {
             value={unidadePadraoId}
             onChange={(event) => setUnidadePadraoId(event.target.value)}
             placeholder="Unidade (1-4)"
+            disabled={!canAdmin && auth.authEnabled}
             className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
           />
           <button
             type="submit"
-            disabled={importState.loading}
+            disabled={importState.loading || (!canAdmin && auth.authEnabled)}
             className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
           >
             {importState.loading ? "Importando..." : "Importar"}
@@ -316,6 +341,11 @@ export default function OperationsPanel() {
 
       <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
         <h3 className="font-semibold">Criar perfil (para testes locais)</h3>
+        {!canAdmin && auth.authEnabled && (
+          <p className="mt-2 text-xs text-rose-200">
+            Operação restrita ao perfil <strong>ADMIN</strong>.
+          </p>
+        )}
         <p className="mt-1 text-xs text-slate-300">
           Movimentações exigem perfis reais (autorizador/executor). Crie um aqui e o sistema preenche automaticamente no formulário abaixo.
         </p>
@@ -326,6 +356,7 @@ export default function OperationsPanel() {
               value={perfilForm.matricula}
               onChange={(event) => setPerfilField("matricula", event.target.value)}
               placeholder="Ex.: 123456"
+              disabled={!canAdmin && auth.authEnabled}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -335,6 +366,7 @@ export default function OperationsPanel() {
               value={perfilForm.nome}
               onChange={(event) => setPerfilField("nome", event.target.value)}
               placeholder="Ex.: Fulano de Tal"
+              disabled={!canAdmin && auth.authEnabled}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -346,6 +378,7 @@ export default function OperationsPanel() {
               max="4"
               value={perfilForm.unidadeId}
               onChange={(event) => setPerfilField("unidadeId", event.target.value)}
+              disabled={!canAdmin && auth.authEnabled}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -354,6 +387,7 @@ export default function OperationsPanel() {
             <input
               value={perfilForm.email}
               onChange={(event) => setPerfilField("email", event.target.value)}
+              disabled={!canAdmin && auth.authEnabled}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -362,13 +396,14 @@ export default function OperationsPanel() {
             <input
               value={perfilForm.cargo}
               onChange={(event) => setPerfilField("cargo", event.target.value)}
+              disabled={!canAdmin && auth.authEnabled}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
           <div className="md:col-span-2">
             <button
               type="submit"
-              disabled={perfilState.loading}
+              disabled={perfilState.loading || (!canAdmin && auth.authEnabled)}
               className="rounded-lg bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
             >
               {perfilState.loading ? "Criando..." : "Criar perfil"}
@@ -416,10 +451,9 @@ export default function OperationsPanel() {
             <span className="text-xs text-slate-300">Número do tombamento</span>
             <input
               value={movPayload.numeroTombamento}
-              onChange={(event) => setMovField("numeroTombamento", event.target.value)}
+              onChange={(event) => setMovField("numeroTombamento", normalizeTombamentoInput(event.target.value))}
               placeholder="Ex.: 1290001788"
               inputMode="numeric"
-              pattern="\\d{10}"
               maxLength={10}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />

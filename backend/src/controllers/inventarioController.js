@@ -272,7 +272,9 @@ function createInventarioController(deps) {
         throw new HttpError(422, "UNIDADE_INVENTARIADA_INVALIDA", "unidadeInventariadaId deve ser 1..4 ou null (inventario geral).");
       }
 
-      const abertoPorPerfilId = String(body.abertoPorPerfilId || "").trim();
+      const abertoPorPerfilId = req.user?.id
+        ? String(req.user.id).trim()
+        : String(body.abertoPorPerfilId || "").trim();
       if (!abertoPorPerfilId || !UUID_RE.test(abertoPorPerfilId)) {
         throw new HttpError(422, "ABERTO_POR_INVALIDO", "abertoPorPerfilId (UUID) e obrigatorio.");
       }
@@ -318,7 +320,9 @@ function createInventarioController(deps) {
         throw new HttpError(422, "STATUS_INVALIDO", "status deve ser ENCERRADO ou CANCELADO.");
       }
 
-      const encerradoPorPerfilId = String(body.encerradoPorPerfilId || "").trim();
+      const encerradoPorPerfilId = req.user?.id
+        ? String(req.user.id).trim()
+        : String(body.encerradoPorPerfilId || "").trim();
       if (!encerradoPorPerfilId || !UUID_RE.test(encerradoPorPerfilId)) {
         throw new HttpError(422, "ENCERRADOR_INVALIDO", "encerradoPorPerfilId (UUID) e obrigatorio.");
       }
@@ -380,7 +384,9 @@ function createInventarioController(deps) {
 
       const encontradoPorPerfilId = body.encontradoPorPerfilId != null && String(body.encontradoPorPerfilId).trim() !== ""
         ? String(body.encontradoPorPerfilId).trim()
-        : null;
+        : req.user?.id
+          ? String(req.user.id).trim()
+          : null;
       if (encontradoPorPerfilId && !UUID_RE.test(encontradoPorPerfilId)) {
         throw new HttpError(422, "ENCONTRADO_POR_INVALIDO", "encontradoPorPerfilId deve ser UUID.");
       }
@@ -535,7 +541,9 @@ function createInventarioController(deps) {
         throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId (UUID) e obrigatorio.");
       }
 
-      const regularizadoPorPerfilId = String(body.regularizadoPorPerfilId || body.perfilId || "").trim();
+      const regularizadoPorPerfilId = req.user?.id
+        ? String(req.user.id).trim()
+        : String(body.regularizadoPorPerfilId || body.perfilId || "").trim();
       if (!regularizadoPorPerfilId || !UUID_RE.test(regularizadoPorPerfilId)) {
         throw new HttpError(422, "REGULARIZADOR_INVALIDO", "regularizadoPorPerfilId (UUID) e obrigatorio.");
       }
@@ -561,11 +569,7 @@ function createInventarioController(deps) {
 
       await client.query("BEGIN");
 
-      // Confirma que o perfil existe (evita erro 23503 com mensagem generica).
-      const perfil = await client.query("SELECT id FROM perfis WHERE id = $1", [regularizadoPorPerfilId]);
-      if (!perfil.rowCount) {
-        throw new HttpError(422, "PERFIL_NAO_ENCONTRADO", "Perfil (regularizadoPorPerfilId) nao encontrado.");
-      }
+      // Em modo autenticado, req.user ja veio do banco. Ainda assim, mantemos o UUID validado acima.
 
       const r = await client.query(
         `SELECT

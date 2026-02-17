@@ -6,9 +6,42 @@
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 
+const AUTH_TOKEN_KEY = "cjm_auth_token_v1";
+
+export function getAuthToken() {
+  try {
+    return window.localStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token) {
+  try {
+    if (!token) {
+      window.localStorage.removeItem(AUTH_TOKEN_KEY);
+      return;
+    }
+    window.localStorage.setItem(AUTH_TOKEN_KEY, String(token));
+  } catch {
+    // Storage pode estar bloqueado; ainda permite uso em memoria (a UI tratara).
+  }
+}
+
+export function clearAuthToken() {
+  setAuthToken(null);
+}
+
+function withAuthHeaders(init) {
+  const headers = new Headers(init?.headers || {});
+  const token = getAuthToken();
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  return { ...(init || {}), headers };
+}
+
 async function safeFetch(url, init) {
   try {
-    return await fetch(url, init);
+    return await fetch(url, withAuthHeaders(init));
   } catch (error) {
     const detail = error?.message ? ` Detalhe: ${error.message}` : "";
     throw new Error(
@@ -47,6 +80,60 @@ export async function getHealth() {
     headers: { Accept: "application/json" },
   });
   return parseResponse(response);
+}
+
+/**
+ * Login por matricula/senha -> recebe JWT (quando autenticacao estiver ativa no backend).
+ * @param {{matricula: string, senha: string}} payload Credenciais.
+ * @returns {Promise<{requestId: string, token: string, perfil: object}>} Token + perfil.
+ */
+export async function authLogin(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await parseResponse(response);
+  if (body?.token) setAuthToken(body.token);
+  return body;
+}
+
+/**
+ * Primeiro acesso: define senha para um perfil ja cadastrado (bootstrap controlado).
+ * @param {{matricula: string, nome: string, senha: string}} payload Dados.
+ * @returns {Promise<{requestId: string, token: string, perfil: object}>} Token + perfil.
+ */
+export async function authPrimeiroAcesso(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/auth/primeiro-acesso`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await parseResponse(response);
+  if (body?.token) setAuthToken(body.token);
+  return body;
+}
+
+/**
+ * Consulta perfil autenticado no backend.
+ * @returns {Promise<{requestId: string, authEnabled: boolean, perfil: object|null}>} Perfil atual.
+ */
+export async function authMe() {
+  const response = await safeFetch(`${API_BASE_URL}/auth/me`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+export function logout() {
+  clearAuthToken();
 }
 
 /**

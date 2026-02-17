@@ -22,6 +22,47 @@ Uso: confirmar que backend esta vivo.
 
 Resposta: `200 OK`
 
+Campos (importantes para a UI):
+
+- `authEnabled`: `true|false` (se a autenticacao estiver ativa na VPS).
+
+## Autenticacao (quando `AUTH_ENABLED=true`)
+
+Quando a autenticacao estiver ativa, a maioria das rotas exige:
+
+- Header: `Authorization: Bearer <JWT>`
+
+### POST `/auth/login`
+
+Body JSON:
+
+- `matricula`
+- `senha`
+
+Retorna:
+
+- `token` (JWT)
+- `perfil`
+
+### POST `/auth/primeiro-acesso`
+
+Uso: definir senha para um perfil ja cadastrado.
+
+Body JSON:
+
+- `matricula`
+- `nome` (deve conferir com o cadastro do perfil)
+- `senha` (min. 8)
+
+Retorna:
+
+- `token` (JWT)
+- `perfil`
+
+### GET `/auth/me`
+
+Uso: identificar usuario logado.
+
 ## Estatisticas
 
 ### GET `/stats`
@@ -60,6 +101,10 @@ Retorna:
 
 Uso: criar operador (matricula/nome/unidade).
 
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
 ## Importação GEAFIN
 
 ### POST `/importar-geafin`
@@ -73,6 +118,10 @@ Campo do form:
 ### GET `/importacoes/geafin/ultimo`
 
 Uso: barra de progresso do importador.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
 
 Campos tipicos:
 
@@ -116,3 +165,7 @@ Regras:
 
 - O evento precisa estar `ENCERRADO` (Art. 185 - AN303_Art185).
 - Para `TRANSFERIR_CARGA`, `termoReferencia` é obrigatório (Arts. 124/127 - AN303_Art124 / AN303_Art127).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.

@@ -50,6 +50,20 @@ Concluir a Fase 2 com foco em:
   - `GET /inventario/forasteiros`: lista divergencias pendentes (intrusos/forasteiros).
   - `POST /inventario/regularizacoes`: encerra pendencia; opcionalmente executa transferencia de carga com `termoReferencia`.
 
+### 2.2.1 Autenticacao (controle de acesso real)
+
+- Migracao (banco): `database/006_auth_and_access.sql`
+  - Adiciona `role` e colunas de senha (hash) em `perfis`.
+- Backend:
+  - Adiciona rotas:
+    - `POST /auth/login`
+    - `POST /auth/primeiro-acesso`
+    - `GET /auth/me`
+  - Quando `AUTH_ENABLED=true`:
+    - Rotas protegidas exigem `Authorization: Bearer <JWT>`.
+    - Operacoes administrativas exigem `role=ADMIN` (ex.: importar GEAFIN, criar perfis, regularizacao).
+  - `GET /health` passa a retornar `authEnabled` para orientar a UI.
+
 ### 2.3 Frontend (React/Vite)
 
 - Operações API:
@@ -70,6 +84,11 @@ Concluir a Fase 2 com foco em:
 - Regularizacao pos-inventario:
   - Nova aba "Regularizacao" para encerrar pendencias do Art. 185.
   - Documentacao no Wiki: "Regularizacao pos-inventario (forasteiros)".
+
+- Autenticacao (quando ativa na VPS):
+  - App exibe tela de Login/Primeiro acesso quando `authEnabled=true`.
+  - Token JWT e armazenado no navegador e enviado automaticamente em chamadas `fetch`.
+  - Papeis refletidos na UI (ADMIN/OPERADOR), com desabilitacao de operacoes administrativas para nao-admin.
 
 ## 3. Como Validar (checklist rapido)
 

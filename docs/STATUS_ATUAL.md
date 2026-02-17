@@ -7,8 +7,8 @@
 | Modulo | `docs` |
 | Arquivo | `docs/STATUS_ATUAL.md` |
 | Funcao no sistema | Registro canonico do que ja foi implementado e do que falta para concluir a Fase 2 |
-| Data | 2026-02-16 |
-| Versao | v1.0 |
+| Data | 2026-02-17 |
+| Versao | v1.1 |
 | Fonte de verdade (governanca) | `PROJECT_RULES.md` |
 
 ## 1. Escopo do Projeto (resumo)
@@ -74,6 +74,12 @@ Nota operacional (importacao / timeout):
     - `regularizado_em`, `regularizado_por_perfil_id`, `regularizacao_acao`, `regularizacao_movimentacao_id`, `regularizacao_observacoes`.
   - Regra legal: Art. 185 (AN303_Art185).
 
+- `database/006_auth_and_access.sql`
+  - Adiciona colunas de autenticacao e papeis em `perfis` (controle de acesso real):
+    - `role` (`ADMIN`|`OPERADOR`)
+    - `senha_hash`, `senha_definida_em`, `ultimo_login_em`
+  - Regra operacional: senhas apenas como hash (bcrypt).
+
 ### 3.2 Normalizacao (SKU vs Item)
 
 Conceito operacional:
@@ -98,12 +104,17 @@ Nota:
 ### 4.2 Endpoints implementados
 
 - `GET /health`: healthcheck.
+  - Retorna `authEnabled` para a UI saber se login esta ativo.
 - `GET /stats`: estatisticas de bens (total, por unidade, por status).
 - `GET /bens`: consulta paginada com filtros:
   - `numeroTombamento`, `q`, `localFisico`, `unidadeDonaId`, `status`, `incluirTerceiros`.
   - A busca `q` consulta `catalogo_bens.descricao` e `bens.descricao_complementar` (normalizacao SKU vs Item).
 - `GET /bens/{id}`: detalhe de um bem (join com `catalogo_bens` + ultimas `movimentacoes` + `historico_transferencias`).
 - `GET /perfis` e `POST /perfis`: cadastro de perfis (matricula, nome, unidade, cargo).
+- Autenticacao (quando ativa na VPS):
+  - `POST /auth/login`: login por matricula/senha -> JWT.
+  - `POST /auth/primeiro-acesso`: definir senha do perfil cadastrado (bootstrap controlado).
+  - `GET /auth/me`: retorna perfil do token.
 - `POST /importar-geafin`: importacao CSV (Latin1) com upsert seguro e resumo:
   - Cria/atualiza `catalogo_bens` antes de inserir/atualizar `bens`.
   - Novo tombamento: `status='AGUARDANDO_RECEBIMENTO'` + `local_fisico=NULL`.
@@ -118,6 +129,7 @@ Nota:
     - O backend aplica heuristica de correcao para chaves e valores criticos antes de normalizar (sem alterar a regra de que o arquivo e tratado como "Latin1" no upload).
 - `POST /movimentar`: transferencia/cautela com trilha completa:
   - Transferencia altera `unidade_dona_id` (gera historico via trigger).
+  - Quando autenticacao esta ativa, o executor e vinculado ao usuario autenticado (evita forjar perfilId).
     - Regra legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
   - Cautela altera `status` para `EM_CAUTELA` sem mudar carga.
 - Inventário (offline-first):
