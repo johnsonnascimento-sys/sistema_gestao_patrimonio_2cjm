@@ -47,6 +47,11 @@ Use a aba:
 
 Ela lista os "forasteiros" pendentes (divergências) e oferece ações determinísticas.
 
+Importante:
+
+- A lista de "forasteiros" (fila) **só aparece após o evento ser ENCERRADO**.
+- Enquanto o evento estiver `EM_ANDAMENTO`, as divergências existem em `contagens`, mas não entram na fila pós-inventário.
+
 ## 4) Ações disponíveis
 
 ### 4.1) Manter carga (encerra a pendência sem transferir)
@@ -111,4 +116,3 @@ Requisito operacional:
 Se a carga for alterada:
 
 - O histórico de transferências (`historico_transferencias`) também é alimentado automaticamente.
-
