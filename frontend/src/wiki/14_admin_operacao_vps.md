@@ -61,6 +61,7 @@ O script faz:
 - recriação **somente** do(s) container(s) do alvo escolhido:
   - `frontend` recria apenas `cjm_frontend` (o backend deve permanecer no ar).
   - `backend` recria apenas `cjm_backend` (o frontend deve permanecer no ar).
+- (quando `backend` ou `all`) aguarda o backend responder `GET /health` para evitar 502 logo após o restart.
 
 Se após um deploy você vir `502 Bad Gateway` na UI (especialmente em "Consulta de Bens"):
 - o backend pode ter sido derrubado; rode `./scripts/vps_deploy.sh all` para subir tudo novamente.

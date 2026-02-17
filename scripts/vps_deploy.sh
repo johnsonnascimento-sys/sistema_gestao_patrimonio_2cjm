@@ -74,4 +74,25 @@ else
   docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 fi
 
+if command -v curl >/dev/null 2>&1; then
+  # Evita falso-alarme de 502 no host Nginx logo apos restart.
+  # O backend leva alguns segundos para subir e abrir o listener em 127.0.0.1:3001.
+  if [[ "$target" == "backend" || "$target" == "all" ]]; then
+    echo "[deploy] aguardando backend (/health)..."
+    ok=0
+    for i in {1..30}; do
+      if curl -fsS http://127.0.0.1:3001/health >/dev/null 2>&1; then
+        ok=1
+        break
+      fi
+      sleep 1
+    done
+    if [[ "$ok" != "1" ]]; then
+      echo "[deploy] AVISO: backend nao respondeu /health em 30s. Verifique logs: docker logs -f cjm_backend" >&2
+    else
+      echo "[deploy] backend ok."
+    fi
+  fi
+fi
+
 echo "[deploy] ok."
