@@ -49,8 +49,17 @@ git fetch --all --prune
 git pull --ff-only
 
 echo "[deploy] removendo containers antigos (se existirem)..."
-docker rm -f cjm_frontend >/dev/null 2>&1 || true
-docker rm -f cjm_backend >/dev/null 2>&1 || true
+# Importante (UX/operacao):
+# - Deploy "frontend" NAO pode derrubar o backend, senao o site volta com 502 em /api.
+# - Deploy "backend" NAO pode derrubar o frontend, senao o dominio fica fora do ar.
+if [[ "$target" == "frontend" ]]; then
+  docker rm -f cjm_frontend >/dev/null 2>&1 || true
+elif [[ "$target" == "backend" ]]; then
+  docker rm -f cjm_backend >/dev/null 2>&1 || true
+else
+  docker rm -f cjm_frontend >/dev/null 2>&1 || true
+  docker rm -f cjm_backend >/dev/null 2>&1 || true
+fi
 
 echo "[deploy] build + up ($target)..."
 if [[ "$target" == "frontend" ]]; then

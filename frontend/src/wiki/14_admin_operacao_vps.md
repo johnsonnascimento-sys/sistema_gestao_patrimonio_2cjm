@@ -58,7 +58,12 @@ O script faz:
 
 - `git pull` (ff-only)
 - rebuild
-- recriação dos containers (`cjm_backend`/`cjm_frontend`)
+- recriação **somente** do(s) container(s) do alvo escolhido:
+  - `frontend` recria apenas `cjm_frontend` (o backend deve permanecer no ar).
+  - `backend` recria apenas `cjm_backend` (o frontend deve permanecer no ar).
+
+Se após um deploy você vir `502 Bad Gateway` na UI (especialmente em "Consulta de Bens"):
+- o backend pode ter sido derrubado; rode `./scripts/vps_deploy.sh all` para subir tudo novamente.
 
 ## Rebuild/restart (manual)
 
