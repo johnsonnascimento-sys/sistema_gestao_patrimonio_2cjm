@@ -14,13 +14,21 @@ import OperationsPanel from "./components/OperationsPanel.jsx";
 import RegularizationPanel from "./components/RegularizationPanel.jsx";
 import WikiManual from "./components/WikiManual.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
-import { listarEventosInventario } from "./services/apiClient.js";
+import {
+  criarAvaliacaoInservivel,
+  listarAvaliacoesInservivel,
+  listarBens,
+  listarEventosInventario,
+} from "./services/apiClient.js";
 
 function AppShell() {
   const auth = useAuth();
   const [tab, setTab] = useState("bens");
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardHistory, setWizardHistory] = useState([]);
+  const [wizardBemTombo, setWizardBemTombo] = useState("");
+  const [wizardBem, setWizardBem] = useState(null);
+  const [wizardPersistMsg, setWizardPersistMsg] = useState(null);
+  const [wizardPersistErr, setWizardPersistErr] = useState(null);
 
   const eventosQuery = useQuery({
     queryKey: ["inventarioEventos", "EM_ANDAMENTO"],
@@ -47,8 +55,37 @@ function AppShell() {
     return "Sem evento ativo: transferências e regularizações podem ser executadas.";
   }, [inventoryStatus]);
 
-  const handleWizardResult = (result) => {
-    setWizardHistory((prev) => [{ ...result, id: crypto.randomUUID() }, ...prev].slice(0, 8));
+  const wizardAvaliacoesQuery = useQuery({
+    queryKey: ["inserviveisAvaliacoes", wizardBem?.id || null],
+    enabled: Boolean(wizardBem?.id),
+    queryFn: async () => {
+      const data = await listarAvaliacoesInservivel(wizardBem.id);
+      return data.items || [];
+    },
+  });
+
+  const loadBemByTombo = async () => {
+    setWizardPersistMsg(null);
+    setWizardPersistErr(null);
+    setWizardBem(null);
+
+    const tombo = String(wizardBemTombo || "").trim();
+    if (!/^\d{10}$/.test(tombo)) {
+      setWizardPersistErr("Informe um tombamento GEAFIN com 10 dÃ­gitos.");
+      return;
+    }
+
+    try {
+      const data = await listarBens({ numeroTombamento: tombo, limit: 1, offset: 0 });
+      const it = (data.items || [])[0] || null;
+      if (!it) {
+        setWizardPersistErr("Bem nÃ£o encontrado para este tombamento.");
+        return;
+      }
+      setWizardBem(it);
+    } catch (e) {
+      setWizardPersistErr(String(e?.message || "Falha ao buscar bem."));
+    }
   };
 
   return (
@@ -181,28 +218,77 @@ function AppShell() {
                   Fluxo guiado para classificar bens inserviveis: Ocioso, Recuperavel, Antieconomico ou Irrecuperavel.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setWizardOpen(true)}
-                className="rounded-xl bg-cyan-300 px-4 py-2 font-semibold text-slate-900 hover:bg-cyan-200"
-              >
-                Iniciar wizard
-              </button>
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {wizardHistory.length === 0 && (
-                <p className="rounded-xl border border-dashed border-white/25 p-4 text-sm text-slate-300">
-                  Nenhuma classificacao realizada nesta sessao.
-                </p>
-              )}
-              {wizardHistory.map((item) => (
-                <article key={item.id} className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
-                  <p className="text-xs uppercase tracking-widest text-cyan-200">{item.classificacao}</p>
-                  <p className="mt-2 font-medium">{item.descricaoBem}</p>
-                  <p className="mt-1 text-xs text-slate-400">Justificativa: {item.justificativa}</p>
-                </article>
-              ))}
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+              <div className="rounded-xl border border-white/10 bg-slate-950/25 p-4">
+                <p className="text-xs uppercase tracking-widest text-slate-300">SeleÃ§Ã£o do bem (obrigatÃ³rio)</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <input
+                    value={wizardBemTombo}
+                    onChange={(e) => setWizardBemTombo(e.target.value.replace(/\\D+/g, "").slice(0, 10))}
+                    placeholder="Tombamento (10 dÃ­gitos)"
+                    inputMode="numeric"
+                    className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={loadBemByTombo}
+                    className="rounded-lg border border-white/25 px-4 py-2 text-sm font-semibold hover:bg-white/10"
+                  >
+                    Carregar bem
+                  </button>
+                </div>
+
+                {wizardBem ? (
+                  <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3 text-sm">
+                    <p className="font-semibold text-slate-100">{wizardBem.catalogoDescricao}</p>
+                    <p className="mt-1 text-xs text-slate-300">
+                      Tombo: <span className="font-mono">{wizardBem.numeroTombamento}</span> | Unidade: {wizardBem.unidadeDonaId} | Local: {wizardBem.localFisico}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setWizardOpen(true)}
+                      className="mt-3 rounded-xl bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-200"
+                    >
+                      Iniciar wizard para este bem
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-300">
+                    Carregue um bem pelo tombamento para persistir a classificaÃ§Ã£o no banco.
+                  </p>
+                )}
+
+                {wizardPersistErr && (
+                  <p className="mt-3 rounded-lg border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
+                    {wizardPersistErr}
+                  </p>
+                )}
+                {wizardPersistMsg && (
+                  <p className="mt-3 rounded-lg border border-emerald-300/30 bg-emerald-200/10 p-3 text-sm text-emerald-200">
+                    {wizardPersistMsg}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-slate-950/25 p-4">
+                <p className="text-xs uppercase tracking-widest text-slate-300">HistÃ³rico (Art. 141)</p>
+                {wizardAvaliacoesQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando...</p>}
+                {!wizardBem && (
+                  <p className="mt-3 text-sm text-slate-300">Selecione um bem para ver histÃ³rico.</p>
+                )}
+                {wizardBem && !wizardAvaliacoesQuery.isLoading && (wizardAvaliacoesQuery.data || []).length === 0 && (
+                  <p className="mt-3 text-sm text-slate-300">Nenhuma avaliaÃ§Ã£o registrada para este bem.</p>
+                )}
+                {(wizardAvaliacoesQuery.data || []).slice(0, 8).map((it) => (
+                  <article key={it.id} className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3 text-sm">
+                    <p className="text-xs uppercase tracking-widest text-cyan-200">{it.tipoInservivel}</p>
+                    <p className="mt-1 text-xs text-slate-300">{new Date(it.avaliadoEm).toLocaleString()}</p>
+                    {it.justificativa ? <p className="mt-2 text-xs text-slate-300">Justificativa: {it.justificativa}</p> : null}
+                  </article>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -215,9 +301,29 @@ function AppShell() {
       <ClassificationWizard
         isOpen={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onSave={(result) => {
-          handleWizardResult(result);
-          setWizardOpen(false);
+        onSave={async (result) => {
+          setWizardPersistMsg(null);
+          setWizardPersistErr(null);
+
+          if (!wizardBem?.id) {
+            setWizardPersistErr("Selecione um bem antes de salvar a classificaÃ§Ã£o.");
+            return;
+          }
+
+          try {
+            await criarAvaliacaoInservivel({
+              bemId: wizardBem.id,
+              tipoInservivel: result.classificacao,
+              descricaoInformada: result.descricaoBem,
+              justificativa: result.justificativa,
+              criterios: result.criterios || null,
+            });
+            await wizardAvaliacoesQuery.refetch().catch(() => undefined);
+            setWizardPersistMsg(`ClassificaÃ§Ã£o salva: ${result.classificacao}.`);
+            setWizardOpen(false);
+          } catch (e) {
+            setWizardPersistErr(String(e?.message || "Falha ao salvar classificaÃ§Ã£o."));
+          }
         }}
       />
     </div>

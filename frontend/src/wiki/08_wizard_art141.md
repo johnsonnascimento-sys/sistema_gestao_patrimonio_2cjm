@@ -1,47 +1,50 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/08_wizard_art141.md
-Funcao no sistema: orientar uso do wizard de classificacao de inserviveis (Art. 141).
+Funcao no sistema: orientar uso do Wizard de classificacao de inserviveis (Art. 141) com persistencia e auditoria.
 -->
 
 # Wizard Art. 141 (classificação de inservíveis)
 
-## Por que existe um wizard
+## 1) Por que existe um wizard
 
-Classificar um bem como inservivel (ocioso/recuperavel/antieconomico/irrecuperavel) tem impacto operacional e documental.
+Classificar um bem como inservível (ocioso/recuperável/antieconômico/irrecuperável) tem impacto operacional e documental.
 
-Para reduzir erro humano e garantir conformidade, o sistema usa um **fluxo guiado**.
+Para reduzir erro humano e garantir conformidade, o sistema usa um **fluxo guiado** (wizard).
 
 Base legal:
 
-- Art. 141, Caput (AN303_Art141_Cap)
-- Art. 141, I (AN303_Art141_I)
-- Art. 141, II (AN303_Art141_II)
-- Art. 141, III (AN303_Art141_III)
-- Art. 141, IV (AN303_Art141_IV)
+- Art. 141, Caput (AN303_Art141_Cap).
+- Art. 141, I (AN303_Art141_I).
+- Art. 141, II (AN303_Art141_II).
+- Art. 141, III (AN303_Art141_III).
+- Art. 141, IV (AN303_Art141_IV).
 
-## Como usar (passo a passo)
+## 2) Como usar (passo a passo)
 
 1. Abra a aba **Wizard Art. 141**.
-2. Clique em **Iniciar wizard**.
-3. Preencha a descrição do bem (ou selecione pelo cadastro quando integrado).
-4. Responda as perguntas do fluxo:
-   - O bem está ocioso? (não utilizado mas em condição)
-   - O bem é recuperável? (custo/viabilidade de reparo)
-   - O bem é antieconômico? (manter é mais caro que substituir)
-   - O bem é irrecuperável? (sem condições de uso)
-5. Salve o resultado.
+2. Em **Seleção do bem**, informe o **tombamento (10 dígitos)** e clique em **Carregar bem**.
+3. Confirme se o bem exibido é o correto (catálogo, unidade e local).
+4. Clique em **Iniciar wizard para este bem**.
+5. Responda o questionário.
+6. Clique em **Salvar classificação**.
 
-## O que o sistema registra
+Resultado:
 
-No minimo:
+- O sistema grava uma **avaliação** no banco e atualiza `bens.tipo_inservivel` como estado atual.
 
-- Classificação final
-- Justificativa (texto)
-- Data/hora
-- Operador (quando perfil estiver integrado em persistencia)
+## 3) O que o sistema registra (auditoria)
 
-## Boas praticas
+No mínimo:
 
-- Evite "chutar" a classificacao. Use justificativa clara.
-- Se for antieconomico/irrecuperavel, anexe laudos/documentos no fluxo administrativo (quando habilitado).
+- `bem_id`
+- `tipo_inservivel`
+- `justificativa`
+- `critérios` (respostas do wizard)
+- data/hora (`avaliado_em`)
+- executor (`avaliado_por_perfil_id`, quando autenticado)
+
+Importante:
+
+- O Wizard **não efetiva baixa automaticamente**. A baixa é etapa administrativa posterior (documentos, autorização etc.).
+

@@ -64,6 +64,11 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
         descricaoBem: answers.descricao,
         classificacao,
         justificativa,
+        criterios: {
+          ocioso: answers.ocioso,
+          recuperavel: answers.recuperavel,
+          antieconomico: answers.antieconomico,
+        },
       });
       setStep(0);
       setAnswers({

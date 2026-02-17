@@ -1015,6 +1015,89 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
   }
 });
 
+/**
+ * Registra avaliacao de inservivel via Wizard (Art. 141) e atualiza o estado atual do bem.
+ *
+ * Regra legal: classificacao obrigatoria de inserviveis.
+ * Art. 141 (AN303_Art141_Cap / AN303_Art141_I / AN303_Art141_II / AN303_Art141_III / AN303_Art141_IV).
+ */
+app.post("/inserviveis/avaliacoes", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const body = req.body || {};
+    const bemId = String(body.bemId || "").trim();
+    if (!UUID_RE.test(bemId)) throw new HttpError(422, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+
+    const tipo = String(body.tipoInservivel || body.classificacao || "").trim().toUpperCase();
+    const allowed = new Set(["OCIOSO", "RECUPERAVEL", "ANTIECONOMICO", "IRRECUPERAVEL"]);
+    if (!allowed.has(tipo)) throw new HttpError(422, "TIPO_INVALIDO", "tipoInservivel invalido.");
+
+    const descricaoInformada = body.descricaoInformada != null ? String(body.descricaoInformada).trim().slice(0, 2000) : null;
+    const justificativa = body.justificativa != null ? String(body.justificativa).trim().slice(0, 4000) : null;
+    const criterios = body.criterios != null && typeof body.criterios === "object" ? body.criterios : null;
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+
+    const bemR = await client.query(`SELECT id, numero_tombamento, status::text AS status FROM bens WHERE id = $1 FOR UPDATE;`, [bemId]);
+    if (!bemR.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    const ins = await client.query(
+      `INSERT INTO avaliacoes_inserviveis (
+         bem_id, tipo_inservivel, descricao_informada, justificativa, criterios, avaliado_por_perfil_id
+       ) VALUES (
+         $1,$2::public.tipo_inservivel,$3,$4,$5,$6
+       )
+       RETURNING id, bem_id AS "bemId", tipo_inservivel::text AS "tipoInservivel", avaliado_em AS "avaliadoEm";`,
+      [bemId, tipo, descricaoInformada, justificativa, criterios ? JSON.stringify(criterios) : null, req.user?.id || null],
+    );
+
+    await client.query(
+      `UPDATE bens SET tipo_inservivel = $2::public.tipo_inservivel, updated_at = NOW() WHERE id = $1;`,
+      [bemId, tipo],
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ requestId: req.requestId, avaliacao: ins.rows[0] });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * Lista avaliacoes do Wizard (Art. 141) por bem.
+ */
+app.get("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
+  try {
+    const bemId = req.query?.bemId != null ? String(req.query.bemId).trim() : "";
+    if (!UUID_RE.test(bemId)) throw new HttpError(422, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+
+    const r = await pool.query(
+      `SELECT
+         id,
+         bem_id AS "bemId",
+         tipo_inservivel::text AS "tipoInservivel",
+         descricao_informada AS "descricaoInformada",
+         justificativa,
+         criterios,
+         avaliado_por_perfil_id AS "avaliadoPorPerfilId",
+         avaliado_em AS "avaliadoEm"
+       FROM avaliacoes_inserviveis
+       WHERE bem_id = $1
+       ORDER BY avaliado_em DESC
+       LIMIT 50;`,
+      [bemId],
+    );
+
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, req, res, _next) => {
   if (error instanceof multer.MulterError) {
     res.status(400).json({ error: { code: "UPLOAD_INVALIDO", message: "Falha no upload do arquivo." }, requestId: req.requestId });

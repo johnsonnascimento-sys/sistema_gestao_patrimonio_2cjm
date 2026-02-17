@@ -183,6 +183,28 @@ Body JSON (exemplo):
 - `proprietarioExterno` (string)
 - `identificadorExterno` (opcional)
 
+## Inservíveis (Wizard Art. 141)
+
+### POST `/inserviveis/avaliacoes`
+
+Uso: persistir o resultado do Wizard do Art. 141 para um bem.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Campos (JSON):
+
+- `bemId` (UUID)
+- `tipoInservivel`: `OCIOSO|RECUPERAVEL|ANTIECONOMICO|IRRECUPERAVEL`
+- `descricaoInformada` (opcional)
+- `justificativa` (opcional)
+- `criterios` (opcional; objeto)
+
+### GET `/inserviveis/avaliacoes?bemId=<uuid>`
+
+Uso: listar o histórico de avaliações do Art. 141 para um bem.
+
 
 ## Documentos (evidências)
 

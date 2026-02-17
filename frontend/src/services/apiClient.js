@@ -322,6 +322,39 @@ export async function criarDocumento(payload) {
 }
 
 /**
+ * Cria avaliacao de inservivel via Wizard do Art. 141 (persistencia no backend).
+ * Endpoint restrito a ADMIN quando autenticacao estiver ativa.
+ * @param {object} payload Dados da avaliacao.
+ * @returns {Promise<object>} Avaliacao criada.
+ */
+export async function criarAvaliacaoInservivel(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inserviveis/avaliacoes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista historico de avaliacoes de inservivel por bem.
+ * @param {string} bemId UUID do bem.
+ * @returns {Promise<object>} Lista de avaliacoes.
+ */
+export async function listarAvaliacoesInservivel(bemId) {
+  const params = new URLSearchParams();
+  params.set("bemId", String(bemId));
+  const response = await safeFetch(`${API_BASE_URL}/inserviveis/avaliacoes?${params.toString()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Lista eventos de inventario.
  * @param {string=} status Filtra por status (ex.: EM_ANDAMENTO).
  * @returns {Promise<object>} Lista de eventos.
