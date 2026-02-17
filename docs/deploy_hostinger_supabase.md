@@ -66,11 +66,20 @@ Para rodar tudo por Docker na VPS (frontend + backend):
 Se o host não tiver `psql` instalado, execute migrações usando um container temporário do Postgres:
 
 ```bash
-cd /opt/cjm-patrimonio/current
+cd /opt/cjm-patrimonio/releases/cjm-patrimonio
 set -a; . ./.env; set +a
 
 docker run --rm --network host \
   -v "$PWD":/work -w /work \
   postgres:16-alpine \
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/002_history_and_rules.sql
+```
+
+## 8. Deploy recomendado (com git pull + rebuild)
+
+Se o repositório estiver clonado na VPS, use o script:
+
+```bash
+cd /opt/cjm-patrimonio/releases/cjm-patrimonio
+./scripts/vps_deploy.sh all
 ```

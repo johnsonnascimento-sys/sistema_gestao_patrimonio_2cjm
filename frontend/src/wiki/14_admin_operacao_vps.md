@@ -6,7 +6,7 @@ Funcao no sistema: manual de operacao para administradores (VPS + Docker + Nginx
 
 # Admin: operação na VPS (Docker/Nginx)
 
-Esta pagina e para quem administra o servidor (VPS Hostinger + CloudPanel).
+Esta página é para quem administra o servidor (VPS Hostinger + CloudPanel).
 
 ## Premissas (o que não mudar sem motivo)
 
@@ -25,7 +25,7 @@ No host:
 - `curl -i https://patrimonio2cjm.johnsontn.com.br/` deve retornar `200` e HTML da SPA.
 - `curl -i https://patrimonio2cjm.johnsontn.com.br/api/health` deve retornar `200`.
 
-## Logs (diagnostico)
+## Logs (diagnóstico)
 
 Docker:
 
@@ -38,19 +38,41 @@ Nginx host:
 - `tail -f /var/log/nginx/patrimonio2cjm.error.log`
 - `tail -f /var/log/nginx/patrimonio2cjm.access.log`
 
-## Rebuild/restart de containers (deploy simples)
+## Deploy recomendado (script)
 
-No diretorio do projeto na VPS (exemplo):
+O jeito mais simples e consistente é usar o script de deploy do repositório:
 
 ```bash
-cd /opt/cjm-patrimonio/current
+cd /opt/cjm-patrimonio/releases/cjm-patrimonio
+./scripts/vps_deploy.sh all
+```
+
+Para subir só uma parte:
+
+```bash
+./scripts/vps_deploy.sh backend
+./scripts/vps_deploy.sh frontend
+```
+
+O script faz:
+
+- `git pull` (ff-only)
+- rebuild
+- recriação dos containers (`cjm_backend`/`cjm_frontend`)
+
+## Rebuild/restart (manual)
+
+Se você preferir executar manualmente, rode no diretório do repositório na VPS (exemplo):
+
+```bash
+cd /opt/cjm-patrimonio/releases/cjm-patrimonio
 docker compose -f docker-compose.vps.yml build backend
 docker compose -f docker-compose.vps.yml up -d --no-deps --force-recreate backend
 docker compose -f docker-compose.vps.yml build frontend
 docker compose -f docker-compose.vps.yml up -d --no-deps --force-recreate frontend
 ```
 
-Observacao:
+Observação:
 
 - Rebuild do frontend troca os arquivos estaticos.
 - Por causa do Service Worker (PWA), alguns navegadores podem manter cache. Use hard refresh.
@@ -63,16 +85,16 @@ Importação pode demorar (milhares de linhas). Para evitar 504:
 - Garanta `proxy_request_buffering off` no `location /api/`.
 - Garanta `client_max_body_size` adequado (ex.: 15m).
 
-## Onde ficam variaveis de ambiente
+## Onde ficam variáveis de ambiente
 
-Por padrao:
+Por padrão:
 
 - `.env` fica apenas na VPS, não versionado.
 - `DATABASE_URL` aponta para Supabase (Postgres).
 
-Nunca coloque segredos no repositorio nem no Wiki.
+Nunca coloque segredos no repositório nem no Wiki.
 
-## Recuperacao rapida (checklist)
+## Recuperação rápida (checklist)
 
 Se "Failed to fetch" aparecer no site:
 

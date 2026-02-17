@@ -27,6 +27,7 @@ import mdSeguranca from "../wiki/12_politica_seguranca.md?raw";
 import mdCompliance from "../wiki/13_compliance_atn303.md?raw";
 import mdAdminVps from "../wiki/14_admin_operacao_vps.md?raw";
 import mdApiRef from "../wiki/15_referencia_api.md?raw";
+import mdMatrizCompliance from "../wiki/16_matriz_compliance.md?raw";
 
 const WIKI_PAGES = [
   { id: "indice", title: "Índice", md: mdIndice },
@@ -43,6 +44,7 @@ const WIKI_PAGES = [
   { id: "glossario", title: "Glossário", md: mdGlossario },
   { id: "seguranca", title: "Segurança e sigilo operacional", md: mdSeguranca },
   { id: "compliance", title: "Compliance ATN 303/2008", md: mdCompliance },
+  { id: "matriz-compliance", title: "Matriz de compliance (ATN 303)", md: mdMatrizCompliance },
   { id: "admin-vps", title: "Admin: operação na VPS", md: mdAdminVps },
   { id: "api-ref", title: "Referência rápida da API", md: mdApiRef },
 ];
