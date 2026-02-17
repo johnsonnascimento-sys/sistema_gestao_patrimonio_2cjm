@@ -61,7 +61,8 @@ function stripLeadingHtmlComments(md) {
   // Remove one or more HTML comments at the very top (used for file metadata headers).
   // react-markdown escapes HTML by default, so comments would show as text otherwise.
   // We keep the header in the file (governance), but hide it in the UI.
-  for (let n = 0; n < 3; n += 1) {
+  // (No hard limit: remove all consecutive top-of-file comments.)
+  while (true) {
     const leadingWs = (s.match(/^\s*/) || [""])[0];
     const start = leadingWs.length;
     if (!s.slice(start).startsWith("<!--")) break;

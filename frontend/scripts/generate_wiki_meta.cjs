@@ -17,6 +17,7 @@ const cp = require("node:child_process");
 const repoRoot = path.resolve(__dirname, "..", "..");
 const wikiDir = path.resolve(__dirname, "..", "src", "wiki");
 const outFile = path.resolve(wikiDir, "wikiMeta.generated.js");
+const gitDir = path.resolve(repoRoot, ".git");
 
 const PAGES = [
   { id: "indice", filename: "00_indice.md" },
@@ -64,6 +65,21 @@ function fileMtimeIso(absFile) {
 }
 
 function generate() {
+  // Important: in container builds the frontend folder is copied without the repo `.git` directory.
+  // In that scenario, using `mtime` would make every page look "updated" at build time, which is misleading.
+  // So: if `.git` is not available AND we already have a generated file, keep it unchanged.
+  // This preserves the Git-based timestamps generated during development/release packaging.
+  const hasGit = fs.existsSync(gitDir);
+  if (!hasGit && fs.existsSync(outFile)) {
+    console.log(
+      `[wiki-meta] skip: .git not found at ${path.relative(process.cwd(), gitDir)}; keeping existing ${path.relative(
+        repoRoot,
+        outFile
+      )}`
+    );
+    return;
+  }
+
   const meta = {};
   for (const p of PAGES) {
     const abs = path.resolve(wikiDir, p.filename);
@@ -84,4 +100,3 @@ function generate() {
 }
 
 generate();
-
