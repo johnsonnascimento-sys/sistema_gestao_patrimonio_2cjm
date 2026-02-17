@@ -16,6 +16,8 @@
 - `POST /movimentar`
 - `GET /docs` (Swagger UI)
 - `GET /inventario/contagens` (leituras de contagens por evento/sala)
+- `GET /inventario/forasteiros` (divergencias pendentes para regularizacao pos-inventario)
+- `POST /inventario/regularizacoes` (encerra pendencia; opcionalmente transfere carga com termo)
 
 ## Camada raw do GEAFIN (auditoria)
 

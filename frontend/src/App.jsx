@@ -10,6 +10,7 @@ import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
+import RegularizationPanel from "./components/RegularizationPanel.jsx";
 import WikiManual from "./components/WikiManual.jsx";
 import { listarEventosInventario } from "./services/apiClient.js";
 
@@ -78,6 +79,13 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={() => setTab("regularizacao")}
+              className={`pill ${tab === "regularizacao" ? "pill-active" : ""}`}
+            >
+              Regularização
+            </button>
+            <button
+              type="button"
               onClick={() => setTab("classificacao")}
               className={`pill ${tab === "classificacao" ? "pill-active" : ""}`}
             >
@@ -136,6 +144,8 @@ export default function App() {
             <InventoryRoomPanel />
           </div>
         )}
+
+        {tab === "regularizacao" && <RegularizationPanel />}
 
         {tab === "classificacao" && (
           <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">

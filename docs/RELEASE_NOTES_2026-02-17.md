@@ -26,6 +26,11 @@ Concluir a Fase 2 com foco em:
     - `total_linhas`, `status`, `finalizado_em`, `erro_resumo`
   - Objetivo: permitir acompanhamento de progresso e status na UI.
 
+- Migracao aplicada: `database/005_regularizacao_pos_inventario.sql`
+  - Permite encerrar pendencias de divergencia (forasteiros) apos o inventario, registrando metadados:
+    - `regularizado_em`, `regularizado_por_perfil_id`, `regularizacao_acao`, `regularizacao_movimentacao_id`, `regularizacao_observacoes`.
+  - Regra legal: Art. 185 (AN303_Art185).
+
 ### 2.2 Backend (Node/Express)
 
 - Importação GEAFIN (`POST /importar-geafin`):
@@ -40,6 +45,10 @@ Concluir a Fase 2 com foco em:
 - Detalhe do bem:
   - `GET /bens/{id}`
   - Retorna dados do bem + catalogo (SKU) + ultimas movimentacoes + historico de transferencias.
+
+- Regularizacao pos-inventario:
+  - `GET /inventario/forasteiros`: lista divergencias pendentes (intrusos/forasteiros).
+  - `POST /inventario/regularizacoes`: encerra pendencia; opcionalmente executa transferencia de carga com `termoReferencia`.
 
 ### 2.3 Frontend (React/Vite)
 
@@ -57,6 +66,10 @@ Concluir a Fase 2 com foco em:
   - Conteudo em Markdown versionado junto do frontend (`frontend/src/wiki/*.md`).
   - Persistência de página no `#hash` para não sumir no refresh.
   - Estilo de Markdown padronizado no CSS global.
+
+- Regularizacao pos-inventario:
+  - Nova aba "Regularizacao" para encerrar pendencias do Art. 185.
+  - Documentacao no Wiki: "Regularizacao pos-inventario (forasteiros)".
 
 ## 3. Como Validar (checklist rapido)
 

@@ -64,6 +64,16 @@ Nota operacional (importacao / timeout):
     - `public.geafin_import_linhas` (linhas raw em `row_raw` JSONB + flags de normalizacao/persistencia)
     - `public.vw_geafin_relatorio_csv` (VIEW com colunas iguais ao header do GEAFIN)
 
+- `database/004_geafin_import_progress.sql`
+  - Adiciona metadados de progresso/status em `public.geafin_import_arquivos` para observabilidade e UX:
+    - `total_linhas`, `status`, `finalizado_em`, `erro_resumo`.
+
+- `database/005_regularizacao_pos_inventario.sql`
+  - Permite regularizacao pos-inventario de divergencias (intrusos/forasteiros) sem apagar o fato historico.
+  - Adiciona metadados minimos na tabela `contagens`:
+    - `regularizado_em`, `regularizado_por_perfil_id`, `regularizacao_acao`, `regularizacao_movimentacao_id`, `regularizacao_observacoes`.
+  - Regra legal: Art. 185 (AN303_Art185).
+
 ### 3.2 Normalizacao (SKU vs Item)
 
 Conceito operacional:
@@ -115,9 +125,11 @@ Nota:
   - `POST /inventario/eventos`
   - `PATCH /inventario/eventos/:id/status`
   - `GET /inventario/contagens` (leituras por evento/sala para UI de checklist)
+  - `GET /inventario/forasteiros` (divergências pendentes para regularização pós-inventário)
   - `POST /inventario/sync` (upsert em `contagens`)
     - Divergente (intruso): `tipo_ocorrencia='ENCONTRADO_EM_LOCAL_DIVERGENTE'` + `regularizacao_pendente=TRUE`.
     - Regra legal: Art. 185 (AN303_Art185).
+  - `POST /inventario/regularizacoes` (encerra pendência; opcionalmente transfere carga com termo).
 - `GET /docs`: Swagger/OpenAPI (basico).
 - `GET /importacoes/geafin/ultimo`: progresso da ultima importacao GEAFIN (para barra de progresso na UI).
 
@@ -133,6 +145,9 @@ Nota:
   - Baixa bens por sala via filtro `localFisico`.
   - Agrupa por catalogo (accordion com `details/summary`).
   - Scanner registra tombamento (10 digitos) e enfileira offline.
+- Regularização pós-inventário:
+  - Lista divergências pendentes (forasteiros) e permite encerrar pendência.
+  - Para transferência de carga, exige `termoReferencia` e gera trilha (`movimentacoes` + `historico_transferencias`).
 - Wizard Art. 141: UI de fluxo guiado (mock) para classificacao de inserviveis.
 - Wiki / Manual (self-hosted):
   - Manual completo para usuarios e administradores.
@@ -142,6 +157,7 @@ Nota:
 Arquivos principais:
 - `frontend/src/components/AssetsExplorer.jsx` (consulta)
 - `frontend/src/components/InventoryRoomPanel.jsx` (inventario)
+- `frontend/src/components/RegularizationPanel.jsx` (regularizacao)
 - `frontend/src/hooks/useOfflineSync.js` (fila offline)
 - `frontend/src/services/apiClient.js` (cliente HTTP)
 - `frontend/src/components/WikiManual.jsx` (wiki/manual)
@@ -197,7 +213,9 @@ Observacao:
   - Banco: trigger/fn de bloqueio de mudanca de carga durante inventario em andamento.
 - Art. 185 (AN303_Art185)
   - Banco: `contagens.tipo_ocorrencia` + constraint `regularizacao_pendente=TRUE` quando divergente.
+  - Banco: regularizacao pos-inventario com metadados (mig. 005) sem apagar o fato historico.
   - Backend: `POST /inventario/sync` seta divergente de forma deterministica.
+  - Backend: `POST /inventario/regularizacoes` encerra pendencia (e opcionalmente transfere carga com termo).
   - Automacao: view `vw_forasteiros` para relatorio.
 - Arts. 124 e 127 (AN303_Art124 / AN303_Art127)
   - Banco: historico de mudanca de carga via trigger.

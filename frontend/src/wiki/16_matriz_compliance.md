@@ -52,7 +52,7 @@ Legenda:
 | Patrimônio: Movimentação e Uso | 122–140 | Parcial | Cautela x transferência implementadas; falta termo oficial e anexos. |
 | Patrimônio: Desfazimento e Inservíveis | 141–152 | Parcial | Wizard existe; falta persistir decisão e produzir peças/relatórios. |
 | Patrimônio: Baixa e Apuração de Fatos | 153–168 | Pendente | Falta fluxo de baixa/apuração (sindicância etc.). |
-| Patrimônio: Auditoria Anual de Ativos | 169–187 | Parcial | Inventário e divergências existem; congelamento e intrusos implementados. |
+| Patrimônio: Auditoria Anual de Ativos | 169–187 | Parcial | Inventário, divergências e regularização pós-inventário existem; congelamento e intrusos implementados. |
 | Transparência e Regras Finais | 188–189 | Pendente | Falta painel/rotina de publicidade mensal. |
 
 ## 2) Regras críticas (mapeamento artigo -> implementação)
@@ -122,9 +122,8 @@ Legenda:
 
 Para evoluir a compliance, o backlog imediato é:
 
-1. Regularização pós-inventário (fila + termos) para divergências do Art. 185.
+1. Regularização pós-inventário para divergências do Art. 185 (implementado: aba "Regularização" + endpoint `/inventario/regularizacoes`).
 2. Termos oficiais (PDF) para transferência/cautela (Arts. 124/127).
 3. Persistência completa do Wizard Art. 141 + relatórios de inservíveis.
 4. Baixa e apuração de fatos (Arts. 153–168).
 5. Transparência mensal (Arts. 188–189).
-

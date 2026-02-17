@@ -26,6 +26,7 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Movimentações: cautela x transferência
 - Inventário sala a sala (modo agrupado/SKU)
 - Intrusos e bens de terceiros ("bem de terceiro")
+- Regularização pós-inventário (forasteiros)
 - Wizard Art. 141 (inserviveis)
 - Relatórios e auditoria
 - Solução de problemas (erros comuns)

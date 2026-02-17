@@ -271,4 +271,41 @@ export async function listarContagensInventario(params) {
   return parseResponse(response);
 }
 
+/**
+ * Lista divergencias pendentes ("forasteiros") para regularizacao pos-inventario.
+ * @param {{eventoInventarioId?: string, salaEncontrada?: string, numeroTombamento?: string, limit?: number}} params Parametros opcionais.
+ * @returns {Promise<object>} Lista de divergencias pendentes.
+ */
+export async function listarForasteirosInventario(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.eventoInventarioId) usp.set("eventoInventarioId", String(params.eventoInventarioId));
+  if (params.salaEncontrada) usp.set("salaEncontrada", String(params.salaEncontrada));
+  if (params.numeroTombamento) usp.set("numeroTombamento", String(params.numeroTombamento));
+  if (params.limit != null) usp.set("limit", String(params.limit));
+
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inventario/forasteiros${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Regulariza uma divergencia ("forasteiro") apos ENCERRAR o inventario.
+ * @param {{contagemId: string, acao: "TRANSFERIR_CARGA"|"MANTER_CARGA", regularizadoPorPerfilId: string, termoReferencia?: string, observacoes?: string}} payload Payload.
+ * @returns {Promise<object>} Resultado da regularizacao.
+ */
+export async function regularizarForasteiro(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/regularizacoes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
 export { API_BASE_URL };

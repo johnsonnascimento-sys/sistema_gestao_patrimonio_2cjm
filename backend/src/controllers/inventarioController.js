@@ -14,9 +14,10 @@
  * @param {RegExp} deps.UUID_RE Regex de UUID.
  * @param {RegExp} deps.TOMBAMENTO_GEAFIN_RE Regex de tombamento GEAFIN (10 digitos).
  * @param {(raw: any) => (string|null)} deps.normalizeTombamento Normalizador de tombamento.
+ * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -26,6 +27,7 @@ function createInventarioController(deps) {
     UUID_RE,
     TOMBAMENTO_GEAFIN_RE,
     normalizeTombamento,
+    setDbContext,
     safeRollback,
     dbError,
   } = deps;
@@ -130,6 +132,11 @@ function createInventarioController(deps) {
           c.unidade_encontrada_id AS "unidadeEncontradaId",
           c.tipo_ocorrencia::text AS "tipoOcorrencia",
           c.regularizacao_pendente AS "regularizacaoPendente",
+          c.regularizado_em AS "regularizadoEm",
+          c.regularizado_por_perfil_id AS "regularizadoPorPerfilId",
+          c.regularizacao_acao AS "regularizacaoAcao",
+          c.regularizacao_movimentacao_id AS "regularizacaoMovimentacaoId",
+          c.regularizacao_observacoes AS "regularizacaoObservacoes",
           c.encontrado_em AS "encontradoEm",
           c.encontrado_por_perfil_id AS "encontradoPorPerfilId",
           c.observacoes,
@@ -140,6 +147,101 @@ function createInventarioController(deps) {
         JOIN bens b ON b.id = c.bem_id
         WHERE ${where.join(" AND ")}
         ORDER BY c.encontrado_em DESC
+        LIMIT $${i};`;
+
+      const r = await pool.query(sql, [...params, limitFinal]);
+      res.json({ requestId: req.requestId, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Lista "forasteiros" (divergencias pendentes) para regularizacao pos-inventario.
+   *
+   * Regra legal:
+   * - Divergencias/intrusos nao mudam carga automaticamente.
+   *   Art. 185 (AN303_Art185).
+   *
+   * Query params:
+   * - eventoInventarioId: UUID (opcional)
+   * - salaEncontrada: string (opcional)
+   * - numeroTombamento: string (opcional; 10 digitos)
+   * - limit: number (opcional; default 200; max 2000)
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getForasteiros(req, res, next) {
+    try {
+      const q = req.query || {};
+      const eventoInventarioId = q.eventoInventarioId != null && String(q.eventoInventarioId).trim() !== ""
+        ? String(q.eventoInventarioId).trim()
+        : null;
+      if (eventoInventarioId && !UUID_RE.test(eventoInventarioId)) {
+        throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+      }
+
+      const salaRaw = q.salaEncontrada || q.sala || q.local || null;
+      const salaEncontrada = salaRaw != null && String(salaRaw).trim() !== ""
+        ? String(salaRaw).trim().slice(0, 180)
+        : null;
+
+      const numeroTombamento = q.numeroTombamento != null && String(q.numeroTombamento).trim() !== ""
+        ? normalizeTombamento(q.numeroTombamento)
+        : null;
+      if (numeroTombamento && !TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
+        throw new HttpError(422, "TOMBAMENTO_INVALIDO", "numeroTombamento deve conter 10 digitos (GEAFIN).");
+      }
+
+      const limitRaw = q.limit != null ? Number(q.limit) : 200;
+      const limit = Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 200;
+      const limitFinal = Math.max(1, Math.min(2000, limit));
+
+      const where = ["1=1"];
+      const params = [];
+      let i = 1;
+
+      if (eventoInventarioId) {
+        where.push(`f.evento_inventario_id = $${i}`);
+        params.push(eventoInventarioId);
+        i += 1;
+      }
+      if (salaEncontrada) {
+        where.push(`lower(trim(f.sala_encontrada)) = lower(trim($${i}))`);
+        params.push(salaEncontrada);
+        i += 1;
+      }
+      if (numeroTombamento) {
+        where.push(`f.numero_tombamento = $${i}`);
+        params.push(numeroTombamento);
+        i += 1;
+      }
+
+      const sql = `
+        SELECT
+          f.contagem_id AS "contagemId",
+          f.evento_inventario_id AS "eventoInventarioId",
+          f.codigo_evento AS "codigoEvento",
+          f.status_inventario::text AS "statusInventario",
+          f.unidade_inventariada_id AS "unidadeInventariadaId",
+          f.bem_id AS "bemId",
+          f.numero_tombamento AS "numeroTombamento",
+          b.catalogo_bem_id AS "catalogoBemId",
+          cb.codigo_catalogo AS "codigoCatalogo",
+          cb.descricao AS "catalogoDescricao",
+          f.unidade_dona_id AS "unidadeDonaId",
+          f.unidade_encontrada_id AS "unidadeEncontradaId",
+          f.sala_encontrada AS "salaEncontrada",
+          f.encontrado_em AS "encontradoEm",
+          f.encontrado_por_perfil_id AS "encontradoPorPerfilId",
+          f.observacoes
+        FROM public.vw_forasteiros f
+        JOIN public.bens b ON b.id = f.bem_id
+        JOIN public.catalogo_bens cb ON cb.id = b.catalogo_bem_id
+        WHERE ${where.join(" AND ")}
+        ORDER BY f.encontrado_em DESC
         LIMIT $${i};`;
 
       const r = await pool.query(sql, [...params, limitFinal]);
@@ -399,7 +501,212 @@ function createInventarioController(deps) {
     }
   }
 
-  return { getEventos, getContagens, postEvento, patchEventoStatus, postSync };
+  /**
+   * Regulariza uma divergencia (forasteiro) apos o encerramento do inventario.
+   *
+   * Regras:
+   * - So permite regularizar quando o evento estiver ENCERRADO.
+   * - A regularizacao encerra `regularizacao_pendente` e registra metadados (quem/quando/como).
+   * - Opcionalmente executa transferencia de carga, gerando `movimentacoes` + historico (Art. 124/127).
+   *
+   * Regras legais:
+   * - Divergencia/intruso deve ser regularizada apos o inventario (nao muda carga automaticamente).
+   *   Art. 185 (AN303_Art185).
+   * - Transferencia muda carga e exige formalizacao.
+   *   Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
+   *
+   * Body:
+   * - contagemId: UUID (obrigatorio)
+   * - acao: "TRANSFERIR_CARGA" | "MANTER_CARGA"
+   * - regularizadoPorPerfilId: UUID (obrigatorio)
+   * - termoReferencia: string (obrigatorio quando acao=TRANSFERIR_CARGA)
+   * - observacoes: string (opcional)
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function postRegularizacao(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const body = req.body || {};
+      const contagemId = String(body.contagemId || body.id || "").trim();
+      if (!contagemId || !UUID_RE.test(contagemId)) {
+        throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId (UUID) e obrigatorio.");
+      }
+
+      const regularizadoPorPerfilId = String(body.regularizadoPorPerfilId || body.perfilId || "").trim();
+      if (!regularizadoPorPerfilId || !UUID_RE.test(regularizadoPorPerfilId)) {
+        throw new HttpError(422, "REGULARIZADOR_INVALIDO", "regularizadoPorPerfilId (UUID) e obrigatorio.");
+      }
+
+      const acaoRaw = String(body.acao || body.tipo || "").trim().toUpperCase();
+      const acao = acaoRaw === "TRANSFERENCIA" || acaoRaw === "TRANSFERIR" || acaoRaw === "TRANSFERIR_CARGA"
+        ? "TRANSFERIR_CARGA"
+        : acaoRaw === "MANTER" || acaoRaw === "MANTER_CARGA" || acaoRaw === "SEM_TRANSFERENCIA"
+          ? "MANTER_CARGA"
+          : null;
+      if (!acao) {
+        throw new HttpError(422, "ACAO_INVALIDA", "acao deve ser TRANSFERIR_CARGA ou MANTER_CARGA.");
+      }
+
+      const termoReferenciaRaw = body.termoReferencia != null ? String(body.termoReferencia).trim() : "";
+      const termoReferencia = termoReferenciaRaw ? termoReferenciaRaw.slice(0, 120) : "";
+      if (acao === "TRANSFERIR_CARGA" && !termoReferencia) {
+        throw new HttpError(422, "TERMO_OBRIGATORIO", "termoReferencia e obrigatorio para TRANSFERIR_CARGA.");
+      }
+
+      const obsRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
+      const observacoes = obsRaw ? obsRaw.slice(0, 2000) : null;
+
+      await client.query("BEGIN");
+
+      // Confirma que o perfil existe (evita erro 23503 com mensagem generica).
+      const perfil = await client.query("SELECT id FROM perfis WHERE id = $1", [regularizadoPorPerfilId]);
+      if (!perfil.rowCount) {
+        throw new HttpError(422, "PERFIL_NAO_ENCONTRADO", "Perfil (regularizadoPorPerfilId) nao encontrado.");
+      }
+
+      const r = await client.query(
+        `SELECT
+           c.id AS contagem_id,
+           c.evento_inventario_id,
+           c.tipo_ocorrencia::text AS tipo_ocorrencia,
+           c.regularizacao_pendente,
+           c.unidade_encontrada_id,
+           c.sala_encontrada,
+           ei.status::text AS status_inventario,
+           ei.codigo_evento,
+           b.id AS bem_id,
+           b.numero_tombamento,
+           b.unidade_dona_id,
+           b.eh_bem_terceiro
+         FROM contagens c
+         JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
+         JOIN bens b ON b.id = c.bem_id
+         WHERE c.id = $1
+         FOR UPDATE OF c, b;`,
+        [contagemId],
+      );
+      if (!r.rowCount) throw new HttpError(404, "CONTAGEM_NAO_ENCONTRADA", "Contagem nao encontrada.");
+
+      const row = r.rows[0];
+      if (row.tipo_ocorrencia !== "ENCONTRADO_EM_LOCAL_DIVERGENTE") {
+        throw new HttpError(422, "CONTAGEM_NAO_DIVERGENTE", "Contagem informada nao e divergente (forasteiro).");
+      }
+      if (!row.regularizacao_pendente) {
+        throw new HttpError(409, "REGULARIZACAO_JA_FEITA", "Esta divergencia ja foi regularizada.");
+      }
+      if (row.status_inventario !== "ENCERRADO") {
+        throw new HttpError(
+          409,
+          "EVENTO_NAO_ENCERRADO",
+          "Regularizacao so pode ocorrer apos ENCERRAR o inventario.",
+          { baseLegal: "Art. 185 (AN303_Art185)" },
+        );
+      }
+
+      await setDbContext(client, { changeOrigin: "APP", currentUserId: regularizadoPorPerfilId });
+
+      let movimentacao = null;
+      let bem = null;
+
+      if (acao === "TRANSFERIR_CARGA") {
+        if (row.eh_bem_terceiro) {
+          throw new HttpError(422, "TRANSFERENCIA_PROIBIDA_BEM_TERCEIRO", "Bens de terceiros nao podem ter carga transferida.");
+        }
+
+        const unidadeDestinoId = Number(row.unidade_encontrada_id);
+        if (!Number.isInteger(unidadeDestinoId) || !VALID_UNIDADES.has(unidadeDestinoId)) {
+          throw new HttpError(422, "UNIDADE_DESTINO_INVALIDA", "unidadeEncontradaId invalida na contagem.");
+        }
+        if (Number(row.unidade_dona_id) === unidadeDestinoId) {
+          throw new HttpError(409, "BEM_JA_CONFORME", "O bem ja esta com carga na unidade encontrada. Use MANTER_CARGA para encerrar a pendencia.");
+        }
+
+        // Regra legal: Transferencia muda carga e exige formalizacao.
+        // Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
+        const upBem = await client.query(
+          `UPDATE bens
+           SET unidade_dona_id = $1,
+               status = 'OK',
+               updated_at = NOW()
+           WHERE id = $2
+           RETURNING id, numero_tombamento AS "numeroTombamento", unidade_dona_id AS "unidadeDonaId", status::text AS status;`,
+          [unidadeDestinoId, row.bem_id],
+        );
+        bem = upBem.rows[0];
+
+        const just = `Regularizacao pos-inventario (contagem=${contagemId}, evento=${row.codigo_evento}).`;
+        const mov = await client.query(
+          `INSERT INTO movimentacoes (
+             bem_id, tipo_movimentacao, status,
+             unidade_origem_id, unidade_destino_id,
+             termo_referencia, justificativa,
+             autorizada_por_perfil_id, autorizada_em,
+             executada_por_perfil_id, executada_em
+           ) VALUES (
+             $1,'REGULARIZACAO_INVENTARIO','EXECUTADA',
+             $2,$3,
+             $4,$5,
+             $6,NOW(),
+             $7,NOW()
+           )
+           RETURNING id, bem_id AS "bemId", tipo_movimentacao::text AS "tipoMovimentacao", status::text AS status, termo_referencia AS "termoReferencia";`,
+          [
+            row.bem_id,
+            Number(row.unidade_dona_id),
+            unidadeDestinoId,
+            termoReferencia,
+            just,
+            regularizadoPorPerfilId,
+            regularizadoPorPerfilId,
+          ],
+        );
+        movimentacao = mov.rows[0];
+
+        await client.query(
+          `UPDATE contagens
+           SET regularizacao_pendente = FALSE,
+               regularizado_em = NOW(),
+               regularizado_por_perfil_id = $2,
+               regularizacao_acao = $3,
+               regularizacao_movimentacao_id = $4,
+               regularizacao_observacoes = $5,
+               updated_at = NOW()
+           WHERE id = $1;`,
+          [contagemId, regularizadoPorPerfilId, acao, movimentacao.id, observacoes],
+        );
+      } else {
+        await client.query(
+          `UPDATE contagens
+           SET regularizacao_pendente = FALSE,
+               regularizado_em = NOW(),
+               regularizado_por_perfil_id = $2,
+               regularizacao_acao = $3,
+               regularizacao_movimentacao_id = NULL,
+               regularizacao_observacoes = $4,
+               updated_at = NOW()
+           WHERE id = $1;`,
+          [contagemId, regularizadoPorPerfilId, acao, observacoes],
+        );
+      }
+
+      await client.query("COMMIT");
+      res.status(201).json({ requestId: req.requestId, contagemId, acao, movimentacao, bem });
+    } catch (error) {
+      await safeRollback(client);
+      if (error?.code === "P0001") {
+        next(new HttpError(409, "MOVIMENTACAO_BLOQUEADA_INVENTARIO", "Movimentacao bloqueada por inventario em andamento.", { baseLegal: "Art. 183 (AN303_Art183)" }));
+        return;
+      }
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  return { getEventos, getContagens, getForasteiros, postEvento, patchEventoStatus, postSync, postRegularizacao };
 }
 
 module.exports = { createInventarioController };

@@ -653,15 +653,18 @@ const inventario = createInventarioController({
   UUID_RE,
   TOMBAMENTO_GEAFIN_RE,
   normalizeTombamento,
+  setDbContext,
   safeRollback,
   dbError,
 });
 
 app.get("/inventario/eventos", inventario.getEventos);
 app.get("/inventario/contagens", inventario.getContagens);
+app.get("/inventario/forasteiros", inventario.getForasteiros);
 app.post("/inventario/eventos", inventario.postEvento);
 app.patch("/inventario/eventos/:id/status", inventario.patchEventoStatus);
 app.post("/inventario/sync", inventario.postSync);
+app.post("/inventario/regularizacoes", inventario.postRegularizacao);
 
 app.use((error, req, res, _next) => {
   if (error instanceof multer.MulterError) {
@@ -1176,8 +1179,14 @@ function openapi() {
       "/inventario/contagens": {
         get: { summary: "Listar contagens de inventario (por evento/sala)", responses: { 200: { description: "OK" } } },
       },
+      "/inventario/forasteiros": {
+        get: { summary: "Listar divergencias pendentes (forasteiros) para regularizacao", responses: { 200: { description: "OK" } } },
+      },
       "/inventario/sync": {
         post: { summary: "Sincronizar contagens (offline-first)", responses: { 200: { description: "OK" }, 409: { description: "Evento nao ativo" } } },
+      },
+      "/inventario/regularizacoes": {
+        post: { summary: "Regularizar divergencia pos-inventario (Art. 185)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado/nao encerrado" } } },
       },
     },
   };

@@ -90,6 +90,16 @@ Campos tipicos:
 
 Uso: status do inventario na barra do topo.
 
+### GET `/inventario/forasteiros`
+
+Uso: listar divergências pendentes (intrusos/forasteiros) para regularização pós-inventário.
+
+Filtros (query) mais comuns:
+
+- `eventoInventarioId=<uuid>`
+- `salaEncontrada=Sala 101`
+- `numeroTombamento=1290001788`
+
 ### POST `/inventario/sync`
 
 Uso: sincronizar scans/contagens (inclusive offline).
@@ -97,3 +107,12 @@ Uso: sincronizar scans/contagens (inclusive offline).
 Comportamento:
 
 - Se unidade dona do bem != unidade encontrada: registra divergencia (Art. 185), sem transferir carga.
+
+### POST `/inventario/regularizacoes`
+
+Uso: encerrar pendência de forasteiro após ENCERRAR o evento de inventário.
+
+Regras:
+
+- O evento precisa estar `ENCERRADO` (Art. 185 - AN303_Art185).
+- Para `TRANSFERIR_CARGA`, `termoReferencia` é obrigatório (Arts. 124/127 - AN303_Art124 / AN303_Art127).
