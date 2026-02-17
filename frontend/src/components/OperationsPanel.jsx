@@ -7,11 +7,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   API_BASE_URL,
+  criarLocal,
   criarPerfil,
   getHealth,
   getUltimaImportacaoGeafin,
   importarGeafin,
+  listarLocais,
   movimentarBem,
+  vincularBensAoLocal,
 } from "../services/apiClient.js";
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
@@ -51,6 +54,19 @@ export default function OperationsPanel() {
     response: null,
     error: null,
   });
+
+  const [locaisState, setLocaisState] = useState({ loading: false, data: null, error: null });
+  const [locaisFilterUnidadeId, setLocaisFilterUnidadeId] = useState("");
+  const [localForm, setLocalForm] = useState({ nome: "", unidadeId: "", tipo: "", observacoes: "" });
+  const [localFormState, setLocalFormState] = useState({ loading: false, response: null, error: null });
+  const [mapLocalForm, setMapLocalForm] = useState({
+    localId: "",
+    termoLocalFisico: "",
+    somenteSemLocalId: true,
+    unidadeDonaId: "",
+    dryRun: true,
+  });
+  const [mapLocalState, setMapLocalState] = useState({ loading: false, response: null, error: null });
 
   const [csvFile, setCsvFile] = useState(null);
   const [unidadePadraoId, setUnidadePadraoId] = useState("");
@@ -250,6 +266,74 @@ export default function OperationsPanel() {
     }
   };
 
+  const loadLocais = async () => {
+    if (!canAdmin) return;
+    setLocaisState({ loading: true, data: null, error: null });
+    try {
+      const unidade = locaisFilterUnidadeId ? Number(locaisFilterUnidadeId) : null;
+      const data = await listarLocais(unidade ? { unidadeId: unidade } : {});
+      setLocaisState({ loading: false, data, error: null });
+    } catch (error) {
+      setLocaisState({ loading: false, data: null, error: error.message });
+    }
+  };
+
+  const onCreateLocal = async (event) => {
+    event.preventDefault();
+    if (!canAdmin) {
+      setLocalFormState({ loading: false, response: null, error: "Operação restrita ao perfil ADMIN." });
+      return;
+    }
+    const nome = String(localForm.nome || "").trim();
+    if (!nome) {
+      setLocalFormState({ loading: false, response: null, error: "Informe o nome do local." });
+      return;
+    }
+    const unidadeId = localForm.unidadeId ? Number(localForm.unidadeId) : null;
+    setLocalFormState({ loading: true, response: null, error: null });
+    try {
+      const data = await criarLocal({
+        nome,
+        unidadeId: unidadeId || null,
+        tipo: localForm.tipo.trim() || null,
+        observacoes: localForm.observacoes.trim() || null,
+      });
+      setLocalFormState({ loading: false, response: data, error: null });
+      setLocalForm({ nome: "", unidadeId: "", tipo: "", observacoes: "" });
+      await loadLocais();
+    } catch (error) {
+      setLocalFormState({ loading: false, response: null, error: error.message });
+    }
+  };
+
+  const onMapBensLocal = async (event) => {
+    event.preventDefault();
+    if (!canAdmin) {
+      setMapLocalState({ loading: false, response: null, error: "Operação restrita ao perfil ADMIN." });
+      return;
+    }
+    const localId = String(mapLocalForm.localId || "").trim();
+    const termo = String(mapLocalForm.termoLocalFisico || "").trim();
+    if (!localId || !termo) {
+      setMapLocalState({ loading: false, response: null, error: "Informe localId e termoLocalFisico." });
+      return;
+    }
+    const unidade = mapLocalForm.unidadeDonaId ? Number(mapLocalForm.unidadeDonaId) : null;
+    setMapLocalState({ loading: true, response: null, error: null });
+    try {
+      const data = await vincularBensAoLocal({
+        localId,
+        termoLocalFisico: termo,
+        somenteSemLocalId: Boolean(mapLocalForm.somenteSemLocalId),
+        unidadeDonaId: unidade || undefined,
+        dryRun: Boolean(mapLocalForm.dryRun),
+      });
+      setMapLocalState({ loading: false, response: data, error: null });
+    } catch (error) {
+      setMapLocalState({ loading: false, response: null, error: error.message });
+    }
+  };
+
   const setMovField = (key, value) =>
     setMovPayload((prev) => ({
       ...prev,
@@ -258,6 +342,18 @@ export default function OperationsPanel() {
 
   const setPerfilField = (key, value) =>
     setPerfilForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+
+  const setLocalField = (key, value) =>
+    setLocalForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+
+  const setMapLocalField = (key, value) =>
+    setMapLocalForm((prev) => ({
       ...prev,
       [key]: value,
     }));
@@ -294,6 +390,239 @@ export default function OperationsPanel() {
               OK ({healthState.data.status}) requestId={healthState.data.requestId}
             </span>
           )}
+        </div>
+      </article>
+
+      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Locais (salas) cadastrados</h3>
+            <p className="mt-1 text-xs text-slate-300">
+              Fonte de verdade para o campo "Local cadastrado" no Modo Inventário. O Admin gerencia aqui.
+            </p>
+          </div>
+          <div className="flex items-end gap-3">
+            <label className="space-y-1">
+              <span className="block text-[11px] text-slate-300">Filtrar por unidade</span>
+              <select
+                value={locaisFilterUnidadeId}
+                onChange={(e) => setLocaisFilterUnidadeId(e.target.value)}
+                className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                disabled={!canAdmin}
+              >
+                <option value="">Todas</option>
+                <option value="1">1 (1a Aud)</option>
+                <option value="2">2 (2a Aud)</option>
+                <option value="3">3 (Foro)</option>
+                <option value="4">4 (Almox)</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={loadLocais}
+              className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+              disabled={!canAdmin || locaisState.loading}
+              title={!canAdmin ? "Somente ADMIN." : "Recarregar lista."}
+            >
+              {locaisState.loading ? "Atualizando..." : "Atualizar"}
+            </button>
+          </div>
+        </div>
+
+        {!canAdmin && auth.authEnabled ? (
+          <p className="mt-3 text-xs text-rose-200">
+            Operação restrita ao perfil <strong>ADMIN</strong>.
+          </p>
+        ) : null}
+        {locaisState.error ? <p className="mt-3 text-sm text-rose-300">{locaisState.error}</p> : null}
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <form onSubmit={onCreateLocal} className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+            <h4 className="text-sm font-semibold text-slate-100">Criar/atualizar local</h4>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Upsert por <code className="px-1">nome</code>. Use nomes padronizados: "Sala 101", "Hall 6º Andar", "Plenário 2ª Auditoria".
+            </p>
+            <div className="mt-3 grid gap-2">
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Nome</span>
+                <input
+                  value={localForm.nome}
+                  onChange={(e) => setLocalField("nome", e.target.value)}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  placeholder="Ex.: Sala 101"
+                  disabled={!canAdmin && auth.authEnabled}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Unidade (opcional)</span>
+                <select
+                  value={localForm.unidadeId}
+                  onChange={(e) => setLocalField("unidadeId", e.target.value)}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  disabled={!canAdmin && auth.authEnabled}
+                >
+                  <option value="">(geral)</option>
+                  <option value="1">1 (1a Aud)</option>
+                  <option value="2">2 (2a Aud)</option>
+                  <option value="3">3 (Foro)</option>
+                  <option value="4">4 (Almox)</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Tipo (opcional)</span>
+                <input
+                  value={localForm.tipo}
+                  onChange={(e) => setLocalField("tipo", e.target.value)}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  placeholder="Ex.: SALA, HALL, PLENARIO"
+                  disabled={!canAdmin && auth.authEnabled}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Observações (opcional)</span>
+                <textarea
+                  value={localForm.observacoes}
+                  onChange={(e) => setLocalField("observacoes", e.target.value)}
+                  className="min-h-20 w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  placeholder="Ex.: Sala de reunião principal do 6º andar."
+                  disabled={!canAdmin && auth.authEnabled}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={localFormState.loading || (!canAdmin && auth.authEnabled)}
+                className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+              >
+                {localFormState.loading ? "Salvando..." : "Salvar local"}
+              </button>
+              {localFormState.error ? <p className="text-sm text-rose-300">{localFormState.error}</p> : null}
+              {localFormState.response?.local?.id ? (
+                <p className="text-xs text-emerald-200">
+                  Salvo: {localFormState.response.local.nome} (id={localFormState.response.local.id})
+                </p>
+              ) : null}
+            </div>
+          </form>
+
+          <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+            <h4 className="text-sm font-semibold text-slate-100">Lista</h4>
+            <p className="mt-1 text-[11px] text-slate-400">Dica: mantenha nomes curtos e padronizados para facilitar a seleção.</p>
+            <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-white/10">
+              <table className="min-w-full text-left text-xs">
+                <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2">Nome</th>
+                    <th className="px-3 py-2">Unidade</th>
+                    <th className="px-3 py-2">Tipo</th>
+                    <th className="px-3 py-2">Id</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {(locaisState.data?.items || []).slice(0, 500).map((l) => (
+                    <tr key={l.id} className="hover:bg-white/5">
+                      <td className="px-3 py-2 text-slate-100">{l.nome}</td>
+                      <td className="px-3 py-2 text-slate-300">{l.unidadeId ? String(l.unidadeId) : "-"}</td>
+                      <td className="px-3 py-2 text-slate-300">{l.tipo || "-"}</td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-slate-300">{l.id}</td>
+                    </tr>
+                  ))}
+                  {(locaisState.data?.items || []).length === 0 && !locaisState.loading ? (
+                    <tr>
+                      <td className="px-3 py-3 text-slate-300" colSpan={4}>
+                        Nenhum local cadastrado ainda.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <h4 className="text-sm font-semibold text-slate-100">Vincular bens ao local (em lote)</h4>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Operação operacional para popular <code className="px-1">bens.local_id</code> a partir do texto do GEAFIN
+            (<code className="px-1">local_fisico</code>). Isso é o que faz o inventário por sala funcionar.
+          </p>
+          <form onSubmit={onMapBensLocal} className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-xs text-slate-300">Local (destino)</span>
+              <select
+                value={mapLocalForm.localId}
+                onChange={(e) => setMapLocalField("localId", e.target.value)}
+                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                disabled={!canAdmin && auth.authEnabled}
+              >
+                <option value="">Selecione um local</option>
+                {(locaisState.data?.items || []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome} (id {String(l.id).slice(0, 8)}...)
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-xs text-slate-300">termoLocalFisico (texto do GEAFIN)</span>
+              <input
+                value={mapLocalForm.termoLocalFisico}
+                onChange={(e) => setMapLocalField("termoLocalFisico", e.target.value)}
+                placeholder='Ex.: "Sala 101" ou "Hall 6"'
+                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                disabled={!canAdmin && auth.authEnabled}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-slate-300">Unidade dona (opcional)</span>
+              <select
+                value={mapLocalForm.unidadeDonaId}
+                onChange={(e) => setMapLocalField("unidadeDonaId", e.target.value)}
+                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                disabled={!canAdmin && auth.authEnabled}
+              >
+                <option value="">(todas)</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={Boolean(mapLocalForm.somenteSemLocalId)}
+                  onChange={(e) => setMapLocalField("somenteSemLocalId", e.target.checked)}
+                  className="h-4 w-4 accent-cyan-300"
+                />
+                Somente sem localId
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={Boolean(mapLocalForm.dryRun)}
+                  onChange={(e) => setMapLocalField("dryRun", e.target.checked)}
+                  className="h-4 w-4 accent-cyan-300"
+                />
+                Dry-run (não aplica)
+              </label>
+            </div>
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                disabled={mapLocalState.loading || (!canAdmin && auth.authEnabled)}
+                className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+              >
+                {mapLocalState.loading ? "Executando..." : mapLocalForm.dryRun ? "Simular" : "Aplicar vinculação"}
+              </button>
+              {mapLocalState.error ? <p className="mt-2 text-sm text-rose-300">{mapLocalState.error}</p> : null}
+              {mapLocalState.response ? (
+                <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
+                  {JSON.stringify(mapLocalState.response, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          </form>
         </div>
       </article>
 

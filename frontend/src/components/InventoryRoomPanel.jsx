@@ -13,14 +13,14 @@ import {
   criarEventoInventario,
   listarContagensInventario,
   listarBens,
-  listarSugestoesLocaisBens,
   listarBensTerceirosInventario,
   listarEventosInventario,
+  listarLocais,
   registrarBemTerceiroInventario,
 } from "../services/apiClient.js";
 
 const TOMBAMENTO_RE = /^\d{10}$/;
-const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v1|";
+const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v2|";
 const INVENTORY_UI_KEY = "cjm_inventory_ui_v1";
 
 function normalizeRoomKey(raw) {
@@ -28,17 +28,17 @@ function normalizeRoomKey(raw) {
   return String(raw).trim().toLowerCase();
 }
 
-function roomCacheKey(roomName) {
-  return `${ROOM_CATALOG_CACHE_PREFIX}${normalizeRoomKey(roomName)}`;
+function roomCacheKey(localIdOrName) {
+  return `${ROOM_CATALOG_CACHE_PREFIX}${normalizeRoomKey(localIdOrName)}`;
 }
 
-async function loadRoomCatalogFromCache(roomName) {
-  const v = await idbGet(roomCacheKey(roomName));
+async function loadRoomCatalogFromCache(localIdOrName) {
+  const v = await idbGet(roomCacheKey(localIdOrName));
   return Array.isArray(v) ? v : [];
 }
 
-async function saveRoomCatalogToCache(roomName, items) {
-  await idbSet(roomCacheKey(roomName), items);
+async function saveRoomCatalogToCache(localIdOrName, items) {
+  await idbSet(roomCacheKey(localIdOrName), items);
 }
 
 function formatUnidade(id) {
@@ -61,6 +61,16 @@ function normalizeTombamentoInput(raw) {
   // "formato corresponde ao exigido" mesmo com 10 digitos visiveis.
   const cleaned = String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "");
   return cleaned.slice(0, 10);
+}
+
+function generateCodigoEvento(unidadeInventariadaId) {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const u = Number(unidadeInventariadaId);
+  const suffix = u === 1 ? "1AUD" : u === 2 ? "2AUD" : u === 3 ? "FORO" : u === 4 ? "ALMOX" : "GERAL";
+  return `INV_${yyyy}_${mm}_${dd}_${suffix}`;
 }
 
 function playAlertBeep() {
@@ -117,10 +127,12 @@ export default function InventoryRoomPanel() {
   const [encerramentoObs, setEncerramentoObs] = useState("");
 
   const [unidadeEncontradaId, setUnidadeEncontradaId] = useState(initialUi?.unidadeEncontradaId || "");
+  const [selectedLocalId, setSelectedLocalId] = useState(initialUi?.selectedLocalId || "");
   const [salaEncontrada, setSalaEncontrada] = useState(initialUi?.salaEncontrada || "");
   const [scannerValue, setScannerValue] = useState("");
   const [uiError, setUiError] = useState(null);
   const [lastScans, setLastScans] = useState([]);
+  const [unitEffectReady, setUnitEffectReady] = useState(false);
 
   // Registro segregado: bem de terceiro (sem tombamento GEAFIN).
   const [terceiroDescricao, setTerceiroDescricao] = useState("");
@@ -133,6 +145,29 @@ export default function InventoryRoomPanel() {
     // UX: quando o usuario esta autenticado, nao faz sentido obrigar colar UUID manualmente.
     if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
   }, [auth?.perfil?.id, perfilId]);
+
+  useEffect(() => {
+    // Se o usuario mudar a unidade encontrada, o local deve ser re-selecionado (lista de locais e por unidade).
+    if (!unitEffectReady) {
+      setUnitEffectReady(true);
+      return;
+    }
+    setSelectedLocalId("");
+    // salaEncontrada sera limpada pelo efeito de coerencia do local.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unidadeEncontradaId]);
+
+  useEffect(() => {
+    // Mantem salaEncontrada coerente com o local selecionado (evita texto "solto" no estado).
+    if (!selectedLocalId) {
+      if (salaEncontrada) setSalaEncontrada("");
+      return;
+    }
+    const local = (locaisQuery.data || []).find((l) => String(l.id) === String(selectedLocalId));
+    if (local?.nome && String(local.nome) !== String(salaEncontrada || "")) {
+      setSalaEncontrada(String(local.nome));
+    }
+  }, [locaisQuery.data, salaEncontrada, selectedLocalId]);
 
   if (initialUi && !initialUi._migrated) {
     // Marca como migrado para evitar reprocessamento em renders futuros.
@@ -199,45 +234,39 @@ export default function InventoryRoomPanel() {
   });
 
   const bensSalaQuery = useQuery({
-    queryKey: ["bensSala", salaEncontrada],
+    queryKey: ["bensSala", selectedLocalId],
     enabled: false,
     queryFn: async () => {
-      const local = salaEncontrada.trim();
-      if (!local) return [];
+      const localId = selectedLocalId.trim();
+      if (!localId) return [];
 
       // Offline-first: se não houver conexao, tenta carregar o ultimo catalogo baixado para esta sala.
       if (!navigator.onLine) {
-        const cached = await loadRoomCatalogFromCache(local);
+        const cached = await loadRoomCatalogFromCache(localId);
         if (cached.length) return cached;
         throw new Error("SEM_CACHE_OFFLINE");
       }
 
-      const data = await listarBens({ localFisico: local, limit: 200, offset: 0, incluirTerceiros: false });
+      const data = await listarBens({ localId, limit: 200, offset: 0, incluirTerceiros: false });
       const items = data.items || [];
-      await saveRoomCatalogToCache(local, items);
+      await saveRoomCatalogToCache(localId, items);
       return items;
     },
   });
 
-  const sugestoesLocaisQuery = useQuery({
-    queryKey: ["bensSalaSugestoes", salaEncontrada, unidadeEncontradaId],
-    enabled: Boolean(
-      navigator.onLine &&
-        catalogMeta?.loadedAt &&
-        Number(catalogMeta?.count || 0) === 0 &&
-        salaEncontrada.trim().length >= 2,
-    ),
+  const locaisQuery = useQuery({
+    queryKey: ["locais", unidadeEncontradaId],
+    enabled: Boolean(navigator.onLine),
     queryFn: async () => {
-      const termo = salaEncontrada.trim();
       const unidade = unidadeEncontradaId ? Number(unidadeEncontradaId) : null;
-      const data = await listarSugestoesLocaisBens({ q: termo, unidadeDonaId: unidade != null ? unidade : undefined });
+      const data = await listarLocais(unidade != null ? { unidadeId: unidade } : {});
       return data.items || [];
     },
   });
 
   const contagensSalaQuery = useQuery({
     queryKey: ["inventarioContagens", selectedEventoIdFinal, salaEncontrada],
-    enabled: Boolean(selectedEventoIdFinal && salaEncontrada.trim().length >= 2 && navigator.onLine),
+    enabled: Boolean(selectedEventoIdFinal && selectedLocalId && salaEncontrada.trim().length >= 2 && navigator.onLine),
     queryFn: async () => {
       const data = await listarContagensInventario({
         eventoInventarioId: selectedEventoIdFinal,
@@ -250,7 +279,7 @@ export default function InventoryRoomPanel() {
 
   const terceirosSalaQuery = useQuery({
     queryKey: ["inventarioBensTerceiros", selectedEventoIdFinal, salaEncontrada],
-    enabled: Boolean(selectedEventoIdFinal && salaEncontrada.trim().length >= 2 && navigator.onLine),
+    enabled: Boolean(selectedEventoIdFinal && selectedLocalId && salaEncontrada.trim().length >= 2 && navigator.onLine),
     queryFn: async () => {
       const data = await listarBensTerceirosInventario({
         eventoInventarioId: selectedEventoIdFinal,
@@ -342,6 +371,8 @@ export default function InventoryRoomPanel() {
   const canRegister = Boolean(
     selectedEventoIdFinal &&
       salaEncontrada.trim().length >= 2 &&
+      selectedLocalId &&
+      String(selectedLocalId).trim() !== "" &&
       unidadeEncontradaId &&
       Number(unidadeEncontradaId) >= 1 &&
       Number(unidadeEncontradaId) <= 4,
@@ -384,8 +415,8 @@ export default function InventoryRoomPanel() {
 
   const onLoadSala = async () => {
     setUiError(null);
-    if (salaEncontrada.trim().length < 2) {
-      setUiError("Informe a sala/local para baixar o catálogo da sala.");
+    if (!selectedLocalId || !String(selectedLocalId).trim()) {
+      setUiError("Selecione um local cadastrado para baixar o catálogo da sala.");
       return;
     }
     try {
@@ -396,7 +427,12 @@ export default function InventoryRoomPanel() {
         loadedAt: new Date().toISOString(),
         count: items.length,
       });
-      saveInventoryUiState({ salaEncontrada, unidadeEncontradaId, selectedEventoId: selectedEventoIdFinal });
+      saveInventoryUiState({
+        salaEncontrada,
+        unidadeEncontradaId,
+        selectedLocalId,
+        selectedEventoId: selectedEventoIdFinal,
+      });
     } catch (error) {
       if (String(error?.message || "").includes("SEM_CACHE_OFFLINE")) {
         setUiError("Sem cache offline para esta sala. Conecte-se e baixe o catálogo da sala pelo menos uma vez.");
@@ -515,7 +551,12 @@ export default function InventoryRoomPanel() {
 
     await offline.enqueue(payload);
     setScannerValue("");
-    saveInventoryUiState({ salaEncontrada, unidadeEncontradaId, selectedEventoId: selectedEventoIdFinal });
+    saveInventoryUiState({
+      salaEncontrada,
+      unidadeEncontradaId,
+      selectedLocalId,
+      selectedEventoId: selectedEventoIdFinal,
+    });
     setLastScans((prev) => [
       {
         id: payload.id,
@@ -645,24 +686,40 @@ export default function InventoryRoomPanel() {
                 Nenhum evento ativo. Abra um evento para iniciar o inventario.
               </p>
               <label className="block space-y-1">
-                <span className="text-xs text-slate-300">códigoEvento</span>
-                <input
-                  value={codigoEvento}
-                  onChange={(e) => setCodigoEvento(e.target.value)}
-                  placeholder="Ex.: INV_2026_02_16_1AAUD"
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs text-slate-300">unidadeInventariadaId (1..4) ou vazio (geral)</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="4"
+                <span className="text-xs text-slate-300">Unidade inventariada (opcional)</span>
+                <select
                   value={unidadeInventariadaId}
                   onChange={(e) => setUnidadeInventariadaId(e.target.value)}
                   className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                />
+                >
+                  <option value="">(geral)</option>
+                  <option value="1">{formatUnidade(1)}</option>
+                  <option value="2">{formatUnidade(2)}</option>
+                  <option value="3">{formatUnidade(3)}</option>
+                  <option value="4">{formatUnidade(4)}</option>
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs text-slate-300">Codigo do evento</span>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={codigoEvento}
+                    onChange={(e) => setCodigoEvento(e.target.value)}
+                    placeholder="Ex.: INV_2026_02_17_2AUD"
+                    className="min-w-[260px] flex-1 rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCodigoEvento(generateCodigoEvento(unidadeInventariadaId))}
+                    className="rounded-lg border border-white/25 px-3 py-2 text-sm hover:bg-white/10"
+                    title="Gera um codigo padrao com data atual."
+                  >
+                    Gerar
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Dica: use um padrao consistente por unidade e data. Ex.: <code className="px-1">INV_2026_02_17_2AUD</code>.
+                </p>
               </label>
               <button
                 type="submit"
@@ -697,13 +754,34 @@ export default function InventoryRoomPanel() {
               </select>
             </label>
             <label className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-300">Sala/local (usa local_fisico)</span>
-              <input
-                value={salaEncontrada}
-                onChange={(e) => setSalaEncontrada(e.target.value)}
-                placeholder="Ex.: Sala 101, 1a Aud, Almox..."
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-              />
+              <span className="text-xs text-slate-300">Local cadastrado (Admin)</span>
+              <select
+                value={selectedLocalId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedLocalId(id);
+                  const local = (locaisQuery.data || []).find((l) => String(l.id) === String(id));
+                  if (local?.nome) setSalaEncontrada(String(local.nome));
+                }}
+                disabled={!unidadeEncontradaId || locaisQuery.isFetching}
+                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">
+                  {!unidadeEncontradaId
+                    ? "Selecione a unidade encontrada primeiro"
+                    : locaisQuery.isFetching
+                      ? "Carregando locais..."
+                      : "Selecione um local"}
+                </option>
+                {(locaisQuery.data || []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Este campo nao e texto livre. O Admin cadastra os locais em "Operacoes API" (secao Locais).
+              </p>
             </label>
             <div className="flex flex-wrap items-center gap-2 md:col-span-2">
               <button
@@ -902,49 +980,17 @@ export default function InventoryRoomPanel() {
           <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
         )}
         {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
-          <p className="mt-3 text-sm text-slate-300">
-            Carregue uma sala para ver o catálogo agrupado (usa filtro por <code className="px-1">local_fisico</code>).
-          </p>
+          <p className="mt-3 text-sm text-slate-300">Selecione um local cadastrado e clique em "Baixar catálogo da sala".</p>
         )}
         {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
           <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
             <p className="text-sm text-slate-200">
-              Nenhum bem encontrado para <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
+              Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
             </p>
             <p className="text-xs text-slate-400">
-              Isso significa que nenhum bem possui <code className="px-1">local_fisico</code> contendo esse texto. Dica: abra a aba
-              "Consulta de Bens", copie um valor real da coluna "Local" e cole aqui, ou use apenas uma parte do texto (ex.: "Almox",
-              "Hall", "Material Permanente").
+              Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
+              Para aparecerem itens, um Admin deve vincular os bens a este local (aba "Operações API"{" > "} "Locais"{" > "} "Vincular bens ao local").
             </p>
-
-            {navigator.onLine ? (
-              sugestoesLocaisQuery.isFetching ? (
-                <p className="text-xs text-slate-400">Buscando sugestões de locais...</p>
-              ) : (sugestoesLocaisQuery.data || []).length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-widest text-slate-400">Sugestões encontradas</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(sugestoesLocaisQuery.data || []).slice(0, 10).map((s) => (
-                      <button
-                        key={s.localFisico}
-                        type="button"
-                        onClick={() => setSalaEncontrada(String(s.localFisico))}
-                        className="rounded-full border border-white/20 bg-slate-900/40 px-3 py-1 text-xs text-slate-200 hover:bg-white/10"
-                        title={`${s.total} bem(ns)`}
-                      >
-                        {s.localFisico} <span className="text-slate-400">({s.total})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400">Nenhuma sugestão encontrada para este termo.</p>
-              )
-            ) : (
-              <p className="text-xs text-slate-400">
-                Offline: sem sugestões. Conecte-se para pesquisar valores reais de <code className="px-1">local_fisico</code>.
-              </p>
-            )}
           </div>
         )}
 

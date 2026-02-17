@@ -35,6 +35,7 @@ export default function AssetsExplorer() {
   const [filters, setFilters] = useState({
     numeroTombamento: "",
     q: "",
+    localFisico: "",
     unidadeDonaId: "",
     status: "",
   });
@@ -70,6 +71,7 @@ export default function AssetsExplorer() {
       const data = await listarBens({
         numeroTombamento: filters.numeroTombamento.trim() || undefined,
         q: filters.q.trim() || undefined,
+        localFisico: filters.localFisico.trim() || undefined,
         unidadeDonaId: filters.unidadeDonaId ? Number(filters.unidadeDonaId) : undefined,
         status: filters.status || undefined,
         limit: paging.limit,
@@ -106,7 +108,7 @@ export default function AssetsExplorer() {
 
   const onClear = () => {
     setFormError(null);
-    setFilters({ numeroTombamento: "", q: "", unidadeDonaId: "", status: "" });
+    setFilters({ numeroTombamento: "", q: "", localFisico: "", unidadeDonaId: "", status: "" });
     setPaging((prev) => ({ ...prev, offset: 0 }));
     setTimeout(() => loadList(0), 0);
   };
@@ -197,6 +199,15 @@ export default function AssetsExplorer() {
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-xs text-slate-300">Local (texto do GEAFIN / local_fisico)</span>
+            <input
+              value={filters.localFisico}
+              onChange={(e) => setFilters((prev) => ({ ...prev, localFisico: e.target.value }))}
+              placeholder="Ex.: Sala 101, Hall 6º Andar, Almox..."
+              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+            />
+          </label>
           <label className="space-y-1">
             <span className="text-xs text-slate-300">Unidade</span>
             <select
@@ -225,7 +236,7 @@ export default function AssetsExplorer() {
               ))}
             </select>
           </label>
-          <div className="flex items-end gap-3 md:col-span-3">
+          <div className="flex items-end gap-3 md:col-span-4">
             <button
               type="submit"
               disabled={list.loading}

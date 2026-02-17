@@ -35,7 +35,21 @@ Use termos de busca:
 
 Recomendacao: use palavras bem distintivas para reduzir resultados.
 
-### 3) Filtro por unidade
+### 3) Local (texto do GEAFIN / local_fisico)
+
+Use este campo para filtrar pelo **texto** de localizacao que veio do GEAFIN (coluna `local_fisico`).
+
+Exemplos:
+
+- "Sala 101"
+- "Hall 6º Andar"
+- "Almox"
+
+Importante:
+
+- Este campo e **separado** da descricao do bem. Nao use "descricao" para procurar local.
+
+### 4) Filtro por unidade
 
 Use quando voce quer ver apenas itens de uma unidade (carga).
 

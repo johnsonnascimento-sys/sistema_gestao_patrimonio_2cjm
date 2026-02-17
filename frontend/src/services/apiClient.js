@@ -158,6 +158,7 @@ export async function getStats(incluirTerceiros = false) {
  * @param {string=} filters.numeroTombamento Tombamento exato (10 digitos).
  * @param {string=} filters.q Texto parcial para descricao.
  * @param {string=} filters.localFisico Texto parcial para filtrar por local_fisico (inventario/sala).
+ * @param {string=} filters.localId UUID do local cadastrado (tabela locais) vinculado ao bem.
  * @param {number=} filters.unidadeDonaId Unidade 1..4.
  * @param {string=} filters.status OK|BAIXADO|EM_CAUTELA|AGUARDANDO_RECEBIMENTO.
  * @param {number=} filters.limit Limite (1..200).
@@ -170,6 +171,7 @@ export async function listarBens(filters = {}) {
   if (filters.numeroTombamento) params.set("numeroTombamento", filters.numeroTombamento);
   if (filters.q) params.set("q", filters.q);
   if (filters.localFisico) params.set("localFisico", filters.localFisico);
+  if (filters.localId) params.set("localId", String(filters.localId));
   if (filters.unidadeDonaId) params.set("unidadeDonaId", String(filters.unidadeDonaId));
   if (filters.status) params.set("status", filters.status);
   if (filters.limit != null) params.set("limit", String(filters.limit));
@@ -406,6 +408,44 @@ export async function listarLocais(filters = {}) {
   const response = await safeFetch(`${API_BASE_URL}/locais${suffix}`, {
     method: "GET",
     headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cria/atualiza um local (sala) padronizado.
+ * Endpoint restrito a ADMIN quando autenticacao estiver ativa.
+ *
+ * @param {{nome: string, unidadeId?: number|null, tipo?: string|null, observacoes?: string|null}} payload
+ * @returns {Promise<{requestId: string, local: any}>} Local criado/atualizado.
+ */
+export async function criarLocal(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/locais`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Vincula (em lote) bens a um local cadastrado (bens.local_id) usando filtro por local_fisico (texto GEAFIN).
+ * Endpoint restrito a ADMIN quando autenticacao estiver ativa.
+ *
+ * @param {{ localId: string, termoLocalFisico: string, somenteSemLocalId?: boolean, unidadeDonaId?: number, dryRun?: boolean }} payload
+ * @returns {Promise<{requestId: string, dryRun: boolean, totalAlvo: number, atualizados?: number, exemplo: any[]}>}
+ */
+export async function vincularBensAoLocal(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/bens/vincular-local`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
   });
   return parseResponse(response);
 }

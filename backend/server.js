@@ -425,6 +425,11 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       params.push(`%${filters.localFisico}%`);
       i += 1;
     }
+    if (filters.localId) {
+      where.push(`b.local_id = $${i}`);
+      params.push(filters.localId);
+      i += 1;
+    }
     if (filters.unidadeDonaId) {
       where.push(`b.unidade_dona_id = $${i}`);
       params.push(filters.unidadeDonaId);
@@ -1437,6 +1442,95 @@ app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
 });
 
 /**
+ * Vincula (em lote) bens a um local cadastrado (bens.local_id) com base em filtro de local_fisico (texto do GEAFIN).
+ * Restrito a ADMIN (quando auth ativa).
+ *
+ * Regra operacional:
+ * - Ajuda a migrar do "texto livre do GEAFIN" (local_fisico) para "local padronizado" (local_id).
+ * - Nao e regra legal; e melhoria operacional para inventario por sala.
+ */
+app.post("/bens/vincular-local", mustAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const localId = body.localId != null ? String(body.localId).trim() : "";
+    if (!UUID_RE.test(localId)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
+
+    const termo = body.termoLocalFisico != null ? String(body.termoLocalFisico).trim().slice(0, 180) : "";
+    if (termo.length < 2) throw new HttpError(422, "TERMO_OBRIGATORIO", "termoLocalFisico deve ter pelo menos 2 caracteres.");
+
+    const somenteSemLocalId = parseBool(body.somenteSemLocalId, true);
+    const dryRun = parseBool(body.dryRun, false);
+
+    const unidadeRaw = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== ""
+      ? Number(body.unidadeDonaId)
+      : null;
+    if (unidadeRaw != null && (!Number.isInteger(unidadeRaw) || !VALID_UNIDADES.has(unidadeRaw))) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+    }
+
+    const where = [
+      "eh_bem_terceiro = FALSE",
+      "local_fisico IS NOT NULL",
+      "local_fisico <> ''",
+      "local_fisico ILIKE $1",
+    ];
+    const params = [`%${termo}%`];
+    let i = 2;
+
+    if (somenteSemLocalId) {
+      where.push("local_id IS NULL");
+    }
+    if (unidadeRaw != null) {
+      where.push(`unidade_dona_id = $${i}`);
+      params.push(unidadeRaw);
+      i += 1;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const preview = await pool.query(
+      `SELECT id, numero_tombamento AS "numeroTombamento", local_fisico AS "localFisico", local_id AS "localId"
+       FROM bens
+       ${whereSql}
+       ORDER BY numero_tombamento NULLS LAST
+       LIMIT 10;`,
+      params,
+    );
+
+    const total = await pool.query(`SELECT COUNT(*)::int AS total FROM bens ${whereSql};`, params);
+    const totalAlvo = total.rows[0]?.total ?? 0;
+
+    if (dryRun) {
+      res.json({
+        requestId: req.requestId,
+        dryRun: true,
+        totalAlvo,
+        exemplo: preview.rows,
+      });
+      return;
+    }
+
+    const upd = await pool.query(
+      `UPDATE bens
+       SET local_id = $${i}, updated_at = NOW()
+       ${whereSql}
+       RETURNING id;`,
+      [...params, localId],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      dryRun: false,
+      totalAlvo,
+      atualizados: upd.rowCount || 0,
+      exemplo: preview.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Atualiza foto de referencia do catalogo (SKU).
  * Restrito a ADMIN (quando auth ativa).
  */
@@ -1559,7 +1653,7 @@ function validateMov(body, opts) {
 /**
  * Valida query de listagem/consulta de bens.
  * @param {object} query Query string bruta do Express.
- * @returns {{numeroTombamento: string|null, texto: string|null, localFisico: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
+ * @returns {{numeroTombamento: string|null, texto: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
  */
 function validateBensQuery(query) {
   const numeroTombamento = normalizeTombamento(query.numeroTombamento || query.tombamento);
@@ -1574,6 +1668,12 @@ function validateBensQuery(query) {
   const localFisico = localFisicoRaw != null && String(localFisicoRaw).trim() !== ""
     ? String(localFisicoRaw).trim().slice(0, 180)
     : null;
+
+  const localIdRaw = query.localId || query.local_id || null;
+  const localId = localIdRaw != null && String(localIdRaw).trim() !== "" ? String(localIdRaw).trim() : null;
+  if (localId && !UUID_RE.test(localId)) {
+    throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
+  }
 
   const unidadeRaw = query.unidadeDonaId || query.unidadeId || null;
   const unidadeDonaId = unidadeRaw != null && String(unidadeRaw).trim() !== "" ? parseUnit(unidadeRaw, null) : null;
@@ -1593,7 +1693,7 @@ function validateBensQuery(query) {
 
   const incluirTerceiros = parseBool(query.incluirTerceiros, false);
 
-  return { numeroTombamento, texto: textoFinal, localFisico, unidadeDonaId, status, limit, offset, incluirTerceiros };
+  return { numeroTombamento, texto: textoFinal, localFisico, localId, unidadeDonaId, status, limit, offset, incluirTerceiros };
 }
 
 /**

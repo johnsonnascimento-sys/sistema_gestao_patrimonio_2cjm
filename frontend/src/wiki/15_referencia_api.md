@@ -246,6 +246,26 @@ Campos (JSON):
 - `localId` (opcional; UUID)
 - `fotoUrl` (opcional)
 
+### POST `/bens/vincular-local`
+
+Uso: vincular (em lote) `bens.local_id` a partir de um filtro pelo texto do GEAFIN (`local_fisico`).
+
+Objetivo:
+
+- Permitir que o "Modo Inventário" use **locais cadastrados** (tabela `locais`) em vez de depender do texto do GEAFIN.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Campos (JSON):
+
+- `localId` (obrigatório; UUID do local cadastrado)
+- `termoLocalFisico` (obrigatório; texto parcial para filtrar `local_fisico`)
+- `somenteSemLocalId` (opcional; default `true`)
+- `unidadeDonaId` (opcional; 1..4)
+- `dryRun` (opcional; default `false`)
+
 ### PATCH `/catalogo-bens/{id}/foto`
 
 Uso: atualizar foto de referência do catálogo (SKU).
@@ -317,4 +337,3 @@ Uso: gerar PDF de termo patrimonial (transferência/cautela/regularização) par
 Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
-

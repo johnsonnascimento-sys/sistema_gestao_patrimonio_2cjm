@@ -51,7 +51,7 @@ Isso garante:
 
 No inventario, selecione:
 
-- Sala/ambiente (texto livre ou lista, conforme a tela atual)
+- Local cadastrado (lista)
 - Unidade inventariada/encontrada (1..4)
 
 Observacao:
@@ -68,10 +68,9 @@ O sistema pode baixar a lista de bens daquele ambiente para facilitar:
 
 Importante (quando vier 0 itens):
 
-- O botão "Baixar catálogo da sala" usa o filtro `local_fisico` (texto) dos bens importados do GEAFIN.
-- Se você digitar "Sala 101" mas no banco o local estiver como "1ª Aud - Sala 101 - Secretaria", o filtro deve funcionar (parcial).
-- Se vier **0 itens**, normalmente significa que o texto digitado **não aparece** em nenhum `local_fisico`.
-- Use as **Sugestões** que aparecem na tela, ou copie um valor real da coluna "Local" na aba "Consulta de Bens" e cole no campo "Sala/local".
+- O botão "Baixar catálogo da sala" usa o **local cadastrado** (tabela `locais`) e filtra os bens por `bens.local_id`.
+- Se vier **0 itens**, normalmente significa que os bens ainda nao foram vinculados a esse local.
+- Para vincular em lote: vá em "Operações API" -> seção "Locais" -> "Vincular bens ao local (em lote)".
 
 Offline:
 
