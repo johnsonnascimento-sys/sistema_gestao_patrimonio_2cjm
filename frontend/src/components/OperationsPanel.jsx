@@ -413,18 +413,18 @@ export default function OperationsPanel() {
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Numero tombamento</span>
+            <span className="text-xs text-slate-300">Número do tombamento</span>
             <input
               value={movPayload.numeroTombamento}
               onChange={(event) => setMovField("numeroTombamento", event.target.value)}
               placeholder="Ex.: 1290001788"
               inputMode="numeric"
-              pattern="\d{10}"
+              pattern="\\d{10}"
               maxLength={10}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
             <span className="text-[11px] text-slate-400">
-              Padrao GEAFIN: 10 digitos numericos.
+              Padrão GEAFIN: 10 dígitos numéricos.
             </span>
           </label>
           <label className="space-y-1">

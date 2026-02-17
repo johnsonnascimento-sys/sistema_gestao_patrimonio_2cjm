@@ -46,7 +46,16 @@ function formatUnidade(id) {
 
 function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
-  return String(raw).trim().replace(/^\"+|\"+$/g, "");
+  // Normaliza qualquer entrada (teclado, colar, scanner) para o tombamento GEAFIN:
+  // - remove aspas comuns de CSV
+  // - remove qualquer caractere nao numerico
+  // - limita a 10 digitos
+  //
+  // Observacao UX: evitamos depender de validacao nativa de <input pattern>,
+  // pois scanners/pastes podem incluir caracteres invisiveis e causar erro
+  // "formato corresponde ao exigido" mesmo com 10 digitos visiveis.
+  const cleaned = String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "");
+  return cleaned.slice(0, 10);
 }
 
 function playAlertBeep() {
@@ -546,11 +555,10 @@ export default function InventoryRoomPanel() {
           <form onSubmit={registerScan} className="mt-4 grid gap-2 md:grid-cols-[1fr_auto]">
             <input
               value={scannerValue}
-              onChange={(e) => setScannerValue(e.target.value)}
-              placeholder="Bipar tombamento (10 digitos) e pressionar Enter"
+              onChange={(e) => setScannerValue(normalizeTombamentoInput(e.target.value))}
+              placeholder="Bipar tombamento (10 dígitos) e pressionar Enter"
               inputMode="numeric"
-              pattern="\\d{10}"
-              maxLength={18}
+              maxLength={10}
               className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
             <button

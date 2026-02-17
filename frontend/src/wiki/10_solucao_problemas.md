@@ -42,6 +42,10 @@ O tombamento GEAFIN esperado é:
 
 Se você digitou algo como `TMB-00772`, isso não é o mesmo padrão. Procure o tombamento no documento/etiqueta correta.
 
+Observação (scanner/colar):
+- O campo de scanner/registro remove automaticamente caracteres não numéricos (espaços, hífens, quebras de linha).
+- Se ainda assim não registrar, confira se o número final tem exatamente 10 dígitos (nem 9, nem 11).
+
 ## Barra de progresso some ao dar refresh
 
 O progresso depende do ultimo registro de importacao no banco.
