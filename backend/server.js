@@ -1016,6 +1016,67 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
 });
 
 /**
+ * Atualiza um documento existente (preenche evidência do Drive).
+ *
+ * Regra legal:
+ * - Evidência documental é obrigatória para transferência/cautela (Arts. 124/127 - AN303_Art124/AN303_Art127).
+ *
+ * Observação:
+ * - Útil para completar o placeholder criado automaticamente na movimentação.
+ */
+app.patch("/documentos/:id", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "DOCUMENTO_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    const driveUrl = body.driveUrl != null ? String(body.driveUrl).trim() : "";
+    if (!driveUrl) throw new HttpError(422, "DRIVE_URL_OBRIGATORIA", "driveUrl e obrigatorio.");
+
+    const driveFileId = body.driveFileId != null ? String(body.driveFileId).trim().slice(0, 200) : null;
+    const arquivoNome = body.arquivoNome != null ? String(body.arquivoNome).trim().slice(0, 200) : null;
+    const mime = body.mime != null ? String(body.mime).trim().slice(0, 120) : null;
+    const bytes = body.bytes != null && body.bytes !== "" ? Number(body.bytes) : null;
+    if (bytes != null && (!Number.isFinite(bytes) || bytes < 0)) throw new HttpError(422, "BYTES_INVALIDO", "bytes deve ser >= 0.");
+
+    const sha256 = body.sha256 != null ? String(body.sha256).trim() : null;
+    if (sha256 && !/^[0-9a-f]{64}$/i.test(sha256)) throw new HttpError(422, "SHA256_INVALIDO", "sha256 deve ter 64 hex chars.");
+
+    const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+
+    const r = await pool.query(
+      `UPDATE documentos
+       SET
+         drive_url = $2,
+         drive_file_id = COALESCE($3, drive_file_id),
+         arquivo_nome = COALESCE($4, arquivo_nome),
+         mime = COALESCE($5, mime),
+         bytes = COALESCE($6, bytes),
+         sha256 = COALESCE($7, sha256),
+         observacoes = COALESCE($8, observacoes),
+         updated_at = NOW()
+       WHERE id = $1
+       RETURNING
+         id,
+         tipo::text AS "tipo",
+         titulo,
+         movimentacao_id AS "movimentacaoId",
+         contagem_id AS "contagemId",
+         termo_referencia AS "termoReferencia",
+         drive_file_id AS "driveFileId",
+         drive_url AS "driveUrl",
+         updated_at AS "updatedAt";`,
+      [id, driveUrl, driveFileId, arquivoNome, mime, bytes, sha256, observacoes],
+    );
+    if (!r.rowCount) throw new HttpError(404, "DOCUMENTO_NAO_ENCONTRADO", "Documento nao encontrado.");
+
+    res.json({ requestId: req.requestId, documento: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Registra avaliacao de inservivel via Wizard (Art. 141) e atualiza o estado atual do bem.
  *
  * Regra legal: classificacao obrigatoria de inserviveis.
@@ -1429,6 +1490,7 @@ function parseBool(raw, fallback) {
  */
 async function executeMov(client, bem, p) {
   let bemAtualizado;
+  const createdAt = new Date();
   if (p.tipoMovimentacao === "TRANSFERENCIA") {
     if (bem.eh_bem_terceiro) throw new HttpError(422, "TRANSFERENCIA_PROIBIDA_BEM_TERCEIRO", "Bens de terceiros nao podem sofrer transferencia de titularidade.");
     if (p.unidadeDestinoId === bem.unidade_dona_id) throw new HttpError(422, "UNIDADE_DESTINO_IGUAL_ORIGEM", "unidadeDestinoId deve ser diferente da unidade atual.");
@@ -1484,11 +1546,45 @@ async function executeMov(client, bem, p) {
       p.termoReferencia,
       p.justificativa,
       p.autorizadaPorPerfilId,
-      p.autorizadaPorPerfilId ? new Date() : null,
+      p.autorizadaPorPerfilId ? createdAt : null,
       p.executadaPorPerfilId,
-      new Date(),
+      createdAt,
     ],
   );
+
+  // Evidencia documental (metadados) - cria placeholder sem drive_url.
+  // Regra legal: transferencia/cautela exigem formalizacao e rastreabilidade.
+  // Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
+  const mov = r.rows[0];
+  try {
+    const tipoDoc =
+      p.tipoMovimentacao === "TRANSFERENCIA"
+        ? "TERMO_TRANSFERENCIA"
+        : p.tipoMovimentacao === "CAUTELA_SAIDA" || p.tipoMovimentacao === "CAUTELA_RETORNO"
+          ? "TERMO_CAUTELA"
+          : "OUTRO";
+
+    const titulo = `Evidencia (pendente): ${tipoDoc} - termo=${p.termoReferencia}`;
+    await client.query(
+      `INSERT INTO documentos (
+         tipo, titulo, movimentacao_id, termo_referencia,
+         gerado_por_perfil_id, observacoes
+       ) VALUES (
+         $1::public.tipo_documento, $2, $3, $4,
+         $5, $6
+       );`,
+      [
+        tipoDoc,
+        titulo.slice(0, 180),
+        mov.id,
+        p.termoReferencia,
+        p.executadaPorPerfilId || null,
+        "PENDENTE: gerar PDF no n8n e atualizar drive_url via PATCH /documentos/:id.",
+      ],
+    );
+  } catch (_e) {
+    // Placeholder e best-effort: nao bloqueia movimentacao se tabela ainda nao foi migrada.
+  }
 
   return { mov: r.rows[0], bem: bemAtualizado };
 }

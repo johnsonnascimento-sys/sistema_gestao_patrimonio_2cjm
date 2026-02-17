@@ -272,3 +272,20 @@ Campos (JSON):
 - `contagemId` (opcional)
 - `termoReferencia` (opcional)
 - `driveUrl` (obrigatório)
+
+### PATCH `/documentos/{id}`
+
+Uso: completar evidência do Drive em um documento já existente (ex.: placeholder criado automaticamente na movimentação).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Campos (JSON):
+
+- `driveUrl` (obrigatório)
+- `driveFileId` (opcional)
+- `arquivoNome` (opcional)
+- `mime` (opcional)
+- `bytes` (opcional)
+- `sha256` (opcional)

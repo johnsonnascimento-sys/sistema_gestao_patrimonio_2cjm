@@ -70,7 +70,11 @@ No sistema, isso é registrado em:
 
 - Tabela `documentos` (metadados do Drive), vinculada a `movimentacoes` e/ou `contagens`.
 
+Comportamento do sistema:
+
+- Ao executar `/movimentar`, o backend cria automaticamente um registro de `documentos` como **placeholder** (pendente).
+- Depois, o n8n gera o PDF, salva no Drive e completa o placeholder via `PATCH /documentos/{id}`.
+
 Regras legais:
 
 - Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
-
