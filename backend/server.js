@@ -313,31 +313,33 @@ app.get("/importacoes/geafin/ultimo", mustAdmin, async (req, res, next) => {
        cont AS (
          SELECT arquivo_id,
                 COUNT(*)::int AS linhas_inseridas,
-                COUNT(*) FILTER (WHERE persistencia_ok)::int AS persistencia_ok,
-                COUNT(*) FILTER (WHERE persistencia_ok = FALSE AND normalizacao_ok)::int AS falha_persistencia,
-                COUNT(*) FILTER (WHERE normalizacao_ok = FALSE)::int AS falha_normalizacao
+                 COUNT(*) FILTER (WHERE persistencia_ok)::int AS persistencia_ok,
+                 COUNT(*) FILTER (WHERE persistencia_ok = FALSE AND normalizacao_ok)::int AS falha_persistencia,
+                 COUNT(*) FILTER (WHERE normalizacao_ok = FALSE)::int AS falha_normalizacao,
+                 MAX(created_at) AS ultima_atualizacao_em
          FROM public.geafin_import_linhas
          WHERE arquivo_id = (SELECT id FROM ultimo)
          GROUP BY arquivo_id
        )
-       SELECT
-         u.id,
-         u.request_id AS "requestId",
-         u.original_filename AS "originalFilename",
-         u.content_sha256 AS "contentSha256",
-         u.bytes,
-         u.delimiter,
-         u.imported_em AS "importedEm",
-         u.total_linhas AS "totalLinhas",
-         u.status,
-         u.finalizado_em AS "finalizadoEm",
-         u.erro_resumo AS "erroResumo",
-         COALESCE(c.linhas_inseridas, 0) AS "linhasInseridas",
-         COALESCE(c.persistencia_ok, 0) AS "persistenciaOk",
-         COALESCE(c.falha_persistencia, 0) AS "falhaPersistencia",
-         COALESCE(c.falha_normalizacao, 0) AS "falhaNormalizacao"
-       FROM ultimo u
-       LEFT JOIN cont c ON c.arquivo_id = u.id;`,
+        SELECT
+          u.id,
+          u.request_id AS "requestId",
+          u.original_filename AS "originalFilename",
+          u.content_sha256 AS "contentSha256",
+          u.bytes,
+          u.delimiter,
+          u.imported_em AS "importedEm",
+          u.total_linhas AS "totalLinhas",
+          u.status,
+          u.finalizado_em AS "finalizadoEm",
+          u.erro_resumo AS "erroResumo",
+          COALESCE(c.linhas_inseridas, 0) AS "linhasInseridas",
+          COALESCE(c.persistencia_ok, 0) AS "persistenciaOk",
+          COALESCE(c.falha_persistencia, 0) AS "falhaPersistencia",
+          COALESCE(c.falha_normalizacao, 0) AS "falhaNormalizacao",
+          c.ultima_atualizacao_em AS "ultimaAtualizacaoEm"
+        FROM ultimo u
+        LEFT JOIN cont c ON c.arquivo_id = u.id;`,
     );
 
     const row = r.rows[0];
@@ -357,6 +359,35 @@ app.get("/importacoes/geafin/ultimo", mustAdmin, async (req, res, next) => {
         percent,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Cancela a ultima importacao GEAFIN (marcando como ERRO) para destravar UI.
+ * Restrito a ADMIN.
+ *
+ * Regra operacional:
+ * - Nao remove dados ja importados (raw/staging e operacional). Apenas encerra o processo.
+ * - A importacao em execucao deve checar o status a cada lote (ver /importar-geafin) e parar.
+ */
+app.post("/importacoes/geafin/:id/cancelar", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "IMPORTACAO_ID_INVALIDO", "id deve ser UUID.");
+
+    const r = await pool.query(
+      `UPDATE public.geafin_import_arquivos
+       SET status = 'ERRO', finalizado_em = NOW(),
+           erro_resumo = COALESCE(NULLIF($2, ''), 'Cancelada pelo usuario.')
+       WHERE id = $1
+       RETURNING id, status, finalizado_em AS "finalizadoEm", erro_resumo AS "erroResumo";`,
+      [id, String(req.body?.motivo || "").trim().slice(0, 2000)],
+    );
+    if (!r.rowCount) throw new HttpError(404, "IMPORTACAO_NAO_ENCONTRADA", "Importacao GEAFIN nao encontrada.");
+
+    res.json({ requestId: req.requestId, importacao: r.rows[0] });
   } catch (error) {
     next(error);
   }
@@ -690,6 +721,99 @@ app.post("/perfis", mustAdmin, async (req, res, next) => {
   }
 });
 
+/**
+ * Atualiza perfil (ADMIN).
+ * Regra operacional: usado para corrigir cadastro/role, desativar usuarios e resetar senha via endpoint dedicado.
+ */
+app.patch("/perfis/:id", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "PERFIL_ID_INVALIDO", "id deve ser UUID.");
+
+    const patch = validatePerfilPatch(req.body || {});
+    const fields = [];
+    const params = [];
+    let i = 1;
+
+    if (patch.nome != null) {
+      fields.push(`nome = $${i}`);
+      params.push(patch.nome);
+      i += 1;
+    }
+    if (patch.email !== undefined) {
+      fields.push(`email = $${i}`);
+      params.push(patch.email);
+      i += 1;
+    }
+    if (patch.unidadeId != null) {
+      fields.push(`unidade_id = $${i}`);
+      params.push(patch.unidadeId);
+      i += 1;
+    }
+    if (patch.cargo !== undefined) {
+      fields.push(`cargo = $${i}`);
+      params.push(patch.cargo);
+      i += 1;
+    }
+    if (patch.role != null) {
+      fields.push(`role = $${i}`);
+      params.push(patch.role);
+      i += 1;
+    }
+    if (patch.ativo != null) {
+      fields.push(`ativo = $${i}`);
+      params.push(patch.ativo);
+      i += 1;
+    }
+
+    if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
+
+    fields.push("updated_at = NOW()");
+    const r = await pool.query(
+      `UPDATE perfis
+       SET ${fields.join(", ")}
+       WHERE id = $${i}
+       RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo,
+                 senha_definida_em AS "senhaDefinidaEm", ultimo_login_em AS "ultimoLoginEm",
+                 created_at AS "createdAt";`,
+      [...params, id],
+    );
+    if (!r.rowCount) throw new HttpError(404, "PERFIL_NAO_ENCONTRADO", "Perfil nao encontrado.");
+
+    res.json({ requestId: req.requestId, perfil: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Reseta senha de perfil (ADMIN) para permitir "Primeiro acesso" novamente.
+ * Regra operacional: nao expor senhas; apenas remove hash.
+ */
+app.post("/perfis/:id/reset-senha", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "PERFIL_ID_INVALIDO", "id deve ser UUID.");
+
+    const r = await pool.query(
+      `UPDATE perfis
+       SET senha_hash = NULL,
+           senha_definida_em = NULL,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo,
+                 senha_definida_em AS "senhaDefinidaEm", ultimo_login_em AS "ultimoLoginEm",
+                 created_at AS "createdAt";`,
+      [id],
+    );
+    if (!r.rowCount) throw new HttpError(404, "PERFIL_NAO_ENCONTRADO", "Perfil nao encontrado.");
+
+    res.json({ requestId: req.requestId, perfil: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/importar-geafin", mustAdmin, upload.single("arquivo"), async (req, res, next) => {
   const client = await pool.connect();
   let arquivoId = null;
@@ -748,8 +872,21 @@ app.post("/importar-geafin", mustAdmin, upload.single("arquivo"), async (req, re
     // Regra operacional: commit em lotes pequenos para permitir acompanhamento de progresso (UI)
     // e reduzir chance de uma transacao longa ficar "invisivel" no Supabase.
     const BATCH_SIZE = 25;
+    let cancelled = false;
+    let cancelledStatus = null;
+    const getImportStatus = async () => {
+      const s = await client.query("SELECT status FROM public.geafin_import_arquivos WHERE id = $1;", [arquivoId]);
+      return s.rows[0]?.status || null;
+    };
     for (let batchStart = 0; batchStart < rows.length; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(rows.length, batchStart + BATCH_SIZE);
+
+      const statusBefore = await getImportStatus();
+      if (statusBefore && statusBefore !== "EM_ANDAMENTO") {
+        cancelled = true;
+        cancelledStatus = statusBefore;
+        break;
+      }
 
       await client.query("BEGIN");
       await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: req.user?.id || "" });
@@ -821,6 +958,29 @@ app.post("/importar-geafin", mustAdmin, upload.single("arquivo"), async (req, re
 
       await client.query("COMMIT");
       console.log(`[${req.requestId}] importar-geafin: progresso ${batchEnd}/${rows.length} (processadas=${summary.processadas} falhas=${summary.falhas.length})`);
+
+      const statusAfter = await getImportStatus();
+      if (statusAfter && statusAfter !== "EM_ANDAMENTO") {
+        cancelled = true;
+        cancelledStatus = statusAfter;
+        break;
+      }
+    }
+
+    if (cancelled) {
+      console.log(`[${req.requestId}] importar-geafin: cancelada status=${cancelledStatus || "?"} processadas=${summary.processadas} falhas=${summary.falhas.length}`);
+      res.status(200).json({
+        message: "Importacao cancelada.",
+        requestId: req.requestId,
+        cancelada: true,
+        status: cancelledStatus,
+        total: summary.totalLinhas,
+        novos: summary.novos,
+        transferidos: summary.transferidos,
+        erros: summary.falhas.length,
+        summary,
+      });
+      return;
     }
 
     const code = summary.falhas.length ? 207 : 200;
@@ -1320,6 +1480,7 @@ app.get("/locais", mustAuth, async (req, res, next) => {
  * Restrito a ADMIN (quando auth ativa) por ser cadastro operacional.
  */
 app.post("/locais", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const body = req.body || {};
     const nome = String(body.nome || "").trim().slice(0, 180);
@@ -1333,21 +1494,33 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
     const tipo = body.tipo != null ? String(body.tipo).trim().slice(0, 40) : null;
     const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
 
-    const r = await pool.query(
-      `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (nome) DO UPDATE SET
-         unidade_id = EXCLUDED.unidade_id,
-         tipo = EXCLUDED.tipo,
-         observacoes = EXCLUDED.observacoes,
-         updated_at = NOW()
-       RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes;`,
-      [nome, unidadeId, tipo, observacoes],
-    );
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT id FROM locais WHERE nome = $1 LIMIT 1;", [nome]);
 
+    const r = existing.rowCount
+      ? await client.query(
+          `UPDATE locais
+           SET unidade_id = $2,
+               tipo = $3,
+               observacoes = $4
+           WHERE id = $1
+           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes;`,
+          [existing.rows[0].id, unidadeId, tipo, observacoes],
+        )
+      : await client.query(
+          `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
+           VALUES ($1,$2,$3,$4)
+           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes;`,
+          [nome, unidadeId, tipo, observacoes],
+        );
+
+    await client.query("COMMIT");
     res.status(201).json({ requestId: req.requestId, local: r.rows[0] });
   } catch (error) {
+    await safeRollback(client);
     next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -1730,6 +1903,58 @@ function validatePerfil(body) {
   if (senha && senha.length < 8) throw new HttpError(422, "SENHA_FRACA", "Senha deve ter pelo menos 8 caracteres.");
 
   return { matricula, nome, email, unidadeId, cargo, role, senha };
+}
+
+/**
+ * Valida payload de atualizacao parcial de perfil.
+ * @param {object} body Body JSON (PATCH).
+ * @returns {{nome?: string, email?: (string|null), unidadeId?: number, cargo?: (string|null), role?: string, ativo?: boolean}} Campos validados.
+ */
+function validatePerfilPatch(body) {
+  const patch = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, "nome")) {
+    const nome = String(body.nome || "").trim();
+    if (!nome) throw new HttpError(422, "NOME_OBRIGATORIO", "nome e obrigatorio.");
+    if (nome.length > 160) throw new HttpError(422, "NOME_TAMANHO", "nome excede 160 caracteres.");
+    patch.nome = nome;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "email")) {
+    const emailRaw = body.email != null ? String(body.email).trim() : "";
+    patch.email = emailRaw ? emailRaw.slice(0, 255) : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "unidadeId")) {
+    const unidadeId = parseUnit(body.unidadeId, null);
+    if (!unidadeId || !VALID_UNIDADES.has(unidadeId)) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+    }
+    patch.unidadeId = unidadeId;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "cargo")) {
+    const cargoRaw = body.cargo != null ? String(body.cargo).trim() : "";
+    patch.cargo = cargoRaw ? cargoRaw.slice(0, 120) : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "role")) {
+    const roleRaw = body.role != null ? String(body.role).trim().toUpperCase() : "";
+    const role = VALID_ROLES.has(roleRaw) ? roleRaw : null;
+    if (!role) throw new HttpError(422, "ROLE_INVALIDO", "role deve ser ADMIN ou OPERADOR.");
+    patch.role = role;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "ativo")) {
+    const raw = body.ativo;
+    if (typeof raw === "boolean") {
+      patch.ativo = raw;
+    } else {
+      patch.ativo = parseBool(raw, false);
+    }
+  }
+
+  return patch;
 }
 
 function parseIntOrDefault(raw, fallback) {
@@ -2120,8 +2345,11 @@ function openapi() {
       "/bens": { get: { summary: "Listagem/consulta de bens (paginado)", responses: { 200: { description: "OK" } } } },
       "/bens/{id}": { get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/perfis": { get: { summary: "Listagem basica de perfis", responses: { 200: { description: "OK" } } }, post: { summary: "Criacao de perfil", responses: { 201: { description: "Criado" } } } },
+      "/perfis/{id}": { patch: { summary: "Atualizar perfil (ADMIN)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
+      "/perfis/{id}/reset-senha": { post: { summary: "Resetar senha (ADMIN) para permitir primeiro acesso novamente", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/importar-geafin": { post: { summary: "Importacao CSV GEAFIN", responses: { 200: { description: "Sucesso" }, 207: { description: "Parcial" } } } },
       "/importacoes/geafin/ultimo": { get: { summary: "Progresso da ultima importacao GEAFIN (para barra de progresso na UI)", responses: { 200: { description: "OK" }, 404: { description: "Sem importacao" } } } },
+      "/importacoes/geafin/{id}/cancelar": { post: { summary: "Cancelar importacao GEAFIN (marca como ERRO)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/movimentar": { post: { summary: "Movimenta bem por transferencia/cautela (tombamento GEAFIN: 10 digitos)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado por inventario" } } } },
       "/inventario/eventos": {
         get: { summary: "Listar eventos de inventario", responses: { 200: { description: "OK" } } },

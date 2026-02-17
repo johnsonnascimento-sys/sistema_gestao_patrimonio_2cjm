@@ -81,7 +81,24 @@ O sistema trabalha com 4 unidades:
 
 ## Como criar um perfil (fluxo do sistema)
 
-Dependendo da tela/fluxo implementado no momento, voce pode criar um perfil por uma operacao no painel (API/operacoes) ou via rota administrativa.
+O fluxo padrão é:
+
+1. `ADMIN` cadastra o perfil em **Operações API** (seção **Perfis (usuários)**).
+2. O usuário entra na tela de login e usa **Primeiro acesso** para definir a senha.
+
+Na seção de Perfis, o `ADMIN` também consegue:
+
+- listar perfis existentes
+- editar dados (nome, email, unidade, cargo, role, ativo)
+- desativar/ativar (soft-disable)
+- **resetar senha** (remove o hash) para permitir "Primeiro acesso" novamente
+
+Rotas relacionadas:
+
+- `GET /perfis`
+- `POST /perfis`
+- `PATCH /perfis/:id`
+- `POST /perfis/:id/reset-senha`
 
 Quando o perfil e criado, o backend retorna um JSON parecido com:
 

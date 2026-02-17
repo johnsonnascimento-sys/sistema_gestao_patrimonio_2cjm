@@ -3,26 +3,22 @@
  * Arquivo: OperationsPanel.jsx
  * Funcao no sistema: painel operacional para consumir endpoints backend de importacao e movimentacao.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   API_BASE_URL,
   criarLocal,
   criarPerfil,
+  listarPerfis,
+  atualizarPerfil,
+  resetSenhaPerfil,
+  cancelarImportacaoGeafin,
   getHealth,
   getUltimaImportacaoGeafin,
   importarGeafin,
   listarLocais,
-  movimentarBem,
   vincularBensAoLocal,
 } from "../services/apiClient.js";
-
-const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
-
-function normalizeTombamentoInput(raw) {
-  if (raw == null) return "";
-  return String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "").slice(0, 10);
-}
 
 export default function OperationsPanel() {
   const auth = useAuth();
@@ -49,11 +45,7 @@ export default function OperationsPanel() {
     error: null,
   });
   const importPollTimerRef = useRef(null);
-  const [movState, setMovState] = useState({
-    loading: false,
-    response: null,
-    error: null,
-  });
+  const importAbortRef = useRef(null);
 
   const [locaisState, setLocaisState] = useState({ loading: false, data: null, error: null });
   const [locaisFilterUnidadeId, setLocaisFilterUnidadeId] = useState("");
@@ -77,29 +69,30 @@ export default function OperationsPanel() {
     unidadeId: "",
     cargo: "",
   });
-  const [movPayload, setMovPayload] = useState({
-    tipoMovimentacao: "TRANSFERENCIA",
-    numeroTombamento: "",
-    bemId: "",
-    unidadeDestinoId: "",
-    detentorTemporarioPerfilId: "",
-    dataPrevistaDevolucao: "",
-    dataEfetivaDevolucao: "",
-    termoReferencia: "",
-    justificativa: "",
-    autorizadaPorPerfilId: "",
-    executadaPorPerfilId: "",
+  const [perfisState, setPerfisState] = useState({ loading: false, data: null, error: null });
+  const [perfilEditId, setPerfilEditId] = useState("");
+  const [perfilEditForm, setPerfilEditForm] = useState({
+    nome: "",
+    email: "",
+    unidadeId: "",
+    cargo: "",
+    role: "OPERADOR",
+    ativo: true,
   });
+  const [perfilEditState, setPerfilEditState] = useState({ loading: false, response: null, error: null });
 
-  const helperText = useMemo(() => {
-    if (movPayload.tipoMovimentacao === "TRANSFERENCIA") {
-      return "Transferência muda carga; exige unidadeDestinoId e autorizadaPorPerfilId (Arts. 124 e 127).";
-    }
-    if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela não muda carga; exige detentorTemporarioPerfilId e dataPrevistaDevolucao.";
-    }
-    return "Retorno de cautela exige bem atualmente EM_CAUTELA.";
-  }, [movPayload.tipoMovimentacao]);
+  const formatApiError = (error) => {
+    const msg = String(error?.message || "Falha na requisicao.");
+    const status = error?.status != null ? String(error.status) : "";
+    const code = error?.payload?.error?.code ? String(error.payload.error.code) : "";
+    const requestId = error?.payload?.requestId ? String(error.payload.requestId) : "";
+    const suffixParts = [
+      status ? `status=${status}` : null,
+      code ? `code=${code}` : null,
+      requestId ? `requestId=${requestId}` : null,
+    ].filter(Boolean);
+    return suffixParts.length ? `${msg} (${suffixParts.join(", ")})` : msg;
+  };
 
   const stopImportPolling = () => {
     if (importPollTimerRef.current) {
@@ -123,13 +116,13 @@ export default function OperationsPanel() {
       await pollImportProgressOnce();
     } catch (error) {
       // Erro transitorio: mantem a UI viva e tenta novamente no proximo tick.
-      setImportProgress((prev) => ({ ...prev, loading: true, error: error.message }));
+      setImportProgress((prev) => ({ ...prev, loading: true, error: formatApiError(error) }));
     }
     importPollTimerRef.current = window.setInterval(async () => {
       try {
         await pollImportProgressOnce();
       } catch (error) {
-        setImportProgress((prev) => ({ ...prev, loading: true, error: prev.data ? null : error.message }));
+        setImportProgress((prev) => ({ ...prev, loading: true, error: prev.data ? null : formatApiError(error) }));
       }
     }, 1000);
   };
@@ -166,7 +159,7 @@ export default function OperationsPanel() {
       setHealthState({
         loading: false,
         data: null,
-        error: error.message,
+        error: formatApiError(error),
       });
     }
   };
@@ -185,6 +178,8 @@ export default function OperationsPanel() {
       });
       return;
     }
+    const abortController = new AbortController();
+    importAbortRef.current = abortController;
     setImportState({ loading: true, response: null, error: null });
     setImportProgress({ loading: true, data: null, error: null });
     await startImportPolling();
@@ -192,23 +187,56 @@ export default function OperationsPanel() {
       const data = await importarGeafin(
         csvFile,
         unidadePadraoId ? Number(unidadePadraoId) : null,
+        { signal: abortController.signal },
       );
       setImportState({ loading: false, response: data, error: null });
     } catch (error) {
+      if (abortController.signal.aborted) {
+        setImportState({ loading: false, response: null, error: "Importação cancelada." });
+      } else {
       setImportState({
         loading: false,
         response: null,
-        error: error.message,
+          error: formatApiError(error),
       });
+      }
     } finally {
+      importAbortRef.current = null;
       stopImportPolling();
       // Faz uma ultima consulta para exibir status final.
       try {
         const { data, running } = await pollImportProgressOnce();
         if (!running) setImportProgress({ loading: false, data, error: null });
       } catch (error) {
-        setImportProgress((prev) => ({ ...prev, loading: false, error: error.message }));
+        setImportProgress((prev) => ({ ...prev, loading: false, error: formatApiError(error) }));
       }
+    }
+  };
+
+  const onCancelImport = async () => {
+    if (!canAdmin) return;
+    const impId = importProgress.data?.importacao?.id ? String(importProgress.data.importacao.id) : "";
+    if (!impId) return;
+
+    // Cancela fetch em curso (se houver) para a UI reagir imediatamente.
+    if (importAbortRef.current) {
+      try {
+        importAbortRef.current.abort();
+      } catch (_e) {
+        // noop
+      }
+      importAbortRef.current = null;
+    }
+
+    stopImportPolling();
+    setImportProgress((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      await cancelarImportacaoGeafin(impId, "Cancelada via UI (ADMIN).");
+      await pollImportProgressOnce();
+    } catch (error) {
+      setImportProgress((prev) => ({ ...prev, loading: false, error: formatApiError(error) }));
+    } finally {
+      setImportState((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -239,30 +267,91 @@ export default function OperationsPanel() {
     try {
       const data = await criarPerfil(payload);
       setPerfilState({ loading: false, response: data, error: null });
-
-      const perfilId = data?.perfil?.id;
-      if (perfilId) {
-        // Facilita testes: usa o perfil criado para autorizar/executar movimentacoes.
-        setMovPayload((prev) => ({
-          ...prev,
-          autorizadaPorPerfilId: perfilId,
-          executadaPorPerfilId: perfilId,
-        }));
-      }
+      setPerfilForm({ matricula: "", nome: "", email: "", unidadeId: "", cargo: "" });
+      await loadPerfis();
     } catch (error) {
-      setPerfilState({ loading: false, response: null, error: error.message });
+      setPerfilState({ loading: false, response: null, error: formatApiError(error) });
     }
   };
 
-  const onMov = async (event) => {
-    event.preventDefault();
-    const payload = buildMovPayload(movPayload);
-    setMovState({ loading: true, response: null, error: null });
+  const loadPerfis = async () => {
+    if (!canAdmin) return;
+    setPerfisState({ loading: true, data: null, error: null });
     try {
-      const data = await movimentarBem(payload);
-      setMovState({ loading: false, response: data, error: null });
+      const data = await listarPerfis({ limit: 200 });
+      setPerfisState({ loading: false, data, error: null });
     } catch (error) {
-      setMovState({ loading: false, response: null, error: error.message });
+      setPerfisState({ loading: false, data: null, error: formatApiError(error) });
+    }
+  };
+
+  const beginEditPerfil = (perfil) => {
+    if (!perfil?.id) return;
+    setPerfilEditId(String(perfil.id));
+    setPerfilEditForm({
+      nome: String(perfil.nome || ""),
+      email: String(perfil.email || ""),
+      unidadeId: perfil.unidadeId != null ? String(perfil.unidadeId) : "",
+      cargo: String(perfil.cargo || ""),
+      role: String(perfil.role || "OPERADOR"),
+      ativo: Boolean(perfil.ativo),
+    });
+    setPerfilEditState({ loading: false, response: null, error: null });
+  };
+
+  const cancelEditPerfil = () => {
+    setPerfilEditId("");
+    setPerfilEditState({ loading: false, response: null, error: null });
+  };
+
+  const savePerfilEdit = async () => {
+    if (!canAdmin) return;
+    const id = String(perfilEditId || "").trim();
+    if (!id) return;
+    const patch = {
+      nome: String(perfilEditForm.nome || "").trim(),
+      email: String(perfilEditForm.email || "").trim() || null,
+      unidadeId: perfilEditForm.unidadeId ? Number(perfilEditForm.unidadeId) : null,
+      cargo: String(perfilEditForm.cargo || "").trim() || null,
+      role: String(perfilEditForm.role || "OPERADOR").trim(),
+      ativo: Boolean(perfilEditForm.ativo),
+    };
+    if (!patch.nome || !patch.unidadeId) {
+      setPerfilEditState({ loading: false, response: null, error: "Preencha nome e unidadeId." });
+      return;
+    }
+    setPerfilEditState({ loading: true, response: null, error: null });
+    try {
+      const data = await atualizarPerfil(id, patch);
+      setPerfilEditState({ loading: false, response: data, error: null });
+      await loadPerfis();
+      cancelEditPerfil();
+    } catch (error) {
+      setPerfilEditState({ loading: false, response: null, error: formatApiError(error) });
+    }
+  };
+
+  const togglePerfilAtivo = async (perfil) => {
+    if (!canAdmin || !perfil?.id) return;
+    setPerfilEditState({ loading: true, response: null, error: null });
+    try {
+      await atualizarPerfil(String(perfil.id), { ativo: !perfil.ativo });
+      await loadPerfis();
+      setPerfilEditState({ loading: false, response: null, error: null });
+    } catch (error) {
+      setPerfilEditState({ loading: false, response: null, error: formatApiError(error) });
+    }
+  };
+
+  const onResetSenhaPerfil = async (perfil) => {
+    if (!canAdmin || !perfil?.id) return;
+    setPerfilEditState({ loading: true, response: null, error: null });
+    try {
+      await resetSenhaPerfil(String(perfil.id));
+      await loadPerfis();
+      setPerfilEditState({ loading: false, response: null, error: null });
+    } catch (error) {
+      setPerfilEditState({ loading: false, response: null, error: formatApiError(error) });
     }
   };
 
@@ -274,9 +363,21 @@ export default function OperationsPanel() {
       const data = await listarLocais(unidade ? { unidadeId: unidade } : {});
       setLocaisState({ loading: false, data, error: null });
     } catch (error) {
-      setLocaisState({ loading: false, data: null, error: error.message });
+      setLocaisState({ loading: false, data: null, error: formatApiError(error) });
     }
   };
+
+  useEffect(() => {
+    if (!canAdmin) return;
+    void loadLocais();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAdmin, locaisFilterUnidadeId]);
+
+  useEffect(() => {
+    if (!canAdmin) return;
+    void loadPerfis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAdmin]);
 
   const onCreateLocal = async (event) => {
     event.preventDefault();
@@ -302,7 +403,7 @@ export default function OperationsPanel() {
       setLocalForm({ nome: "", unidadeId: "", tipo: "", observacoes: "" });
       await loadLocais();
     } catch (error) {
-      setLocalFormState({ loading: false, response: null, error: error.message });
+      setLocalFormState({ loading: false, response: null, error: formatApiError(error) });
     }
   };
 
@@ -330,15 +431,9 @@ export default function OperationsPanel() {
       });
       setMapLocalState({ loading: false, response: data, error: null });
     } catch (error) {
-      setMapLocalState({ loading: false, response: null, error: error.message });
+      setMapLocalState({ loading: false, response: null, error: formatApiError(error) });
     }
   };
-
-  const setMovField = (key, value) =>
-    setMovPayload((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
 
   const setPerfilField = (key, value) =>
     setPerfilForm((prev) => ({
@@ -659,7 +754,7 @@ export default function OperationsPanel() {
             {importState.loading ? "Importando..." : "Importar"}
           </button>
         </form>
-        <ImportProgressBar progressState={importProgress} />
+        <ImportProgressBar progressState={importProgress} onCancel={onCancelImport} />
         {importState.error && <p className="mt-2 text-sm text-rose-300">{importState.error}</p>}
         {importState.response && (
           <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
@@ -669,15 +764,31 @@ export default function OperationsPanel() {
       </article>
 
       <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
-        <h3 className="font-semibold">Criar perfil (para testes locais)</h3>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Perfis (usuários)</h3>
+            <p className="mt-1 text-xs text-slate-300">
+              Admin cadastra perfis aqui. O usuário define a própria senha em <strong>Primeiro acesso</strong> na tela de login.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadPerfis}
+            className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+            disabled={!canAdmin || perfisState.loading}
+            title={!canAdmin ? "Somente ADMIN." : "Recarregar lista de perfis."}
+          >
+            {perfisState.loading ? "Atualizando..." : "Atualizar"}
+          </button>
+        </div>
         {!canAdmin && auth.authEnabled && (
           <p className="mt-2 text-xs text-rose-200">
             Operação restrita ao perfil <strong>ADMIN</strong>.
           </p>
         )}
-        <p className="mt-1 text-xs text-slate-300">
-          Movimentações exigem perfis reais (autorizador/executor). Crie um aqui e o sistema preenche automaticamente no formulário abaixo.
-        </p>
+
+        {perfisState.error ? <p className="mt-3 text-sm text-rose-300">{perfisState.error}</p> : null}
+
         <form onSubmit={onCreatePerfil} className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
             <span className="text-xs text-slate-300">Matricula</span>
@@ -745,167 +856,179 @@ export default function OperationsPanel() {
             {JSON.stringify(perfilState.response, null, 2)}
           </pre>
         )}
-        {perfilState.response?.perfil?.id && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setMovField("detentorTemporarioPerfilId", perfilState.response.perfil.id)}
-              className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
-            >
-              Usar como detentor temporario
-            </button>
-          </div>
-        )}
-      </article>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
-        <h3 className="font-semibold">Movimentar bem</h3>
-        <p className="mt-1 text-xs text-slate-300">{helperText}</p>
-        <form onSubmit={onMov} className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Tipo</span>
-            <select
-              value={movPayload.tipoMovimentacao}
-              onChange={(event) => setMovField("tipoMovimentacao", event.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            >
-              {MOV_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Número do tombamento</span>
-            <input
-              value={movPayload.numeroTombamento}
-              onChange={(event) => setMovField("numeroTombamento", normalizeTombamentoInput(event.target.value))}
-              placeholder="Ex.: 1290001788"
-              inputMode="numeric"
-              maxLength={10}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-            <span className="text-[11px] text-slate-400">
-              Padrão GEAFIN: 10 dígitos numéricos.
-            </span>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Termo referencia</span>
-            <input
-              required
-              value={movPayload.termoReferencia}
-              onChange={(event) => setMovField("termoReferencia", event.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Unidade destino (1-4)</span>
-            <input
-              type="number"
-              min="1"
-              max="4"
-              value={movPayload.unidadeDestinoId}
-              onChange={(event) => setMovField("unidadeDestinoId", event.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Autorizada por (UUID)</span>
-            <input
-              value={movPayload.autorizadaPorPerfilId}
-              onChange={(event) =>
-                setMovField("autorizadaPorPerfilId", event.target.value)
-              }
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Detentor temporario (UUID)</span>
-            <input
-              value={movPayload.detentorTemporarioPerfilId}
-              onChange={(event) =>
-                setMovField("detentorTemporarioPerfilId", event.target.value)
-              }
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Data prevista devolucao</span>
-            <input
-              type="date"
-              value={movPayload.dataPrevistaDevolucao}
-              onChange={(event) =>
-                setMovField("dataPrevistaDevolucao", event.target.value)
-              }
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-300">Data efetiva devolucao</span>
-            <input
-              type="datetime-local"
-              value={movPayload.dataEfetivaDevolucao}
-              onChange={(event) =>
-                setMovField("dataEfetivaDevolucao", event.target.value)
-              }
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-300">Justificativa</span>
-            <textarea
-              value={movPayload.justificativa}
-              onChange={(event) => setMovField("justificativa", event.target.value)}
-              className="min-h-20 w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-            />
-          </label>
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              disabled={movState.loading}
-              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-            >
-              {movState.loading ? "Enviando..." : "Executar /movimentar"}
-            </button>
+        {perfilEditId ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-100">Editar perfil</p>
+                <p className="mt-1 text-[11px] text-slate-400">perfilId: <span className="font-mono">{perfilEditId}</span></p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={cancelEditPerfil}
+                  className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
+                  disabled={perfilEditState.loading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={savePerfilEdit}
+                  className="rounded-md bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-50"
+                  disabled={perfilEditState.loading}
+                >
+                  {perfilEditState.loading ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </div>
+
+            {perfilEditState.error ? <p className="mt-2 text-sm text-rose-300">{perfilEditState.error}</p> : null}
+
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Nome</span>
+                <input
+                  value={perfilEditForm.nome}
+                  onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, nome: e.target.value }))}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  disabled={perfilEditState.loading}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Email</span>
+                <input
+                  value={perfilEditForm.email}
+                  onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  disabled={perfilEditState.loading}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Unidade (1-4)</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="4"
+                  value={perfilEditForm.unidadeId}
+                  onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, unidadeId: e.target.value }))}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  disabled={perfilEditState.loading}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Cargo</span>
+                <input
+                  value={perfilEditForm.cargo}
+                  onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, cargo: e.target.value }))}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  disabled={perfilEditState.loading}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-slate-300">Role</span>
+                <select
+                  value={perfilEditForm.role}
+                  onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, role: e.target.value }))}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  disabled={perfilEditState.loading}
+                >
+                  <option value="OPERADOR">OPERADOR</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/30 px-3 py-2 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={Boolean(perfilEditForm.ativo)}
+                  onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, ativo: e.target.checked }))}
+                  className="h-4 w-4 accent-cyan-300"
+                  disabled={perfilEditState.loading}
+                />
+                Ativo
+              </label>
+            </div>
           </div>
-        </form>
-        {movState.error && <p className="mt-2 text-sm text-rose-300">{movState.error}</p>}
-        {movState.response && (
-          <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
-            {JSON.stringify(movState.response, null, 2)}
-          </pre>
-        )}
+        ) : null}
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <h4 className="text-sm font-semibold text-slate-100">Lista de perfis</h4>
+          <p className="mt-1 text-[11px] text-slate-400">Ações: editar, ativar/desativar, resetar senha.</p>
+
+          {perfilEditState.error ? <p className="mt-2 text-sm text-rose-300">{perfilEditState.error}</p> : null}
+
+          <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-white/10">
+            <table className="min-w-full text-left text-xs">
+              <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                <tr>
+                  <th className="px-3 py-2">Matrícula</th>
+                  <th className="px-3 py-2">Nome</th>
+                  <th className="px-3 py-2">Unid.</th>
+                  <th className="px-3 py-2">Role</th>
+                  <th className="px-3 py-2">Ativo</th>
+                  <th className="px-3 py-2">Senha</th>
+                  <th className="px-3 py-2">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {(perfisState.data?.items || []).map((p) => (
+                  <tr key={p.id} className="hover:bg-white/5">
+                    <td className="px-3 py-2 font-mono text-[11px] text-slate-200">{p.matricula}</td>
+                    <td className="px-3 py-2 text-slate-100">{p.nome}</td>
+                    <td className="px-3 py-2 text-slate-300">{p.unidadeId}</td>
+                    <td className="px-3 py-2 text-slate-300">{p.role}</td>
+                    <td className="px-3 py-2 text-slate-300">{p.ativo ? "SIM" : "NÃO"}</td>
+                    <td className="px-3 py-2 text-slate-300">{p.senhaDefinidaEm ? "DEFINIDA" : "NÃO"}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => beginEditPerfil(p)}
+                          className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                          disabled={!canAdmin || perfilEditState.loading}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => togglePerfilAtivo(p)}
+                          className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                          disabled={!canAdmin || perfilEditState.loading}
+                          title="Ativa/desativa o perfil (soft-disable)."
+                        >
+                          {p.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onResetSenhaPerfil(p)}
+                          className="rounded-md border border-amber-300/30 bg-amber-200/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-200/20"
+                          disabled={!canAdmin || perfilEditState.loading}
+                          title="Remove hash de senha para permitir 'Primeiro acesso' novamente."
+                        >
+                          Resetar senha
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {(perfisState.data?.items || []).length === 0 && !perfisState.loading ? (
+                  <tr>
+                    <td className="px-3 py-3 text-slate-300" colSpan={7}>
+                      Nenhum perfil cadastrado ainda.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </article>
     </section>
   );
 }
 
-function buildMovPayload(payload) {
-  const clean = {
-    tipoMovimentacao: payload.tipoMovimentacao,
-    termoReferencia: payload.termoReferencia,
-    justificativa: payload.justificativa || undefined,
-    numeroTombamento: payload.numeroTombamento || undefined,
-    bemId: payload.bemId || undefined,
-    unidadeDestinoId: payload.unidadeDestinoId
-      ? Number(payload.unidadeDestinoId)
-      : undefined,
-    detentorTemporarioPerfilId: payload.detentorTemporarioPerfilId || undefined,
-    dataPrevistaDevolucao: payload.dataPrevistaDevolucao || undefined,
-    dataEfetivaDevolucao: payload.dataEfetivaDevolucao
-      ? new Date(payload.dataEfetivaDevolucao).toISOString()
-      : undefined,
-    autorizadaPorPerfilId: payload.autorizadaPorPerfilId || undefined,
-    executadaPorPerfilId: payload.executadaPorPerfilId || undefined,
-  };
-
-  return Object.fromEntries(
-    Object.entries(clean).filter(([, value]) => value !== undefined),
-  );
-}
-
-function ImportProgressBar({ progressState }) {
+function ImportProgressBar({ progressState, onCancel }) {
   const imp = progressState?.data?.importacao || null;
   const isActive = Boolean(progressState?.loading);
 
@@ -933,10 +1056,27 @@ function ImportProgressBar({ progressState }) {
           ? `${done} linhas`
           : "Aguardando progresso...";
 
-  const elapsed =
-    imp?.importedEm && typeof imp.importedEm === "string"
-      ? Math.max(0, Math.floor((Date.now() - Date.parse(imp.importedEm)) / 1000))
-      : null;
+  const startedEm = imp?.importedEm && typeof imp.importedEm === "string" ? imp.importedEm : null;
+  const lastUpdateEm =
+    imp?.ultimaAtualizacaoEm && typeof imp.ultimaAtualizacaoEm === "string"
+      ? imp.ultimaAtualizacaoEm
+      : startedEm;
+  const finishedEm = imp?.finalizadoEm && typeof imp.finalizadoEm === "string" ? imp.finalizadoEm : null;
+
+  const elapsedTotal =
+    startedEm ? Math.max(0, Math.floor((Date.now() - Date.parse(startedEm)) / 1000)) : null;
+  const idle =
+    lastUpdateEm ? Math.max(0, Math.floor((Date.now() - Date.parse(lastUpdateEm)) / 1000)) : null;
+
+  const fmt = (s) => {
+    try {
+      return new Date(s).toLocaleString("pt-BR");
+    } catch {
+      return String(s || "");
+    }
+  };
+
+  const showCancel = Boolean(typeof onCancel === "function" && imp?.status === "EM_ANDAMENTO");
 
   return (
     <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/50 p-3">
@@ -953,9 +1093,21 @@ function ImportProgressBar({ progressState }) {
             )}
             {imp?.status ? <span className="text-slate-400"> {" "}({imp.status})</span> : null}
           </p>
-          {elapsed != null ? (
-            <p className="mt-1 text-[11px] text-slate-500">
-              tempo decorrido: {elapsed}s
+          {startedEm ? (
+            <p className="mt-1 text-[11px] text-slate-500">início: {fmt(startedEm)}</p>
+          ) : null}
+          {lastUpdateEm ? (
+            <p className="mt-1 text-[11px] text-slate-500">última atualização: {fmt(lastUpdateEm)}</p>
+          ) : null}
+          {finishedEm ? (
+            <p className="mt-1 text-[11px] text-slate-500">finalizada em: {fmt(finishedEm)}</p>
+          ) : null}
+          {elapsedTotal != null ? (
+            <p className="mt-1 text-[11px] text-slate-500">tempo decorrido: {elapsedTotal}s</p>
+          ) : null}
+          {idle != null && imp?.status === "EM_ANDAMENTO" ? (
+            <p className={`mt-1 text-[11px] ${idle > 60 ? "text-amber-200" : "text-slate-500"}`}>
+              sem atualização: {idle}s
             </p>
           ) : null}
         </div>
@@ -965,6 +1117,16 @@ function ImportProgressBar({ progressState }) {
             <p className="text-[11px] text-slate-400">
               ok={imp.persistenciaOk} falha_persist={imp.falhaPersistencia} falha_norm={imp.falhaNormalizacao}
             </p>
+          ) : null}
+          {showCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="mt-2 rounded-md border border-rose-300/30 bg-rose-200/10 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-200/20"
+              title="Cancelar importação (marca como ERRO para destravar a UI)."
+            >
+              Cancelar
+            </button>
           ) : null}
         </div>
       </div>
@@ -981,6 +1143,9 @@ function ImportProgressBar({ progressState }) {
 
       {progressState?.error ? (
         <p className="mt-2 text-xs text-rose-300">{progressState.error}</p>
+      ) : null}
+      {imp?.erroResumo ? (
+        <p className="mt-2 text-xs text-rose-200">erro: {imp.erroResumo}</p>
       ) : null}
       {imp?.id ? (
         <p className="mt-1 text-[11px] text-slate-500">

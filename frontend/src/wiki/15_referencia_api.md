@@ -101,6 +101,30 @@ Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
 
+### GET `/perfis`
+
+Uso: listar perfis cadastrados (para suporte/admin).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+### PATCH `/perfis/{id}`
+
+Uso: atualizar dados do perfil (nome/email/unidade/cargo/role/ativo).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+### POST `/perfis/{id}/reset-senha`
+
+Uso: resetar senha (remove o hash) para permitir "Primeiro acesso" novamente.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
 ## Importação GEAFIN
 
 ### POST `/importar-geafin`
@@ -128,6 +152,30 @@ Campos típicos:
 - `persistenciaOk`
 - `falhaPersistencia`
 - `falhaNormalizacao`
+- `ultimaAtualizacaoEm` (timestamp da última linha registrada no espelho)
+
+### POST `/importacoes/geafin/{id}/cancelar`
+
+Uso: cancelar uma importação que ficou presa como `EM_ANDAMENTO` (marca como `ERRO` para destravar UI).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Body (opcional):
+
+- `motivo`
+
+## Movimentações
+
+### POST `/movimentar`
+
+Uso: executar transferência/cautela.
+
+Regras:
+
+- Transferência muda carga e gera histórico (Arts. 124/127).
+- Durante inventário `EM_ANDAMENTO`, transferências ficam bloqueadas no banco (Art. 183).
 
 ## Inventário
 

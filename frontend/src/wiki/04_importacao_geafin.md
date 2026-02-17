@@ -39,6 +39,11 @@ Durante a importacao, a UI mostra:
 - Status (EM_ANDAMENTO / CONCLUIDO / ERRO)
 - Percentual (%)
 - Contadores (ok, falhas de persistencia, falhas de normalizacao)
+- Datas:
+  - **inicio** (quando o arquivo foi registrado)
+  - **ultima atualizacao** (ultima linha persistida no espelho)
+  - **finalizada em** (quando concluiu ou falhou)
+- Indicador **sem atualizacao** (segundos desde a ultima atualizacao)
 
 ### Se ficar em 0% por muito tempo
 
@@ -49,6 +54,17 @@ Isso normalmente significa "fase de preparacao":
 - registro do arquivo no banco
 
 Por isso, o sistema pode mostrar um indicador "indeterminado" ate as primeiras linhas serem processadas.
+
+### Se ficar parado (ex.: % travado) por muito tempo
+
+Se o status continuar `EM_ANDAMENTO` mas o campo **sem atualizacao** ficar alto (sem novas linhas entrando),
+provavelmente a importacao anterior foi interrompida (ex.: backend reiniciado).
+
+Acao recomendada:
+
+1. Clique em **Cancelar** na barra de progresso.
+2. O sistema marca a importacao como `ERRO` para destravar a UI.
+3. Em seguida, faca um novo upload.
 
 ## O que pode dar errado (e o que fazer)
 

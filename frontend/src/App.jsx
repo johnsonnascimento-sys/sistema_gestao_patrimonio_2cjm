@@ -9,6 +9,7 @@ import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
+import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
 import RegularizationPanel from "./components/RegularizationPanel.jsx";
@@ -185,6 +186,13 @@ function AppShell() {
             </button>
             <button
               type="button"
+              onClick={() => setTab("movimentacoes")}
+              className={`pill ${tab === "movimentacoes" ? "pill-active" : ""}`}
+            >
+              Movimentações
+            </button>
+            <button
+              type="button"
               onClick={() => setTab("classificacao")}
               className={`pill ${tab === "classificacao" ? "pill-active" : ""}`}
             >
@@ -245,6 +253,8 @@ function AppShell() {
         )}
 
         {tab === "regularizacao" && <RegularizationPanel />}
+
+        {tab === "movimentacoes" && <MovimentacoesPanel />}
 
         {tab === "classificacao" && (
           <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">

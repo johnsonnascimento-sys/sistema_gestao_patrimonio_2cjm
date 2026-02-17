@@ -259,12 +259,61 @@ export async function criarPerfil(payload) {
 }
 
 /**
+ * Lista perfis (ADMIN).
+ * @param {{limit?: number}} filters Filtros opcionais.
+ * @returns {Promise<{requestId: string, items: any[]}>} Lista de perfis.
+ */
+export async function listarPerfis(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  const response = await safeFetch(`${API_BASE_URL}/perfis${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza perfil (ADMIN).
+ * @param {string} id UUID do perfil.
+ * @param {object} patch Campos parciais.
+ * @returns {Promise<{requestId: string, perfil: any}>} Perfil atualizado.
+ */
+export async function atualizarPerfil(id, patch) {
+  const response = await safeFetch(`${API_BASE_URL}/perfis/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(patch || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Reseta senha (hash) do perfil (ADMIN), habilitando "Primeiro acesso" novamente.
+ * @param {string} id UUID do perfil.
+ * @returns {Promise<{requestId: string, perfil: any}>} Perfil atualizado.
+ */
+export async function resetSenhaPerfil(id) {
+  const response = await safeFetch(`${API_BASE_URL}/perfis/${encodeURIComponent(id)}/reset-senha`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Envia arquivo CSV GEAFIN para importacao com upsert seguro.
  * @param {File} file Arquivo CSV selecionado.
  * @param {number|null} unidadePadraoId Unidade fallback opcional.
+ * @param {{signal?: AbortSignal}=} opts Opcoes (ex.: abort).
  * @returns {Promise<object>} Resumo da importacao.
  */
-export async function importarGeafin(file, unidadePadraoId) {
+export async function importarGeafin(file, unidadePadraoId, opts = {}) {
   const formData = new FormData();
   formData.append("arquivo", file);
   if (unidadePadraoId) {
@@ -274,6 +323,7 @@ export async function importarGeafin(file, unidadePadraoId) {
   const response = await safeFetch(`${API_BASE_URL}/importar-geafin`, {
     method: "POST",
     body: formData,
+    signal: opts.signal,
   });
   return parseResponse(response);
 }
@@ -286,6 +336,24 @@ export async function getUltimaImportacaoGeafin() {
   const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/ultimo`, {
     method: "GET",
     headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cancela importacao GEAFIN (ADMIN).
+ * @param {string} id UUID da importacao (geafin_import_arquivos.id).
+ * @param {string=} motivo Texto opcional.
+ * @returns {Promise<{requestId: string, importacao: any}>} Importacao atualizada.
+ */
+export async function cancelarImportacaoGeafin(id, motivo) {
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}/cancelar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ motivo }),
   });
   return parseResponse(response);
 }

@@ -6,6 +6,12 @@ Funcao no sistema: explicar cautela vs transferencia e como manter evidencia aud
 
 # Movimentações: cautela x transferência
 
+## Onde executar no sistema
+
+Na UI, use a aba **Movimentações**.
+
+Essa aba chama o endpoint `POST /movimentar` e aplica as regras do backend (incluindo bloqueio do Art. 183).
+
 ## Por que isso é importante
 
 O ATN 303 distingue claramente:
