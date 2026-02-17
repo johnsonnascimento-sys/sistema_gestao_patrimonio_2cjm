@@ -43,7 +43,7 @@ Nginx host:
 O jeito mais simples e consistente é usar o script de deploy do repositório:
 
 ```bash
-cd /opt/cjm-patrimonio/releases/cjm-patrimonio
+cd /opt/cjm-patrimonio/current
 ./scripts/vps_deploy.sh all
 ```
 
@@ -70,7 +70,7 @@ Se após um deploy você vir `502 Bad Gateway` na UI (especialmente em "Consulta
 Se você preferir executar manualmente, rode no diretório do repositório na VPS (exemplo):
 
 ```bash
-cd /opt/cjm-patrimonio/releases/cjm-patrimonio
+cd /opt/cjm-patrimonio/current
 docker compose -f docker-compose.vps.yml build backend
 docker compose -f docker-compose.vps.yml up -d --no-deps --force-recreate backend
 docker compose -f docker-compose.vps.yml build frontend
@@ -96,6 +96,18 @@ Por padrão:
 
 - `.env` fica apenas na VPS, não versionado.
 - `DATABASE_URL` aponta para Supabase (Postgres).
+
+## Padronização do diretório "current" (governança)
+
+Regra operacional:
+
+- **Sempre** subir backend/frontend a partir de um único diretório: `/opt/cjm-patrimonio/current`.
+- Não misturar "deploy" entre caminhos diferentes (ex.: `/opt/cjm-patrimonio/current` e `/opt/cjm-patrimonio/releases/...`).
+
+Se você herdou uma VPS com múltiplos diretórios, o alvo é:
+
+1. Ter um repo Git em `/opt/cjm-patrimonio/current` (com `.git`, `docker-compose.vps.yml` e `scripts/vps_deploy.sh`).
+2. Rodar deploys sempre desse caminho.
 
 Nunca coloque segredos no repositório nem no Wiki.
 

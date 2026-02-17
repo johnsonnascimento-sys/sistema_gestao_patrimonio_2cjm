@@ -5,17 +5,18 @@
 #
 # Observacao:
 # - Este script NAO imprime segredos e NAO deve ler/ecoar o conteudo do .env.
-# - Ajuste o APP_DIR se o repositorio estiver em outro caminho.
+# - Padrao (governanca): todo deploy deve rodar a partir de /opt/cjm-patrimonio/current (um unico "current").
+# - Ajuste o APP_DIR apenas se a VPS usar outro padrao, e documente no Wiki/Admin.
 
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/cjm-patrimonio/releases/cjm-patrimonio}"
+APP_DIR="${APP_DIR:-/opt/cjm-patrimonio/current}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.vps.yml}"
 
 usage() {
   cat <<'EOF'
 Uso:
-  APP_DIR=/opt/cjm-patrimonio/releases/cjm-patrimonio ./scripts/vps_deploy.sh [all|frontend|backend]
+  APP_DIR=/opt/cjm-patrimonio/current ./scripts/vps_deploy.sh [all|frontend|backend]
 
 Comportamento:
   - Faz git pull (ff-only)
