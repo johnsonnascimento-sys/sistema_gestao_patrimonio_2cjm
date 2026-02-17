@@ -52,6 +52,12 @@ Concluir a Fase 2 com foco em:
   - Tabela continua enxuta.
   - Botao "Detalhes" abre modal com campos completos e historicos.
 
+- Wiki / Manual (self-hosted):
+  - Nova aba "Wiki / Manual" com manual extremamente detalhado para usuarios e administradores.
+  - Conteudo em Markdown versionado junto do frontend (`frontend/src/wiki/*.md`).
+  - Persistencia de pagina no `#hash` para nao sumir no refresh.
+  - Estilo de Markdown padronizado no CSS global.
+
 ## 3. Como Validar (checklist rapido)
 
 1. Health:
@@ -60,10 +66,12 @@ Concluir a Fase 2 com foco em:
    - `GET /api/importacoes/geafin/ultimo` retorna JSON com `status`, `percent` e contadores.
 3. Detalhe:
    - Na UI "Consulta de Bens", abrir um item e validar carregamento do modal.
+4. Wiki:
+   - Na UI, abrir a aba "Wiki / Manual" e navegar entre paginas.
+   - Dar refresh e confirmar que a pagina do wiki permanece selecionada.
 
 ## 4. Observacao de Cache (Service Worker)
 
 Se a UI nao atualizar apos deploy:
 - Hard refresh (`Ctrl+F5`).
 - Se necessario: DevTools -> Application -> Service Workers -> Unregister e "Clear site data".
-

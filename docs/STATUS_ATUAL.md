@@ -134,12 +134,18 @@ Nota:
   - Agrupa por catalogo (accordion com `details/summary`).
   - Scanner registra tombamento (10 digitos) e enfileira offline.
 - Wizard Art. 141: UI de fluxo guiado (mock) para classificacao de inserviveis.
+- Wiki / Manual (self-hosted):
+  - Manual completo para usuarios e administradores.
+  - Persistencia de pagina via `#hash` (nao some no refresh).
+  - Conteudo versionado em `frontend/src/wiki/*.md` e renderizado na aba "Wiki / Manual".
 
 Arquivos principais:
 - `frontend/src/components/AssetsExplorer.jsx` (consulta)
 - `frontend/src/components/InventoryRoomPanel.jsx` (inventario)
 - `frontend/src/hooks/useOfflineSync.js` (fila offline)
 - `frontend/src/services/apiClient.js` (cliente HTTP)
+- `frontend/src/components/WikiManual.jsx` (wiki/manual)
+- `frontend/src/wiki/*.md` (conteudo do manual)
 
 ### 5.2 Offline-first (implementado)
 
@@ -204,3 +210,4 @@ Observacao:
 1. Cachear contagens por sala em IndexedDB para consultas/relatorios offline apos reload.
 2. Criar um painel "Divergencias da sala" para listar contagens divergentes que nao estao no catalogo carregado da sala.
 3. Adicionar busca por QR/barcode com foco automatico e suporte a coletores (melhor UX de scanner).
+4. (Opcional) Exportar Wiki para PDF interno (somente leitura) para distribuicao offline controlada.

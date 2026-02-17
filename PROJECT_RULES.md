@@ -156,10 +156,19 @@ Regras de mudanca:
 - Qualquer alteracao de stack fora do permitido exige revisao formal deste arquivo.
 - PR sem aderencia ao `PROJECT_RULES.md` deve ser reprovado.
 
+## 10. Regra "Wiki-First" (Manual Operacional Obrigatorio)
+
+O projeto deve manter um manual/wiki self-hosted publicado junto do sistema (aba "Wiki / Manual").
+
+Regras obrigatorias:
+- Qualquer mudanca em UX, fluxos operacionais, endpoints, contratos de resposta, regras de negocio ou compliance exige atualizacao do Wiki no mesmo PR/commit.
+- O Wiki nao pode conter segredos (senhas, tokens, connection strings). Use placeholders.
+- Em divergencia entre o sistema e o Wiki, o sistema deve ser considerado em nao-conformidade ate a documentacao ser atualizada.
+
 Gate desta fase:
 - Tarefa 1 (banco de dados) so pode comecar apos aprovacao explicita da Tarefa 0 (`PROJECT_RULES.md`).
 
-## 10. Criterios de Aceite da Tarefa 0
+## 11. Criterios de Aceite da Tarefa 0
 
 - Existe `PROJECT_RULES.md` na raiz do repositorio como fonte unica de governanca.
 - Existem exatamente 5 Regras de Ouro com base legal e implicacao tecnica minima.

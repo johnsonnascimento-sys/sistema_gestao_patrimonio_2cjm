@@ -10,6 +10,7 @@ import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
+import WikiManual from "./components/WikiManual.jsx";
 import { listarEventosInventario } from "./services/apiClient.js";
 
 export default function App() {
@@ -96,6 +97,13 @@ export default function App() {
             >
               Operacoes API
             </button>
+            <button
+              type="button"
+              onClick={() => setTab("wiki")}
+              className={`pill ${tab === "wiki" ? "pill-active" : ""}`}
+            >
+              Wiki / Manual
+            </button>
           </div>
         </header>
 
@@ -166,6 +174,7 @@ export default function App() {
 
         {tab === "normas" && <NormsPage />}
         {tab === "operacoes" && <OperationsPanel />}
+        {tab === "wiki" && <WikiManual />}
       </div>
 
       <ClassificationWizard
