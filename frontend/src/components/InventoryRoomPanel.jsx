@@ -162,6 +162,10 @@ export default function InventoryRoomPanel() {
       setUnidadeInventariadaId("");
       await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
     },
+    onError: (error) => {
+      // Sem isso, falhas (422/401/rede) parecem "nada aconteceu" para o usuario.
+      setUiError(String(error?.message || "Falha ao abrir evento."));
+    },
   });
 
   const atualizarStatusMut = useMutation({
@@ -169,6 +173,9 @@ export default function InventoryRoomPanel() {
     onSuccess: async () => {
       setEncerramentoObs("");
       await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
+    },
+    onError: (error) => {
+      setUiError(String(error?.message || "Falha ao atualizar status do evento."));
     },
   });
 
