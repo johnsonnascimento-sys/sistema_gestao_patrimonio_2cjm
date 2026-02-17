@@ -29,6 +29,7 @@ import mdAdminVps from "../wiki/14_admin_operacao_vps.md?raw";
 import mdApiRef from "../wiki/15_referencia_api.md?raw";
 import mdMatrizCompliance from "../wiki/16_matriz_compliance.md?raw";
 import mdRegularizacaoPosInventario from "../wiki/17_regularizacao_pos_inventario.md?raw";
+import { wikiMeta } from "../wiki/wikiMeta.generated.js";
 
 const WIKI_PAGES = [
   { id: "indice", title: "Índice", md: mdIndice },
@@ -50,6 +51,37 @@ const WIKI_PAGES = [
   { id: "admin-vps", title: "Admin: operação na VPS", md: mdAdminVps },
   { id: "api-ref", title: "Referência rápida da API", md: mdApiRef },
 ];
+
+function stripLeadingHtmlComments(md) {
+  if (md == null) return "";
+  let s = String(md);
+  // Remove BOM if present.
+  s = s.replace(/^\uFEFF/, "");
+
+  // Remove one or more HTML comments at the very top (used for file metadata headers).
+  // react-markdown escapes HTML by default, so comments would show as text otherwise.
+  // We keep the header in the file (governance), but hide it in the UI.
+  for (let n = 0; n < 3; n += 1) {
+    const leadingWs = (s.match(/^\s*/) || [""])[0];
+    const start = leadingWs.length;
+    if (!s.slice(start).startsWith("<!--")) break;
+    const end = s.indexOf("-->", start + 4);
+    if (end === -1) break;
+    s = s.slice(end + 3);
+  }
+  return s.replace(/^\s+/, "");
+}
+
+function formatUpdatedAt(iso) {
+  if (!iso) return null;
+  const d = new Date(String(iso));
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    return d.toLocaleString("pt-BR");
+  } catch {
+    return d.toISOString();
+  }
+}
 
 function readWikiHash() {
   const raw = (window.location.hash || "").replace(/^#/, "");
@@ -101,6 +133,10 @@ export default function WikiManual() {
   const activePage = useMemo(() => {
     return WIKI_PAGES.find((p) => p.id === activeId) || WIKI_PAGES[0];
   }, [activeId]);
+
+  const updated = wikiMeta?.[activePage.id] || null;
+  const updatedText = formatUpdatedAt(updated?.updatedAt);
+  const mdClean = useMemo(() => stripLeadingHtmlComments(activePage.md), [activePage.md]);
 
   return (
     <section className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
@@ -156,6 +192,15 @@ export default function WikiManual() {
           <div>
             <p className="text-xs uppercase tracking-widest text-cyan-200">Wiki</p>
             <h2 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold">{activePage.title}</h2>
+            {updatedText && (
+              <p className="mt-2 text-xs text-slate-400">
+                Atualizado em:{" "}
+                <span className="font-semibold text-slate-200">{updatedText}</span>
+                {updated?.source ? (
+                  <span className="text-slate-500"> (fonte: {updated.source})</span>
+                ) : null}
+              </p>
+            )}
           </div>
           <a
             className="rounded-lg border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-white/5"
@@ -166,7 +211,7 @@ export default function WikiManual() {
         </div>
 
         <div className="wiki-content mt-6">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{activePage.md}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{mdClean}</ReactMarkdown>
         </div>
       </article>
     </section>

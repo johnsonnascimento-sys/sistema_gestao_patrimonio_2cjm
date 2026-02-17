@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Frontend React PWA para o Sistema de Gestao Patrimonial 2a CJM.",
   "scripts": {
+    "predev": "node scripts/generate_wiki_meta.cjs",
     "dev": "vite",
+    "prebuild": "node scripts/generate_wiki_meta.cjs",
     "build": "vite build",
     "preview": "vite preview"
   },
