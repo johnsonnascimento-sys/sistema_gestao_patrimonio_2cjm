@@ -1,0 +1,22 @@
+{
+  "name": "cjm-patrimonio-backend",
+  "version": "1.0.0",
+  "description": "Modulo backend da API patrimonial 2a CJM com compliance ATN 303.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.6",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "iconv-lite": "^0.6.3",
+    "multer": "^2.0.2",
+    "pg": "^8.13.1",
+    "swagger-ui-express": "^5.0.1"
+  }
+}

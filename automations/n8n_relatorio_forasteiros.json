@@ -1,0 +1,147 @@
+{
+  "name": "Relatorio de Forasteiros - 2a CJM",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c4a3d7c2-4d57-4b83-9d43-13d9ad3e7c01",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  contagem_id,\n  codigo_evento,\n  numero_tombamento,\n  descricao,\n  unidade_dona_id,\n  unidade_encontrada_id,\n  sala_encontrada,\n  encontrado_em\nFROM public.vw_forasteiros\nORDER BY encontrado_em DESC\nLIMIT 500;\n"
+      },
+      "id": "6b4f3b2c-0d34-44aa-a0ae-0c12a8f7cb15",
+      "name": "Consulta Forasteiros (Supabase)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function escapeHtml(v) {\n  return String(v ?? \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\\\"/g, \"&quot;\")\n    .replace(/'/g, \"&#039;\");\n}\n\nconst rows = items.map((i) => i.json);\nconst now = new Date();\nconst ymd = now.toISOString().slice(0, 10).replace(/-/g, \"\");\n\nconst head = `<!doctype html>\n<html lang=\\\"pt-br\\\">\n<head>\n  <meta charset=\\\"utf-8\\\" />\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\" />\n  <title>Relatorio de Forasteiros</title>\n  <style>\n    body { font-family: Arial, Helvetica, sans-serif; margin: 24px; }\n    h1 { margin: 0 0 8px; }\n    .meta { color: #555; margin-bottom: 16px; }\n    table { width: 100%; border-collapse: collapse; }\n    th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }\n    th { background: #f5f5f5; text-align: left; }\n    .small { font-size: 11px; color: #555; }\n  </style>\n</head>\n<body>`;\n\nconst meta = `<h1>Relatorio de Forasteiros (Art. 185 - AN303_Art185)</h1>\n<p class=\\\"meta\\\">Gerado em ${escapeHtml(now.toLocaleString())}. Total: <b>${rows.length}</b>.</p>`;\n\nconst tableHead = `<table>\n  <thead>\n    <tr>\n      <th>Tombamento</th>\n      <th>Descricao</th>\n      <th>Unidade (carga)</th>\n      <th>Unidade (encontrada)</th>\n      <th>Sala</th>\n      <th>Encontrado em</th>\n      <th>Evento</th>\n    </tr>\n  </thead>\n  <tbody>`;\n\nconst tableRows = rows.map((r) => {\n  return `\n    <tr>\n      <td>${escapeHtml(r.numero_tombamento)}</td>\n      <td>${escapeHtml(r.descricao)}</td>\n      <td>${escapeHtml(r.unidade_dona_id)}</td>\n      <td>${escapeHtml(r.unidade_encontrada_id)}</td>\n      <td>${escapeHtml(r.sala_encontrada)}</td>\n      <td>${escapeHtml(r.encontrado_em)}</td>\n      <td>${escapeHtml(r.codigo_evento)}</td>\n    </tr>`;\n}).join(\"\");\n\nconst tail = `\n  </tbody>\n</table>\n<p class=\\\"small\\\">Fonte: view public.vw_forasteiros (derivada de contagens + bens). Regra: divergencias nao alteram carga automaticamente.</p>\n</body>\n</html>`;\n\nconst html = `${head}\\n${meta}\\n${tableHead}${tableRows}${tail}`;\n\nreturn [\n  {\n    json: {\n      fileName: `RELATORIO_FORASTEIROS_${ymd}.pdf`,\n      html,\n      total: rows.length,\n    },\n  },\n];"
+      },
+      "id": "acb0a6f3-4a1c-4cfe-9bb0-2c6a40e21e0b",
+      "name": "Montar HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.PDF_RENDER_URL}}",
+        "method": "POST",
+        "responseFormat": "file",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Content-Type",
+              "value": "text/html; charset=utf-8"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "raw",
+        "rawBody": "={{$json.html}}"
+      },
+      "id": "42d0f99a-5e31-42ea-88c6-1cc1cb6441c5",
+      "name": "Gerar PDF (Render)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "fileName": "={{$json.fileName}}",
+        "parentFolderId": "={{$env.GOOGLE_DRIVE_FORASTEIRO_FOLDER_ID}}"
+      },
+      "id": "d9f3ed1a-3a76-4c56-9e2d-4a6f3f0f1b3a",
+      "name": "Upload Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Consulta Forasteiros (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consulta Forasteiros (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Montar HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar HTML": {
+      "main": [
+        [
+          {
+            "node": "Gerar PDF (Render)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar PDF (Render)": {
+      "main": [
+        [
+          {
+            "node": "Upload Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionTimeout": 3600
+  },
+  "meta": {
+    "purpose": "Relatorio de forasteiros (divergencias) derivado de contagens - Art. 185 (AN303_Art185).",
+    "notes": [
+      "Este workflow exige credencial Postgres configurada no node de Postgres (Supabase).",
+      "Este workflow exige variavel de ambiente PDF_RENDER_URL (servico que converte HTML->PDF).",
+      "Este workflow exige variavel de ambiente GOOGLE_DRIVE_FORASTEIRO_FOLDER_ID (pasta destino no Drive).",
+      "Nao incluir segredos neste JSON. Configurar credenciais/vars diretamente no n8n."
+    ]
+  }
+}
+

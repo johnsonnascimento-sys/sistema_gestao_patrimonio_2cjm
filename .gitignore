@@ -1,0 +1,48 @@
+# Modulo: repositorio
+# Arquivo: .gitignore
+# Funcao no sistema: impedir versionamento de artefatos locais, segredos e builds.
+
+# Node.js
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+frontend/dist/
+
+# Environment and secrets
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary import artifacts
+scripts/.tmp/
+
+# Data dumps / exports (nao versionar dados operacionais)
+relatorio.csv
+relatorio_*.csv
+relatorio-upload.csv
+relatorio_upload.csv
+
+# Backups/arquivos grandes (VPS bundles)
+*.tar.gz
+cjm-patrimonio-vps*.tar.gz
+
+# Normas/fonte externa (manter fora do repo por padrao)
+*.xlsx
+~$*.xlsx
+
+# Test artifacts
+test_upload.txt
+
+# OS/editor
+.DS_Store
+Thumbs.db

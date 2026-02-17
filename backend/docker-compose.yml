@@ -1,0 +1,20 @@
+# Modulo: backend
+# Arquivo: docker-compose.yml
+# Funcao no sistema: orquestrar a API do backend com porta interna fixa 3001.
+
+services:
+  backend:
+    container_name: cjm_backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cjm-patrimonio-backend:latest
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_HOST_PORT:-3001}:3001"
+    environment:
+      PORT: "3001"
+      NODE_ENV: "production"
+      DB_SSL: "${DB_SSL:-require}"
+      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-*}"
+      DATABASE_URL: "${DATABASE_URL:-postgresql://<user>:<password>@<host>:5432/<database>}"

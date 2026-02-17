@@ -1,0 +1,9 @@
+# Modulo: backend
+# Arquivo: .dockerignore
+# Funcao no sistema: reduzir contexto de build e evitar envio de arquivos desnecessarios.
+
+node_modules
+npm-debug.log
+.env
+.env.*
+.git

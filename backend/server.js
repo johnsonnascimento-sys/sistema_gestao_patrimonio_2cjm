@@ -1,0 +1,1202 @@
+/**
+ * Modulo: backend
+ * Arquivo: server.js
+ * Funcao no sistema: API HTTP com Swagger, importacao GEAFIN e movimentacao patrimonial.
+ */
+"use strict";
+
+const express = require("express");
+const multer = require("multer");
+const helmet = require("helmet");
+const cors = require("cors");
+const iconv = require("iconv-lite");
+const { parse } = require("csv-parse/sync");
+const swaggerUi = require("swagger-ui-express");
+const { Pool } = require("pg");
+const { randomUUID, createHash } = require("node:crypto");
+
+const { setDbContext } = require("./src/services/dbContext");
+const { createInventarioController } = require("./src/controllers/inventarioController");
+
+const PORT = Number(process.env.PORT || 3001);
+const HOST = process.env.HOST || "0.0.0.0";
+const DATABASE_URL = process.env.DATABASE_URL || "";
+const DB_SSL = process.env.DB_SSL || "require";
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*";
+if (!DATABASE_URL) throw new Error("Variavel obrigatoria ausente: DATABASE_URL");
+
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: DB_SSL === "disable" ? false : { rejectUnauthorized: false },
+});
+
+const app = express();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+const VALID_UNIDADES = new Set([1, 2, 3, 4]);
+const VALID_MOV = new Set(["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"]);
+const VALID_STATUS_BEM = new Set(["OK", "BAIXADO", "EM_CAUTELA", "AGUARDANDO_RECEBIMENTO"]);
+const TOMBAMENTO_GEAFIN_RE = /^\d{10}$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UNIT_MAP = new Map([
+  ["1", 1], ["1a aud", 1], ["1 aud", 1], ["1aud", 1],
+  ["2", 2], ["2a aud", 2], ["2 aud", 2], ["2aud", 2],
+  ["3", 3], ["foro", 3], ["4", 4], ["almox", 4], ["almoxarifado", 4],
+  ["1aaud2acjm", 1],
+  ["2aaud2acjm", 2],
+  ["dirf2acjm", 3],
+  ["almox2 sp", 4],
+  ["almox2sp", 4],
+]);
+
+class HttpError extends Error {
+  constructor(status, code, message, details) {
+    super(message);
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+app.use(helmet());
+app.use(
+  cors({
+    origin: FRONTEND_ORIGIN === "*" ? true : FRONTEND_ORIGIN,
+    methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  }),
+);
+app.use(express.json({ limit: "2mb" }));
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader("X-Request-Id", req.requestId);
+  next();
+});
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - startedAt;
+    // Log de auditoria operacional (nao loga corpo/segredos).
+    console.log(`[${req.requestId}] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${ms}ms)`);
+  });
+  next();
+});
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi()));
+app.get("/", (_req, res) => res.json({ status: "ok", docs: "/docs" }));
+
+app.get("/health", async (req, res, next) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", requestId: req.requestId });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/importacoes/geafin/ultimo", async (req, res, next) => {
+  try {
+    const r = await pool.query(
+      `WITH ultimo AS (
+         SELECT id, request_id, original_filename, content_sha256, bytes, delimiter,
+                imported_em, total_linhas, status, finalizado_em, erro_resumo
+         FROM public.geafin_import_arquivos
+         ORDER BY imported_em DESC
+         LIMIT 1
+       ),
+       cont AS (
+         SELECT arquivo_id,
+                COUNT(*)::int AS linhas_inseridas,
+                COUNT(*) FILTER (WHERE persistencia_ok)::int AS persistencia_ok,
+                COUNT(*) FILTER (WHERE persistencia_ok = FALSE AND normalizacao_ok)::int AS falha_persistencia,
+                COUNT(*) FILTER (WHERE normalizacao_ok = FALSE)::int AS falha_normalizacao
+         FROM public.geafin_import_linhas
+         WHERE arquivo_id = (SELECT id FROM ultimo)
+         GROUP BY arquivo_id
+       )
+       SELECT
+         u.id,
+         u.request_id AS "requestId",
+         u.original_filename AS "originalFilename",
+         u.content_sha256 AS "contentSha256",
+         u.bytes,
+         u.delimiter,
+         u.imported_em AS "importedEm",
+         u.total_linhas AS "totalLinhas",
+         u.status,
+         u.finalizado_em AS "finalizadoEm",
+         u.erro_resumo AS "erroResumo",
+         COALESCE(c.linhas_inseridas, 0) AS "linhasInseridas",
+         COALESCE(c.persistencia_ok, 0) AS "persistenciaOk",
+         COALESCE(c.falha_persistencia, 0) AS "falhaPersistencia",
+         COALESCE(c.falha_normalizacao, 0) AS "falhaNormalizacao"
+       FROM ultimo u
+       LEFT JOIN cont c ON c.arquivo_id = u.id;`,
+    );
+
+    const row = r.rows[0];
+    if (!row?.id) {
+      res.status(404).json({ requestId: req.requestId, error: { code: "SEM_IMPORTACAO", message: "Nenhuma importacao GEAFIN registrada." } });
+      return;
+    }
+
+    const total = row.totalLinhas ? Number(row.totalLinhas) : null;
+    const done = Number(row.linhasInseridas || 0);
+    const percent = total && total > 0 ? Math.min(100, Math.round((done / total) * 1000) / 10) : null;
+
+    res.json({
+      requestId: req.requestId,
+      importacao: {
+        ...row,
+        percent,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/stats", async (req, res, next) => {
+  try {
+    const incluirTerceiros = parseBool(req.query?.incluirTerceiros, false);
+    const where = incluirTerceiros ? "" : "WHERE eh_bem_terceiro = FALSE";
+
+    const total = await pool.query(`SELECT COUNT(*)::int AS total FROM bens ${where};`);
+    const porUnidade = await pool.query(
+      `SELECT unidade_dona_id AS unidade, COUNT(*)::int AS total
+       FROM bens
+       ${where}
+       GROUP BY 1
+       ORDER BY 1;`,
+    );
+    const porStatus = await pool.query(
+      `SELECT status::text AS status, COUNT(*)::int AS total
+       FROM bens
+       ${where}
+       GROUP BY 1
+       ORDER BY 1;`,
+    );
+
+    res.json({
+      requestId: req.requestId,
+      bens: {
+        total: total.rows[0]?.total ?? 0,
+        porUnidade: porUnidade.rows,
+        porStatus: porStatus.rows,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/bens", async (req, res, next) => {
+  try {
+    const q = req.query || {};
+    const filters = validateBensQuery(q);
+
+    const where = [];
+    const params = [];
+    let i = 1;
+
+    if (!filters.incluirTerceiros) {
+      where.push("b.eh_bem_terceiro = FALSE");
+    }
+    if (filters.numeroTombamento) {
+      where.push(`b.numero_tombamento = $${i}`);
+      params.push(filters.numeroTombamento);
+      i += 1;
+    }
+    if (filters.texto) {
+      // Normalizacao (SKU vs Item): a descricao canonica pertence ao catalogo_bens.
+      // Mantemos descricao_complementar como campo opcional para anotacoes locais.
+      where.push(`(cb.descricao ILIKE $${i} OR b.descricao_complementar ILIKE $${i})`);
+      params.push(`%${filters.texto}%`);
+      i += 1;
+    }
+    if (filters.localFisico) {
+      where.push(`b.local_fisico ILIKE $${i}`);
+      params.push(`%${filters.localFisico}%`);
+      i += 1;
+    }
+    if (filters.unidadeDonaId) {
+      where.push(`b.unidade_dona_id = $${i}`);
+      params.push(filters.unidadeDonaId);
+      i += 1;
+    }
+    if (filters.status) {
+      where.push(`b.status = $${i}::public.status_bem`);
+      params.push(filters.status);
+      i += 1;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const countSql = `SELECT COUNT(*)::int AS total FROM bens b JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id ${whereSql};`;
+    const count = await pool.query(countSql, params);
+    const total = count.rows[0]?.total ?? 0;
+
+    const listSql = `
+      SELECT
+        b.id,
+        b.numero_tombamento AS "numeroTombamento",
+        COALESCE(NULLIF(b.descricao_complementar, ''), cb.descricao) AS "descricao",
+        b.catalogo_bem_id AS "catalogoBemId",
+        cb.descricao AS "catalogoDescricao",
+        b.unidade_dona_id AS "unidadeDonaId",
+        b.local_fisico AS "localFisico",
+        b.status::text AS "status",
+        b.eh_bem_terceiro AS "ehBemTerceiro"
+      FROM bens b
+      JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+      ${whereSql}
+      ORDER BY b.numero_tombamento NULLS LAST, b.created_at DESC
+      LIMIT $${i} OFFSET $${i + 1};`;
+
+    const list = await pool.query(listSql, [...params, filters.limit, filters.offset]);
+
+    res.json({
+      requestId: req.requestId,
+      paging: {
+        limit: filters.limit,
+        offset: filters.offset,
+        total,
+      },
+      items: list.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/bens/:id", async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(400, "BEM_ID_INVALIDO", "id deve ser UUID valido.");
+
+    const bem = await pool.query(
+      `SELECT
+         b.id,
+         b.numero_tombamento AS "numeroTombamento",
+         b.identificador_externo AS "identificadorExterno",
+         b.descricao_complementar AS "descricaoComplementar",
+         b.unidade_dona_id AS "unidadeDonaId",
+         b.responsavel_perfil_id AS "responsavelPerfilId",
+         b.local_fisico AS "localFisico",
+         b.status::text AS "status",
+         b.tipo_inservivel::text AS "tipoInservivel",
+         b.eh_bem_terceiro AS "ehBemTerceiro",
+         b.proprietario_externo AS "proprietarioExterno",
+         b.contrato_referencia AS "contratoReferencia",
+         b.data_aquisicao AS "dataAquisicao",
+         b.valor_aquisicao AS "valorAquisicao",
+         b.created_at AS "createdAt",
+         b.updated_at AS "updatedAt",
+         cb.id AS "catalogoBemId",
+         cb.codigo_catalogo AS "codigoCatalogo",
+         cb.descricao AS "catalogoDescricao",
+         cb.grupo AS "catalogoGrupo",
+         cb.material_permanente AS "materialPermanente",
+         cb.created_at AS "catalogoCreatedAt",
+         cb.updated_at AS "catalogoUpdatedAt",
+         p.id AS "responsavelId",
+         p.matricula AS "responsavelMatricula",
+         p.nome AS "responsavelNome"
+       FROM bens b
+       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+       LEFT JOIN perfis p ON p.id = b.responsavel_perfil_id
+       WHERE b.id = $1
+       LIMIT 1;`,
+      [id],
+    );
+
+    const row = bem.rows[0];
+    if (!row) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    const movimentacoes = await pool.query(
+      `SELECT
+         id,
+         tipo_movimentacao AS "tipoMovimentacao",
+         status::text AS "status",
+         unidade_origem_id AS "unidadeOrigemId",
+         unidade_destino_id AS "unidadeDestinoId",
+         detentor_temporario_perfil_id AS "detentorTemporarioPerfilId",
+         data_prevista_devolucao AS "dataPrevistaDevolucao",
+         data_efetiva_devolucao AS "dataEfetivaDevolucao",
+         termo_referencia AS "termoReferencia",
+         justificativa,
+         autorizada_por_perfil_id AS "autorizadaPorPerfilId",
+         autorizada_em AS "autorizadaEm",
+         executada_por_perfil_id AS "executadaPorPerfilId",
+         executada_em AS "executadaEm",
+         created_at AS "createdAt"
+       FROM movimentacoes
+       WHERE bem_id = $1
+       ORDER BY created_at DESC
+       LIMIT 20;`,
+      [id],
+    );
+
+    const historicoTransferencias = await pool.query(
+      `SELECT
+         id,
+         unidade_antiga_id AS "unidadeAntigaId",
+         unidade_nova_id AS "unidadeNovaId",
+         usuario_id AS "usuarioId",
+         data,
+         origem::text AS "origem"
+       FROM historico_transferencias
+       WHERE bem_id = $1
+       ORDER BY data DESC
+       LIMIT 20;`,
+      [id],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      bem: {
+        id: row.id,
+        numeroTombamento: row.numeroTombamento,
+        identificadorExterno: row.identificadorExterno,
+        descricaoComplementar: row.descricaoComplementar,
+        unidadeDonaId: row.unidadeDonaId,
+        responsavelPerfilId: row.responsavelPerfilId,
+        localFisico: row.localFisico,
+        status: row.status,
+        tipoInservivel: row.tipoInservivel,
+        ehBemTerceiro: row.ehBemTerceiro,
+        proprietarioExterno: row.proprietarioExterno,
+        contratoReferencia: row.contratoReferencia,
+        dataAquisicao: row.dataAquisicao,
+        valorAquisicao: row.valorAquisicao,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        catalogoBemId: row.catalogoBemId,
+      },
+      catalogo: {
+        id: row.catalogoBemId,
+        codigoCatalogo: row.codigoCatalogo,
+        descricao: row.catalogoDescricao,
+        grupo: row.catalogoGrupo,
+        materialPermanente: row.materialPermanente,
+        createdAt: row.catalogoCreatedAt,
+        updatedAt: row.catalogoUpdatedAt,
+      },
+      responsavel: row.responsavelId
+        ? { id: row.responsavelId, matricula: row.responsavelMatricula, nome: row.responsavelNome }
+        : null,
+      movimentacoes: movimentacoes.rows,
+      historicoTransferencias: historicoTransferencias.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/perfis", async (req, res, next) => {
+  try {
+    const limit = parseIntOrDefault(req.query?.limit, 50);
+    const limitFinal = Math.max(1, Math.min(200, limit));
+
+    const r = await pool.query(
+      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, ativo, created_at AS "createdAt"
+       FROM perfis
+       ORDER BY created_at DESC
+       LIMIT $1;`,
+      [limitFinal],
+    );
+
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/perfis", async (req, res, next) => {
+  try {
+    const p = validatePerfil(req.body || {});
+    const r = await pool.query(
+      `INSERT INTO perfis (matricula, nome, email, unidade_id, cargo, ativo)
+       VALUES ($1,$2,$3,$4,$5,TRUE)
+       RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, ativo, created_at AS "createdAt";`,
+      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo],
+    );
+    res.status(201).json({ requestId: req.requestId, perfil: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/importar-geafin", upload.single("arquivo"), async (req, res, next) => {
+  const client = await pool.connect();
+  let arquivoId = null;
+  try {
+    if (!req.file?.buffer?.length) {
+      throw new HttpError(400, "ARQUIVO_OBRIGATORIO", "Envie o CSV no campo 'arquivo'.");
+    }
+
+    const unidadePadraoId = parseUnit(req.body?.unidadePadraoId, null);
+    const csvText = iconv.decode(req.file.buffer, "latin1");
+    const delimiter = detectDelimiter(csvText);
+    const fileSha256 = createHash("sha256").update(req.file.buffer).digest("hex");
+    const rows = parse(csvText, {
+      columns: true,
+      skip_empty_lines: true,
+      delimiter,
+      trim: true,
+      relax_column_count: true,
+    });
+
+    const summary = {
+      delimiter,
+      totalLinhas: rows.length,
+      processadas: 0,
+      inseridas: 0,
+      atualizadas: 0,
+      ignoradas: 0,
+      novos: 0,
+      transferidos: 0,
+      falhas: [],
+    };
+
+    console.log(`[${req.requestId}] importar-geafin: recebido arquivo=${req.file.originalname || "sem_nome"} bytes=${req.file.size || req.file.buffer.length} linhas=${rows.length}`);
+
+    // Camada raw/staging (auditoria): registra o arquivo e todas as linhas como espelho GEAFIN.
+    // Observacao: isso nao altera o modelo melhorado do sistema; apenas garante copia fiel.
+    // Importante: este insert e commitado antes do processamento para permitir acompanhamento em tempo real.
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: "" });
+    const fileMeta = await client.query(
+      `INSERT INTO public.geafin_import_arquivos (request_id, original_filename, content_sha256, bytes, delimiter, total_linhas, status)
+       VALUES ($1,$2,$3,$4,$5,$6,'EM_ANDAMENTO')
+       RETURNING id;`,
+      [
+        req.requestId,
+        req.file.originalname || null,
+        fileSha256,
+        req.file.size || req.file.buffer.length,
+        delimiter,
+        rows.length,
+      ],
+    );
+    arquivoId = fileMeta.rows[0].id;
+    await client.query("COMMIT");
+
+    // Regra operacional: commit em lotes pequenos para permitir acompanhamento de progresso (UI)
+    // e reduzir chance de uma transacao longa ficar "invisivel" no Supabase.
+    const BATCH_SIZE = 25;
+    for (let batchStart = 0; batchStart < rows.length; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(rows.length, batchStart + BATCH_SIZE);
+
+      await client.query("BEGIN");
+      await setDbContext(client, { changeOrigin: "IMPORTACAO", currentUserId: "" });
+
+      for (let i = batchStart; i < batchEnd; i += 1) {
+        const rowNo = i + 2;
+        const n = normalizeGeafin(rows[i], rowNo, unidadePadraoId);
+
+        // Hash deterministico da linha (ordena chaves antes de serializar).
+        const rowRaw = rows[i] || {};
+        const ordered = {};
+        for (const k of Object.keys(rowRaw).sort((a, b) => String(a).localeCompare(String(b)))) ordered[k] = rowRaw[k];
+        const rowSha256 = createHash("sha256").update(JSON.stringify(ordered)).digest("hex");
+
+        // Insere raw sempre, mesmo quando a normalizacao falhar (auditoria).
+        const rawInsert = await client.query(
+          `INSERT INTO public.geafin_import_linhas (
+             arquivo_id, linha_numero, row_raw, row_sha256,
+             normalizacao_ok, normalizacao_erro, persistencia_ok, persistencia_erro
+           ) VALUES (
+             $1,$2,$3::jsonb,$4,
+             $5,$6,FALSE,NULL
+           )
+           RETURNING id;`,
+          [arquivoId, rowNo, JSON.stringify(rowRaw), rowSha256, n.ok, n.ok ? null : n.error],
+        );
+        const rawId = rawInsert.rows[0].id;
+
+        if (!n.ok) {
+          summary.ignoradas += 1;
+          summary.falhas.push({ linha: rowNo, erro: n.error });
+          if (summary.falhas.length <= 5) {
+            console.log(`[${req.requestId}] importar-geafin: falha_normalizacao exemplo: ${n.error}`);
+          }
+          continue;
+        }
+
+        const sp = `sp_geafin_${i}`;
+        await client.query(`SAVEPOINT ${sp}`);
+        try {
+          const cat = await upsertCatalogo(client, n.data);
+          const b = await upsertBem(client, n.data, cat);
+          summary.processadas += 1;
+          if (b.inserted) {
+            summary.inseridas += 1;
+            summary.novos += 1;
+          } else {
+            summary.atualizadas += 1;
+            if (b.unidadeChanged) summary.transferidos += 1;
+          }
+
+          await client.query(
+            "UPDATE public.geafin_import_linhas SET persistencia_ok = TRUE, persistencia_erro = NULL WHERE id = $1;",
+            [rawId],
+          );
+        } catch (error) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+          const msg = dbError(error);
+          summary.falhas.push({ linha: rowNo, erro: msg });
+          if (summary.falhas.length <= 5) {
+            console.log(`[${req.requestId}] importar-geafin: falha_persistencia exemplo: ${msg}`);
+          }
+          await client.query(
+            "UPDATE public.geafin_import_linhas SET persistencia_ok = FALSE, persistencia_erro = $2 WHERE id = $1;",
+            [rawId, msg],
+          );
+        }
+      }
+
+      await client.query("COMMIT");
+      console.log(`[${req.requestId}] importar-geafin: progresso ${batchEnd}/${rows.length} (processadas=${summary.processadas} falhas=${summary.falhas.length})`);
+    }
+
+    const code = summary.falhas.length ? 207 : 200;
+    console.log(`[${req.requestId}] importar-geafin: concluido code=${code} processadas=${summary.processadas} falhas=${summary.falhas.length}`);
+
+    // Atualiza status/finalizacao da importacao (metadados, nao afeta operacional).
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `UPDATE public.geafin_import_arquivos
+         SET status = 'CONCLUIDO', finalizado_em = NOW(), erro_resumo = NULL
+         WHERE id = $1;`,
+        [arquivoId],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await safeRollback(client);
+      console.error(`[${req.requestId}] importar-geafin: falha ao atualizar metadados de finalizacao`, error);
+    }
+
+    res.status(code).json({
+      message: summary.falhas.length
+        ? "Importacao concluida com inconsistencias."
+        : "Importacao concluida com sucesso.",
+      requestId: req.requestId,
+      total: summary.totalLinhas,
+      novos: summary.novos,
+      transferidos: summary.transferidos,
+      erros: summary.falhas.length,
+      summary,
+    });
+  } catch (error) {
+    await safeRollback(client);
+    if (arquivoId) {
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `UPDATE public.geafin_import_arquivos
+           SET status = 'ERRO', finalizado_em = NOW(), erro_resumo = $2
+           WHERE id = $1;`,
+          [arquivoId, String(dbError(error) || error?.message || "Falha")],
+        );
+        await client.query("COMMIT");
+      } catch (_e) {
+        await safeRollback(client);
+      }
+    }
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/movimentar", async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const p = validateMov(req.body || {});
+    await client.query("BEGIN");
+    await setDbContext(client, {
+      changeOrigin: "APP",
+      currentUserId: p.executadaPorPerfilId || p.autorizadaPorPerfilId || "",
+    });
+
+    const bem = await lockBem(client, p);
+    if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    const out = await executeMov(client, bem, p);
+    await client.query("COMMIT");
+    res.status(201).json({
+      message: "Movimentacao registrada com sucesso.",
+      requestId: req.requestId,
+      movimentacao: out.mov,
+      bem: out.bem,
+    });
+  } catch (error) {
+    await safeRollback(client);
+    // Regra legal: bloqueio de movimentacao durante inventario - Art. 183 (AN303_Art183)
+    if (error?.code === "P0001") {
+      next(new HttpError(409, "MOVIMENTACAO_BLOQUEADA_INVENTARIO", "Movimentacao bloqueada por inventario em andamento.", { baseLegal: "Art. 183 (AN303_Art183)" }));
+      return;
+    }
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+const inventario = createInventarioController({
+  pool,
+  HttpError,
+  VALID_UNIDADES,
+  UUID_RE,
+  TOMBAMENTO_GEAFIN_RE,
+  normalizeTombamento,
+  safeRollback,
+  dbError,
+});
+
+app.get("/inventario/eventos", inventario.getEventos);
+app.get("/inventario/contagens", inventario.getContagens);
+app.post("/inventario/eventos", inventario.postEvento);
+app.patch("/inventario/eventos/:id/status", inventario.patchEventoStatus);
+app.post("/inventario/sync", inventario.postSync);
+
+app.use((error, req, res, _next) => {
+  if (error instanceof multer.MulterError) {
+    res.status(400).json({ error: { code: "UPLOAD_INVALIDO", message: "Falha no upload do arquivo." }, requestId: req.requestId });
+    return;
+  }
+  if (error instanceof HttpError) {
+    res.status(error.status).json({ error: { code: error.code, message: error.message, details: error.details }, requestId: req.requestId });
+    return;
+  }
+  if (error?.code === "23514") {
+    res.status(422).json({ error: { code: "VIOLACAO_REGRA_NEGOCIO", message: "Violacao de regra de negocio." }, requestId: req.requestId });
+    return;
+  }
+  if (error?.code === "22P02") {
+    res.status(400).json({ error: { code: "FORMATO_INVALIDO", message: "Formato invalido em campo enviado." }, requestId: req.requestId });
+    return;
+  }
+  console.error(`[${req.requestId}]`, error);
+  res.status(500).json({ error: { code: "ERRO_INTERNO", message: "Erro interno no servidor." }, requestId: req.requestId });
+});
+
+/**
+ * Valida e normaliza payload de movimentacao.
+ * @param {object} body Body JSON da requisicao.
+ * @returns {object} Payload validado.
+ */
+function validateMov(body) {
+  const tipoRaw = body.tipoMovimentacao ?? body.tipo;
+  const tipoMovimentacaoRaw = String(tipoRaw || "").trim().toUpperCase();
+  const tipoMovimentacao = tipoMovimentacaoRaw === "CAUTELA" ? "CAUTELA_SAIDA" : tipoMovimentacaoRaw;
+  if (!VALID_MOV.has(tipoMovimentacao)) {
+    throw new HttpError(422, "TIPO_MOVIMENTACAO_INVALIDO", "tipoMovimentacao deve ser TRANSFERENCIA, CAUTELA_SAIDA ou CAUTELA_RETORNO.");
+  }
+
+  const bemId = body.bemId ? String(body.bemId).trim() : null;
+  const numeroTombamento = normalizeTombamento(body.numeroTombamento);
+  if (!bemId && !numeroTombamento) {
+    throw new HttpError(422, "IDENTIFICADOR_BEM_OBRIGATORIO", "Informe bemId ou numeroTombamento.");
+  }
+  if (bemId && !UUID_RE.test(bemId)) throw new HttpError(422, "BEM_ID_INVALIDO", "bemId deve ser UUID valido.");
+  if (numeroTombamento && !TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
+    throw new HttpError(
+      422,
+      "TOMBAMENTO_INVALIDO",
+      "numeroTombamento deve seguir o padrao GEAFIN com 10 digitos numericos (ex.: 1290001788).",
+    );
+  }
+
+  const termoReferencia = String(body.termoReferencia || "").trim();
+  if (!termoReferencia) throw new HttpError(422, "TERMO_OBRIGATORIO", "termoReferencia e obrigatorio.");
+
+  const unidadeDestinoId = parseUnit(body.unidadeDestinoId, null);
+  const detentorTemporarioPerfilId = body.detentorTemporarioPerfilId ? String(body.detentorTemporarioPerfilId).trim() : null;
+  const autorizadaPorPerfilId = body.autorizadaPorPerfilId ? String(body.autorizadaPorPerfilId).trim() : null;
+  const executadaPorPerfilId = body.executadaPorPerfilId ? String(body.executadaPorPerfilId).trim() : null;
+  const dataPrevistaDevolucao = parseDateOnly(body.dataPrevistaDevolucao);
+  const dataEfetivaDevolucao = parseDateTime(body.dataEfetivaDevolucao) || new Date();
+  const justificativa = body.justificativa ? String(body.justificativa).trim() : null;
+
+  if (detentorTemporarioPerfilId && !UUID_RE.test(detentorTemporarioPerfilId)) throw new HttpError(422, "DETENTOR_INVALIDO", "detentorTemporarioPerfilId deve ser UUID.");
+  if (autorizadaPorPerfilId && !UUID_RE.test(autorizadaPorPerfilId)) throw new HttpError(422, "AUTORIZADOR_INVALIDO", "autorizadaPorPerfilId deve ser UUID.");
+  if (executadaPorPerfilId && !UUID_RE.test(executadaPorPerfilId)) throw new HttpError(422, "EXECUTOR_INVALIDO", "executadaPorPerfilId deve ser UUID.");
+
+  if (tipoMovimentacao === "TRANSFERENCIA") {
+    if (!autorizadaPorPerfilId) throw new HttpError(422, "AUTORIZACAO_OBRIGATORIA", "autorizadaPorPerfilId e obrigatorio para TRANSFERENCIA.");
+    if (!unidadeDestinoId || !VALID_UNIDADES.has(unidadeDestinoId)) throw new HttpError(422, "UNIDADE_DESTINO_INVALIDA", "unidadeDestinoId valido (1..4) e obrigatorio.");
+  }
+  if (tipoMovimentacao === "CAUTELA_SAIDA") {
+    if (!autorizadaPorPerfilId) throw new HttpError(422, "AUTORIZACAO_OBRIGATORIA", "autorizadaPorPerfilId e obrigatorio para CAUTELA_SAIDA.");
+    if (!detentorTemporarioPerfilId) throw new HttpError(422, "DETENTOR_OBRIGATORIO", "detentorTemporarioPerfilId e obrigatorio para CAUTELA_SAIDA.");
+    if (!dataPrevistaDevolucao) throw new HttpError(422, "DATA_DEVOLUCAO_OBRIGATORIA", "dataPrevistaDevolucao e obrigatoria para CAUTELA_SAIDA.");
+  }
+
+  return {
+    tipoMovimentacao,
+    bemId,
+    numeroTombamento,
+    termoReferencia,
+    unidadeDestinoId,
+    detentorTemporarioPerfilId,
+    dataPrevistaDevolucao,
+    dataEfetivaDevolucao,
+    autorizadaPorPerfilId,
+    executadaPorPerfilId,
+    justificativa,
+  };
+}
+
+/**
+ * Valida query de listagem/consulta de bens.
+ * @param {object} query Query string bruta do Express.
+ * @returns {{numeroTombamento: string|null, texto: string|null, localFisico: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
+ */
+function validateBensQuery(query) {
+  const numeroTombamento = normalizeTombamento(query.numeroTombamento || query.tombamento);
+  if (numeroTombamento && !TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
+    throw new HttpError(422, "TOMBAMENTO_INVALIDO", "numeroTombamento deve ter 10 digitos numericos (ex.: 1290001788).");
+  }
+
+  const texto = query.q ? String(query.q).trim() : null;
+  const textoFinal = texto && texto.length ? texto.slice(0, 120) : null;
+
+  const localFisicoRaw = query.localFisico || query.local_fisico || query.sala || null;
+  const localFisico = localFisicoRaw != null && String(localFisicoRaw).trim() !== ""
+    ? String(localFisicoRaw).trim().slice(0, 180)
+    : null;
+
+  const unidadeRaw = query.unidadeDonaId || query.unidadeId || null;
+  const unidadeDonaId = unidadeRaw != null && String(unidadeRaw).trim() !== "" ? parseUnit(unidadeRaw, null) : null;
+  if (unidadeRaw != null && String(unidadeRaw).trim() !== "" && (!unidadeDonaId || !VALID_UNIDADES.has(unidadeDonaId))) {
+    throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+  }
+
+  const status = query.status ? String(query.status).trim().toUpperCase() : null;
+  if (status && !VALID_STATUS_BEM.has(status)) {
+    throw new HttpError(422, "STATUS_INVALIDO", `status deve ser: ${Array.from(VALID_STATUS_BEM).join(", ")}.`);
+  }
+
+  const limit = parseIntOrDefault(query.limit, 50);
+  if (limit < 1 || limit > 200) throw new HttpError(422, "LIMIT_INVALIDO", "limit deve estar entre 1 e 200.");
+  const offset = parseIntOrDefault(query.offset, 0);
+  if (offset < 0) throw new HttpError(422, "OFFSET_INVALIDO", "offset deve ser >= 0.");
+
+  const incluirTerceiros = parseBool(query.incluirTerceiros, false);
+
+  return { numeroTombamento, texto: textoFinal, localFisico, unidadeDonaId, status, limit, offset, incluirTerceiros };
+}
+
+/**
+ * Valida payload de criacao de perfil.
+ * @param {object} body Body JSON da requisicao.
+ * @returns {{matricula: string, nome: string, email: string|null, unidadeId: number, cargo: string|null}} Perfil validado.
+ */
+function validatePerfil(body) {
+  const matricula = String(body.matricula || "").trim();
+  if (!matricula) throw new HttpError(422, "MATRICULA_OBRIGATORIA", "matricula e obrigatoria.");
+  if (matricula.length > 30) throw new HttpError(422, "MATRICULA_TAMANHO", "matricula excede 30 caracteres.");
+
+  const nome = String(body.nome || "").trim();
+  if (!nome) throw new HttpError(422, "NOME_OBRIGATORIO", "nome e obrigatorio.");
+  if (nome.length > 160) throw new HttpError(422, "NOME_TAMANHO", "nome excede 160 caracteres.");
+
+  const emailRaw = body.email != null ? String(body.email).trim() : "";
+  const email = emailRaw ? emailRaw.slice(0, 255) : null;
+
+  const unidadeId = parseUnit(body.unidadeId, null);
+  if (!unidadeId || !VALID_UNIDADES.has(unidadeId)) {
+    throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+  }
+
+  const cargoRaw = body.cargo != null ? String(body.cargo).trim() : "";
+  const cargo = cargoRaw ? cargoRaw.slice(0, 120) : null;
+
+  return { matricula, nome, email, unidadeId, cargo };
+}
+
+function parseIntOrDefault(raw, fallback) {
+  if (raw == null || String(raw).trim() === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return fallback;
+  return n;
+}
+
+function parseBool(raw, fallback) {
+  if (raw == null) return fallback;
+  const v = String(raw).trim().toLowerCase();
+  if (v === "1" || v === "true" || v === "sim" || v === "yes") return true;
+  if (v === "0" || v === "false" || v === "nao" || v === "no") return false;
+  return fallback;
+}
+
+/**
+ * Executa a movimentacao de forma transacional e distinguindo cautela de transferencia.
+ * @param {import('pg').PoolClient} client Cliente transacional.
+ * @param {object} bem Bem atual bloqueado com FOR UPDATE.
+ * @param {object} p Payload validado.
+ * @returns {Promise<{mov: object, bem: object}>} Registro de movimentacao e estado final do bem.
+ */
+async function executeMov(client, bem, p) {
+  let bemAtualizado;
+  if (p.tipoMovimentacao === "TRANSFERENCIA") {
+    if (bem.eh_bem_terceiro) throw new HttpError(422, "TRANSFERENCIA_PROIBIDA_BEM_TERCEIRO", "Bens de terceiros nao podem sofrer transferencia de titularidade.");
+    if (p.unidadeDestinoId === bem.unidade_dona_id) throw new HttpError(422, "UNIDADE_DESTINO_IGUAL_ORIGEM", "unidadeDestinoId deve ser diferente da unidade atual.");
+
+    // Regra legal: Transferencia muda carga e exige formalizacao.
+    // Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
+    const q = await client.query(
+      `UPDATE bens SET unidade_dona_id = $1, status = 'OK', updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, numero_tombamento, unidade_dona_id, status`,
+      [p.unidadeDestinoId, bem.id],
+    );
+    bemAtualizado = q.rows[0];
+  } else if (p.tipoMovimentacao === "CAUTELA_SAIDA") {
+    // Regra legal: Cautela nao altera carga, apenas detencao temporaria.
+    // Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
+    const q = await client.query(
+      `UPDATE bens SET status = 'EM_CAUTELA', updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, numero_tombamento, unidade_dona_id, status`,
+      [bem.id],
+    );
+    bemAtualizado = q.rows[0];
+  } else {
+    if (bem.status !== "EM_CAUTELA") throw new HttpError(422, "RETORNO_INVALIDO", "CAUTELA_RETORNO exige bem em EM_CAUTELA.");
+    const q = await client.query(
+      `UPDATE bens SET status = 'OK', updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, numero_tombamento, unidade_dona_id, status`,
+      [bem.id],
+    );
+    bemAtualizado = q.rows[0];
+  }
+
+  const r = await client.query(
+    `INSERT INTO movimentacoes (
+      bem_id, tipo_movimentacao, status, unidade_origem_id, unidade_destino_id,
+      detentor_temporario_perfil_id, data_prevista_devolucao, data_efetiva_devolucao,
+      termo_referencia, justificativa, autorizada_por_perfil_id, autorizada_em,
+      executada_por_perfil_id, executada_em
+    ) VALUES (
+      $1,$2,'EXECUTADA',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
+    )
+    RETURNING *`,
+    [
+      bem.id,
+      p.tipoMovimentacao,
+      bem.unidade_dona_id,
+      p.tipoMovimentacao === "TRANSFERENCIA" ? p.unidadeDestinoId : null,
+      p.tipoMovimentacao === "CAUTELA_SAIDA" ? p.detentorTemporarioPerfilId : null,
+      p.tipoMovimentacao === "CAUTELA_SAIDA" ? p.dataPrevistaDevolucao : null,
+      p.tipoMovimentacao === "CAUTELA_RETORNO" ? p.dataEfetivaDevolucao : null,
+      p.termoReferencia,
+      p.justificativa,
+      p.autorizadaPorPerfilId,
+      p.autorizadaPorPerfilId ? new Date() : null,
+      p.executadaPorPerfilId,
+      new Date(),
+    ],
+  );
+
+  return { mov: r.rows[0], bem: bemAtualizado };
+}
+
+async function lockBem(client, p) {
+  const byId = p.bemId != null;
+  const q = byId
+    ? await client.query("SELECT id, numero_tombamento, unidade_dona_id, status, eh_bem_terceiro FROM bens WHERE id = $1 FOR UPDATE", [p.bemId])
+    : await client.query("SELECT id, numero_tombamento, unidade_dona_id, status, eh_bem_terceiro FROM bens WHERE numero_tombamento = $1 FOR UPDATE", [p.numeroTombamento]);
+  return q.rows[0] || null;
+}
+
+function parseDateOnly(input) {
+  if (input == null || String(input).trim() === "") return null;
+  const d = new Date(String(input));
+  if (Number.isNaN(d.getTime())) throw new HttpError(422, "DATA_INVALIDA", "Data invalida.");
+  return d.toISOString().slice(0, 10);
+}
+
+function parseDateTime(input) {
+  if (input == null || String(input).trim() === "") return null;
+  const d = new Date(String(input));
+  if (Number.isNaN(d.getTime())) throw new HttpError(422, "DATA_HORA_INVALIDA", "Data/hora invalida.");
+  return d;
+}
+
+/**
+ * Corrige texto com "mojibake" comum quando UTF-8 e interpretado como Latin1.
+ * Ex.: "DescriÃ§Ã£o" -> "Descrição".
+ *
+ * Regra operacional: aplicar apenas quando houver forte indicio de mojibake e a conversao nao gerar U+FFFD.
+ * @param {string} raw Texto bruto.
+ * @returns {string} Texto possivelmente corrigido.
+ */
+function fixMojibakeUtf8FromLatin1(raw) {
+  const s = String(raw || "");
+  if (!/[ÃÂ]/.test(s)) return s;
+  try {
+    const fixed = Buffer.from(s, "latin1").toString("utf8");
+    if (!fixed || fixed.includes("\uFFFD")) return s;
+    const score = (txt) => (txt.match(/[ÃÂ]/g) || []).length + (txt.match(/\uFFFD/g) || []).length;
+    return score(fixed) < score(s) ? fixed : s;
+  } catch (_e) {
+    return s;
+  }
+}
+
+function normalizeKey(k) {
+  const txt = fixMojibakeUtf8FromLatin1(k);
+  return String(txt || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function pick(o, names) {
+  for (const n of names) {
+    const v = o[n];
+    if (v != null && String(v).trim() !== "") return fixMojibakeUtf8FromLatin1(String(v).trim());
+  }
+  return null;
+}
+
+function parseUnit(raw, fallback) {
+  if (raw == null || String(raw).trim() === "") return fallback;
+  const rawFixed = fixMojibakeUtf8FromLatin1(raw);
+  const n = Number(rawFixed);
+  if (Number.isInteger(n) && VALID_UNIDADES.has(n)) return n;
+  const key = String(rawFixed)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const direct = UNIT_MAP.get(key);
+  if (direct) return direct;
+
+  // Heuristica para lotacoes longas (ex.: "Almoxarifado de Material Permanente - 2a CJM - Sao Paulo").
+  // Regra operacional: aceitar substring match para garantir importacao GEAFIN quando a sigla estiver ausente.
+  if (/\b1\b/.test(key) && key.includes("aud")) return 1;
+  if (/\b2\b/.test(key) && key.includes("aud")) return 2;
+  if (key.includes("foro") || key.includes("dirf")) return 3;
+  if (key.includes("almox")) return 4;
+
+  return fallback;
+}
+
+function detectDelimiter(text) {
+  const h = text.split(/\r?\n/u).find((line) => line.trim().length > 0) || "";
+  const semis = (h.match(/;/g) || []).length;
+  const commas = (h.match(/,/g) || []).length;
+  return semis >= commas ? ";" : ",";
+}
+
+function mapStatus(raw) {
+  const s = String(raw || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+  if (s.includes("BAIX")) return "BAIXADO";
+  if (s.includes("CAUTELA")) return "EM_CAUTELA";
+  return "OK";
+}
+
+function parseMoney(raw) {
+  if (raw == null || String(raw).trim() === "") return null;
+  const txt = String(raw).replace(/[R$\s]/g, "").replace(/\./g, "").replace(/,/g, ".").replace(/[^0-9.-]/g, "");
+  if (!txt) return null;
+  const n = Number(txt);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Normaliza tombamento para comparacao e validacao no padrao GEAFIN.
+ * @param {string|number|undefined|null} raw Valor bruto informado.
+ * @returns {string|null} Tombamento normalizado.
+ */
+function normalizeTombamento(raw) {
+  if (raw == null || String(raw).trim() === "") return null;
+  const s = String(raw).trim().replace(/^"+|"+$/g, "");
+  // Regra operacional: tombamento GEAFIN e numerico (10 digitos). Removemos separadores comuns para tolerar CSVs "sujos".
+  const digits = s.replace(/[^0-9]/g, "");
+  return digits || null;
+}
+
+function normalizeGeafin(raw, rowNo, fallbackUnit) {
+  const row = {};
+  for (const [k, v] of Object.entries(raw || {})) row[normalizeKey(k)] = v == null ? "" : String(v).trim();
+
+  const numeroTombamento = normalizeTombamento(
+    pick(row, ["numero_tombamento", "tombamento", "nr_tombamento", "num_tombamento", "tombo", "chapa"]),
+  );
+  if (!numeroTombamento) return { ok: false, error: `Linha ${rowNo}: tombamento nao informado.` };
+  if (!TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
+    return {
+      ok: false,
+      error: `Linha ${rowNo}: tombamento fora do padrao GEAFIN (10 digitos numericos).`,
+    };
+  }
+
+  const descricao = pick(row, ["descricao", "descricao_bem", "descricao_material", "material_descricao", "nome_bem"]);
+  if (!descricao) return { ok: false, error: `Linha ${rowNo}: descricao nao informada.` };
+
+  const unidadeDonaId = parseUnit(pick(row, ["unidade_dona_id", "unidade", "setor", "orgao", "unidade_responsavel"]), fallbackUnit);
+  const unidadeDonaIdFinal = unidadeDonaId ?? parseUnit(
+    pick(row, ["siglalotacao", "sigla_lotacao", "lotacao", "lotacao_descricao"]),
+    fallbackUnit,
+  );
+  if (!unidadeDonaIdFinal || !VALID_UNIDADES.has(unidadeDonaIdFinal)) return { ok: false, error: `Linha ${rowNo}: unidade invalida e sem unidadePadraoId.` };
+
+  return {
+    ok: true,
+    data: {
+      numeroTombamento,
+      codigoCatalogo: pick(row, ["codigo_catalogo", "codigo_material", "codigo_item", "grupo_material_codigo", "codigo", "cod_material", "codmaterial"]) || `GEAFIN_${numeroTombamento}`,
+      descricao,
+      grupo: pick(row, ["grupo", "grupo_material", "classe", "categoria"]),
+      localFisico: pick(row, ["local_fisico", "localizacao", "sala", "local", "ambiente", "siglalotacao"]) || "NAO_INFORMADO",
+      unidadeDonaId: unidadeDonaIdFinal,
+      status: mapStatus(pick(row, ["status", "situacao", "status_bem"])),
+      valorAquisicao: parseMoney(pick(row, ["valor_aquisicao", "valor_de_aquisicao", "valor", "valor_compra"])),
+    },
+  };
+}
+
+/**
+ * Executa upsert seguro em catalogo_bens.
+ * @param {import('pg').PoolClient} client Cliente transacional.
+ * @param {object} d Dados normalizados do CSV.
+ * @returns {Promise<string>} Id do catalogo.
+ */
+async function upsertCatalogo(client, d) {
+  const r = await client.query(
+    `INSERT INTO catalogo_bens (codigo_catalogo, descricao, grupo)
+     VALUES ($1,$2,$3)
+     ON CONFLICT (codigo_catalogo)
+     DO UPDATE SET descricao = EXCLUDED.descricao, grupo = COALESCE(EXCLUDED.grupo, catalogo_bens.grupo), updated_at = NOW()
+     RETURNING id`,
+    [d.codigoCatalogo, d.descricao, d.grupo],
+  );
+  return r.rows[0].id;
+}
+
+/**
+ * Executa upsert seguro em bens.
+ * @param {import('pg').PoolClient} client Cliente transacional.
+ * @param {object} d Dados normalizados do CSV.
+ * @param {string} catId FK de catalogo_bens.
+ * @returns {Promise<{id: string, inserted: boolean, unidadeChanged: boolean}>} Resultado da operacao.
+ */
+async function upsertBem(client, d, catId) {
+  const r = await client.query(
+    `WITH existing AS (
+      SELECT id, unidade_dona_id AS unidade_antiga_id
+      FROM bens
+      WHERE numero_tombamento = $1
+    ),
+    upsert AS (
+      INSERT INTO bens (
+        numero_tombamento, catalogo_bem_id, unidade_dona_id,
+        local_fisico, status, valor_aquisicao, eh_bem_terceiro
+      ) VALUES ($1,$2,$3,NULL,'AGUARDANDO_RECEBIMENTO',$6,FALSE)
+      ON CONFLICT (numero_tombamento) WHERE numero_tombamento IS NOT NULL
+      DO UPDATE SET
+        catalogo_bem_id = EXCLUDED.catalogo_bem_id,
+        unidade_dona_id = EXCLUDED.unidade_dona_id,
+        local_fisico = $4,
+        status = $5::public.status_bem,
+        valor_aquisicao = COALESCE($6, bens.valor_aquisicao),
+        updated_at = NOW()
+      RETURNING id, (xmax = 0) AS inserted, unidade_dona_id AS unidade_nova_id
+    )
+    SELECT
+      upsert.id,
+      upsert.inserted,
+      (NOT upsert.inserted) AND (existing.unidade_antiga_id IS DISTINCT FROM upsert.unidade_nova_id) AS "unidadeChanged"
+    FROM upsert
+    LEFT JOIN existing ON existing.id = upsert.id;`,
+    [d.numeroTombamento, catId, d.unidadeDonaId, d.localFisico, d.status, d.valorAquisicao],
+  );
+  return r.rows[0];
+}
+
+function dbError(error) {
+  if (error?.code === "P0001") return "Bloqueado por inventario em andamento (Art. 183 - AN303_Art183).";
+  if (error?.code === "23505") return `Conflito de unicidade.${error?.constraint ? ` constraint=${error.constraint}` : ""}`;
+  if (error?.code === "23514") return `Violacao de regra de negocio.${error?.constraint ? ` constraint=${error.constraint}` : ""}`;
+  if (error?.code === "23503") return `Violacao de FK.${error?.constraint ? ` constraint=${error.constraint}` : ""}`;
+  if (error?.code === "22P02") return "Formato invalido em campo (cast/conversao).";
+
+  const parts = [];
+  if (error?.code) parts.push(`code=${error.code}`);
+  if (error?.constraint) parts.push(`constraint=${error.constraint}`);
+  if (error?.detail) parts.push(`detail=${String(error.detail).slice(0, 220)}`);
+  if (error?.message) parts.push(`message=${String(error.message).slice(0, 220)}`);
+  return parts.length ? `Falha ao gravar no banco (${parts.join(" ")})` : "Falha ao gravar no banco.";
+}
+
+async function safeRollback(client) {
+  try {
+    await client.query("ROLLBACK");
+  } catch (_error) {
+    // noop
+  }
+}
+
+function openapi() {
+  return {
+    openapi: "3.0.3",
+    info: {
+      title: "API Patrimonio 2a CJM",
+      version: "1.0.0",
+      description: "Swagger basico para importacao GEAFIN, movimentacao patrimonial e inventario (sync offline).",
+    },
+    paths: {
+      "/health": { get: { summary: "Healthcheck", responses: { 200: { description: "OK" } } } },
+      "/stats": { get: { summary: "Estatisticas basicas de bens", responses: { 200: { description: "OK" } } } },
+      "/bens": { get: { summary: "Listagem/consulta de bens (paginado)", responses: { 200: { description: "OK" } } } },
+      "/bens/{id}": { get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
+      "/perfis": { get: { summary: "Listagem basica de perfis", responses: { 200: { description: "OK" } } }, post: { summary: "Criacao de perfil", responses: { 201: { description: "Criado" } } } },
+      "/importar-geafin": { post: { summary: "Importacao CSV GEAFIN", responses: { 200: { description: "Sucesso" }, 207: { description: "Parcial" } } } },
+      "/importacoes/geafin/ultimo": { get: { summary: "Progresso da ultima importacao GEAFIN (para barra de progresso na UI)", responses: { 200: { description: "OK" }, 404: { description: "Sem importacao" } } } },
+      "/movimentar": { post: { summary: "Movimenta bem por transferencia/cautela (tombamento GEAFIN: 10 digitos)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado por inventario" } } } },
+      "/inventario/eventos": {
+        get: { summary: "Listar eventos de inventario", responses: { 200: { description: "OK" } } },
+        post: { summary: "Criar evento de inventario (EM_ANDAMENTO)", responses: { 201: { description: "Criado" } } },
+      },
+      "/inventario/eventos/{id}/status": {
+        patch: { summary: "Encerrar/cancelar evento de inventario", responses: { 200: { description: "OK" } } },
+      },
+      "/inventario/contagens": {
+        get: { summary: "Listar contagens de inventario (por evento/sala)", responses: { 200: { description: "OK" } } },
+      },
+      "/inventario/sync": {
+        post: { summary: "Sincronizar contagens (offline-first)", responses: { 200: { description: "OK" }, 409: { description: "Evento nao ativo" } } },
+      },
+    },
+  };
+}
+
+const server = app.listen(PORT, HOST, () => {
+  console.log(`API Patrimonio 2a CJM ouvindo em ${HOST}:${PORT}.`);
+});
+
+process.on("SIGINT", async () => {
+  server.close(async () => {
+    await pool.end();
+    process.exit(0);
+  });
+});
+
+process.on("SIGTERM", async () => {
+  server.close(async () => {
+    await pool.end();
+    process.exit(0);
+  });
+});

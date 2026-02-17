@@ -1,0 +1,16 @@
+{
+  "name": "Sistema Patrimonial 2a CJM",
+  "short_name": "Patrimonio 2a CJM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#102741",
+  "theme_color": "#152437",
+  "description": "Painel operacional para inventario, cautela e transferencia patrimonial com compliance ATN 303.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

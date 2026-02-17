@@ -1,0 +1,405 @@
+/**
+ * Modulo: backend/src/controllers
+ * Arquivo: inventarioController.js
+ * Funcao no sistema: endpoints de inventario (eventos + sincronizacao de contagens) com compliance ATN 303/2008.
+ */
+"use strict";
+
+/**
+ * Cria controladores de inventario com dependencias injetadas.
+ * @param {object} deps Dependencias do controlador.
+ * @param {import("pg").Pool} deps.pool Pool do Postgres.
+ * @param {typeof Error} deps.HttpError Classe de erro HTTP do backend.
+ * @param {Set<number>} deps.VALID_UNIDADES Unidades validas (1..4).
+ * @param {RegExp} deps.UUID_RE Regex de UUID.
+ * @param {RegExp} deps.TOMBAMENTO_GEAFIN_RE Regex de tombamento GEAFIN (10 digitos).
+ * @param {(raw: any) => (string|null)} deps.normalizeTombamento Normalizador de tombamento.
+ * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
+ * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
+ * @returns {{getEventos: Function, getContagens: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function}} Handlers Express.
+ */
+function createInventarioController(deps) {
+  const {
+    pool,
+    HttpError,
+    VALID_UNIDADES,
+    UUID_RE,
+    TOMBAMENTO_GEAFIN_RE,
+    normalizeTombamento,
+    safeRollback,
+    dbError,
+  } = deps;
+
+  /**
+   * Lista eventos de inventario, com filtro opcional por status.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getEventos(req, res, next) {
+    try {
+      const status = req.query?.status ? String(req.query.status).trim().toUpperCase() : null;
+      const limit = req.query?.limit ? Number(req.query.limit) : 50;
+      const limitFinal = Number.isInteger(limit) ? Math.max(1, Math.min(200, limit)) : 50;
+
+      const where = [];
+      const params = [];
+      let i = 1;
+
+      if (status) {
+        where.push(`status = $${i}::public.status_inventario`);
+        params.push(status);
+        i += 1;
+      }
+
+      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+      const r = await pool.query(
+        `SELECT
+           id,
+           codigo_evento AS "codigoEvento",
+           unidade_inventariada_id AS "unidadeInventariadaId",
+           status::text AS "status",
+           iniciado_em AS "iniciadoEm",
+           encerrado_em AS "encerradoEm",
+           aberto_por_perfil_id AS "abertoPorPerfilId",
+           encerrado_por_perfil_id AS "encerradoPorPerfilId",
+           observacoes
+         FROM eventos_inventario
+         ${whereSql}
+         ORDER BY created_at DESC
+         LIMIT $${i};`,
+        [...params, limitFinal],
+      );
+
+      res.json({ requestId: req.requestId, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Lista contagens de inventario para um evento, com filtro opcional por sala.
+   *
+   * Objetivo:
+   * - Permitir que a UI calcule "Encontrados vs Faltantes" e apresente checklist por tombamento.
+   * - Endpoint somente leitura (nao altera carga nem executa regularizacao).
+   *
+   * Regra legal: divergencias registradas em contagens nao mudam carga automaticamente.
+   * Art. 185 (AN303_Art185).
+   *
+   * Query params:
+   * - eventoInventarioId: UUID (obrigatorio)
+   * - salaEncontrada: string (opcional; comparacao case-insensitive + trim)
+   * - limit: number (opcional; default 500; max 2000)
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getContagens(req, res, next) {
+    try {
+      const q = req.query || {};
+      const eventoInventarioId = String(q.eventoInventarioId || q.eventoId || "").trim();
+      if (!UUID_RE.test(eventoInventarioId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+
+      const salaRaw = q.salaEncontrada || q.sala || q.local || null;
+      const salaEncontrada = salaRaw != null && String(salaRaw).trim() !== ""
+        ? String(salaRaw).trim().slice(0, 180)
+        : null;
+
+      const limitRaw = q.limit != null ? Number(q.limit) : 500;
+      const limit = Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 500;
+      const limitFinal = Math.max(1, Math.min(2000, limit));
+
+      const where = ["c.evento_inventario_id = $1"];
+      const params = [eventoInventarioId];
+      let i = 2;
+
+      if (salaEncontrada) {
+        // Comparacao tolerante: ignora maiusculas/minusculas e espacos laterais.
+        where.push(`lower(trim(c.sala_encontrada)) = lower(trim($${i}))`);
+        params.push(salaEncontrada);
+        i += 1;
+      }
+
+      const sql = `
+        SELECT
+          c.id,
+          c.evento_inventario_id AS "eventoInventarioId",
+          c.sala_encontrada AS "salaEncontrada",
+          c.unidade_encontrada_id AS "unidadeEncontradaId",
+          c.tipo_ocorrencia::text AS "tipoOcorrencia",
+          c.regularizacao_pendente AS "regularizacaoPendente",
+          c.encontrado_em AS "encontradoEm",
+          c.encontrado_por_perfil_id AS "encontradoPorPerfilId",
+          c.observacoes,
+          b.id AS "bemId",
+          b.numero_tombamento AS "numeroTombamento",
+          b.unidade_dona_id AS "unidadeDonaId"
+        FROM contagens c
+        JOIN bens b ON b.id = c.bem_id
+        WHERE ${where.join(" AND ")}
+        ORDER BY c.encontrado_em DESC
+        LIMIT $${i};`;
+
+      const r = await pool.query(sql, [...params, limitFinal]);
+      res.json({ requestId: req.requestId, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Cria evento de inventario em status EM_ANDAMENTO.
+   * Regra legal: evento EM_ANDAMENTO ativa congelamento via trigger (Art. 183 - AN303_Art183).
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function postEvento(req, res, next) {
+    try {
+      const body = req.body || {};
+      const codigoEvento = String(body.codigoEvento || "").trim();
+      if (!codigoEvento) throw new HttpError(422, "CODIGO_EVENTO_OBRIGATORIO", "codigoEvento e obrigatorio.");
+      if (codigoEvento.length > 60) throw new HttpError(422, "CODIGO_EVENTO_TAMANHO", "codigoEvento excede 60 caracteres.");
+
+      const unidadeInventariadaId = body.unidadeInventariadaId == null || String(body.unidadeInventariadaId).trim() === ""
+        ? null
+        : Number(body.unidadeInventariadaId);
+      if (unidadeInventariadaId != null && (!Number.isInteger(unidadeInventariadaId) || !VALID_UNIDADES.has(unidadeInventariadaId))) {
+        throw new HttpError(422, "UNIDADE_INVENTARIADA_INVALIDA", "unidadeInventariadaId deve ser 1..4 ou null (inventario geral).");
+      }
+
+      const abertoPorPerfilId = String(body.abertoPorPerfilId || "").trim();
+      if (!abertoPorPerfilId || !UUID_RE.test(abertoPorPerfilId)) {
+        throw new HttpError(422, "ABERTO_POR_INVALIDO", "abertoPorPerfilId (UUID) e obrigatorio.");
+      }
+
+      const observacoesRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
+      const observacoes = observacoesRaw ? observacoesRaw.slice(0, 2000) : null;
+
+      const r = await pool.query(
+        `INSERT INTO eventos_inventario (
+           codigo_evento, unidade_inventariada_id, status, iniciado_em, aberto_por_perfil_id, observacoes
+         ) VALUES ($1,$2,'EM_ANDAMENTO',NOW(),$3,$4)
+         RETURNING
+           id,
+           codigo_evento AS "codigoEvento",
+           unidade_inventariada_id AS "unidadeInventariadaId",
+           status::text AS "status",
+           iniciado_em AS "iniciadoEm",
+           aberto_por_perfil_id AS "abertoPorPerfilId",
+           observacoes;`,
+        [codigoEvento, unidadeInventariadaId, abertoPorPerfilId, observacoes],
+      );
+
+      res.status(201).json({ requestId: req.requestId, evento: r.rows[0] });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Atualiza status do evento (ENCERRADO/CANCELADO) e seta encerrado_em.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function patchEventoStatus(req, res, next) {
+    try {
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+
+      const body = req.body || {};
+      const status = String(body.status || "").trim().toUpperCase();
+      if (status !== "ENCERRADO" && status !== "CANCELADO") {
+        throw new HttpError(422, "STATUS_INVALIDO", "status deve ser ENCERRADO ou CANCELADO.");
+      }
+
+      const encerradoPorPerfilId = String(body.encerradoPorPerfilId || "").trim();
+      if (!encerradoPorPerfilId || !UUID_RE.test(encerradoPorPerfilId)) {
+        throw new HttpError(422, "ENCERRADOR_INVALIDO", "encerradoPorPerfilId (UUID) e obrigatorio.");
+      }
+
+      const observacoesRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
+      const observacoes = observacoesRaw ? observacoesRaw.slice(0, 2000) : null;
+
+      const r = await pool.query(
+        `UPDATE eventos_inventario
+         SET status = $1::public.status_inventario,
+             encerrado_em = NOW(),
+             encerrado_por_perfil_id = $2,
+             observacoes = COALESCE($3, observacoes),
+             updated_at = NOW()
+         WHERE id = $4
+         RETURNING
+           id,
+           codigo_evento AS "codigoEvento",
+           unidade_inventariada_id AS "unidadeInventariadaId",
+           status::text AS "status",
+           iniciado_em AS "iniciadoEm",
+           encerrado_em AS "encerradoEm",
+           aberto_por_perfil_id AS "abertoPorPerfilId",
+           encerrado_por_perfil_id AS "encerradoPorPerfilId",
+           observacoes;`,
+        [status, encerradoPorPerfilId, observacoes, eventoId],
+      );
+      if (!r.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+
+      res.json({ requestId: req.requestId, evento: r.rows[0] });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Sincroniza contagens do inventario (offline-first).
+   * Regra legal: divergencias nao mudam carga automaticamente durante inventario.
+   * Art. 185 (AN303_Art185).
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function postSync(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const body = req.body || {};
+      const eventoInventarioId = String(body.eventoInventarioId || "").trim();
+      if (!UUID_RE.test(eventoInventarioId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+
+      const unidadeEncontradaId = Number(body.unidadeEncontradaId);
+      if (!Number.isInteger(unidadeEncontradaId) || !VALID_UNIDADES.has(unidadeEncontradaId)) {
+        throw new HttpError(422, "UNIDADE_ENCONTRADA_INVALIDA", "unidadeEncontradaId deve ser 1..4.");
+      }
+
+      const salaEncontrada = String(body.salaEncontrada || "").trim();
+      if (!salaEncontrada) throw new HttpError(422, "SALA_OBRIGATORIA", "salaEncontrada e obrigatoria.");
+      if (salaEncontrada.length > 180) throw new HttpError(422, "SALA_TAMANHO", "salaEncontrada excede 180 caracteres.");
+
+      const encontradoPorPerfilId = body.encontradoPorPerfilId != null && String(body.encontradoPorPerfilId).trim() !== ""
+        ? String(body.encontradoPorPerfilId).trim()
+        : null;
+      if (encontradoPorPerfilId && !UUID_RE.test(encontradoPorPerfilId)) {
+        throw new HttpError(422, "ENCONTRADO_POR_INVALIDO", "encontradoPorPerfilId deve ser UUID.");
+      }
+
+      const itens = Array.isArray(body.itens) ? body.itens : [];
+      if (!itens.length) throw new HttpError(422, "ITENS_OBRIGATORIOS", "itens[] e obrigatorio.");
+      if (itens.length > 500) throw new HttpError(422, "ITENS_LIMITE", "Limite de 500 itens por sync.");
+
+      await client.query("BEGIN");
+
+      const ev = await client.query(
+        "SELECT id, status::text AS status FROM eventos_inventario WHERE id = $1",
+        [eventoInventarioId],
+      );
+      if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento de inventario nao encontrado.");
+      if (ev.rows[0].status !== "EM_ANDAMENTO") {
+        throw new HttpError(409, "EVENTO_NAO_ATIVO", "Evento de inventario nao esta EM_ANDAMENTO.");
+      }
+
+      const summary = {
+        totalItens: itens.length,
+        inseridas: 0,
+        atualizadas: 0,
+        divergentes: 0,
+        erros: [],
+      };
+
+      for (let i = 0; i < itens.length; i += 1) {
+        const sp = `sp_sync_${i}`;
+        const rowNo = i + 1;
+        const numeroTombamento = normalizeTombamento(itens[i]?.numeroTombamento);
+
+        if (!numeroTombamento || !TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
+          summary.erros.push({ item: rowNo, erro: "Tombamento invalido (esperado 10 digitos numericos)." });
+          continue;
+        }
+
+        const encontradoEm = itens[i]?.encontradoEm ? new Date(String(itens[i].encontradoEm)) : new Date();
+        if (Number.isNaN(encontradoEm.getTime())) {
+          summary.erros.push({ item: rowNo, tombamento: numeroTombamento, erro: "encontradoEm invalido." });
+          continue;
+        }
+
+        const observacoesRaw = itens[i]?.observacoes != null ? String(itens[i].observacoes).trim() : "";
+        const observacoes = observacoesRaw ? observacoesRaw.slice(0, 2000) : null;
+
+        await client.query(`SAVEPOINT ${sp}`);
+        try {
+          const b = await client.query(
+            `SELECT id, unidade_dona_id
+             FROM bens
+             WHERE numero_tombamento = $1
+             LIMIT 1`,
+            [numeroTombamento],
+          );
+          if (!b.rowCount) {
+            summary.erros.push({ item: rowNo, tombamento: numeroTombamento, erro: "Bem nao encontrado para o tombamento informado." });
+            await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+            continue;
+          }
+
+          const bemId = b.rows[0].id;
+          const unidadeDonaId = Number(b.rows[0].unidade_dona_id);
+          const divergente = unidadeDonaId !== unidadeEncontradaId;
+          const tipoOcorrencia = divergente ? "ENCONTRADO_EM_LOCAL_DIVERGENTE" : "CONFORME";
+          const regularizacaoPendente = divergente ? true : false;
+
+          const up = await client.query(
+            `INSERT INTO contagens (
+               evento_inventario_id, bem_id, unidade_encontrada_id, sala_encontrada,
+               status_apurado, tipo_ocorrencia, regularizacao_pendente,
+               encontrado_por_perfil_id, encontrado_em, observacoes
+             ) VALUES (
+               $1,$2,$3,$4,
+               'OK',$5::public.tipo_ocorrencia_inventario,$6,
+               $7,$8,$9
+             )
+             ON CONFLICT (evento_inventario_id, bem_id)
+             DO UPDATE SET
+               unidade_encontrada_id = EXCLUDED.unidade_encontrada_id,
+               sala_encontrada = EXCLUDED.sala_encontrada,
+               tipo_ocorrencia = EXCLUDED.tipo_ocorrencia,
+               regularizacao_pendente = EXCLUDED.regularizacao_pendente,
+               encontrado_por_perfil_id = EXCLUDED.encontrado_por_perfil_id,
+               encontrado_em = EXCLUDED.encontrado_em,
+               observacoes = EXCLUDED.observacoes,
+               updated_at = NOW()
+             RETURNING (xmax = 0) AS inserted;`,
+            [
+              eventoInventarioId,
+              bemId,
+              unidadeEncontradaId,
+              salaEncontrada,
+              tipoOcorrencia,
+              regularizacaoPendente,
+              encontradoPorPerfilId,
+              encontradoEm.toISOString(),
+              observacoes,
+            ],
+          );
+
+          if (up.rows[0]?.inserted) summary.inseridas += 1;
+          else summary.atualizadas += 1;
+          if (divergente) summary.divergentes += 1;
+        } catch (error) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+          summary.erros.push({ item: rowNo, tombamento: numeroTombamento, erro: dbError(error) });
+        }
+      }
+
+      await client.query("COMMIT");
+      res.json({ requestId: req.requestId, summary });
+    } catch (error) {
+      await safeRollback(client);
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  return { getEventos, getContagens, postEvento, patchEventoStatus, postSync };
+}
+
+module.exports = { createInventarioController };

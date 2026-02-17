@@ -1,0 +1,180 @@
+{
+  "workflow_name": "gerador_termos_patrimoniais_2cjm",
+  "workflow_version": "1.0.0",
+  "objective": "Gerar termo patrimonial em PDF com layout oficial, citacao legal e upload em pasta do Google Drive.",
+  "trigger": {
+    "type": "webhook",
+    "method": "POST",
+    "path": "/termos/gerar",
+    "auth_mode": "header_api_key_or_jwt"
+  },
+  "input_schema": {
+    "required": [
+      "tipo_termo",
+      "bem",
+      "unidade_origem",
+      "responsavel",
+      "base_legal"
+    ],
+    "fields": {
+      "tipo_termo": {
+        "type": "string",
+        "allowed_values": [
+          "TRANSFERENCIA",
+          "CAUTELA_SAIDA",
+          "CAUTELA_RETORNO",
+          "REGULARIZACAO_DIVERGENCIA"
+        ]
+      },
+      "bem": {
+        "type": "object",
+        "required": [
+          "tombamento",
+          "descricao"
+        ],
+        "properties": {
+          "tombamento": "string",
+          "descricao": "string",
+          "status": "string"
+        }
+      },
+      "unidade_origem": "string",
+      "unidade_destino": "string|null",
+      "responsavel": {
+        "type": "object",
+        "required": [
+          "nome",
+          "matricula"
+        ],
+        "properties": {
+          "nome": "string",
+          "matricula": "string",
+          "cargo": "string|null"
+        }
+      },
+      "detentor_temporario": {
+        "type": "object|null",
+        "properties": {
+          "nome": "string",
+          "matricula": "string",
+          "data_prevista_devolucao": "date|null"
+        }
+      },
+      "base_legal": {
+        "type": "array<string>",
+        "example": [
+          "Art. 124 (AN303_Art124)",
+          "Art. 127 (AN303_Art127)"
+        ]
+      },
+      "assinante_autoridade": "string|null",
+      "observacoes": "string|null"
+    }
+  },
+  "nodes": [
+    {
+      "id": "01_webhook_entrada",
+      "type": "n8n-nodes-base.webhook",
+      "purpose": "Receber payload do backend com dados do termo."
+    },
+    {
+      "id": "02_validar_payload",
+      "type": "n8n-nodes-base.code",
+      "purpose": "Validar campos obrigatorios e padronizar datas/textos.",
+      "failure_output": {
+        "status_code": 422,
+        "body": {
+          "code": "PAYLOAD_INVALIDO",
+          "message": "Campos obrigatorios ausentes para emissao do termo."
+        }
+      }
+    },
+    {
+      "id": "03_montar_html_oficial",
+      "type": "n8n-nodes-base.code",
+      "purpose": "Gerar HTML com brasao, cabecalho institucional, corpo legal e assinaturas.",
+      "template_contract": {
+        "must_include": [
+          "brasao_em_data_uri_ou_url_publica",
+          "numero_do_termo",
+          "dados_do_bem",
+          "dados_do_responsavel",
+          "citacao_base_legal",
+          "rodape_com_data_hora_geracao"
+        ]
+      }
+    },
+    {
+      "id": "04_gerar_pdf",
+      "type": "n8n-nodes-base.httpRequest",
+      "purpose": "Converter HTML em PDF por servico de renderizacao (ex.: Gotenberg).",
+      "request_contract": {
+        "method": "POST",
+        "url_env": "PDF_RENDER_URL",
+        "body_format": "multipart_form_data",
+        "response_format": "file_binary_pdf"
+      }
+    },
+    {
+      "id": "05_upload_google_drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "purpose": "Salvar PDF na pasta de termos patrimoniais no Google Drive.",
+      "upload_contract": {
+        "folder_id_env": "GOOGLE_DRIVE_TERMOS_FOLDER_ID",
+        "file_name_pattern": "TERMO_{{tipo_termo}}_{{bem.tombamento}}_{{yyyyMMdd_HHmmss}}.pdf",
+        "mime_type": "application/pdf"
+      }
+    },
+    {
+      "id": "06_responder_webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "purpose": "Retornar status final e metadados do arquivo gerado.",
+      "response_contract": {
+        "status_code": 201,
+        "body": {
+          "message": "Termo gerado com sucesso.",
+          "drive_file_id": "{{googleDrive.fileId}}",
+          "drive_link": "{{googleDrive.webViewLink}}",
+          "termo_numero": "{{payload.numero_termo}}"
+        }
+      }
+    }
+  ],
+  "flow_order": [
+    "01_webhook_entrada",
+    "02_validar_payload",
+    "03_montar_html_oficial",
+    "04_gerar_pdf",
+    "05_upload_google_drive",
+    "06_responder_webhook"
+  ],
+  "error_paths": [
+    {
+      "from": "02_validar_payload",
+      "to": "06_responder_webhook",
+      "status_code": 422
+    },
+    {
+      "from": "04_gerar_pdf",
+      "to": "06_responder_webhook",
+      "status_code": 502,
+      "code": "FALHA_GERACAO_PDF"
+    },
+    {
+      "from": "05_upload_google_drive",
+      "to": "06_responder_webhook",
+      "status_code": 502,
+      "code": "FALHA_UPLOAD_DRIVE"
+    }
+  ],
+  "compliance_notes": [
+    "Termo de TRANSFERENCIA deve citar Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).",
+    "Ocorrencias de divergencia do inventario devem referenciar Art. 185 (AN303_Art185).",
+    "Fluxo nao executa alteracao de carga em inventario ativo sem liberacao do backend (Art. 183 - AN303_Art183)."
+  ],
+  "security_notes": [
+    "Nao armazenar segredos no JSON. Usar credenciais n8n e variaveis de ambiente.",
+    "Webhook deve validar autenticacao antes de processar payload.",
+    "Sanitizar HTML para evitar injecao no renderizador de PDF."
+  ]
+}

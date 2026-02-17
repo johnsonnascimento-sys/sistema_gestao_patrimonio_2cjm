@@ -1,0 +1,33 @@
+# Modulo: infraestrutura
+# Arquivo: docker-compose.vps.yml
+# Funcao no sistema: subir frontend (Nginx) + backend (Node.js) na VPS com rede do host.
+# Observacao: host networking garante conectividade IPv6 do backend com Supabase quando o DNS do Postgres for apenas AAAA.
+
+services:
+  backend:
+    container_name: cjm_backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: cjm-patrimonio-backend:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      NODE_ENV: "production"
+      HOST: "127.0.0.1"
+      PORT: "3001"
+      DB_SSL: "${DB_SSL:-require}"
+      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-*}"
+      DATABASE_URL: "${DATABASE_URL}"
+
+  frontend:
+    container_name: cjm_frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "/api"
+    image: cjm-patrimonio-frontend:latest
+    restart: unless-stopped
+    network_mode: host
+
