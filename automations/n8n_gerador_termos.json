@@ -1,0 +1,81 @@
+{
+  "name": "Gerador de Termos Patrimoniais - 2a CJM (Modelo)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6a86b7d8-7c35-4c8a-9e5c-06f55a2a9e11",
+      "name": "Webhook (Entrada)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "termos_gerar_2acjm",
+      "notesInFlow": true,
+      "notes": "Endpoint de entrada para receber payload do backend.\n\nCaminho sugerido: /termos/gerar\nM\u00e9todo: POST\nAutentica\u00e7\u00e3o: configure no n8n (Header API Key ou JWT) conforme sua pol\u00edtica.\n\nRegra legal: Termos para Transfer\u00eancia/Cautela/Regulariza\u00e7\u00e3o - Arts. 124/127 e Art. 185 (AN303_Art124/AN303_Art127/AN303_Art185)."
+    },
+    {
+      "parameters": {
+        "jsCode": "function escapeHtml(v) {\n  return String(v ?? \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\\\"/g, \"&quot;\")\n    .replace(/'/g, \"&#039;\");\n}\n\nconst payload = items[0]?.json || {};\nconst tipo = String(payload.tipo_termo || payload.tipoTermo || \"\").trim().toUpperCase();\nconst bem = payload.bem || {};\nconst resp = payload.responsavel || {};\nconst det = payload.detentor_temporario || payload.detentorTemporario || null;\nconst baseLegal = Array.isArray(payload.base_legal) ? payload.base_legal : [];\n\nconst now = new Date();\nconst ymd = now.toISOString().slice(0, 10).replace(/-/g, \"\");\nconst tomb = String(bem.tombamento || bem.numeroTombamento || \"SEM_TOMBO\").trim();\nconst fileName = `TERMO_${tipo || \"PATRIMONIAL\"}_${tomb}_${ymd}.html`;\n\nconst html = `<!doctype html>\n<html lang=\"pt-br\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n  <title>Termo Patrimonial</title>\n  <style>\n    body { font-family: Arial, Helvetica, sans-serif; margin: 28px; color: #111; }\n    h1 { margin: 0 0 8px; font-size: 18px; }\n    .meta { color: #444; font-size: 12px; margin-bottom: 16px; }\n    .box { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 12px 0; }\n    .label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: .08em; }\n    .value { font-size: 13px; margin-top: 4px; }\n    ul { margin: 8px 0 0 18px; }\n    .sig { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }\n    .sigline { border-top: 1px solid #777; padding-top: 6px; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <h1>Termo Patrimonial - ${escapeHtml(tipo || \"PATRIMONIAL\")}</h1>\n  <p class=\"meta\">Gerado em ${escapeHtml(now.toLocaleString())}. Sistema Patrim\u00f4nio 2\u00aa CJM.</p>\n\n  <div class=\"box\">\n    <div class=\"label\">Bem</div>\n    <div class=\"value\"><b>Tombamento:</b> ${escapeHtml(tomb)}<br/>\n      <b>Descri\u00e7\u00e3o:</b> ${escapeHtml(bem.descricao || \"-\")}\n    </div>\n  </div>\n\n  <div class=\"box\">\n    <div class=\"label\">Respons\u00e1vel</div>\n    <div class=\"value\">${escapeHtml(resp.nome || \"-\")} (${escapeHtml(resp.matricula || \"-\")}) ${resp.cargo ? \"- \" + escapeHtml(resp.cargo) : \"\"}</div>\n  </div>\n\n  ${det ? `\n  <div class=\"box\">\n    <div class=\"label\">Detentor tempor\u00e1rio</div>\n    <div class=\"value\">${escapeHtml(det.nome || \"-\")} (${escapeHtml(det.matricula || \"-\")})<br/>\n      <b>Previs\u00e3o de devolu\u00e7\u00e3o:</b> ${escapeHtml(det.data_prevista_devolucao || det.dataPrevistaDevolucao || \"-\")}\n    </div>\n  </div>\n  ` : \"\"}\n\n  <div class=\"box\">\n    <div class=\"label\">Base legal</div>\n    <div class=\"value\">\n      <ul>\n        ${baseLegal.map((x) => `<li>${escapeHtml(x)}</li>`).join(\"\\n\")}\n      </ul>\n    </div>\n  </div>\n\n  <div class=\"sig\">\n    <div class=\"sigline\">Assinatura do respons\u00e1vel</div>\n    <div class=\"sigline\">Assinatura da autoridade</div>\n  </div>\n</body>\n</html>`;\n\nreturn [{ json: { fileName, html, tipo, tombamento: tomb } }];"
+      },
+      "id": "bdc3b09f-0fb0-4f2c-a845-3e9df87db5c1",
+      "name": "Montar HTML do Termo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Este workflow gera HTML determin\u00edstico.\n\nPara produzir PDF, substitua o passo de upload por um conversor HTML->PDF (ex.: integra\u00e7\u00e3o \"HTML to PDF\"/PDFMunk, ou servi\u00e7o interno). Depois, suba o PDF ao Drive."
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "binaryData": false,
+        "fileName": "={{$json.fileName}}",
+        "fileContent": "={{$json.html}}"
+      },
+      "id": "a1d8a24e-4d1d-45d6-bca8-5e6dd7e5dfe5",
+      "name": "Upload HTML (Drive)",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [
+        820,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Configure a credencial do Google Drive no n8n.\n\nEm produ\u00e7\u00e3o, este node deve receber PDF (bin\u00e1rio). Aqui ele recebe HTML como fallback (modelo)."
+    }
+  ],
+  "connections": {
+    "Webhook (Entrada)": {
+      "main": [
+        [
+          {
+            "node": "Montar HTML do Termo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar HTML do Termo": {
+      "main": [
+        [
+          {
+            "node": "Upload HTML (Drive)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "timezone": "America/Sao_Paulo"
+  }
+}
+
