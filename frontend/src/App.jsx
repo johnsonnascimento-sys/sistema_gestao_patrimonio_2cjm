@@ -210,7 +210,7 @@ function AppShell() {
               onClick={() => setTab("operacoes")}
               className={`pill ${tab === "operacoes" ? "pill-active" : ""}`}
             >
-              Operações API
+              Administração do Painel
             </button>
             <button
               type="button"

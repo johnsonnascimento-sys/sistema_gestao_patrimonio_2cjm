@@ -64,7 +64,7 @@ Uso:
 - Classificar bens inservíveis (Ocioso/Recuperável/Antieconômico/Irrecuperável).
 - Esse fluxo deve ser guiado (questionário) e auditável.
 
-### 4) Operações API
+### 4) Administração do Painel
 
 Uso:
 

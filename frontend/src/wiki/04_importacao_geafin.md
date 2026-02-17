@@ -22,7 +22,7 @@ Quando voce importa o CSV do GEAFIN (relatorio), o sistema faz duas coisas:
 
 No site, abra:
 
-- Aba **Operações API**
+- Aba **Administração do Painel** (antiga "Operações API")
 - Secao **Importacao GEAFIN (CSV Latin1)**
 
 Passos:

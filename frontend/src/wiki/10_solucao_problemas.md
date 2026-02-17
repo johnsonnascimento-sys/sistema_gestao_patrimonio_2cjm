@@ -14,7 +14,7 @@ O que significa:
 
 Checklist rapido:
 
-1. Abra **Operações API** e clique em **Testar /health**.
+1. Abra **Administração do Painel** (antiga "Operações API") e clique em **Testar /health**.
 2. Se falhar, o problema e conectividade/proxy/backend.
 
 Possiveis causas:

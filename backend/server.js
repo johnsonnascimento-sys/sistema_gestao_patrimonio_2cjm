@@ -1739,6 +1739,30 @@ app.use((error, req, res, _next) => {
     res.status(error.status).json({ error: { code: error.code, message: error.message, details: error.details }, requestId: req.requestId });
     return;
   }
+  // Erros comuns de "migracao pendente": ajudam o operador a corrigir sem precisar ler logs.
+  if (error?.code === "42P01") {
+    const msg = String(error?.message || "");
+    if (msg.includes("relation \"locais\"") || msg.includes("relation \"public.locais\"")) {
+      res.status(500).json({
+        error: {
+          code: "MIGRACAO_PENDENTE_LOCAIS",
+          message: "Tabela 'locais' nao existe no banco. Aplique a migration database/011_fotos_e_locais.sql no Supabase.",
+        },
+        requestId: req.requestId,
+      });
+      return;
+    }
+    if (msg.includes("relation \"geafin_import_arquivos\"") || msg.includes("relation \"public.geafin_import_arquivos\"")) {
+      res.status(500).json({
+        error: {
+          code: "MIGRACAO_PENDENTE_GEAFIN",
+          message: "Tabelas de importacao GEAFIN nao existem no banco. Aplique as migrations database/003_geafin_raw.sql e database/004_geafin_import_progress.sql no Supabase.",
+        },
+        requestId: req.requestId,
+      });
+      return;
+    }
+  }
   if (error?.code === "23514") {
     res.status(422).json({ error: { code: "VIOLACAO_REGRA_NEGOCIO", message: "Violacao de regra de negocio." }, requestId: req.requestId });
     return;

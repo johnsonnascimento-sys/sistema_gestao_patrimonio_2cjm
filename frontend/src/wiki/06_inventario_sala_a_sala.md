@@ -70,7 +70,7 @@ Importante (quando vier 0 itens):
 
 - O botão "Baixar catálogo da sala" usa o **local cadastrado** (tabela `locais`) e filtra os bens por `bens.local_id`.
 - Se vier **0 itens**, normalmente significa que os bens ainda nao foram vinculados a esse local.
-- Para vincular em lote: vá em "Operações API" -> seção "Locais" -> "Vincular bens ao local (em lote)".
+- Para vincular em lote: vá em "Administração do Painel" -> seção "Locais" -> "Vincular bens ao local (em lote)".
 
 Offline:
 

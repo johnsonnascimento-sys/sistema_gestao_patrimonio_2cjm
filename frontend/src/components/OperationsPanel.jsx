@@ -456,7 +456,7 @@ export default function OperationsPanel() {
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
       <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Operações API</h2>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Administração do Painel</h2>
         <p className="mt-2 text-sm text-slate-300">
           Integracao direta com backend em{" "}
           <code className="rounded bg-slate-950/70 px-1 py-0.5 text-cyan-200">

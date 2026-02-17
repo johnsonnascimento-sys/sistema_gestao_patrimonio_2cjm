@@ -83,8 +83,10 @@ O sistema trabalha com 4 unidades:
 
 O fluxo padrão é:
 
-1. `ADMIN` cadastra o perfil em **Operações API** (seção **Perfis (usuários)**).
+1. `ADMIN` cadastra o perfil em **Administração do Painel** (seção **Perfis (usuários)**).
 2. O usuário entra na tela de login e usa **Primeiro acesso** para definir a senha.
+
+Obs.: no menu superior, a aba pode aparecer como **Administração do Painel** (nome atualizado).
 
 Na seção de Perfis, o `ADMIN` também consegue:
 
