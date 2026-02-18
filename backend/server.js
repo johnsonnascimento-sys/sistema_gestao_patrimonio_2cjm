@@ -1447,6 +1447,7 @@ app.get("/locais", mustAuth, async (req, res, next) => {
     const unidadeId = req.query?.unidadeId != null && String(req.query.unidadeId).trim() !== ""
       ? Number(req.query.unidadeId)
       : null;
+    const includeInativos = parseBool(req.query?.includeInativos, false);
     if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
       throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
     }
@@ -1459,10 +1460,15 @@ app.get("/locais", mustAuth, async (req, res, next) => {
       params.push(unidadeId);
       i += 1;
     }
+    // Quando a coluna `ativo` existe (014), por padrao listamos apenas ativos.
+    // Mantemos compatibilidade: se a coluna ainda nao existir, a query vai falhar e o handler devolve erro explicativo.
+    if (!includeInativos) {
+      where.push(`ativo = TRUE`);
+    }
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
     const r = await pool.query(
-      `SELECT id, nome, unidade_id AS "unidadeId", tipo, observacoes
+      `SELECT id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo
        FROM locais
        ${whereSql}
        ORDER BY nome ASC
@@ -1493,6 +1499,7 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
 
     const tipo = body.tipo != null ? String(body.tipo).trim().slice(0, 40) : null;
     const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+    const ativo = Object.prototype.hasOwnProperty.call(body, "ativo") ? parseBool(body.ativo, true) : true;
 
     await client.query("BEGIN");
     const existing = await client.query("SELECT id FROM locais WHERE nome = $1 LIMIT 1;", [nome]);
@@ -1502,15 +1509,16 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
           `UPDATE locais
            SET unidade_id = $2,
                tipo = $3,
-               observacoes = $4
+               observacoes = $4,
+               ativo = $5
            WHERE id = $1
-           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes;`,
-          [existing.rows[0].id, unidadeId, tipo, observacoes],
+           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
+          [existing.rows[0].id, unidadeId, tipo, observacoes, ativo],
         )
       : await client.query(
           `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
            VALUES ($1,$2,$3,$4)
-           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes;`,
+           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
           [nome, unidadeId, tipo, observacoes],
         );
 
@@ -1521,6 +1529,94 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+});
+
+/**
+ * Atualiza local (ADMIN) por id.
+ * Regra operacional: permite renomear e desativar/ativar sem apagar dados.
+ */
+app.patch("/locais/:id", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    const patch = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, "nome")) {
+      const nome = String(body.nome || "").trim().slice(0, 180);
+      if (!nome) throw new HttpError(422, "NOME_OBRIGATORIO", "nome e obrigatorio.");
+      patch.nome = nome;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "unidadeId")) {
+      const unidadeId = body.unidadeId != null && String(body.unidadeId).trim() !== "" ? Number(body.unidadeId) : null;
+      if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
+        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+      }
+      patch.unidadeId = unidadeId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "tipo")) {
+      patch.tipo = body.tipo != null ? String(body.tipo).trim().slice(0, 40) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "observacoes")) {
+      patch.observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "ativo")) {
+      patch.ativo = parseBool(body.ativo, true);
+    }
+
+    const fields = [];
+    const params = [];
+    let i = 1;
+    if (patch.nome != null) {
+      fields.push(`nome = $${i}`);
+      params.push(patch.nome);
+      i += 1;
+    }
+    if (patch.unidadeId !== undefined) {
+      fields.push(`unidade_id = $${i}`);
+      params.push(patch.unidadeId);
+      i += 1;
+    }
+    if (patch.tipo !== undefined) {
+      fields.push(`tipo = $${i}`);
+      params.push(patch.tipo);
+      i += 1;
+    }
+    if (patch.observacoes !== undefined) {
+      fields.push(`observacoes = $${i}`);
+      params.push(patch.observacoes);
+      i += 1;
+    }
+    if (patch.ativo !== undefined) {
+      fields.push(`ativo = $${i}`);
+      params.push(patch.ativo);
+      i += 1;
+    }
+
+    if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
+
+    const r = await pool.query(
+      `UPDATE locais
+       SET ${fields.join(", ")}
+       WHERE id = $${i}
+       RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
+      [...params, id],
+    );
+    if (!r.rowCount) throw new HttpError(404, "LOCAL_NAO_ENCONTRADO", "Local nao encontrado.");
+
+    res.json({ requestId: req.requestId, local: r.rows[0] });
+  } catch (error) {
+    if (error?.code === "23505") {
+      next(new HttpError(409, "LOCAL_NOME_DUPLICADO", "Ja existe um local com este nome."));
+      return;
+    }
+    next(error);
   }
 });
 
@@ -1757,6 +1853,19 @@ app.use((error, req, res, _next) => {
         error: {
           code: "MIGRACAO_PENDENTE_GEAFIN",
           message: "Tabelas de importacao GEAFIN nao existem no banco. Aplique as migrations database/003_geafin_raw.sql e database/004_geafin_import_progress.sql no Supabase.",
+        },
+        requestId: req.requestId,
+      });
+      return;
+    }
+  }
+  if (error?.code === "42703") {
+    const msg = String(error?.message || "");
+    if (msg.includes("column \"ativo\"") && msg.includes("locais")) {
+      res.status(500).json({
+        error: {
+          code: "MIGRACAO_PENDENTE_LOCAIS_ATIVO",
+          message: "Coluna 'locais.ativo' nao existe no banco. Aplique a migration database/014_locais_crud_soft_delete.sql no Supabase.",
         },
         requestId: req.requestId,
       });
@@ -2368,6 +2477,11 @@ function openapi() {
       "/stats": { get: { summary: "Estatisticas basicas de bens", responses: { 200: { description: "OK" } } } },
       "/bens": { get: { summary: "Listagem/consulta de bens (paginado)", responses: { 200: { description: "OK" } } } },
       "/bens/{id}": { get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
+      "/locais": {
+        get: { summary: "Listar locais/salas padronizados (query: unidadeId, includeInativos)", responses: { 200: { description: "OK" } } },
+        post: { summary: "Criar/atualizar local (ADMIN)", responses: { 201: { description: "Criado/atualizado" } } },
+      },
+      "/locais/{id}": { patch: { summary: "Atualizar local por id (ADMIN)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/perfis": { get: { summary: "Listagem basica de perfis", responses: { 200: { description: "OK" } } }, post: { summary: "Criacao de perfil", responses: { 201: { description: "Criado" } } } },
       "/perfis/{id}": { patch: { summary: "Atualizar perfil (ADMIN)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/perfis/{id}/reset-senha": { post: { summary: "Resetar senha (ADMIN) para permitir primeiro acesso novamente", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },

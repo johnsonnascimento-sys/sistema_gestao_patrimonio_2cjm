@@ -472,6 +472,7 @@ export async function listarAvaliacoesInservivel(bemId) {
 export async function listarLocais(filters = {}) {
   const params = new URLSearchParams();
   if (filters.unidadeId) params.set("unidadeId", String(filters.unidadeId));
+  if (filters.includeInativos) params.set("includeInativos", "true");
   const suffix = params.toString() ? `?${params.toString()}` : "";
   const response = await safeFetch(`${API_BASE_URL}/locais${suffix}`, {
     method: "GET",
@@ -495,6 +496,24 @@ export async function criarLocal(payload) {
       Accept: "application/json",
     },
     body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza local por id (ADMIN).
+ * @param {string} id UUID do local.
+ * @param {object} patch Campos parciais.
+ * @returns {Promise<{requestId: string, local: any}>} Local atualizado.
+ */
+export async function atualizarLocal(id, patch) {
+  const response = await safeFetch(`${API_BASE_URL}/locais/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(patch || {}),
   });
   return parseResponse(response);
 }

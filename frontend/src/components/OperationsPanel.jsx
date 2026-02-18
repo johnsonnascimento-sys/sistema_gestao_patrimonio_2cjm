@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import {
   API_BASE_URL,
   criarLocal,
+  atualizarLocal,
   criarPerfil,
   listarPerfis,
   atualizarPerfil,
@@ -49,7 +50,9 @@ export default function OperationsPanel() {
 
   const [locaisState, setLocaisState] = useState({ loading: false, data: null, error: null });
   const [locaisFilterUnidadeId, setLocaisFilterUnidadeId] = useState("");
+  const [locaisIncludeInativos, setLocaisIncludeInativos] = useState(false);
   const [localForm, setLocalForm] = useState({ nome: "", unidadeId: "", tipo: "", observacoes: "" });
+  const [localEditId, setLocalEditId] = useState("");
   const [localFormState, setLocalFormState] = useState({ loading: false, response: null, error: null });
   const [mapLocalForm, setMapLocalForm] = useState({
     localId: "",
@@ -360,7 +363,10 @@ export default function OperationsPanel() {
     setLocaisState({ loading: true, data: null, error: null });
     try {
       const unidade = locaisFilterUnidadeId ? Number(locaisFilterUnidadeId) : null;
-      const data = await listarLocais(unidade ? { unidadeId: unidade } : {});
+      const data = await listarLocais({
+        ...(unidade ? { unidadeId: unidade } : {}),
+        includeInativos: locaisIncludeInativos,
+      });
       setLocaisState({ loading: false, data, error: null });
     } catch (error) {
       setLocaisState({ loading: false, data: null, error: formatApiError(error) });
@@ -371,7 +377,7 @@ export default function OperationsPanel() {
     if (!canAdmin) return;
     void loadLocais();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAdmin, locaisFilterUnidadeId]);
+  }, [canAdmin, locaisFilterUnidadeId, locaisIncludeInativos]);
 
   useEffect(() => {
     if (!canAdmin) return;
@@ -393,14 +399,48 @@ export default function OperationsPanel() {
     const unidadeId = localForm.unidadeId ? Number(localForm.unidadeId) : null;
     setLocalFormState({ loading: true, response: null, error: null });
     try {
-      const data = await criarLocal({
+      const payload = {
         nome,
         unidadeId: unidadeId || null,
         tipo: localForm.tipo.trim() || null,
         observacoes: localForm.observacoes.trim() || null,
-      });
+      };
+      const data = localEditId
+        ? await atualizarLocal(String(localEditId), payload)
+        : await criarLocal(payload);
       setLocalFormState({ loading: false, response: data, error: null });
       setLocalForm({ nome: "", unidadeId: "", tipo: "", observacoes: "" });
+      setLocalEditId("");
+      await loadLocais();
+    } catch (error) {
+      setLocalFormState({ loading: false, response: null, error: formatApiError(error) });
+    }
+  };
+
+  const beginEditLocal = (local) => {
+    if (!local?.id) return;
+    setLocalEditId(String(local.id));
+    setLocalForm({
+      nome: String(local.nome || ""),
+      unidadeId: local.unidadeId != null ? String(local.unidadeId) : "",
+      tipo: String(local.tipo || ""),
+      observacoes: String(local.observacoes || ""),
+    });
+    setLocalFormState({ loading: false, response: null, error: null });
+  };
+
+  const cancelEditLocal = () => {
+    setLocalEditId("");
+    setLocalForm({ nome: "", unidadeId: "", tipo: "", observacoes: "" });
+    setLocalFormState({ loading: false, response: null, error: null });
+  };
+
+  const toggleLocalAtivo = async (local) => {
+    if (!canAdmin || !local?.id) return;
+    setLocalFormState({ loading: true, response: null, error: null });
+    try {
+      await atualizarLocal(String(local.id), { ativo: !local.ativo });
+      setLocalFormState({ loading: false, response: null, error: null });
       await loadLocais();
     } catch (error) {
       setLocalFormState({ loading: false, response: null, error: formatApiError(error) });
@@ -512,6 +552,15 @@ export default function OperationsPanel() {
                 <option value="4">4 (Almox)</option>
               </select>
             </label>
+            <label className="flex items-center gap-2 pb-1 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={locaisIncludeInativos}
+                onChange={(e) => setLocaisIncludeInativos(e.target.checked)}
+                disabled={!canAdmin}
+              />
+              Mostrar inativos
+            </label>
             <button
               type="button"
               onClick={loadLocais}
@@ -588,8 +637,18 @@ export default function OperationsPanel() {
                 disabled={localFormState.loading || (!canAdmin && auth.authEnabled)}
                 className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
               >
-                {localFormState.loading ? "Salvando..." : "Salvar local"}
+                {localFormState.loading ? "Salvando..." : localEditId ? "Atualizar local" : "Salvar local"}
               </button>
+              {localEditId ? (
+                <button
+                  type="button"
+                  onClick={cancelEditLocal}
+                  className="rounded-lg border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
+                  disabled={localFormState.loading}
+                >
+                  Cancelar edição
+                </button>
+              ) : null}
               {localFormState.error ? <p className="text-sm text-rose-300">{localFormState.error}</p> : null}
               {localFormState.response?.local?.id ? (
                 <p className="text-xs text-emerald-200">
@@ -609,6 +668,8 @@ export default function OperationsPanel() {
                     <th className="px-3 py-2">Nome</th>
                     <th className="px-3 py-2">Unidade</th>
                     <th className="px-3 py-2">Tipo</th>
+                    <th className="px-3 py-2">Ativo</th>
+                    <th className="px-3 py-2">Ações</th>
                     <th className="px-3 py-2">Id</th>
                   </tr>
                 </thead>
@@ -618,12 +679,34 @@ export default function OperationsPanel() {
                       <td className="px-3 py-2 text-slate-100">{l.nome}</td>
                       <td className="px-3 py-2 text-slate-300">{l.unidadeId ? String(l.unidadeId) : "-"}</td>
                       <td className="px-3 py-2 text-slate-300">{l.tipo || "-"}</td>
+                      <td className="px-3 py-2 text-slate-300">{l.ativo === false ? "NÃO" : "SIM"}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => beginEditLocal(l)}
+                            className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                            disabled={!canAdmin || localFormState.loading}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleLocalAtivo(l)}
+                            className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                            disabled={!canAdmin || localFormState.loading}
+                            title="Desativar/ativar local (soft delete)."
+                          >
+                            {l.ativo === false ? "Ativar" : "Desativar"}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-3 py-2 font-mono text-[11px] text-slate-300">{l.id}</td>
                     </tr>
                   ))}
                   {(locaisState.data?.items || []).length === 0 && !locaisState.loading ? (
                     <tr>
-                      <td className="px-3 py-3 text-slate-300" colSpan={4}>
+                      <td className="px-3 py-3 text-slate-300" colSpan={6}>
                         Nenhum local cadastrado ainda.
                       </td>
                     </tr>
@@ -650,7 +733,7 @@ export default function OperationsPanel() {
                 disabled={!canAdmin && auth.authEnabled}
               >
                 <option value="">Selecione um local</option>
-                {(locaisState.data?.items || []).map((l) => (
+                {(locaisState.data?.items || []).filter((l) => l.ativo !== false).map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.nome} (id {String(l.id).slice(0, 8)}...)
                   </option>

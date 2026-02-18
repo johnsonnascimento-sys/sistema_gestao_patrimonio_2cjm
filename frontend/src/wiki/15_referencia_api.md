@@ -271,6 +271,7 @@ Uso: listar locais padronizados.
 Filtro (query):
 
 - `unidadeId=1..4` (opcional)
+- `includeInativos=true` (opcional; quando presente, lista tambem locais desativados)
 
 ### POST `/locais`
 
@@ -279,6 +280,22 @@ Uso: criar/atualizar local por `nome` (upsert).
 Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
+
+### PATCH `/locais/{id}`
+
+Uso: atualizar local por id (renomear, ajustar unidade/tipo/observacoes, ativar/desativar).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Campos (JSON) comuns:
+
+- `nome` (opcional)
+- `unidadeId` (opcional)
+- `tipo` (opcional)
+- `observacoes` (opcional)
+- `ativo` (opcional; `true|false`)
 
 ### PATCH `/bens/{id}/operacional`
 

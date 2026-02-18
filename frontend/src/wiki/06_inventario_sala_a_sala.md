@@ -72,6 +72,16 @@ Importante (quando vier 0 itens):
 - Se vier **0 itens**, normalmente significa que os bens ainda nao foram vinculados a esse local.
 - Para vincular em lote: vá em "Administração do Painel" -> seção "Locais" -> "Vincular bens ao local (em lote)".
 
+Cadastro e manutencao (Admin):
+
+- Na aba **Administracao do Painel**, o Admin pode **criar**, **editar** (inclusive renomear) e **desativar/ativar** locais.
+- A desativacao e "soft delete" (nao apaga dados), para nao perder contexto operacional.
+
+Requisito de banco:
+
+- aplicar `database/011_fotos_e_locais.sql` (tabela `locais`)
+- aplicar `database/014_locais_crud_soft_delete.sql` (coluna `locais.ativo`)
+
 Offline:
 
 - Se estiver sem internet, o sistema tenta usar o **cache offline** (IndexedDB) da sala.
