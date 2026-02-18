@@ -24,6 +24,10 @@ services:
       AUTH_ENABLED: "${AUTH_ENABLED:-false}"
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-}"
       AUTH_JWT_EXPIRES_IN: "${AUTH_JWT_EXPIRES_IN:-12h}"
+      # Modulo: backend/drive
+      # Funcao: upload de fotos via n8n webhook + persistencia do link no banco.
+      N8N_DRIVE_PHOTOS_WEBHOOK_URL: "${N8N_DRIVE_PHOTOS_WEBHOOK_URL:-}"
+      DRIVE_PHOTOS_FOLDER_ID: "${DRIVE_PHOTOS_FOLDER_ID:-}"
 
   frontend:
     container_name: cjm_frontend
