@@ -56,7 +56,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = items[0].json || {};\n\n// Diferentes versoes/nos do Drive retornam campos ligeiramente diferentes.\nconst driveUrl = r.webViewLink || r.alternateLink || r.url || r.webContentLink || null;\n\nreturn [\n  {\n    json: {\n      driveUrl,\n      fileId: r.id || r.fileId || null,\n      name: r.name || null,\n      mimeType: r.mimeType || null,\n    },\n  },\n];"
+        "jsCode": "const r = items[0].json || {};\n\nconst fileId = r.id || r.fileId || null;\n\n// Diferentes versões/nós do Drive retornam campos ligeiramente diferentes.\n// Se não vier link, montamos a URL a partir do fileId.\nconst driveUrl =\n  r.webViewLink ||\n  r.alternateLink ||\n  r.url ||\n  r.webContentLink ||\n  (fileId ? `https://drive.google.com/file/d/${String(fileId)}/view` : null);\n\nreturn [\n  {\n    json: {\n      driveUrl,\n      fileId,\n      name: r.name || null,\n      mimeType: r.mimeType || null,\n    },\n  },\n];"
       },
       "id": "e8c1dfe5-8f1c-45f2-97d4-14f9a2c5e561",
       "name": "Montar Resposta",
@@ -132,4 +132,3 @@
     "executionOrder": "v1"
   }
 }
-

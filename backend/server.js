@@ -1964,13 +1964,28 @@ app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
       }),
     });
 
-    const payload = await n8nResp.json().catch(() => null);
+    let payload = await n8nResp.json().catch(() => null);
+    // Alguns respondToWebhook podem devolver lista; normalizamos para objeto.
+    if (Array.isArray(payload)) payload = payload[0] || null;
     if (!n8nResp.ok) {
       throw new HttpError(502, "DRIVE_UPLOAD_FALHOU", "Falha ao enviar foto para o n8n/Drive.", payload || undefined);
     }
 
-    const driveUrl = payload?.webViewLink || payload?.url || payload?.driveUrl || null;
-    if (!driveUrl) throw new HttpError(502, "DRIVE_SEM_URL", "n8n nao retornou webViewLink/url.");
+    const fileId = payload?.fileId || payload?.id || payload?.file?.id || null;
+    const driveUrl =
+      payload?.webViewLink ||
+      payload?.url ||
+      payload?.driveUrl ||
+      (fileId ? `https://drive.google.com/file/d/${String(fileId)}/view` : null);
+
+    if (!driveUrl) {
+      throw new HttpError(
+        502,
+        "DRIVE_SEM_URL",
+        "n8n nao retornou webViewLink/url nem fileId.",
+        payload || undefined,
+      );
+    }
 
     if (target === "BEM") {
       const r = await pool.query(
