@@ -26,6 +26,7 @@
 
 - Importar `n8n_drive_upload_fotos_webhook.json` no n8n.
 - Configurar credencial do Google Drive no node "Google Drive - Upload".
+- Se usar **Service Account**, compartilhe a pasta de destino com o e-mail da Service Account com permissao de **Editor**.
 - Copiar a URL **Production** do Webhook e configurar no backend (VPS) como:
   - `N8N_DRIVE_PHOTOS_WEBHOOK_URL=<url_do_webhook>`
 - Opcional:

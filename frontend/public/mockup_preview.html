@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SGP 2a CJM - Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 antialiased overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/10 bg-slate-950">
+    <div class="flex h-16 items-center gap-3 border-b border-white/10 px-6">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
+        <i data-lucide="archive" class="h-5 w-5"></i>
+      </div>
+      <span class="font-bold tracking-tight text-slate-100">SGP 2ª CJM</span>
+    </div>
+
+    <nav class="mt-6 space-y-1 px-3">
+      <a href="#" class="flex items-center gap-3 rounded-lg bg-blue-600/10 px-3 py-2.5 text-sm font-medium text-blue-400">
+        <i data-lucide="home" class="h-5 w-5"></i>
+        Consulta de Bens
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-slate-200">
+        <i data-lucide="clipboard-list" class="h-5 w-5"></i>
+        Modo Inventário
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-slate-200">
+        <i data-lucide="wrench" class="h-5 w-5"></i>
+        Regularização
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-slate-200">
+        <i data-lucide="layers" class="h-5 w-5"></i>
+        Classificação
+      </a>
+    </nav>
+    
+    <div class="absolute bottom-4 left-0 w-full px-4">
+       <div class="rounded-xl bg-slate-900 p-4 border border-white/5">
+         <p class="text-xs text-slate-400">Sessão Ativa</p>
+         <div class="mt-2 flex items-center gap-3">
+           <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">JN</div>
+           <div>
+             <p class="text-sm font-medium text-white">Johnson N.</p>
+             <p class="text-[10px] text-slate-500">Administrador</p>
+           </div>
+         </div>
+       </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="ml-64 min-h-screen bg-slate-900">
+    <!-- Header -->
+    <header class="flex h-16 items-center justify-between border-b border-white/10 bg-slate-950/50 px-8 backdrop-blur-md">
+      <div class="flex items-center gap-4 text-sm text-slate-400">
+        <span>Gestão de Patrimônio</span>
+        <i data-lucide="chevron-right" class="h-4 w-4"></i>
+        <span class="text-slate-100 font-medium">Consulta Geral</span>
+      </div>
+      <div class="flex gap-4">
+        <button class="relative rounded-full p-2 text-slate-400 hover:bg-white/10">
+          <i data-lucide="bell" class="h-5 w-5"></i>
+          <span class="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="p-8">
+      <!-- Stats -->
+      <div class="grid grid-cols-4 gap-4 mb-8">
+        <div class="rounded-xl border border-white/10 bg-slate-950 p-4">
+          <p class="text-xs uppercase tracking-wider text-slate-500">Total de Bens</p>
+          <p class="mt-2 text-3xl font-bold text-slate-100">3.833</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-slate-950 p-4">
+           <p class="text-xs uppercase tracking-wider text-slate-500">Validados Hoje</p>
+           <p class="mt-2 text-3xl font-bold text-emerald-400">+124</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-slate-950 p-4">
+           <p class="text-xs uppercase tracking-wider text-slate-500">Em Cautela</p>
+           <p class="mt-2 text-3xl font-bold text-amber-400">42</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-slate-950 p-4">
+           <p class="text-xs uppercase tracking-wider text-slate-500">Baixados</p>
+           <p class="mt-2 text-3xl font-bold text-rose-400">15</p>
+        </div>
+      </div>
+
+      <!-- Filters & Actions -->
+      <div class="flex items-center justify-between gap-4 mb-6">
+        <div class="flex flex-1 gap-3">
+           <div class="relative w-64">
+             <i data-lucide="search" class="absolute left-3 top-2.5 h-4 w-4 text-slate-500"></i>
+             <input type="text" placeholder="Buscar por tombo..." class="w-full rounded-lg border border-white/10 bg-slate-950 pl-9 pr-4 py-2 text-sm text-slate-200 focus:border-blue-500 outline-none">
+           </div>
+           <button class="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5">
+             <i data-lucide="filter" class="h-4 w-4"></i>
+             Filtros
+           </button>
+        </div>
+        
+        <div class="bg-slate-950 rounded-lg p-1 border border-white/10 flex">
+           <button class="rounded px-3 py-1 bg-slate-800 text-white shadow text-sm font-medium flex gap-2 items-center">
+             <i data-lucide="list" class="h-4 w-4"></i> Lista
+           </button>
+           <button class="rounded px-3 py-1 text-slate-400 hover:text-white text-sm font-medium flex gap-2 items-center">
+             <i data-lucide="grid" class="h-4 w-4"></i> Cards
+           </button>
+        </div>
+      </div>
+
+      <!-- Modern Table -->
+      <div class="overflow-hidden rounded-xl border border-white/10 bg-slate-950">
+        <table class="w-full text-left text-sm text-slate-400">
+          <thead class="bg-white/5 text-xs uppercase text-slate-200">
+            <tr>
+              <th class="px-6 py-4 font-medium">Tombo</th>
+              <th class="px-6 py-4 font-medium">Descrição</th>
+              <th class="px-6 py-4 font-medium">Local</th>
+              <th class="px-6 py-4 font-medium">Status</th>
+              <th class="px-6 py-4 font-medium text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <tr class="group hover:bg-white/5 transition-colors">
+              <td class="px-6 py-4 font-mono text-slate-300">1290001788</td>
+              <td class="px-6 py-4 text-slate-300">
+                <div class="font-medium text-white">Microcomputador Dell Optiplex</div>
+                <div class="truncate w-64 text-xs mt-0.5 opacity-60">Processador i7, 16GB RAM, SSD 512GB...</div>
+              </td>
+              <td class="px-6 py-4">Sala 302 (TI)</td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20">OK</span>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <button class="invisible group-hover:visible rounded-lg p-2 hover:bg-white/10 hover:text-white transition-all text-blue-400 font-medium">
+                  Detalhes
+                </button>
+              </td>
+            </tr>
+            <tr class="group hover:bg-white/5 transition-colors">
+              <td class="px-6 py-4 font-mono text-slate-300">1290009921</td>
+              <td class="px-6 py-4 text-slate-300">
+                <div class="font-medium text-white">Cadeira Giratória Executiva</div>
+                <div class="truncate w-64 text-xs mt-0.5 opacity-60">Cor preta, base cromada, com braços...</div>
+              </td>
+              <td class="px-6 py-4">Secretaria</td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20">Em Cautela</span>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <button class="invisible group-hover:visible rounded-lg p-2 hover:bg-white/10 hover:text-white transition-all text-blue-400 font-medium">
+                  Detalhes
+                </button>
+              </td>
+            </tr>
+             <tr class="group hover:bg-white/5 transition-colors">
+              <td class="px-6 py-4 font-mono text-slate-300">1290004555</td>
+              <td class="px-6 py-4 text-slate-300">
+                <div class="font-medium text-white">Scanner de Mesa Avision</div>
+                <div class="truncate w-64 text-xs mt-0.5 opacity-60">Alta velocidade, duplex, colorido...</div>
+              </td>
+              <td class="px-6 py-4">Cartório</td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-400 ring-1 ring-inset ring-rose-500/20">Baixado</span>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <button class="invisible group-hover:visible rounded-lg p-2 hover:bg-white/10 hover:text-white transition-all text-blue-400 font-medium">
+                  Detalhes
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-blue-500">
+      <i data-lucide="plus" class="h-6 w-6"></i>
+    </button>
+  </main>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

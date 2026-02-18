@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "patrimonio-drive-fotos",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       },
       "id": "8c7e4c3c-2f42-4a28-9e9c-4fbc58c1cf0e",
@@ -47,6 +47,7 @@
         780,
         300
       ],
+      "continueOnFail": true,
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "__PREENCHA_NO_N8N__",
@@ -56,7 +57,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = items[0].json || {};\n\nconst fileId = r.id || r.fileId || null;\n\n// Diferentes versões/nós do Drive retornam campos ligeiramente diferentes.\n// Se não vier link, montamos a URL a partir do fileId.\nconst driveUrl =\n  r.webViewLink ||\n  r.alternateLink ||\n  r.url ||\n  r.webContentLink ||\n  (fileId ? `https://drive.google.com/file/d/${String(fileId)}/view` : null);\n\nreturn [\n  {\n    json: {\n      driveUrl,\n      fileId,\n      name: r.name || null,\n      mimeType: r.mimeType || null,\n    },\n  },\n];"
+        "jsCode": "const r = items[0].json || {};\n\n// Em caso de falha (continueOnFail), o node pode trazer sinais de erro.\nconst errorMsg =\n  (r.error && (r.error.message || r.error)) ||\n  r.message ||\n  null;\n\nconst fileId = r.id || r.fileId || null;\n\n// Diferentes versões/nós do Drive retornam campos ligeiramente diferentes.\n// Se não vier link, montamos a URL a partir do fileId.\nconst driveUrl =\n  r.webViewLink ||\n  r.alternateLink ||\n  r.url ||\n  r.webContentLink ||\n  (fileId ? `https://drive.google.com/file/d/${String(fileId)}/view` : null);\n\nconst ok = Boolean(driveUrl);\n\nreturn [\n  {\n    json: {\n      ok,\n      driveUrl,\n      fileId,\n      name: r.name || null,\n      mimeType: r.mimeType || null,\n      error: ok ? null : (errorMsg || \"UPLOAD_FALHOU_NO_N8N\"),\n      raw: ok ? undefined : r,\n    },\n  },\n];"
       },
       "id": "e8c1dfe5-8f1c-45f2-97d4-14f9a2c5e561",
       "name": "Montar Resposta",
@@ -64,20 +65,6 @@
       "typeVersion": 2,
       "position": [
         1040,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "responseBody": "={{$json}}",
-        "options": {}
-      },
-      "id": "0d0df3a9-2b49-4cf0-9b5d-2c0cfb2b6c8b",
-      "name": "Responder Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        1280,
         300
       ]
     }
@@ -110,17 +97,6 @@
         [
           {
             "node": "Montar Resposta",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Montar Resposta": {
-      "main": [
-        [
-          {
-            "node": "Responder Webhook",
             "type": "main",
             "index": 0
           }

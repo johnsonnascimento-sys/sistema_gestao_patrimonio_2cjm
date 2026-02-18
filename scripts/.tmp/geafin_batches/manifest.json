@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-02-16T19:01:04.322Z",
+  "sourceFile": "relatorio.csv",
+  "outputDir": "scripts/.tmp/geafin_batches",
+  "delimiter": ";",
+  "totalRows": 3833,
+  "validRows": 3833,
+  "invalidRows": 0,
+  "chunkSize": 250,
+  "batchCount": 16,
+  "files": [
+    "batch_001.sql",
+    "batch_002.sql",
+    "batch_003.sql",
+    "batch_004.sql",
+    "batch_005.sql",
+    "batch_006.sql",
+    "batch_007.sql",
+    "batch_008.sql",
+    "batch_009.sql",
+    "batch_010.sql",
+    "batch_011.sql",
+    "batch_012.sql",
+    "batch_013.sql",
+    "batch_014.sql",
+    "batch_015.sql",
+    "batch_016.sql"
+  ],
+  "invalidPreview": []
+}

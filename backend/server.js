@@ -1971,6 +1971,11 @@ app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
       throw new HttpError(502, "DRIVE_UPLOAD_FALHOU", "Falha ao enviar foto para o n8n/Drive.", payload || undefined);
     }
 
+    // Quando o workflow esta em "continueOnFail", podemos receber erro em 200.
+    if (payload?.ok === false || payload?.error) {
+      throw new HttpError(502, "DRIVE_UPLOAD_FALHOU", "Falha ao enviar foto para o n8n/Drive.", payload || undefined);
+    }
+
     const fileId = payload?.fileId || payload?.id || payload?.file?.id || null;
     const driveUrl =
       payload?.webViewLink ||

@@ -1,0 +1,12 @@
+set -e
+cd /opt/cjm-patrimonio/current
+set -a
+. ./.env
+set +a
+
+docker run --rm --network host \
+  -e DATABASE_URL \
+  -v "$(pwd)":/app \
+  -w /app \
+  postgres:16-alpine \
+  sh -lc 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/003_geafin_raw.sql'
