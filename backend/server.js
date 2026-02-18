@@ -574,6 +574,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          b.unidade_dona_id AS "unidadeDonaId",
          b.responsavel_perfil_id AS "responsavelPerfilId",
          b.local_fisico AS "localFisico",
+         b.local_id AS "localId",
          b.status::text AS "status",
          b.tipo_inservivel::text AS "tipoInservivel",
          b.eh_bem_terceiro AS "ehBemTerceiro",
@@ -581,6 +582,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          b.contrato_referencia AS "contratoReferencia",
          b.data_aquisicao AS "dataAquisicao",
          b.valor_aquisicao AS "valorAquisicao",
+         b.foto_url AS "fotoUrl",
          b.created_at AS "createdAt",
          b.updated_at AS "updatedAt",
          cb.id AS "catalogoBemId",
@@ -588,6 +590,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          cb.descricao AS "catalogoDescricao",
          cb.grupo AS "catalogoGrupo",
          cb.material_permanente AS "materialPermanente",
+         cb.foto_referencia_url AS "fotoReferenciaUrl",
          cb.created_at AS "catalogoCreatedAt",
          cb.updated_at AS "catalogoUpdatedAt",
          p.id AS "responsavelId",
@@ -653,6 +656,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         unidadeDonaId: row.unidadeDonaId,
         responsavelPerfilId: row.responsavelPerfilId,
         localFisico: row.localFisico,
+        localId: row.localId,
         status: row.status,
         tipoInservivel: row.tipoInservivel,
         ehBemTerceiro: row.ehBemTerceiro,
@@ -660,6 +664,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         contratoReferencia: row.contratoReferencia,
         dataAquisicao: row.dataAquisicao,
         valorAquisicao: row.valorAquisicao,
+        fotoUrl: row.fotoUrl,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         catalogoBemId: row.catalogoBemId,
@@ -670,6 +675,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         descricao: row.catalogoDescricao,
         grupo: row.catalogoGrupo,
         materialPermanente: row.materialPermanente,
+        fotoReferenciaUrl: row.fotoReferenciaUrl,
         createdAt: row.catalogoCreatedAt,
         updatedAt: row.catalogoUpdatedAt,
       },
@@ -1711,6 +1717,285 @@ app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
 });
 
 /**
+ * Atualiza dados do bem (admin) exceto chaves de identificacao.
+ *
+ * Regras:
+ * - Nao permite alterar: id, numero_tombamento, identificador_externo, eh_bem_terceiro.
+ * - Mudanca de carga (unidade_dona_id) segue regras legais: Art. 183 bloqueia durante EM_ANDAMENTO.
+ */
+app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    if (Object.prototype.hasOwnProperty.call(body, "numeroTombamento") || Object.prototype.hasOwnProperty.call(body, "numero_tombamento")) {
+      throw new HttpError(422, "CHAVE_IMUTAVEL", "numeroTombamento e imutavel.");
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "identificadorExterno") || Object.prototype.hasOwnProperty.call(body, "identificador_externo")) {
+      throw new HttpError(422, "CHAVE_IMUTAVEL", "identificadorExterno e imutavel.");
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "ehBemTerceiro") || Object.prototype.hasOwnProperty.call(body, "eh_bem_terceiro")) {
+      throw new HttpError(422, "CHAVE_IMUTAVEL", "ehBemTerceiro e imutavel.");
+    }
+
+    const patch = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, "catalogoBemId")) {
+      const catalogoBemId = body.catalogoBemId != null ? String(body.catalogoBemId).trim() : "";
+      if (!UUID_RE.test(catalogoBemId)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "catalogoBemId deve ser UUID.");
+      patch.catalogoBemId = catalogoBemId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "descricaoComplementar")) {
+      patch.descricaoComplementar = body.descricaoComplementar != null ? String(body.descricaoComplementar).trim().slice(0, 2000) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "unidadeDonaId")) {
+      const unidadeDonaId = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== "" ? Number(body.unidadeDonaId) : null;
+      if (unidadeDonaId == null || !Number.isInteger(unidadeDonaId) || !VALID_UNIDADES.has(unidadeDonaId)) {
+        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+      }
+      patch.unidadeDonaId = unidadeDonaId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "responsavelPerfilId")) {
+      const raw = body.responsavelPerfilId != null ? String(body.responsavelPerfilId).trim() : "";
+      if (!raw) patch.responsavelPerfilId = null;
+      else {
+        if (!UUID_RE.test(raw)) throw new HttpError(422, "RESPONSAVEL_INVALIDO", "responsavelPerfilId deve ser UUID ou null.");
+        patch.responsavelPerfilId = raw;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "localFisico")) {
+      patch.localFisico = body.localFisico != null ? String(body.localFisico).trim().slice(0, 180) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "localId")) {
+      const raw = body.localId != null ? String(body.localId).trim() : "";
+      if (!raw) patch.localId = null;
+      else {
+        if (!UUID_RE.test(raw)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID ou null.");
+        patch.localId = raw;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "status")) {
+      const status = String(body.status || "").trim().toUpperCase();
+      const allowed = new Set(["OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"]);
+      if (!allowed.has(status)) throw new HttpError(422, "STATUS_INVALIDO", "status invalido.");
+      patch.status = status;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "tipoInservivel")) {
+      const raw = body.tipoInservivel != null ? String(body.tipoInservivel).trim().toUpperCase() : "";
+      if (!raw) patch.tipoInservivel = null;
+      else {
+        const allowed = new Set(["OCIOSO", "RECUPERAVEL", "ANTIECONOMICO", "IRRECUPERAVEL"]);
+        if (!allowed.has(raw)) throw new HttpError(422, "TIPO_INVALIDO", "tipoInservivel invalido.");
+        patch.tipoInservivel = raw;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "contratoReferencia")) {
+      patch.contratoReferencia = body.contratoReferencia != null ? String(body.contratoReferencia).trim().slice(0, 140) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "dataAquisicao")) {
+      patch.dataAquisicao = parseDateOnly(body.dataAquisicao);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "valorAquisicao")) {
+      const raw = body.valorAquisicao;
+      if (raw == null || String(raw).trim() === "") patch.valorAquisicao = null;
+      else {
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) throw new HttpError(422, "VALOR_INVALIDO", "valorAquisicao deve ser >= 0.");
+        patch.valorAquisicao = n;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "fotoUrl")) {
+      patch.fotoUrl = body.fotoUrl != null ? String(body.fotoUrl).trim().slice(0, 2000) : null;
+    }
+
+    const fields = [];
+    const params = [];
+    let i = 1;
+
+    if (patch.catalogoBemId != null) {
+      fields.push(`catalogo_bem_id = $${i}`);
+      params.push(patch.catalogoBemId);
+      i += 1;
+    }
+    if (patch.descricaoComplementar !== undefined) {
+      fields.push(`descricao_complementar = $${i}`);
+      params.push(patch.descricaoComplementar);
+      i += 1;
+    }
+    if (patch.unidadeDonaId != null) {
+      fields.push(`unidade_dona_id = $${i}`);
+      params.push(patch.unidadeDonaId);
+      i += 1;
+    }
+    if (patch.responsavelPerfilId !== undefined) {
+      fields.push(`responsavel_perfil_id = $${i}`);
+      params.push(patch.responsavelPerfilId);
+      i += 1;
+    }
+    if (patch.localFisico !== undefined) {
+      fields.push(`local_fisico = $${i}`);
+      params.push(patch.localFisico);
+      i += 1;
+    }
+    if (patch.localId !== undefined) {
+      fields.push(`local_id = $${i}`);
+      params.push(patch.localId);
+      i += 1;
+    }
+    if (patch.status != null) {
+      fields.push(`status = $${i}::public.status_bem`);
+      params.push(patch.status);
+      i += 1;
+    }
+    if (patch.tipoInservivel !== undefined) {
+      fields.push(`tipo_inservivel = $${i}::public.tipo_inservivel`);
+      params.push(patch.tipoInservivel);
+      i += 1;
+    }
+    if (patch.contratoReferencia !== undefined) {
+      fields.push(`contrato_referencia = $${i}`);
+      params.push(patch.contratoReferencia);
+      i += 1;
+    }
+    if (patch.dataAquisicao !== undefined) {
+      fields.push(`data_aquisicao = $${i}`);
+      params.push(patch.dataAquisicao);
+      i += 1;
+    }
+    if (patch.valorAquisicao !== undefined) {
+      fields.push(`valor_aquisicao = $${i}`);
+      params.push(patch.valorAquisicao);
+      i += 1;
+    }
+    if (patch.fotoUrl !== undefined) {
+      fields.push(`foto_url = $${i}`);
+      params.push(patch.fotoUrl);
+      i += 1;
+    }
+
+    if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+
+    const r = await client.query(
+      `UPDATE bens
+       SET ${fields.join(", ")}, updated_at = NOW()
+       WHERE id = $${i}
+       RETURNING id,
+         numero_tombamento AS "numeroTombamento",
+         catalogo_bem_id AS "catalogoBemId",
+         descricao_complementar AS "descricaoComplementar",
+         unidade_dona_id AS "unidadeDonaId",
+         responsavel_perfil_id AS "responsavelPerfilId",
+         local_fisico AS "localFisico",
+         local_id AS "localId",
+         status::text AS "status",
+         tipo_inservivel::text AS "tipoInservivel",
+         contrato_referencia AS "contratoReferencia",
+         data_aquisicao AS "dataAquisicao",
+         valor_aquisicao AS "valorAquisicao",
+         foto_url AS "fotoUrl",
+         updated_at AS "updatedAt";`,
+      [...params, id],
+    );
+    if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    await client.query("COMMIT");
+    res.json({ requestId: req.requestId, bem: r.rows[0] });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * Upload de foto para Google Drive via n8n (webhook) e persistencia do link no banco.
+ * Restrito a ADMIN.
+ *
+ * Regra operacional:
+ * - O binario nao fica no banco; apenas o link no Drive.
+ * - Requer configurar N8N_DRIVE_PHOTOS_WEBHOOK_URL no ambiente.
+ */
+app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
+  try {
+    const webhookUrl = String(process.env.N8N_DRIVE_PHOTOS_WEBHOOK_URL || "").trim();
+    if (!webhookUrl) throw new HttpError(501, "DRIVE_UPLOAD_NAO_CONFIGURADO", "Configure N8N_DRIVE_PHOTOS_WEBHOOK_URL no backend.");
+
+    const body = req.body || {};
+    const target = String(body.target || "").trim().toUpperCase();
+    const id = String(body.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "ID_INVALIDO", "id deve ser UUID.");
+    if (!["BEM", "CATALOGO"].includes(target)) throw new HttpError(422, "TARGET_INVALIDO", "target deve ser BEM ou CATALOGO.");
+
+    const filename = String(body.filename || "foto.jpg").trim().slice(0, 180);
+    const mimeType = String(body.mimeType || "image/jpeg").trim().slice(0, 80);
+    const base64Data = String(body.base64Data || "").trim();
+    if (!base64Data) throw new HttpError(422, "FOTO_OBRIGATORIA", "base64Data e obrigatorio.");
+    if (base64Data.length > 12_000_000) throw new HttpError(413, "FOTO_GRANDE", "Foto grande demais (reduza a resolucao).");
+
+    const folderId = String(process.env.DRIVE_PHOTOS_FOLDER_ID || "1DN-hBXCZ21t4Mx4Pel_w3QisitOkc9MI").trim();
+
+    const n8nResp = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        folderId,
+        filename,
+        mimeType,
+        base64Data,
+        target,
+        entityId: id,
+      }),
+    });
+
+    const payload = await n8nResp.json().catch(() => null);
+    if (!n8nResp.ok) {
+      throw new HttpError(502, "DRIVE_UPLOAD_FALHOU", "Falha ao enviar foto para o n8n/Drive.", payload || undefined);
+    }
+
+    const driveUrl = payload?.webViewLink || payload?.url || payload?.driveUrl || null;
+    if (!driveUrl) throw new HttpError(502, "DRIVE_SEM_URL", "n8n nao retornou webViewLink/url.");
+
+    if (target === "BEM") {
+      const r = await pool.query(
+        `UPDATE bens SET foto_url = $2, updated_at = NOW() WHERE id = $1
+         RETURNING id, foto_url AS "fotoUrl", updated_at AS "updatedAt";`,
+        [id, String(driveUrl).slice(0, 2000)],
+      );
+      if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+      res.json({ requestId: req.requestId, driveUrl, bem: r.rows[0] });
+      return;
+    }
+
+    const r = await pool.query(
+      `UPDATE catalogo_bens SET foto_referencia_url = $2, updated_at = NOW() WHERE id = $1
+       RETURNING id, foto_referencia_url AS "fotoReferenciaUrl", updated_at AS "updatedAt";`,
+      [id, String(driveUrl).slice(0, 2000)],
+    );
+    if (!r.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
+    res.json({ requestId: req.requestId, driveUrl, catalogo: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Vincula (em lote) bens a um local cadastrado (bens.local_id) com base em filtro de local_fisico (texto do GEAFIN).
  * Restrito a ADMIN (quando auth ativa).
  *
@@ -2476,7 +2761,10 @@ function openapi() {
       "/auth/me": { get: { summary: "Retorna o perfil autenticado", responses: { 200: { description: "OK" }, 401: { description: "Nao autenticado" } } } },
       "/stats": { get: { summary: "Estatisticas basicas de bens", responses: { 200: { description: "OK" } } } },
       "/bens": { get: { summary: "Listagem/consulta de bens (paginado)", responses: { 200: { description: "OK" } } } },
-      "/bens/{id}": { get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
+      "/bens/{id}": {
+        get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } },
+        patch: { summary: "Atualizar bem (ADMIN) exceto chaves", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } },
+      },
       "/locais": {
         get: { summary: "Listar locais/salas padronizados (query: unidadeId, includeInativos)", responses: { 200: { description: "OK" } } },
         post: { summary: "Criar/atualizar local (ADMIN)", responses: { 201: { description: "Criado/atualizado" } } },
@@ -2508,6 +2796,7 @@ function openapi() {
       "/inventario/regularizacoes": {
         post: { summary: "Regularizar divergencia pos-inventario (Art. 185)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado/nao encerrado" } } },
       },
+      "/drive/fotos/upload": { post: { summary: "Upload foto para Drive via n8n (ADMIN) e persistir link", responses: { 200: { description: "OK" }, 502: { description: "Falha Drive/n8n" } } } },
     },
   };
 }

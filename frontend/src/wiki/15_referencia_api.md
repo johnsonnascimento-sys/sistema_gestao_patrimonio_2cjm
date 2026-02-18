@@ -311,6 +311,53 @@ Campos (JSON):
 - `localId` (opcional; UUID)
 - `fotoUrl` (opcional)
 
+### PATCH `/bens/{id}`
+
+Uso: atualizar campos do bem (ADMIN), exceto chaves imutáveis.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Observação:
+
+- Mudanças de `unidadeDonaId` disparam trilha/auditoria de transferência (Art. 124 - AN303_Art124) e podem ser bloqueadas por inventário em andamento (Art. 183 - AN303_Art183).
+
+Campos (JSON) comuns:
+
+- `catalogoBemId` (opcional; UUID)
+- `unidadeDonaId` (opcional; 1..4)
+- `status` (opcional)
+- `descricaoComplementar` (opcional)
+- `responsavelPerfilId` (opcional; UUID)
+- `contratoReferencia` (opcional)
+- `dataAquisicao` (opcional; `YYYY-MM-DD`)
+- `valorAquisicao` (opcional; número)
+- `localFisico` (opcional; texto legado do GEAFIN)
+- `localId` (opcional; UUID)
+- `fotoUrl` (opcional; link do Drive)
+
+### POST `/drive/fotos/upload`
+
+Uso: enviar uma foto (item ou referência do SKU) ao Google Drive via n8n e persistir o link no banco.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Pré-requisitos:
+
+- Backend com `N8N_DRIVE_PHOTOS_WEBHOOK_URL` configurado.
+- Workflow n8n importado: `automations/n8n_drive_upload_fotos_webhook.json` (com credencial do Google Drive).
+
+Body (JSON):
+
+- `target`: `BEM|CATALOGO`
+- `id`: UUID do `bens.id` (quando `BEM`) ou do `catalogo_bens.id` (quando `CATALOGO`)
+- `filename` (opcional)
+- `mimeType` (opcional)
+- `base64Data` (obrigatório; base64 do arquivo)
+
 ### POST `/bens/vincular-local`
 
 Uso: vincular (em lote) `bens.local_id` a partir de um filtro pelo texto do GEAFIN (`local_fisico`).

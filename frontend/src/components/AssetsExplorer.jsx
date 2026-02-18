@@ -3,16 +3,16 @@
  * Arquivo: AssetsExplorer.jsx
  * Funcao no sistema: consulta paginada do cadastro de bens via API backend.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
-  atualizarBemOperacional,
-  atualizarFotoCatalogo,
+  atualizarBem,
   getBemDetalhe,
   getStats,
   listarBens,
   listarLocais,
+  uploadFotoDrive,
 } from "../services/apiClient.js";
 
 const STATUS_OPTIONS = ["", "OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
@@ -362,6 +362,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const hist = state?.data?.historicoTransferencias || [];
 
   const [edit, setEdit] = useState({
+    catalogoBemId: imp?.catalogoBemId || "",
+    unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
+    status: imp?.status || "",
+    descricaoComplementar: imp?.descricaoComplementar || "",
+    responsavelPerfilId: imp?.responsavelPerfilId || "",
+    contratoReferencia: imp?.contratoReferencia || "",
+    dataAquisicao: imp?.dataAquisicao ? String(imp.dataAquisicao).slice(0, 10) : "",
+    valorAquisicao: imp?.valorAquisicao != null ? String(imp.valorAquisicao) : "",
     localFisico: imp?.localFisico || "",
     localId: imp?.localId || "",
     fotoUrl: imp?.fotoUrl || "",
@@ -369,9 +377,22 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   });
   const [editMsg, setEditMsg] = useState(null);
   const [editErr, setEditErr] = useState(null);
+  const [uploadState, setUploadState] = useState({ loading: false, error: null });
+  const itemFileRef = useRef(null);
+  const itemCameraRef = useRef(null);
+  const catalogFileRef = useRef(null);
+  const catalogCameraRef = useRef(null);
 
   useEffect(() => {
     setEdit({
+      catalogoBemId: imp?.catalogoBemId || "",
+      unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
+      status: imp?.status || "",
+      descricaoComplementar: imp?.descricaoComplementar || "",
+      responsavelPerfilId: imp?.responsavelPerfilId || "",
+      contratoReferencia: imp?.contratoReferencia || "",
+      dataAquisicao: imp?.dataAquisicao ? String(imp.dataAquisicao).slice(0, 10) : "",
+      valorAquisicao: imp?.valorAquisicao != null ? String(imp.valorAquisicao) : "",
       localFisico: imp?.localFisico || "",
       localId: imp?.localId || "",
       fotoUrl: imp?.fotoUrl || "",
@@ -379,50 +400,100 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     });
     setEditMsg(null);
     setEditErr(null);
+    setUploadState({ loading: false, error: null });
   }, [imp?.id, catalogo?.id]);
 
   const locaisQuery = useQuery({
-    queryKey: ["locais", imp?.unidadeDonaId || null],
+    queryKey: ["locais", "todos"],
     enabled: Boolean(isAdmin && imp?.id),
     queryFn: async () => {
-      const data = await listarLocais({ unidadeId: Number(imp.unidadeDonaId) || undefined });
+      const data = await listarLocais({});
       return data.items || [];
     },
   });
 
-  const salvarOperacionalMut = useMutation({
+  const locaisOptions = useMemo(() => {
+    const unidade = imp?.unidadeDonaId != null ? Number(imp.unidadeDonaId) : null;
+    return (locaisQuery.data || []).filter((l) => {
+      if (l.ativo === false) return false;
+      if (unidade == null) return true;
+      return l.unidadeId == null || Number(l.unidadeId) === unidade;
+    });
+  }, [locaisQuery.data, imp?.unidadeDonaId]);
+
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Falha ao ler arquivo."));
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const idx = result.indexOf("base64,");
+        resolve(idx >= 0 ? result.slice(idx + 7) : result);
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const doUploadFoto = async ({ target, file }) => {
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) throw new Error("Foto grande demais (max 5MB).");
+    const base64Data = await readFileAsBase64(file);
+    const entityId = target === "BEM" ? String(imp?.id || "") : String(catalogo?.id || imp?.catalogoBemId || "");
+    if (!entityId) throw new Error("Id ausente para upload.");
+    return uploadFotoDrive({
+      target,
+      id: entityId,
+      filename: String(file.name || "foto.jpg"),
+      mimeType: String(file.type || "image/jpeg"),
+      base64Data,
+    });
+  };
+
+  const salvarBemMut = useMutation({
     mutationFn: async () => {
       if (!imp?.id) throw new Error("BemId ausente.");
-      return atualizarBemOperacional(imp.id, {
-        localFisico: edit.localFisico.trim() || null,
+      return atualizarBem(imp.id, {
+        catalogoBemId: edit.catalogoBemId ? String(edit.catalogoBemId).trim() : undefined,
+        unidadeDonaId: edit.unidadeDonaId ? Number(edit.unidadeDonaId) : undefined,
+        status: edit.status || undefined,
+        descricaoComplementar: edit.descricaoComplementar || null,
+        responsavelPerfilId: edit.responsavelPerfilId || null,
+        contratoReferencia: edit.contratoReferencia || null,
+        dataAquisicao: edit.dataAquisicao || null,
+        valorAquisicao: edit.valorAquisicao !== "" ? Number(edit.valorAquisicao) : null,
+        localFisico: edit.localFisico || null,
         localId: edit.localId ? String(edit.localId) : null,
-        fotoUrl: edit.fotoUrl.trim() || null,
+        fotoUrl: edit.fotoUrl || null,
       });
     },
     onSuccess: async () => {
-      setEditMsg("Dados operacionais atualizados.");
+      setEditMsg("Bem atualizado.");
       setEditErr(null);
       await onReload?.();
     },
     onError: (e) => {
-      setEditErr(String(e?.message || "Falha ao atualizar dados operacionais."));
+      setEditErr(String(e?.message || "Falha ao atualizar bem."));
       setEditMsg(null);
     },
   });
 
-  const salvarFotoCatalogoMut = useMutation({
-    mutationFn: async () => {
-      const catalogoId = catalogo?.id || imp?.catalogoBemId;
-      if (!catalogoId) throw new Error("catalogoBemId ausente.");
-      return atualizarFotoCatalogo(catalogoId, edit.fotoReferenciaUrl.trim() || "");
-    },
-    onSuccess: async () => {
-      setEditMsg("Foto de referência do catálogo atualizada.");
+  const uploadFotoMut = useMutation({
+    mutationFn: async ({ target, file }) => doUploadFoto({ target, file }),
+    onSuccess: async (data, vars) => {
+      const url = data?.driveUrl || data?.webViewLink || data?.url || data?.drive || "";
+      if (!url) throw new Error("Upload retornou sem URL.");
+
+      if (vars?.target === "BEM") {
+        setEdit((p) => ({ ...p, fotoUrl: url }));
+        setEditMsg("Foto do item enviada ao Drive e vinculada ao bem.");
+      } else {
+        setEdit((p) => ({ ...p, fotoReferenciaUrl: url }));
+        setEditMsg("Foto de referência enviada ao Drive e vinculada ao catálogo.");
+      }
       setEditErr(null);
       await onReload?.();
     },
     onError: (e) => {
-      setEditErr(String(e?.message || "Falha ao atualizar foto do catálogo."));
+      setEditErr(String(e?.message || "Falha ao enviar foto."));
       setEditMsg(null);
     },
   });
@@ -487,70 +558,270 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                 <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-xs uppercase tracking-widest text-slate-400">Editar (ADMIN)</p>
-                    <p className="text-[11px] text-slate-400">Camada operacional melhorada (fotos/locais).</p>
+                    <p className="text-[11px] text-slate-400">
+                      Edite campos operacionais (exceto chaves). Sala/Local vem do cadastro de locais.
+                    </p>
                   </div>
 
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-300">Catálogo (SKU) id (UUID)</span>
+                      <input
+                        value={edit.catalogoBemId}
+                        onChange={(e) => setEdit((p) => ({ ...p, catalogoBemId: e.target.value }))}
+                        placeholder={catalogo?.id || imp.catalogoBemId || "UUID do catálogo"}
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 font-mono text-xs"
+                      />
+                      <p className="text-[11px] text-slate-400">
+                        Use apenas para correção manual. Idealmente o SKU vem da normalização do GEAFIN.
+                      </p>
+                    </label>
+
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Local físico (texto)</span>
+                      <span className="text-xs text-slate-300">Unidade (carga)</span>
+                      <select
+                        value={edit.unidadeDonaId}
+                        onChange={(e) => setEdit((p) => ({ ...p, unidadeDonaId: e.target.value }))}
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      >
+                        <option value="">(não alterar)</option>
+                        {["1", "2", "3", "4"].map((u) => (
+                          <option key={u} value={u}>
+                            {formatUnidade(Number(u))}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-slate-400">
+                        Regra legal: transferências podem ser bloqueadas durante inventário (Art. 183 - AN303_Art183).
+                      </p>
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Status do bem</span>
+                      <select
+                        value={edit.status}
+                        onChange={(e) => setEdit((p) => ({ ...p, status: e.target.value }))}
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      >
+                        {STATUS_OPTIONS.filter(Boolean).map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-300">Descrição complementar (item)</span>
+                      <input
+                        value={edit.descricaoComplementar}
+                        onChange={(e) => setEdit((p) => ({ ...p, descricaoComplementar: e.target.value }))}
+                        placeholder="Ex.: Cadeira com avaria no braço direito..."
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Responsável (perfilId UUID)</span>
+                      <input
+                        value={edit.responsavelPerfilId}
+                        onChange={(e) => setEdit((p) => ({ ...p, responsavelPerfilId: e.target.value }))}
+                        placeholder="UUID do perfil responsável"
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 font-mono text-xs"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Contrato referência</span>
+                      <input
+                        value={edit.contratoReferencia}
+                        onChange={(e) => setEdit((p) => ({ ...p, contratoReferencia: e.target.value }))}
+                        placeholder="Ex.: Contrato 12/2026"
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Data de aquisição</span>
+                      <input
+                        value={edit.dataAquisicao}
+                        onChange={(e) => setEdit((p) => ({ ...p, dataAquisicao: e.target.value }))}
+                        type="date"
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Valor de aquisição</span>
+                      <input
+                        value={edit.valorAquisicao}
+                        onChange={(e) => setEdit((p) => ({ ...p, valorAquisicao: e.target.value }))}
+                        inputMode="decimal"
+                        placeholder="Ex.: 3500.00"
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-300">Local físico (texto do GEAFIN / legado)</span>
                       <input
                         value={edit.localFisico}
                         onChange={(e) => setEdit((p) => ({ ...p, localFisico: e.target.value }))}
                         className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
                       />
+                      <p className="text-[11px] text-slate-400">
+                        Este campo é apenas texto e não equivale a “Sala/Local padronizado”.
+                      </p>
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Local (padronizado)</span>
+                      <span className="text-xs text-slate-300">Sala/Local (padronizado)</span>
                       <select
                         value={edit.localId || ""}
                         onChange={(e) => setEdit((p) => ({ ...p, localId: e.target.value }))}
                         className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
                       >
                         <option value="">(nenhum)</option>
-                        {(locaisQuery.data || []).map((l) => (
+                        {locaisOptions.map((l) => (
                           <option key={l.id} value={l.id}>
                             {l.nome}
+                            {l.unidadeId ? ` (${formatUnidade(Number(l.unidadeId))})` : " (geral)"}
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-300">Foto do item (URL)</span>
-                      <input
-                        value={edit.fotoUrl}
-                        onChange={(e) => setEdit((p) => ({ ...p, fotoUrl: e.target.value }))}
-                        placeholder="https://..."
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                      />
-                    </label>
-                    <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-300">Foto de referência do catálogo (URL)</span>
-                      <input
-                        value={edit.fotoReferenciaUrl}
-                        onChange={(e) => setEdit((p) => ({ ...p, fotoReferenciaUrl: e.target.value }))}
-                        placeholder="https://..."
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                      />
+                      {locaisQuery.isLoading ? (
+                        <p className="text-[11px] text-slate-400">Carregando locais cadastrados...</p>
+                      ) : null}
                     </label>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
+                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto do item (Drive)</p>
+                      <p className="mt-2 break-all text-xs text-slate-300">{edit.fotoUrl || "-"}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => itemCameraRef.current?.click()}
+                          disabled={uploadFotoMut.isPending}
+                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Tirar foto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => itemFileRef.current?.click()}
+                          disabled={uploadFotoMut.isPending}
+                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Enviar arquivo
+                        </button>
+                      </div>
+                      <input
+                        ref={itemCameraRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          setUploadState({ loading: true, error: null });
+                          try {
+                            await uploadFotoMut.mutateAsync({ target: "BEM", file });
+                          } finally {
+                            setUploadState({ loading: false, error: null });
+                          }
+                        }}
+                      />
+                      <input
+                        ref={itemFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          setUploadState({ loading: true, error: null });
+                          try {
+                            await uploadFotoMut.mutateAsync({ target: "BEM", file });
+                          } finally {
+                            setUploadState({ loading: false, error: null });
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
+                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto de referência (SKU) (Drive)</p>
+                      <p className="mt-2 break-all text-xs text-slate-300">{edit.fotoReferenciaUrl || "-"}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => catalogCameraRef.current?.click()}
+                          disabled={uploadFotoMut.isPending}
+                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Tirar foto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => catalogFileRef.current?.click()}
+                          disabled={uploadFotoMut.isPending}
+                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Enviar arquivo
+                        </button>
+                      </div>
+                      <input
+                        ref={catalogCameraRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          setUploadState({ loading: true, error: null });
+                          try {
+                            await uploadFotoMut.mutateAsync({ target: "CATALOGO", file });
+                          } finally {
+                            setUploadState({ loading: false, error: null });
+                          }
+                        }}
+                      />
+                      <input
+                        ref={catalogFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          setUploadState({ loading: true, error: null });
+                          try {
+                            await uploadFotoMut.mutateAsync({ target: "CATALOGO", file });
+                          } finally {
+                            setUploadState({ loading: false, error: null });
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => salvarOperacionalMut.mutate()}
-                      disabled={salvarOperacionalMut.isPending}
+                      onClick={() => salvarBemMut.mutate()}
+                      disabled={salvarBemMut.isPending}
                       className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
                     >
-                      {salvarOperacionalMut.isPending ? "Salvando..." : "Salvar bem"}
+                      {salvarBemMut.isPending ? "Salvando..." : "Salvar alterações do bem"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => salvarFotoCatalogoMut.mutate()}
-                      disabled={salvarFotoCatalogoMut.isPending}
-                      className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
-                    >
-                      {salvarFotoCatalogoMut.isPending ? "Salvando..." : "Salvar foto do catálogo"}
-                    </button>
+                    {uploadFotoMut.isPending ? <span className="text-xs text-slate-300">Enviando foto para o Drive...</span> : null}
                     {editMsg ? <span className="text-xs text-emerald-200">{editMsg}</span> : null}
                     {editErr ? <span className="text-xs text-rose-200">{editErr}</span> : null}
                   </div>

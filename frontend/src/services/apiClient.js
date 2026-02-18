@@ -237,6 +237,24 @@ export async function getBemDetalhe(id) {
 }
 
 /**
+ * Atualiza dados do bem (ADMIN) exceto chaves.
+ * @param {string} id UUID do bem.
+ * @param {object} patch Campos parciais.
+ * @returns {Promise<{requestId: string, bem: any}>} Bem atualizado.
+ */
+export async function atualizarBem(id, patch) {
+  const response = await safeFetch(`${API_BASE_URL}/bens/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(patch || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Cria perfil (necessario para autorizar/executar movimentacoes).
  * @param {object} payload Dados do perfil.
  * @param {string} payload.matricula Matricula unica.
@@ -586,6 +604,23 @@ export async function atualizarFotoCatalogo(catalogoBemId, fotoReferenciaUrl) {
       Accept: "application/json",
     },
     body: JSON.stringify({ fotoReferenciaUrl }),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Upload de foto para Drive via backend/n8n (ADMIN).
+ * @param {{target: 'BEM'|'CATALOGO', id: string, filename: string, mimeType: string, base64Data: string}} payload Payload.
+ * @returns {Promise<object>} Resposta com driveUrl e entidade atualizada.
+ */
+export async function uploadFotoDrive(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/drive/fotos/upload`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
   });
   return parseResponse(response);
 }

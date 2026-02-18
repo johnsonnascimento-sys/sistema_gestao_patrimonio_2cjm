@@ -1,0 +1,135 @@
+{
+  "name": "Patrimonio - Upload de Fotos (Webhook) - 2a CJM",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "patrimonio-drive-fotos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "8c7e4c3c-2f42-4a28-9e9c-4fbc58c1cf0e",
+      "name": "Webhook (Upload Foto)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = items[0].json || {};\n\nconst filename = String(input.filename || 'foto.jpg');\nconst mimeType = String(input.mimeType || 'image/jpeg');\nconst folderId = String(input.folderId || '');\nconst base64Data = String(input.base64Data || '');\n\nif (!folderId) throw new Error('folderId ausente.');\nif (!base64Data) throw new Error('base64Data ausente.');\n\n// n8n espera binario como base64.\nitems[0].binary = {\n  data: {\n    data: base64Data,\n    fileName: filename,\n    mimeType,\n  },\n};\n\nitems[0].json = {\n  ...input,\n  filename,\n  mimeType,\n  folderId,\n};\n\nreturn items;"
+      },
+      "id": "32c1feef-b4f6-4a1c-8dd9-0a8c40c3d5e6",
+      "name": "Preparar Binario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "name": "={{$json.filename}}",
+        "parents": "={{$json.folderId}}"
+      },
+      "id": "3b0b5d7a-2b8e-45af-b16a-0a1463a46f8a",
+      "name": "Google Drive - Upload",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        780,
+        300
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "__PREENCHA_NO_N8N__",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = items[0].json || {};\n\n// Diferentes versoes/nos do Drive retornam campos ligeiramente diferentes.\nconst driveUrl = r.webViewLink || r.alternateLink || r.url || r.webContentLink || null;\n\nreturn [\n  {\n    json: {\n      driveUrl,\n      fileId: r.id || r.fileId || null,\n      name: r.name || null,\n      mimeType: r.mimeType || null,\n    },\n  },\n];"
+      },
+      "id": "e8c1dfe5-8f1c-45f2-97d4-14f9a2c5e561",
+      "name": "Montar Resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "0d0df3a9-2b49-4cf0-9b5d-2c0cfb2b6c8b",
+      "name": "Responder Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (Upload Foto)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Binario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Binario": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Upload": {
+      "main": [
+        [
+          {
+            "node": "Montar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Resposta": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+
