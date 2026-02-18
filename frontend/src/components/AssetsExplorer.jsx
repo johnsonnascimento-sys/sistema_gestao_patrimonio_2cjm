@@ -13,6 +13,7 @@ import {
   listarBens,
   listarLocais,
   uploadFoto,
+  getFotoUrl,
 } from "../services/apiClient.js";
 
 const STATUS_OPTIONS = ["", "OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
@@ -697,7 +698,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
                       <p className="text-xs uppercase tracking-widest text-slate-400">Foto do item</p>
-                      <p className="mt-2 break-all text-xs text-slate-300">{edit.fotoUrl || "-"}</p>
+                      {edit.fotoUrl ? (
+                        <a href={getFotoUrl(edit.fotoUrl)} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                          <img
+                            src={getFotoUrl(edit.fotoUrl)}
+                            alt="Foto do item"
+                            className="h-40 w-full object-contain rounded bg-black/20"
+                          />
+                        </a>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500 italic text-center py-4 border border-dashed border-white/10 rounded">Sem foto</p>
+                      )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -755,7 +766,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
                     <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
                       <p className="text-xs uppercase tracking-widest text-slate-400">Foto de referência (SKU)</p>
-                      <p className="mt-2 break-all text-xs text-slate-300">{edit.fotoReferenciaUrl || "-"}</p>
+                      {edit.fotoReferenciaUrl ? (
+                        <a href={getFotoUrl(edit.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                          <img
+                            src={getFotoUrl(edit.fotoReferenciaUrl)}
+                            alt="Foto de referência"
+                            className="h-40 w-full object-contain rounded bg-black/20"
+                          />
+                        </a>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500 italic text-center py-4 border border-dashed border-white/10 rounded">Sem foto</p>
+                      )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
