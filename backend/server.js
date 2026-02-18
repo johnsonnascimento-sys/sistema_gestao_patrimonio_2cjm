@@ -1725,6 +1725,20 @@ app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
   }
 });
 
+// Helper para deletar foto local
+function deleteLocalFoto(relUrl) {
+  if (!relUrl || !relUrl.startsWith("/fotos/")) return;
+  try {
+    const filePath = path.join(__dirname, "data", relUrl);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`[DELETE] Foto removida: ${filePath}`);
+    }
+  } catch (err) {
+    console.error(`[DELETE ERROR] Falha ao remover ${relUrl}:`, err);
+  }
+}
+
 /**
  * Atualiza dados do bem (admin) exceto chaves de identificacao.
  *
@@ -1893,6 +1907,12 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
       fields.push(`foto_url = $${i}`);
       params.push(patch.fotoUrl);
       i += 1;
+
+      // Se a foto mudou, deletar a antiga
+      const currentFoto = await client.query("SELECT foto_url FROM bens WHERE id = $1", [id]);
+      if (currentFoto.rows[0]?.foto_url && currentFoto.rows[0].foto_url !== patch.fotoUrl) {
+        deleteLocalFoto(currentFoto.rows[0].foto_url);
+      }
     }
 
     if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
@@ -2106,15 +2126,22 @@ app.patch("/catalogo-bens/:id/foto", mustAdmin, async (req, res, next) => {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "id deve ser UUID.");
 
-    const url = String(req.body?.fotoReferenciaUrl || req.body?.url || "").trim().slice(0, 2000);
-    if (!url) throw new HttpError(422, "URL_OBRIGATORIA", "fotoReferenciaUrl e obrigatorio.");
+    const url = req.body?.fotoReferenciaUrl !== undefined ? req.body.fotoReferenciaUrl : req.body?.url;
+    // Permite null/string vazia
+    const finalUrl = url ? String(url).trim().slice(0, 2000) : null;
+
+    // Se a foto mudou, deletar a antiga
+    const currentFoto = await pool.query("SELECT foto_referencia_url FROM catalogo_bens WHERE id = $1", [id]);
+    if (currentFoto.rows[0]?.foto_referencia_url && currentFoto.rows[0].foto_referencia_url !== finalUrl) {
+      deleteLocalFoto(currentFoto.rows[0].foto_referencia_url);
+    }
 
     const r = await pool.query(
       `UPDATE catalogo_bens
        SET foto_referencia_url = $2, updated_at = NOW()
        WHERE id = $1
        RETURNING id, codigo_catalogo AS "codigoCatalogo", foto_referencia_url AS "fotoReferenciaUrl";`,
-      [id, url],
+      [id, finalUrl],
     );
     if (!r.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
 

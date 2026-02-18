@@ -14,6 +14,7 @@ import {
   listarLocais,
   uploadFoto,
   getFotoUrl,
+  atualizarFotoCatalogo,
 } from "../services/apiClient.js";
 
 const STATUS_OPTIONS = ["", "OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
@@ -452,7 +453,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const salvarBemMut = useMutation({
     mutationFn: async () => {
       if (!imp?.id) throw new Error("BemId ausente.");
-      return atualizarBem(imp.id, {
+
+      const bemUpdated = await atualizarBem(imp.id, {
         catalogoBemId: edit.catalogoBemId ? String(edit.catalogoBemId).trim() : undefined,
         unidadeDonaId: edit.unidadeDonaId ? Number(edit.unidadeDonaId) : undefined,
         status: edit.status || undefined,
@@ -465,6 +467,18 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         localId: edit.localId ? String(edit.localId) : null,
         fotoUrl: edit.fotoUrl || null,
       });
+
+      // Atualiza foto do catálogo se houve alteração
+      const targetCatalogoId = edit.catalogoBemId || catalogo?.id;
+      const currentRefUrl = catalogo?.fotoReferenciaUrl || "";
+      const newRefUrl = edit.fotoReferenciaUrl || "";
+
+      // Compara ignorando nulos/vazios iguais
+      if (targetCatalogoId && (newRefUrl !== currentRefUrl)) {
+        await atualizarFotoCatalogo(targetCatalogoId, newRefUrl || null);
+      }
+
+      return bemUpdated;
     },
     onSuccess: async () => {
       setEditMsg("Bem atualizado.");

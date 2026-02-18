@@ -261,6 +261,23 @@ export async function atualizarBem(id, patch) {
 }
 
 /**
+ * Atualiza foto de catálogo (SKU).
+ * @param {string} id UUID do catálogo.
+ * @param {string|null} fotoReferenciaUrl Nova URL ou null para remover.
+ */
+export async function atualizarFotoCatalogo(id, fotoReferenciaUrl) {
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens/${encodeURIComponent(id)}/foto`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ fotoReferenciaUrl }),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Cria perfil (necessario para autorizar/executar movimentacoes).
  * @param {object} payload Dados do perfil.
  * @param {string} payload.matricula Matricula unica.
