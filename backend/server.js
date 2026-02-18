@@ -1263,36 +1263,36 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
          gerado_em AS "geradoEm";`,
       supportsAvaliacao
         ? [
-            tipo,
-            titulo,
-            movimentacaoId || null,
-            contagemId || null,
-            avaliacaoInservivelId || null,
-            termoReferencia,
-            arquivoNome,
-            mime,
-            bytes,
-            sha256,
-            driveFileId,
-            driveUrl,
-            req.user?.id || null,
-            observacoes,
-          ]
+          tipo,
+          titulo,
+          movimentacaoId || null,
+          contagemId || null,
+          avaliacaoInservivelId || null,
+          termoReferencia,
+          arquivoNome,
+          mime,
+          bytes,
+          sha256,
+          driveFileId,
+          driveUrl,
+          req.user?.id || null,
+          observacoes,
+        ]
         : [
-            tipo,
-            titulo,
-            movimentacaoId || null,
-            contagemId || null,
-            termoReferencia,
-            arquivoNome,
-            mime,
-            bytes,
-            sha256,
-            driveFileId,
-            driveUrl,
-            req.user?.id || null,
-            observacoes,
-          ],
+          tipo,
+          titulo,
+          movimentacaoId || null,
+          contagemId || null,
+          termoReferencia,
+          arquivoNome,
+          mime,
+          bytes,
+          sha256,
+          driveFileId,
+          driveUrl,
+          req.user?.id || null,
+          observacoes,
+        ],
     );
 
     res.status(201).json({ requestId: req.requestId, documento: r.rows[0] });
@@ -1512,21 +1512,21 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
 
     const r = existing.rowCount
       ? await client.query(
-          `UPDATE locais
+        `UPDATE locais
            SET unidade_id = $2,
                tipo = $3,
                observacoes = $4,
                ativo = $5
            WHERE id = $1
            RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
-          [existing.rows[0].id, unidadeId, tipo, observacoes, ativo],
-        )
+        [existing.rows[0].id, unidadeId, tipo, observacoes, ativo],
+      )
       : await client.query(
-          `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
+        `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
            VALUES ($1,$2,$3,$4)
            RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
-          [nome, unidadeId, tipo, observacoes],
-        );
+        [nome, unidadeId, tipo, observacoes],
+      );
 
     await client.query("COMMIT");
     res.status(201).json({ requestId: req.requestId, local: r.rows[0] });
@@ -1949,7 +1949,7 @@ app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
     if (!base64Data) throw new HttpError(422, "FOTO_OBRIGATORIA", "base64Data e obrigatorio.");
     if (base64Data.length > 12_000_000) throw new HttpError(413, "FOTO_GRANDE", "Foto grande demais (reduza a resolucao).");
 
-    const folderId = String(process.env.DRIVE_PHOTOS_FOLDER_ID || "1DN-hBXCZ21t4Mx4Pel_w3QisitOkc9MI").trim();
+    const folderId = String(process.env.DRIVE_PHOTOS_FOLDER_ID || "1WKAk_etMFpQcUs4DqPLHPRC48Xvy2fwj").trim();
 
     const n8nResp = await fetch(webhookUrl, {
       method: "POST",
@@ -1964,11 +1964,21 @@ app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
       }),
     });
 
-    let payload = await n8nResp.json().catch(() => null);
+    // Sempre lemos como texto primeiro para conseguir debugar respostas nao-JSON do n8n.
+    const rawText = await n8nResp.text().catch(() => "");
+    let payload = null;
+    if (rawText) {
+      payload = safeJsonParse(rawText);
+    }
     // Alguns respondToWebhook podem devolver lista; normalizamos para objeto.
     if (Array.isArray(payload)) payload = payload[0] || null;
     if (!n8nResp.ok) {
-      throw new HttpError(502, "DRIVE_UPLOAD_FALHOU", "Falha ao enviar foto para o n8n/Drive.", payload || undefined);
+      throw new HttpError(
+        502,
+        "DRIVE_UPLOAD_FALHOU",
+        "Falha ao enviar foto para o n8n/Drive.",
+        payload || (rawText ? { raw: rawText.slice(0, 2000) } : undefined),
+      );
     }
 
     // Quando o workflow esta em "continueOnFail", podemos receber erro em 200.
@@ -1984,11 +1994,12 @@ app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
       (fileId ? `https://drive.google.com/file/d/${String(fileId)}/view` : null);
 
     if (!driveUrl) {
+      console.error("DEBUG n8n response:", JSON.stringify({ payload, rawText }, null, 2));
       throw new HttpError(
         502,
         "DRIVE_SEM_URL",
         "n8n nao retornou webViewLink/url nem fileId.",
-        payload || undefined,
+        payload || (rawText ? { raw: rawText.slice(0, 2000) } : undefined),
       );
     }
 
