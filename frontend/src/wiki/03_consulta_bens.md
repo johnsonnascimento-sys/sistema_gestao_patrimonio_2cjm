@@ -101,11 +101,11 @@ Importante:
 
 No mesmo modal, o `ADMIN` pode:
 
-- Tirar foto na hora (celular) ou enviar arquivo
-- Enviar ao Google Drive via n8n
-- Gravar apenas o link no banco (`bens.foto_url` e `catalogo_bens.foto_referencia_url`)
+- **Tirar foto** na hora (celular) ou **Enviar arquivo** (galeria/computador).
+- A imagem é **automaticamente otimizada** (redimensionada para max 1200px e convertida para WebP) e salva no servidor VPS.
+- **Remover foto**: Clique no botão "Remover foto" para desvincular a imagem do bem. A alteração será efetivada ao clicar em "Salvar alterações do bem".
 
-Pré-requisito: o backend precisa estar configurado com `N8N_DRIVE_PHOTOS_WEBHOOK_URL` (ver Wiki "Admin/VPS" e "Referência de API").
+OBS: O sistema armazena as fotos localmente no servidor para maior performance e privacidade.
 
 ## Dicas de uso (operacao rapida)
 

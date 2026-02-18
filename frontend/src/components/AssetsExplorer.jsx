@@ -727,6 +727,23 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           Enviar arquivo
                         </button>
                       </div>
+                      {edit.fotoUrl && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Remover foto do item?")) {
+                                setEdit((p) => ({ ...p, fotoUrl: null }));
+                                setEditMsg("Foto removida. Clique em 'Salvar alterações do bem' para confirmar.");
+                              }
+                            }}
+                            disabled={uploadFotoMut.isPending}
+                            className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                          >
+                            Remover foto
+                          </button>
+                        </div>
+                      )}
                       <input
                         ref={itemCameraRef}
                         type="file"
@@ -795,6 +812,23 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           Enviar arquivo
                         </button>
                       </div>
+                      {edit.fotoReferenciaUrl && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm("Remover foto de referência?")) {
+                                setEdit((p) => ({ ...p, fotoReferenciaUrl: null }));
+                                setEditMsg("Foto removida. Clique em 'Salvar alterações do bem' para confirmar.");
+                              }
+                            }}
+                            disabled={uploadFotoMut.isPending}
+                            className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                          >
+                            Remover foto
+                          </button>
+                        </div>
+                      )}
                       <input
                         ref={catalogCameraRef}
                         type="file"

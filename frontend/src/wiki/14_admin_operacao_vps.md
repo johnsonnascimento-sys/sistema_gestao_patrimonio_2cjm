@@ -98,30 +98,19 @@ Por padrão:
 - `.env` fica apenas na VPS, não versionado.
 - `DATABASE_URL` aponta para Supabase (Postgres).
 
-## Upload de fotos para o Drive (via n8n)
+## Upload de fotos (VPS Local)
 
 Uso:
 
-- A UI permite anexar **foto do item** e **foto de referência do SKU** no modal de "Detalhes do bem".
-- O binário da foto não fica no banco: o backend envia a imagem ao n8n (webhook) que faz upload no Google Drive e devolve uma URL. O sistema grava apenas o link.
+- A UI permite anexar/remover **foto do item** e **foto de referência do SKU** no modal de "Detalhes do bem".
+- As imagens são enviadas diretamente ao backend, otimizadas (WebP) e salvas localmente em `./data/fotos/`.
+- O banco guarda apenas o caminho relativo.
 
-Pré-requisitos:
+Manutenção:
 
-1. Importar no n8n o workflow: `automations/n8n_drive_upload_fotos_webhook.json`
-2. Configurar a credencial do Google Drive no node "Google Drive - Upload" do workflow.
-3. Definir no `.env` da VPS:
+- As fotos ficam em `./data/fotos` (volume persistido do Docker).
+- Backup: incluir `./data/fotos` nas rotinas de backup.
 
-```bash
-N8N_DRIVE_PHOTOS_WEBHOOK_URL=<production_url_do_webhook_no_n8n>
-DRIVE_PHOTOS_FOLDER_ID=1DN-hBXCZ21t4Mx4Pel_w3QisitOkc9MI
-```
-
-4. Garantir que o `docker-compose.vps.yml` repassa as variáveis `N8N_DRIVE_PHOTOS_WEBHOOK_URL` e `DRIVE_PHOTOS_FOLDER_ID` para o serviço `backend`.
-5. Deploy do backend:
-
-```bash
-./scripts/vps_deploy.sh backend
-```
 
 ## Ativar autenticação (login) em produção
 
