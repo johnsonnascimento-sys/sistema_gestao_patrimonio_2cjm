@@ -16,6 +16,9 @@ const { Pool } = require("pg");
 const { randomUUID, createHash } = require("node:crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const path = require("node:path");
+const fs = require("node:fs");
+const sharp = require("sharp");
 const { generateTermoPdf, generateTablePdf } = require("./src/services/pdfReports");
 
 const { setDbContext } = require("./src/services/dbContext");
@@ -99,7 +102,13 @@ app.use(
     methods: ["GET", "POST", "PATCH", "OPTIONS"],
   }),
 );
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "12mb" }));
+
+// --- Servir fotos salvas localmente (VPS) ---
+const FOTOS_DIR = path.join(__dirname, "data", "fotos");
+fs.mkdirSync(path.join(FOTOS_DIR, "bem"), { recursive: true });
+fs.mkdirSync(path.join(FOTOS_DIR, "catalogo"), { recursive: true });
+app.use("/fotos", express.static(FOTOS_DIR, { maxAge: "7d", immutable: true }));
 app.use((req, res, next) => {
   req.requestId = randomUUID();
   res.setHeader("X-Request-Id", req.requestId);
@@ -1925,105 +1934,78 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
 });
 
 /**
- * Upload de foto para Google Drive via n8n (webhook) e persistencia do link no banco.
+ * Upload de foto para a VPS com otimizacao automatica (WebP, max 1200px).
  * Restrito a ADMIN.
  *
  * Regra operacional:
- * - O binario nao fica no banco; apenas o link no Drive.
- * - Requer configurar N8N_DRIVE_PHOTOS_WEBHOOK_URL no ambiente.
+ * - O binario e salvo em ./data/fotos/{target}/{uuid}_{ts}.webp
+ * - Apenas a URL relativa (/fotos/...) fica no banco.
+ * - Otimiza automaticamente: converte para WebP, redimensiona para max 1200px.
  */
-app.post("/drive/fotos/upload", mustAdmin, async (req, res, next) => {
+app.post("/fotos/upload", mustAdmin, async (req, res, next) => {
   try {
-    const webhookUrl = String(process.env.N8N_DRIVE_PHOTOS_WEBHOOK_URL || "").trim();
-    if (!webhookUrl) throw new HttpError(501, "DRIVE_UPLOAD_NAO_CONFIGURADO", "Configure N8N_DRIVE_PHOTOS_WEBHOOK_URL no backend.");
-
     const body = req.body || {};
     const target = String(body.target || "").trim().toUpperCase();
     const id = String(body.id || "").trim();
-    if (!UUID_RE.test(id)) throw new HttpError(422, "ID_INVALIDO", "id deve ser UUID.");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new HttpError(422, "ID_INVALIDO", "id deve ser UUID.");
     if (!["BEM", "CATALOGO"].includes(target)) throw new HttpError(422, "TARGET_INVALIDO", "target deve ser BEM ou CATALOGO.");
 
-    const filename = String(body.filename || "foto.jpg").trim().slice(0, 180);
-    const mimeType = String(body.mimeType || "image/jpeg").trim().slice(0, 80);
     const base64Data = String(body.base64Data || "").trim();
     if (!base64Data) throw new HttpError(422, "FOTO_OBRIGATORIA", "base64Data e obrigatorio.");
-    if (base64Data.length > 12_000_000) throw new HttpError(413, "FOTO_GRANDE", "Foto grande demais (reduza a resolucao).");
+    if (base64Data.length > 16_000_000) throw new HttpError(413, "FOTO_GRANDE", "Foto grande demais (max ~12 MB).");
 
-    const folderId = String(process.env.DRIVE_PHOTOS_FOLDER_ID || "1WKAk_etMFpQcUs4DqPLHPRC48Xvy2fwj").trim();
+    // Decodifica base64 para Buffer
+    const rawBuffer = Buffer.from(base64Data, "base64");
 
-    const n8nResp = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        folderId,
-        filename,
-        mimeType,
-        base64Data,
-        target,
-        entityId: id,
-      }),
-    });
+    // Otimiza com sharp: redimensiona para max 1200px no lado maior, converte para WebP
+    const optimized = await sharp(rawBuffer)
+      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
 
-    // Sempre lemos como texto primeiro para conseguir debugar respostas nao-JSON do n8n.
-    const rawText = await n8nResp.text().catch(() => "");
-    let payload = null;
-    if (rawText) {
-      payload = safeJsonParse(rawText);
-    }
-    // Alguns respondToWebhook podem devolver lista; normalizamos para objeto.
-    if (Array.isArray(payload)) payload = payload[0] || null;
-    if (!n8nResp.ok) {
-      throw new HttpError(
-        502,
-        "DRIVE_UPLOAD_FALHOU",
-        "Falha ao enviar foto para o n8n/Drive.",
-        payload || (rawText ? { raw: rawText.slice(0, 2000) } : undefined),
-      );
-    }
+    // Gera nome de arquivo unico
+    const subdir = target.toLowerCase(); // "bem" ou "catalogo"
+    const ts = Date.now();
+    const slug = id.slice(0, 8);
+    const fileName = `${slug}_${ts}.webp`;
+    const relPath = `${subdir}/${fileName}`;
+    const absPath = path.join(FOTOS_DIR, subdir, fileName);
 
-    // Quando o workflow esta em "continueOnFail", podemos receber erro em 200.
-    if (payload?.ok === false || payload?.error) {
-      throw new HttpError(502, "DRIVE_UPLOAD_FALHOU", "Falha ao enviar foto para o n8n/Drive.", payload || undefined);
-    }
+    // Salva no disco
+    fs.writeFileSync(absPath, optimized);
 
-    const fileId = payload?.fileId || payload?.id || payload?.file?.id || null;
-    const driveUrl =
-      payload?.webViewLink ||
-      payload?.url ||
-      payload?.driveUrl ||
-      (fileId ? `https://drive.google.com/file/d/${String(fileId)}/view` : null);
+    const fotoUrl = `/fotos/${relPath}`;
+    const sizeKb = Math.round(optimized.length / 1024);
+    console.log(`[${req.requestId}] Foto salva: ${absPath} (${sizeKb} KB, original ${Math.round(rawBuffer.length / 1024)} KB)`);
 
-    if (!driveUrl) {
-      console.error("DEBUG n8n response:", JSON.stringify({ payload, rawText }, null, 2));
-      throw new HttpError(
-        502,
-        "DRIVE_SEM_URL",
-        "n8n nao retornou webViewLink/url nem fileId.",
-        payload || (rawText ? { raw: rawText.slice(0, 2000) } : undefined),
-      );
-    }
-
+    // Atualiza banco
     if (target === "BEM") {
       const r = await pool.query(
         `UPDATE bens SET foto_url = $2, updated_at = NOW() WHERE id = $1
          RETURNING id, foto_url AS "fotoUrl", updated_at AS "updatedAt";`,
-        [id, String(driveUrl).slice(0, 2000)],
+        [id, fotoUrl],
       );
       if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
-      res.json({ requestId: req.requestId, driveUrl, bem: r.rows[0] });
+      res.json({ requestId: req.requestId, fotoUrl, sizeKb, bem: r.rows[0] });
       return;
     }
 
     const r = await pool.query(
       `UPDATE catalogo_bens SET foto_referencia_url = $2, updated_at = NOW() WHERE id = $1
        RETURNING id, foto_referencia_url AS "fotoReferenciaUrl", updated_at AS "updatedAt";`,
-      [id, String(driveUrl).slice(0, 2000)],
+      [id, fotoUrl],
     );
     if (!r.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
-    res.json({ requestId: req.requestId, driveUrl, catalogo: r.rows[0] });
+    res.json({ requestId: req.requestId, fotoUrl, sizeKb, catalogo: r.rows[0] });
   } catch (error) {
     next(error);
   }
+});
+
+// Compatibilidade: mantém rota antiga redirecionando para a nova
+app.post("/drive/fotos/upload", mustAdmin, (req, res, next) => {
+  req.url = "/fotos/upload";
+  app.handle(req, res, next);
 });
 
 /**
@@ -2827,7 +2809,7 @@ function openapi() {
       "/inventario/regularizacoes": {
         post: { summary: "Regularizar divergencia pos-inventario (Art. 185)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado/nao encerrado" } } },
       },
-      "/drive/fotos/upload": { post: { summary: "Upload foto para Drive via n8n (ADMIN) e persistir link", responses: { 200: { description: "OK" }, 502: { description: "Falha Drive/n8n" } } } },
+      "/fotos/upload": { post: { summary: "Upload foto otimizada para VPS (ADMIN) e persistir URL", responses: { 200: { description: "OK" }, 413: { description: "Foto grande demais" } } } },
     },
   };
 }

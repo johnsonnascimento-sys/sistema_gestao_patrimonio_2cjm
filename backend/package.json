@@ -18,8 +18,9 @@
     "iconv-lite": "^0.6.3",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
-    "pg": "^8.13.1",
     "pdfkit": "^0.17.2",
+    "pg": "^8.13.1",
+    "sharp": "^0.34.5",
     "swagger-ui-express": "^5.0.1"
   }
 }

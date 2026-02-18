@@ -609,12 +609,12 @@ export async function atualizarFotoCatalogo(catalogoBemId, fotoReferenciaUrl) {
 }
 
 /**
- * Upload de foto para Drive via backend/n8n (ADMIN).
- * @param {{target: 'BEM'|'CATALOGO', id: string, filename: string, mimeType: string, base64Data: string}} payload Payload.
- * @returns {Promise<object>} Resposta com driveUrl e entidade atualizada.
+ * Upload de foto para VPS com otimizacao automatica (WebP, max 1200px) (ADMIN).
+ * @param {{target: 'BEM'|'CATALOGO', id: string, base64Data: string, filename?: string, mimeType?: string}} payload Payload.
+ * @returns {Promise<object>} Resposta com fotoUrl e entidade atualizada.
  */
-export async function uploadFotoDrive(payload) {
-  const response = await safeFetch(`${API_BASE_URL}/drive/fotos/upload`, {
+export async function uploadFoto(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/fotos/upload`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

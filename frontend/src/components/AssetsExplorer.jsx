@@ -12,7 +12,7 @@ import {
   getStats,
   listarBens,
   listarLocais,
-  uploadFotoDrive,
+  uploadFoto,
 } from "../services/apiClient.js";
 
 const STATUS_OPTIONS = ["", "OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
@@ -439,7 +439,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     const base64Data = await readFileAsBase64(file);
     const entityId = target === "BEM" ? String(imp?.id || "") : String(catalogo?.id || imp?.catalogoBemId || "");
     if (!entityId) throw new Error("Id ausente para upload.");
-    return uploadFotoDrive({
+    return uploadFoto({
       target,
       id: entityId,
       filename: String(file.name || "foto.jpg"),
@@ -479,15 +479,15 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const uploadFotoMut = useMutation({
     mutationFn: async ({ target, file }) => doUploadFoto({ target, file }),
     onSuccess: async (data, vars) => {
-      const url = data?.driveUrl || data?.webViewLink || data?.url || data?.drive || "";
+      const url = data?.fotoUrl || data?.driveUrl || data?.url || "";
       if (!url) throw new Error("Upload retornou sem URL.");
 
       if (vars?.target === "BEM") {
         setEdit((p) => ({ ...p, fotoUrl: url }));
-        setEditMsg("Foto do item enviada ao Drive e vinculada ao bem.");
+        setEditMsg("Foto do item salva e vinculada ao bem.");
       } else {
         setEdit((p) => ({ ...p, fotoReferenciaUrl: url }));
-        setEditMsg("Foto de referência enviada ao Drive e vinculada ao catálogo.");
+        setEditMsg("Foto de referência salva e vinculada ao catálogo.");
       }
       setEditErr(null);
       await onReload?.();
@@ -696,7 +696,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
-                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto do item (Drive)</p>
+                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto do item</p>
                       <p className="mt-2 break-all text-xs text-slate-300">{edit.fotoUrl || "-"}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
@@ -754,7 +754,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </div>
 
                     <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
-                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto de referência (SKU) (Drive)</p>
+                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto de referência (SKU)</p>
                       <p className="mt-2 break-all text-xs text-slate-300">{edit.fotoReferenciaUrl || "-"}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
@@ -821,7 +821,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     >
                       {salvarBemMut.isPending ? "Salvando..." : "Salvar alterações do bem"}
                     </button>
-                    {uploadFotoMut.isPending ? <span className="text-xs text-slate-300">Enviando foto para o Drive...</span> : null}
+                    {uploadFotoMut.isPending ? <span className="text-xs text-slate-300">Enviando foto...</span> : null}
                     {editMsg ? <span className="text-xs text-emerald-200">{editMsg}</span> : null}
                     {editErr ? <span className="text-xs text-rose-200">{editErr}</span> : null}
                   </div>
