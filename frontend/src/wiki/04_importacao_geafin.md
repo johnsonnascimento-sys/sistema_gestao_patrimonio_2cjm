@@ -63,7 +63,7 @@ provavelmente a importacao anterior foi interrompida (ex.: backend reiniciado).
 Acao recomendada:
 
 1. Clique em **Cancelar** na barra de progresso.
-2. O sistema marca a importacao como `ERRO` para destravar a UI.
+2. O sistema marca a importacao como `ERRO` para destravar a UI (isso e esperado).
 3. Em seguida, faca um novo upload.
 
 ## O que pode dar errado (e o que fazer)

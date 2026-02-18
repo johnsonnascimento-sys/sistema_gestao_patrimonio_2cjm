@@ -1145,7 +1145,20 @@ function ImportProgressBar({ progressState, onCancel }) {
         <p className="mt-2 text-xs text-rose-300">{progressState.error}</p>
       ) : null}
       {imp?.erroResumo ? (
-        <p className="mt-2 text-xs text-rose-200">erro: {imp.erroResumo}</p>
+        <p
+          className={`mt-2 text-xs ${
+            String(imp.status || "").toUpperCase() === "ERRO" &&
+            String(imp.erroResumo || "").toLowerCase().includes("cancelad")
+              ? "text-amber-100"
+              : "text-rose-200"
+          }`}
+        >
+          {String(imp.status || "").toUpperCase() === "ERRO" &&
+          String(imp.erroResumo || "").toLowerCase().includes("cancelad")
+            ? "cancelada: "
+            : "erro: "}
+          {imp.erroResumo}
+        </p>
       ) : null}
       {imp?.id ? (
         <p className="mt-1 text-[11px] text-slate-500">
