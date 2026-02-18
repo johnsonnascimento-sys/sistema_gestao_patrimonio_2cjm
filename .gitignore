@@ -2,4 +2,15 @@ node_modules
 .env
 dist
 .DS_Store
+
+# Artefatos temporarios / exportados
 tmp_n8n_export_*.json
+scripts/.tmp/
+
+# Dumps/arquivos grandes (nao versionar)
+*.tar.gz
+relatorio*.csv
+
+# Planilhas locais (nao versionar)
+*~$*.xlsx
+*.xlsx
