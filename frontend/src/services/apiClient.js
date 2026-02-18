@@ -613,23 +613,7 @@ export async function atualizarBemOperacional(bemId, payload) {
   return parseResponse(response);
 }
 
-/**
- * Atualiza foto de referencia do catalogo (ADMIN).
- * @param {string} catalogoBemId UUID do catalogo.
- * @param {string} fotoReferenciaUrl URL.
- * @returns {Promise<object>} Catalogo atualizado.
- */
-export async function atualizarFotoCatalogo(catalogoBemId, fotoReferenciaUrl) {
-  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens/${encodeURIComponent(catalogoBemId)}/foto`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ fotoReferenciaUrl }),
-  });
-  return parseResponse(response);
-}
+
 
 /**
  * Upload de foto para VPS com otimizacao automatica (WebP, max 1200px) (ADMIN).
