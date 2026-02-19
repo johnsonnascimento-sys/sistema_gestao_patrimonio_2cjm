@@ -257,7 +257,7 @@ export default function InventoryRoomPanel() {
         throw new Error("SEM_CACHE_OFFLINE");
       }
 
-      const data = await listarBens({ localId, limit: 200, offset: 0, incluirTerceiros: false });
+      const data = await listarBens({ localId, limit: 5000, offset: 0, incluirTerceiros: false });
       const items = data.items || [];
       await saveRoomCatalogToCache(localId, items);
       return items;

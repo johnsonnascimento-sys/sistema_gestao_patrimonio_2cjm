@@ -2319,7 +2319,7 @@ function validateBensQuery(query) {
   }
 
   const limit = parseIntOrDefault(query.limit, 50);
-  if (limit < 1 || limit > 200) throw new HttpError(422, "LIMIT_INVALIDO", "limit deve estar entre 1 e 200.");
+  if (limit < 1 || limit > 5000) throw new HttpError(422, "LIMIT_INVALIDO", "limit deve estar entre 1 e 5000.");
   const offset = parseIntOrDefault(query.offset, 0);
   if (offset < 0) throw new HttpError(422, "OFFSET_INVALIDO", "offset deve ser >= 0.");
 
