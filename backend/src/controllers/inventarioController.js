@@ -49,7 +49,7 @@ function createInventarioController(deps) {
       let i = 1;
 
       if (status) {
-        where.push(`status = $${i}::public.status_inventario`);
+        where.push(`e.status = $${i}::public.status_inventario`);
         params.push(status);
         i += 1;
       }
@@ -57,18 +57,22 @@ function createInventarioController(deps) {
       const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
       const r = await pool.query(
         `SELECT
-           id,
-           codigo_evento AS "codigoEvento",
-           unidade_inventariada_id AS "unidadeInventariadaId",
-           status::text AS "status",
-           iniciado_em AS "iniciadoEm",
-           encerrado_em AS "encerradoEm",
-           aberto_por_perfil_id AS "abertoPorPerfilId",
-           encerrado_por_perfil_id AS "encerradoPorPerfilId",
-           observacoes
-         FROM eventos_inventario
+           e.id,
+           e.codigo_evento AS "codigoEvento",
+           e.unidade_inventariada_id AS "unidadeInventariadaId",
+           e.status::text AS "status",
+           e.iniciado_em AS "iniciadoEm",
+           e.encerrado_em AS "encerradoEm",
+           e.aberto_por_perfil_id AS "abertoPorPerfilId",
+           pa.nome AS "abertoPorNome",
+           e.encerrado_por_perfil_id AS "encerradoPorPerfilId",
+           pe.nome AS "encerradoPorNome",
+           e.observacoes
+         FROM eventos_inventario e
+         LEFT JOIN perfis pa ON pa.id = e.aberto_por_perfil_id
+         LEFT JOIN perfis pe ON pe.id = e.encerrado_por_perfil_id
          ${whereSql}
-         ORDER BY created_at DESC
+         ORDER BY e.created_at DESC
          LIMIT $${i};`,
         [...params, limitFinal],
       );
@@ -150,6 +154,65 @@ function createInventarioController(deps) {
         LIMIT $${i};`;
 
       const r = await pool.query(sql, [...params, limitFinal]);
+      res.json({ requestId: req.requestId, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Obtem o progresso do inventario agrupado por salas.
+   * Utiliza a base de bens (esperados) vs contagens (inventariados).
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getProgresso(req, res, next) {
+    try {
+      const eventoInventarioId = String(req.params.id || "").trim();
+      if (!UUID_RE.test(eventoInventarioId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id deve ser UUID.");
+
+      const sql = `
+        WITH evt AS (
+          SELECT unidade_inventariada_id 
+          FROM eventos_inventario 
+          WHERE id = $1
+        ),
+        inventariados AS (
+          SELECT
+            c.sala_encontrada AS local_nome,
+            COUNT(c.id) AS qtd_inventariados
+          FROM contagens c
+          WHERE c.evento_inventario_id = $1
+          GROUP BY c.sala_encontrada
+        ),
+        esperados AS (
+          SELECT
+            l.nome AS local_nome,
+            COUNT(b.id) AS qtd_esperados
+          FROM bens b
+          JOIN locais l ON l.id = b.local_id
+          CROSS JOIN evt
+          WHERE (evt.unidade_inventariada_id IS NULL OR b.unidade_dona_id = evt.unidade_inventariada_id)
+            AND b.status != 'BAIXADO' AND b.eh_bem_terceiro = FALSE
+          GROUP BY l.nome
+        ),
+        todas_salas AS (
+          SELECT local_nome FROM inventariados
+          UNION
+          SELECT local_nome FROM esperados
+        )
+        SELECT
+          t.local_nome AS "salaEncontrada",
+          COALESCE(e.qtd_esperados, 0)::int AS "qtdEsperados",
+          COALESCE(i.qtd_inventariados, 0)::int AS "qtdInventariados"
+        FROM todas_salas t
+        LEFT JOIN esperados e ON e.local_nome = t.local_nome
+        LEFT JOIN inventariados i ON i.local_nome = t.local_nome
+        ORDER BY t.local_nome;
+      `;
+
+      const r = await pool.query(sql, [eventoInventarioId]);
       res.json({ requestId: req.requestId, items: r.rows });
     } catch (error) {
       next(error);
@@ -933,6 +996,7 @@ function createInventarioController(deps) {
   return {
     getEventos,
     getContagens,
+    getProgresso,
     getForasteiros,
     getBensTerceiros,
     postEvento,

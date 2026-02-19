@@ -649,6 +649,19 @@ export async function listarEventosInventario(status) {
 }
 
 /**
+ * Consulta o progresso de itens por sala para um evento especifico.
+ * @param {string} eventoId UUID do evento.
+ * @returns {Promise<{items: Array<{salaEncontrada: string, qtdEsperados: number, qtdInventariados: number}>}>} Progresso agrupado.
+ */
+export async function getProgressoInventario(eventoId) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${encodeURIComponent(eventoId)}/progresso`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Cria um evento de inventario (EM_ANDAMENTO).
  * @param {{codigoEvento: string, unidadeInventariadaId: number|null, abertoPorPerfilId: string, observacoes?: string}} payload Payload.
  * @returns {Promise<object>} Evento criado.

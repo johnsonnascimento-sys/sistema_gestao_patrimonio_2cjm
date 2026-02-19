@@ -15,6 +15,7 @@ import {
   listarBens,
   listarBensTerceirosInventario,
   listarEventosInventario,
+  getProgressoInventario,
   listarLocais,
   registrarBemTerceiroInventario,
 } from "../services/apiClient.js";
@@ -170,6 +171,14 @@ export default function InventoryRoomPanel() {
     },
   });
 
+  const todosEventosQuery = useQuery({
+    queryKey: ["inventarioEventos", "TODOS"],
+    queryFn: async () => {
+      const data = await listarEventosInventario();
+      return data.items || [];
+    },
+  });
+
   const eventoAtivo = useMemo(() => {
     const items = eventosQuery.data || [];
     if (!items.length) return null;
@@ -185,6 +194,7 @@ export default function InventoryRoomPanel() {
       setCodigoEvento("");
       setUnidadeInventariadaId("");
       await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
+      await qc.invalidateQueries({ queryKey: ["inventarioEventos", "TODOS"] });
     },
     onError: (error) => {
       // Sem isso, falhas (422/401/rede) parecem "nada aconteceu" para o usuario.
@@ -197,6 +207,7 @@ export default function InventoryRoomPanel() {
     onSuccess: async () => {
       setEncerramentoObs("");
       await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
+      await qc.invalidateQueries({ queryKey: ["inventarioEventos", "TODOS"] });
     },
     onError: (error) => {
       setUiError(String(error?.message || "Falha ao atualizar status do evento."));
@@ -218,6 +229,15 @@ export default function InventoryRoomPanel() {
       await qc.invalidateQueries({ queryKey: ["inventarioBensTerceiros", selectedEventoIdFinal, salaEncontrada] }).catch(
         () => undefined,
       );
+    },
+  });
+
+  const progressoQuery = useQuery({
+    queryKey: ["inventarioProgresso", selectedEventoIdFinal],
+    enabled: Boolean(selectedEventoIdFinal && navigator.onLine),
+    queryFn: async () => {
+      const data = await getProgressoInventario(selectedEventoIdFinal);
+      return data.items || [];
     },
   });
 
@@ -370,18 +390,18 @@ export default function InventoryRoomPanel() {
 
   const canRegister = Boolean(
     selectedEventoIdFinal &&
-      salaEncontrada.trim().length >= 2 &&
-      selectedLocalId &&
-      String(selectedLocalId).trim() !== "" &&
-      unidadeEncontradaId &&
-      Number(unidadeEncontradaId) >= 1 &&
-      Number(unidadeEncontradaId) <= 4,
+    salaEncontrada.trim().length >= 2 &&
+    selectedLocalId &&
+    String(selectedLocalId).trim() !== "" &&
+    unidadeEncontradaId &&
+    Number(unidadeEncontradaId) >= 1 &&
+    Number(unidadeEncontradaId) <= 4,
   );
 
   const canRegisterTerceiro = Boolean(
     canRegister &&
-      terceiroDescricao.trim().length >= 3 &&
-      terceiroProprietario.trim().length >= 3,
+    terceiroDescricao.trim().length >= 3 &&
+    terceiroProprietario.trim().length >= 3,
   );
 
   const onRegistrarBemTerceiro = async (e) => {
@@ -449,13 +469,10 @@ export default function InventoryRoomPanel() {
       setUiError("Informe um perfilId (UUID) para abrir o evento.");
       return;
     }
-    const codigo = codigoEvento.trim();
-    if (!codigo) {
-      setUiError("Informe um códigoEvento.");
-      return;
-    }
 
     const unidadeFinal = unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId);
+    const codigo = generateCodigoEvento(unidadeFinal);
+
     criarEventoMut.mutate({
       codigoEvento: codigo,
       unidadeInventariadaId: unidadeFinal,
@@ -605,8 +622,8 @@ export default function InventoryRoomPanel() {
       )}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-4">
-          <h3 className="font-semibold">Evento de inventario (EM_ANDAMENTO)</h3>
+        <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-4 flex flex-col">
+          <h3 className="font-semibold">Gestão de Inventários</h3>
           <p className="mt-1 text-xs text-slate-300">
             Inventário ativo bloqueia mudança de carga (Art. 183 - AN303_Art183).
           </p>
@@ -633,6 +650,26 @@ export default function InventoryRoomPanel() {
           {eventosQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando eventos...</p>}
           {eventosQuery.error && (
             <p className="mt-3 text-sm text-rose-300">Falha ao listar eventos ativos.</p>
+          )}
+
+          {(todosEventosQuery.data || []).length > 0 && (
+            <div className="mt-4 mb-4">
+              <h4 className="text-sm font-semibold mb-2">Histórico de Inventários</h4>
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2">
+                {(todosEventosQuery.data || []).map(ev => (
+                  <div key={ev.id} className="text-xs p-2 rounded bg-slate-800 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold">{ev.codigoEvento}</p>
+                      <p className="text-slate-400 text-[10px]">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-300' : 'bg-emerald-300/20 text-emerald-300'}`}>{ev.status}</span>
+                      <p className="text-slate-400 text-[10px] mt-1">{ev.unidadeInventariadaId ? `Unidade ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {(eventosQuery.data || []).length > 0 ? (
@@ -701,24 +738,13 @@ export default function InventoryRoomPanel() {
               </label>
               <label className="block space-y-1">
                 <span className="text-xs text-slate-300">Codigo do evento</span>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    value={codigoEvento}
-                    onChange={(e) => setCodigoEvento(e.target.value)}
-                    placeholder="Ex.: INV_2026_02_17_2AUD"
-                    className="min-w-[260px] flex-1 rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setCodigoEvento(generateCodigoEvento(unidadeInventariadaId))}
-                    className="rounded-lg border border-white/25 px-3 py-2 text-sm hover:bg-white/10"
-                    title="Gera um codigo padrao com data atual."
-                  >
-                    Gerar
-                  </button>
-                </div>
+                <input
+                  disabled
+                  value={generateCodigoEvento(unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId))}
+                  className="w-full rounded-lg border border-white/20 bg-slate-800/50 px-3 py-2 text-sm text-slate-400 cursor-not-allowed"
+                />
                 <p className="text-[11px] text-slate-400">
-                  Dica: use um padrao consistente por unidade e data. Ex.: <code className="px-1">INV_2026_02_17_2AUD</code>.
+                  Gerado automaticamente conforme padronização.
                 </p>
               </label>
               <button
@@ -732,7 +758,51 @@ export default function InventoryRoomPanel() {
           )}
         </article>
 
-        <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-4">
+        <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-4 flex flex-col">
+          <h3 className="font-semibold">Progresso do Inventário</h3>
+          <p className="mt-1 text-xs text-slate-300">
+            Itens esperados vs inventariados por sala.
+          </p>
+
+          {!selectedEventoIdFinal ? (
+            <p className="mt-3 text-sm text-slate-300">Nenhum evento ativo.</p>
+          ) : progressoQuery.isFetching ? (
+            <p className="mt-3 text-sm text-slate-300">Carregando progresso...</p>
+          ) : progressoQuery.error ? (
+            <p className="mt-3 text-sm text-rose-300">Falha ao carregar progresso.</p>
+          ) : (progressoQuery.data || []).length === 0 ? (
+            <p className="mt-3 text-sm text-slate-300">Sem dados de progresso.</p>
+          ) : (
+            <div className="mt-4 flex-1 overflow-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2 max-h-80">
+              {(progressoQuery.data || []).map((p, idx) => {
+                const perc = p.qtdEsperados > 0
+                  ? Math.min(100, Math.round((p.qtdInventariados / p.qtdEsperados) * 100))
+                  : p.qtdInventariados > 0 ? 100 : 0;
+
+                return (
+                  <div key={idx} className="rounded-xl border border-white/10 bg-slate-800 p-2">
+                    <div className="flex justify-between items-end mb-1">
+                      <p className="text-xs font-semibold text-slate-100">{p.salaEncontrada || 'Desconhecida'}</p>
+                      <p className="text-[10px] text-slate-300">
+                        {p.qtdInventariados}/{p.qtdEsperados}
+                      </p>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex">
+                      <div
+                        className={`h-full ${perc === 100 ? 'bg-emerald-400' : 'bg-cyan-400'}`}
+                        style={{ width: `${perc}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </article>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+        <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-4 lg:col-span-1">
           <h3 className="font-semibold">Sala e scanner</h3>
           <p className="mt-1 text-xs text-slate-300">
             Baixe os bens da sala e registre tombamentos. Divergencias tocam alerta e viram ocorrencia (Art. 185).

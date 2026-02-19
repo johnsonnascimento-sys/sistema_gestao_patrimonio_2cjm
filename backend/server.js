@@ -1107,6 +1107,7 @@ app.get("/inventario/eventos", mustAuth, inventario.getEventos);
 app.get("/inventario/contagens", mustAuth, inventario.getContagens);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
+app.get("/inventario/eventos/:id/progresso", mustAuth, inventario.getProgresso);
 app.post("/inventario/eventos", mustAuth, inventario.postEvento);
 app.patch("/inventario/eventos/:id/status", mustAuth, inventario.patchEventoStatus);
 app.post("/inventario/sync", mustAuth, inventario.postSync);
