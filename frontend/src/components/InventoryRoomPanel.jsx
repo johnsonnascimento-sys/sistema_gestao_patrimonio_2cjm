@@ -69,9 +69,11 @@ function generateCodigoEvento(unidadeInventariadaId) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
   const u = Number(unidadeInventariadaId);
   const suffix = u === 1 ? "1AUD" : u === 2 ? "2AUD" : u === 3 ? "FORO" : u === 4 ? "ALMOX" : "GERAL";
-  return `INV_${yyyy}_${mm}_${dd}_${suffix}`;
+  return `INV_${yyyy}_${mm}_${dd}_${hh}${min}_${suffix}`;
 }
 
 function playAlertBeep() {
