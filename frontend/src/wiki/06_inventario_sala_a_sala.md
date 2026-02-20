@@ -87,11 +87,18 @@ Offline:
 - Se estiver sem internet, o sistema tenta usar o **cache offline** (IndexedDB) da sala.
 - Se nao houver cache, voce precisa conectar e baixar o catalogo pelo menos uma vez.
 
-### 3) Scanner (input de tombamento)
+### 3) Scanner e Layout Mobile (input de tombamento)
 
-Use o campo de scanner para bipar ou digitar o tombamento (10 dígitos).
+O modo inventário foi otimizado para dispositivos móveis, agrupando seções secundárias em "Sanfonas" (Accordions) para economizar espaço em tela.
 
-Comportamentos:
+Use o campo de "Bipar tombamento" para inserir o código (10 dígitos). Você pode:
+- **Digitar manualmente** e pressionar Enter.
+- **Usar Leitor Físico** (pistola USB/Bluetooth), que já envia o Enter no final.
+- **Usar a Câmera do Celular (Barcode Scanner nativo)**: botões ao lado do campo ativam a câmera traseira.
+  - **Leitura Simples (Single):** O ícone de câmera menor ativa o leitor. Ao ler o código, ele preenche o campo, fecha automaticamente a câmera e submete o registro.
+  - **Leitura Contínua (Supermercado):** O ícone constante liga a câmera no modo contínuo. Ela permanece ativa, permitindo passar o celular em várias placas sequencialmente (ideal para agilidade). Obs: Usa foco contínuo automático (`focusMode: "continuous"`) para priorizar a melhor resolução visual do aparelho.
+
+Comportamentos após a leitura:
 
 - Se o bem existe e pertence a mesma unidade do ambiente: marca como encontrado (contagem conforme).
 - Se o bem existe mas pertence a outra unidade: alerta de intruso e registra divergência (sem transferir).

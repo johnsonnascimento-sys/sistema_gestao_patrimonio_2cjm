@@ -205,6 +205,7 @@ Requisitos do Gemini vs implementacao atual:
 | Mostrar "Encontrados vs Faltantes" por grupo | Implementado | `frontend/src/components/InventoryRoomPanel.jsx` + `GET /inventario/contagens` |
 | Checklist por tombamento (check encontrado) | Implementado | `frontend/src/components/InventoryRoomPanel.jsx` (checkbox read-only) |
 | Persistencia offline (IndexedDB) para contagem | Implementado | `frontend/src/hooks/useOfflineSync.js` (fila de scans) + cache do catalogo da sala em IndexedDB |
+| Scanner nativo por câmera de celular (Barcode/QR Code) com foco | Implementado | `frontend/src/components/BarcodeScanner.jsx` + `InventoryRoomPanel.jsx` |
 | Scanner: bipar bem da lista marca encontrado | Implementado | Scan entra na fila e ja marca check (via pending queue) |
 | Scanner: bem de outra unidade toca alerta ("Intruso") | Implementado (quando online) | Lookup rápido via `GET /bens?numeroTombamento=...` se não estiver no catálogo carregado |
 | Intruso vira LOCAL_DIVERGENTE sem mudar dono | Implementado | Backend `POST /inventario/sync` + DB (`contagens.tipo_ocorrencia`) |
@@ -238,6 +239,5 @@ Observacao:
 ## 8. Proximos passos recomendados (incrementos opcionais)
 
 1. Cachear contagens por sala em IndexedDB para consultas/relatorios offline apos reload.
-2. Criar um painel "Divergências da sala" para listar contagens divergentes que não estão no catálogo carregado da sala.
-3. Adicionar busca por QR/barcode com foco automatico e suporte a coletores (melhor UX de scanner).
-4. (Opcional) Exportar Wiki para PDF interno (somente leitura) para distribuicao offline controlada.
+2. Criar um painel "Divergências da sala" para listar contagens divergentes que não estão no catálogo carregado da sala (Implementado na UI via `DivergencesPanel`).
+3. (Opcional) Exportar Wiki para PDF interno (somente leitura) para distribuicao offline controlada.
