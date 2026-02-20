@@ -21,40 +21,51 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
 
         const config = {
             fps: 10,
-            qrbox: { width: 250, height: 100 },
+            qrbox: { width: 280, height: 110 },
             aspectRatio: 1.0,
             disableFlip: false,
         };
 
-        const qsCan = html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText) => {
-                // Sucesso de leitura
-                onScan(decodedText);
-                if (!continuous) {
-                    // Se não for contínuo, paramos a câmera imediatamente e avisamos o pai
-                    html5QrCode.stop().then(() => {
-                        onClose();
-                    }).catch(() => {
-                        onClose();
-                    });
-                }
-            },
-            (_errorMessage) => {
-                // Erro de parse ignorável na taxa de FPS
+        const onScanSuccess = (decodedText) => {
+            onScan(decodedText);
+            if (!continuous) {
+                html5QrCode.stop().then(() => onClose()).catch(() => onClose());
             }
-        );
+        };
 
-        qsCan
-            .then(() => {
+        const onScanFailure = (_errorMessage) => { };
+
+        // Para evitar problemas de foco em aparelhos novos (ex: Galaxy S23)
+        // que acabam ativando a lente ultrawide, priorizamos focusMode e alta resolução.
+        const idealConstraints = {
+            facingMode: "environment",
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            advanced: [{ focusMode: "continuous" }]
+        };
+
+        const basicConstraints = {
+            facingMode: "environment"
+        };
+
+        const startCamera = async () => {
+            try {
+                await html5QrCode.start(idealConstraints, config, onScanSuccess, onScanFailure);
                 setIsInitializing(false);
-            })
-            .catch((err) => {
-                setIsInitializing(false);
-                setErrorLabel("Não foi possível acessar a câmera. Verifique as permissões de vídeo no navegador.");
-                console.error("Camera start error:", err);
-            });
+            } catch (err) {
+                console.warn("Falha ao iniciar com foco contínuo e res alta. Tentando fallback básico...", err);
+                try {
+                    await html5QrCode.start(basicConstraints, config, onScanSuccess, onScanFailure);
+                    setIsInitializing(false);
+                } catch (errBasic) {
+                    setIsInitializing(false);
+                    setErrorLabel("Não foi possível acessar a câmera. Verifique as permissões de vídeo no navegador.");
+                    console.error("Camera start error:", errBasic);
+                }
+            }
+        };
+
+        startCamera();
 
         return () => {
             // Limpeza ao desmontar
