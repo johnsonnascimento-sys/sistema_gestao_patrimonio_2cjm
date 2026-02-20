@@ -230,6 +230,23 @@ export async function registrarBemTerceiroInventario(payload) {
 }
 
 /**
+ * Registra bem "sem placa" / "não identificado" (Art. 175)
+ * @param {object} payload Dados incluindo a foto em base64 e descrição.
+ * @returns {Promise<object>} Bem criado e contagem salva localmente.
+ */
+export async function registrarBemNaoIdentificadoInventario(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/bens-nao-identificados`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Busca detalhes de um bem por id (UUID).
  * @param {string} id UUID do bem.
  * @returns {Promise<object>} Detalhe do bem (join com catalogo + historicos).

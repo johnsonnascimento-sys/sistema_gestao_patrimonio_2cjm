@@ -140,6 +140,14 @@ Antes de sair da sala:
 - Se existem divergências registradas (intrusos).
 - Se existem itens pendentes de sync (modo offline).
 
+## Bens não identificados e Evidências Visuais (Art. 175)
+
+Se o operador encontrar um bem sem plaqueta de tombamento na sala:
+- O sistema permite o registro do item identificando-o como "SEM PLACA".
+- **Obrigatoriamente**, o operador deve inserir uma foto clara do bem e uma descrição detalhada.
+- Esse registro aparecerá na tela de divergências da sala e, posteriormente, na tela de Regularização, incluindo a foto, descrição e a sala exata onde foi encontrado. 
+- Isso garante materialidade e transparência para a comissão decidir o destino do bem perdido. Regra legal: Art. 175.
+
 ## Encerramento do inventário
 
 Encerrar inventário é um ato formal (quando a tela/fluxo estiver completo):
@@ -151,3 +159,41 @@ Guardrail:
 
 - A UI alerta se houver itens pendentes offline e oferece sincronizar antes de encerrar.
 - Evite encerrar se ainda houver contagens pendentes de sincronização.
+
+## Alerta de Divergência — Modal Impositivo (Art. 185)
+
+Ao bipar um tombamento pertencente a outra unidade, o sistema:
+
+1. Emite bipe sonoro de alerta.
+2. Exibe um **modal bloqueante** com a instrução legal e o número do bem.
+3. O operador deve clicar em **"Ciente. Vou manter este bem aqui."** para confirmar que entendeu e não vai mover o bem.
+
+> Não é possível ignorar o modal — ele cobre a tela até ser confirmado.
+
+Regra legal: Art. 185 (AN303_Art185)
+
+## Registrar bem sem identificação (BEM_NAO_IDENTIFICADO)
+
+Durante o inventário, podem aparecer bens sem plaqueta, com etiqueta danificada ou com número ilegível.
+
+### O que fazer
+
+1. No painel **"Sala e scanner"**, role até o bloco **"Registrar bem sem identificação (Divergência)"** (borda vermelho-escura).
+2. Preencha:
+   - **Descrição detalhada** do bem (marca, cor, estado físico etc.)
+   - **Localização exata** dentro da sala (ex.: "perto da janela, mesa 3")
+   - **Fotografia** — campo obrigatório (abre câmera no celular ou seletor de arquivo no desktop)
+3. Clique em **"Registrar Bem"**.
+
+### O que o sistema faz
+
+- Otimiza e persiste a foto no servidor (WebP, max 1200px).
+- Cria um registro em `bens` com `eh_bem_terceiro=true` e `proprietario_externo='SEM_IDENTIFICACAO'`.
+- Cria uma contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` e `regularizacao_pendente=true`.
+- O item aparece automaticamente na lista de divergências da sala.
+
+Regra legal: Art. 175, IX (AN303_Art175_IX)
+
+### Instrução operacional
+
+Assim como nos intrusos, **não mova o bem** até o encerramento do inventário. A regularização ocorre após o encerramento, via fila de forasteiros/disparidades.

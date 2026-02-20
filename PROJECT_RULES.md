@@ -58,6 +58,11 @@ Nao ha mudanca de API de runtime nesta etapa. Este documento define contratos pu
 - Regra de negocio: responsabilidade por bens deve estar formalizada; retirada fisica de bem depende de autorizacao competente.
 - Implicacao tecnica minima: diferenciar transferencia definitiva de cautela temporaria e exigir registro formal de autorizacao.
 
+### Regra 3.1: Evidencia para Itens Não Identificados
+- Base legal: `Art. 175 (AN303_Art175)`.
+- Regra de negocio: bens encontrados sem placa de identificacao (tombamento) devem ter sua presenca formalizada visual e descritivamente.
+- Implicacao tecnica minima: exibir obrigatoriamente a foto, descricao detalhada e localizacao exata nas telas de divergencia e regularizacao.
+
 ### Regra 4: Classificacao Obrigatoria de Inserviveis
 - Base legal: `Art. 141, Caput (AN303_Art141_Cap)`, `Art. 141, I (AN303_Art141_I)`, `Art. 141, II (AN303_Art141_II)`, `Art. 141, III (AN303_Art141_III)`, `Art. 141, IV (AN303_Art141_IV)`.
 - Regra de negocio: bens inserviveis devem ser classificados obrigatoriamente como Ocioso, Recuperavel, Antieconomico ou Irrecuperavel.

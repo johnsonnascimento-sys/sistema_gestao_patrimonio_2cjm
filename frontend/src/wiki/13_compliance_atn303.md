@@ -44,3 +44,13 @@ Este sistema implementa regras de compliance como comportamento verificavel. As 
 - Base legal: Art. 99 (AN303_Art99), Art. 110, VI (AN303_Art110_VI), Art. 175, IX (AN303_Art175_IX)
 - Regra: bens externos não devem ser incorporados automaticamente como patrimônio.
 - Implementacao: registro segregado de ocorrencias de bem de terceiro.
+
+## Regra 6: Registro de bens sem identificação (plaqueta ausente/danificada)
+
+- Base legal: Art. 175, IX (AN303_Art175_IX)
+- Regra: bens encontrados sem identificação durante inventário devem ser registrados com fotografia e descrição detalhada e mantidos no local encontrado até regularização.
+- Implementacao: endpoint `POST /inventario/bens-nao-identificados`; cria entrada em `bens` com `proprietario_externo='SEM_IDENTIFICACAO'` e contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` + `regularizacao_pendente=true`.
+
+## Nota operacional: alerta impositivo de divergência
+
+Quando um item bipeado pertence a outra unidade, o sistema exibe um **modal bloqueante** que impede ao operador de prosseguir sem confirmar que o bem **não será removido da sala**. Esse comportamento é obrigatório e derivado do Art. 185 (AN303_Art185).

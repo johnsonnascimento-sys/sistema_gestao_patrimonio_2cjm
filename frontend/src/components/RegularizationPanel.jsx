@@ -62,7 +62,6 @@ export default function RegularizationPanel() {
     mutationFn: (payload) => regularizarForasteiro(payload),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["inventarioForasteiros"] });
-      // A regularizacao pode gerar historico/movimentacao; atualiza caches de bens.
       await qc.invalidateQueries({ queryKey: ["bens"] }).catch(() => undefined);
     },
   });
@@ -86,11 +85,11 @@ export default function RegularizationPanel() {
       return;
     }
 
+    const label = it.numeroTombamento || "BEM SEM PLACA";
     const msg = acao === "TRANSFERIR_CARGA"
-      ? `Confirmar TRANSFERIR carga do bem ${it.numeroTombamento} para unidade ${formatUnidade(Number(it.unidadeEncontradaId))}?\n\nRegra legal: Art. 185 (AN303_Art185) e Arts. 124/127 (AN303_Art124/AN303_Art127).`
-      : `Confirmar encerrar pendencia (MANTER_CARGA) do bem ${it.numeroTombamento} sem alterar a carga?\n\nRegra legal: Art. 185 (AN303_Art185).`;
+      ? `Confirmar TRANSFERIR carga do bem ${label} para unidade ${formatUnidade(Number(it.unidadeEncontradaId))}?\n\nRegra legal: Art. 185 (AN303_Art185) e Arts. 124/127 (AN303_Art124/AN303_Art127).`
+      : `Confirmar encerrar pendencia (MANTER_CARGA) do bem ${label} sem alterar a carga?\n\nRegra legal: Art. 185 (AN303_Art185).`;
 
-    // Guardrail simples para evitar clique acidental.
     if (!window.confirm(msg)) return;
 
     regularizarMut.mutate({
@@ -108,26 +107,34 @@ export default function RegularizationPanel() {
     <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Regularização pós-inventário (Forasteiros)</h2>
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Regularização pós-inventário (Divergências)</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            Divergências registradas no inventário não mudam a carga automaticamente. Esta tela serve para encerrar a pendência
-            e, quando necessário, efetuar a transferência formal (com termo).
+            Divergências registradas no inventário (intrusos ou sem placa) não mudam a carga automaticamente.
+            Esta tela serve para encerrar a pendência e, se necessário, efetuar a transferência formal.
           </p>
           <p className="mt-2 text-xs text-slate-400">
-            Regra legal: Art. 185 (AN303_Art185). Transferência: Arts. 124 e 127 (AN303_Art124 / AN303_Art127).
+            Regra legal: Art. 185 (AN303_Art185). Transferência: Arts. 124 e 127.
           </p>
         </div>
         <div className="text-right text-xs text-slate-300">
-          <p>
-            Pendências:{" "}
-            <span className="font-semibold text-amber-200">{filteredItems.length}</span>
-          </p>
-          <p className="mt-1">
-            Inventário ativo:{" "}
-            <span className={eventosAtivos.length ? "text-amber-200" : "text-emerald-300"}>
-              {eventosAtivos.length ? "SIM" : "NÃO"}
-            </span>
-          </p>
+          <div className="flex flex-col items-end gap-2">
+            <div>
+              Pendências: <span className="font-semibold text-amber-200">{filteredItems.length}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => forasteirosQuery.refetch()}
+              className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide hover:bg-white/10"
+            >
+              Atualizar Lista
+            </button>
+            <p className="mt-1">
+              Inventário ativo:{" "}
+              <span className={eventosAtivos.length ? "text-amber-200" : "text-emerald-300"}>
+                {eventosAtivos.length ? "SIM" : "NÃO"}
+              </span>
+            </p>
+          </div>
         </div>
       </header>
 
@@ -148,37 +155,29 @@ export default function RegularizationPanel() {
           <div className="rounded-xl border border-white/10 bg-slate-950/25 p-3 text-xs text-slate-300">
             <p className="font-semibold text-slate-100">Executor</p>
             <p className="mt-1">
-              {auth.perfil.nome} ({auth.perfil.matricula}) - perfilId {String(auth.perfil.id).slice(0, 8)}...
+              {auth.perfil.nome} ({auth.perfil.matricula})
             </p>
           </div>
         ) : (
           <label className="block space-y-1">
-            <span className="text-xs text-slate-300">perfilId (UUID) do executor</span>
+            <span className="text-xs text-slate-300">perfilId (UUID)</span>
             <input
               value={perfilId}
               onChange={(e) => setPerfilId(e.target.value)}
-              placeholder="UUID do perfil (ex.: criado em Operações API)"
+              placeholder="UUID do perfil"
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
-            {!perfilId.trim() ? null : (
-              <span className={`text-[11px] ${canUsePerfil ? "text-emerald-200" : "text-rose-200"}`}>
-                {canUsePerfil ? "UUID válido" : "UUID inválido"}
-              </span>
-            )}
           </label>
         )}
 
         <label className="block space-y-1">
-          <span className="text-xs text-slate-300">termoReferencia (obrigatório para Transferir)</span>
+          <span className="text-xs text-slate-300">termoReferencia (Termo de Transferência)</span>
           <input
             value={termoReferencia}
             onChange={(e) => setTermoReferencia(e.target.value)}
             placeholder="Ex.: TT_2026_0001"
             className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
           />
-          <span className="text-[11px] text-slate-400">
-            Dica: use o mesmo código que será usado no PDF gerado (n8n) para rastreabilidade.
-          </span>
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
@@ -196,7 +195,7 @@ export default function RegularizationPanel() {
             <input
               value={filterSala}
               onChange={(e) => setFilterSala(e.target.value)}
-              placeholder="Ex.: Sala 101"
+              placeholder="Ex.: Sala 605"
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -207,21 +206,9 @@ export default function RegularizationPanel() {
         <p className="mt-4 text-sm text-slate-300">Carregando dados...</p>
       )}
 
-      {forasteirosQuery.error && (
-        <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
-          Falha ao listar pendências de regularização.
-        </p>
-      )}
-
-      {regularizarMut.error && (
-        <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
-          {String(regularizarMut.error?.message || "Falha na regularização.")}
-        </p>
-      )}
-
       {!forasteirosQuery.isLoading && filteredItems.length === 0 && (
         <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-300">
-          Nenhum forasteiro pendente de regularização.
+          Nenhuma divergência pendente de regularização encontrada.
         </p>
       )}
 
@@ -242,24 +229,47 @@ export default function RegularizationPanel() {
             </thead>
             <tbody className="divide-y divide-white/10 bg-slate-900/40">
               {filteredItems.map((it) => (
-                <tr key={it.contagemId} className="align-top">
+                <tr key={it.contagemId} className="align-top hover:bg-white/5 transition-colors">
                   <td className="px-3 py-3">
                     <div className="font-semibold text-slate-100">{it.codigoEvento || "-"}</div>
-                    <div className="mt-1 text-xs text-slate-400">
-                      status: {String(it.statusInventario || "-")}
+                    <div className="mt-1 text-[10px] text-slate-400 uppercase tracking-tighter">
+                      {String(it.statusInventario || "-")}
                     </div>
                   </td>
-                  <td className="px-3 py-3 font-mono text-xs text-slate-100">{it.numeroTombamento}</td>
+                  <td className="px-3 py-3 font-mono text-xs">
+                    {it.numeroTombamento ? (
+                      <span className="text-slate-100">{it.numeroTombamento}</span>
+                    ) : (
+                      <span className="text-rose-400 font-bold bg-rose-400/10 px-1 rounded">SEM PLACA</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3">
                     <div className="font-semibold text-slate-100">{it.catalogoDescricao}</div>
-                    <div className="mt-1 text-xs text-slate-400">
-                      codigo: <span className="font-mono">{it.codigoCatalogo}</span>
+                    {it.descricaoComplementar && (
+                      <div className="mt-1 text-xs text-amber-100/90 font-medium whitespace-pre-line">
+                        {it.descricaoComplementar}
+                      </div>
+                    )}
+                    {it.observacoes && (
+                      <div className="mt-1 text-[11px] text-slate-400 italic">
+                        {it.observacoes}
+                      </div>
+                    )}
+                    {it.fotoUrl && (
+                      <div className="mt-2">
+                        <a href={it.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
+                          📸 Ver Foto
+                        </a>
+                      </div>
+                    )}
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      SKU: <span className="font-mono">{it.codigoCatalogo}</span>
                     </div>
                   </td>
                   <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(it.unidadeDonaId))}</td>
-                  <td className="px-3 py-3 text-amber-100">{formatUnidade(Number(it.unidadeEncontradaId))}</td>
+                  <td className="px-3 py-3 text-amber-100 font-medium">{formatUnidade(Number(it.unidadeEncontradaId))}</td>
                   <td className="px-3 py-3 text-slate-200">{it.salaEncontrada}</td>
-                  <td className="px-3 py-3 text-slate-300">
+                  <td className="px-3 py-3 text-slate-300 text-xs">
                     {it.encontradoEm ? new Date(it.encontradoEm).toLocaleString() : "-"}
                   </td>
                   <td className="px-3 py-3">
@@ -269,7 +279,6 @@ export default function RegularizationPanel() {
                         onClick={() => onRegularizar(it, "MANTER_CARGA")}
                         disabled={!canAdmin || !canUsePerfil || regularizarMut.isPending}
                         className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-2 text-xs font-semibold hover:bg-white/5 disabled:opacity-50"
-                        title="Encerra a pendência sem alterar a carga do bem."
                       >
                         Manter carga
                       </button>
@@ -278,13 +287,9 @@ export default function RegularizationPanel() {
                         onClick={() => onRegularizar(it, "TRANSFERIR_CARGA")}
                         disabled={!canAdmin || !canUsePerfil || !termoReferencia.trim() || regularizarMut.isPending}
                         className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-50"
-                        title="Executa a transferência de carga para a unidade encontrada e encerra a pendência."
                       >
-                        Transferir carga
+                        Transferir
                       </button>
-                    </div>
-                    <div className="mt-2 text-[11px] text-slate-400">
-                      contagemId: <span className="font-mono">{it.contagemId}</span>
                     </div>
                   </td>
                 </tr>

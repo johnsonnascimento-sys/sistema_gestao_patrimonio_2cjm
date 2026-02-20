@@ -69,22 +69,46 @@ Importante:
 - **Bem de terceiro não entra na fila de regularização do Art. 185**, porque não é “intruso” de carga STM.
 - O objetivo é **visibilidade e controle segregado**, sem misturar com a carga STM.
 
-## 3) Diferença prática: intruso x bem de terceiro
+## 3) Bem sem identificação / plaqueta ilegível (Art. 175)
 
-- Intruso: tem tombamento STM e dono (carga) conhecido, mas está no lugar errado.
-- Bem de terceiro: não pertence ao patrimônio STM (sem tombamento GEAFIN), deve ficar segregado.
+### Definição
 
-Se tiver dúvida:
+**Bem sem identificação** é um objeto encontrado fisicamente no ambiente durante o inventário que:
 
-1. Procure o tombamento (10 dígitos).
-2. Se existe no sistema: trate como intruso quando a unidade divergir.
-3. Se não existe e você suspeita que é item externo: registre como bem de terceiro.
+- não possui plaqueta de tombamento visível, ou
+- tem etiqueta danificada/ilegível impossibilitando a leitura do número.
+
+Não é um bem STM com tombamento em outro local (isso é intruso) — é um bem que não pode ser identificado diretamente.
+
+Base legal (controle obrigatório de bens no ambiente):
+
+- Art. 175, IX (AN303_Art175_IX)
+
+### Como registrar no sistema
+
+No **Modo Inventário**, role até o bloco **"Registrar bem sem identificação (Divergência)"** (borda vermelha) e informe:
+
+- **Descrição detalhada** do bem (tipo, cor, marca, condição física)
+- **Localização exata** dentro da sala (ex.: "canto esquerdo, perto da janela")
+- **Fotografia** — **obrigatória** (Art. 175)
+
+O sistema:
+
+- persiste a foto otimizada no servidor,
+- cria registro em `bens` com `eh_bem_terceiro=true`, `proprietario_externo='SEM_IDENTIFICACAO'`,
+- cria contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` e `regularizacao_pendente=true`,
+- item aparece na lista de divergências da sala.
+
+Instrução operacional:
+
+> **Não mova o bem.** Ele deve permanecer no local encontrado até o encerramento do inventário para fins de regularização.
 
 ## 4) O que acontece depois
 
 Depois do inventário:
 
 - A equipe analisa divergências (intrusos) e regulariza **após ENCERRAR o evento** (Art. 185).
+- Bens sem identificação ficam na fila de regularização — a equipe realizará diligência posterior (consulta ao GEAFIN, buscas administrativas).
 - Bens de terceiros podem exigir ações administrativas (contrato/retirada/termo próprio), mas **não** viram transferência de carga STM.
 
 O inventário registra fatos. A regularização formaliza.

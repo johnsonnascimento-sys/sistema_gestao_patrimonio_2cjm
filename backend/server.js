@@ -1115,6 +1115,110 @@ app.post("/inventario/bens-terceiros", mustAuth, inventario.postBemTerceiro);
 app.post("/inventario/regularizacoes", mustAdmin, inventario.postRegularizacao);
 
 /**
+ * Registra bem "sem placa/não identificado" (Art. 175)
+ * - Exige foto e descrição.
+ * - Registra localmente como BEM_NAO_IDENTIFICADO na contagem.
+ */
+app.post("/inventario/bens-nao-identificados", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const body = req.body || {};
+    const eventoInventarioId = body.eventoInventarioId != null ? String(body.eventoInventarioId).trim() : "";
+    if (!UUID_RE.test(eventoInventarioId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+
+    const salaEncontrada = body.salaEncontrada != null ? String(body.salaEncontrada).trim().slice(0, 180) : "";
+    if (!salaEncontrada) throw new HttpError(422, "SALA_OBRIGATORIA", "salaEncontrada e obrigatoria.");
+
+    const unidadeEncontradaId = body.unidadeEncontradaId != null ? Number(body.unidadeEncontradaId) : null;
+    if (!VALID_UNIDADES.has(unidadeEncontradaId)) throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeEncontradaId deve ser 1..4.");
+
+    const descricaoDetalhada = body.descricao != null ? String(body.descricao).trim().slice(0, 500) : "";
+    if (!descricaoDetalhada) throw new HttpError(422, "DESCRICAO_OBRIGATORIA", "A descrição é obrigatória.");
+
+    const localizacaoExata = body.localizacaoExata != null ? String(body.localizacaoExata).trim().slice(0, 140) : "";
+    if (!localizacaoExata) throw new HttpError(422, "LOCALIZACAO_OBRIGATORIA", "A localização exata é obrigatória.");
+    const observacoes = `Localização Exata: ${localizacaoExata}`;
+
+    const base64Data = String(body.base64Data || "").trim();
+    if (!base64Data) throw new HttpError(422, "FOTO_OBRIGATORIA", "A fotografia é obrigatória (Art. 175).");
+    if (base64Data.length > 16_000_000) throw new HttpError(413, "FOTO_GRANDE", "Foto grande demais (max ~12 MB).");
+
+    const encontradoPorPerfilId = req.user?.id ? String(req.user.id).trim() : null;
+    if (!encontradoPorPerfilId) throw new HttpError(401, "NAO_AUTENTICADO", "Usuario nao autenticado (perfilId ausente).");
+
+    // Processamento da Foto Otimizada
+    const rawBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ""), "base64");
+    const optimized = await sharp(rawBuffer)
+      .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    const ts = Date.now();
+    const slug = eventoInventarioId.slice(0, 8);
+    const fileName = `${slug}_nai_${ts}.webp`;
+    const relPath = `bem/${fileName}`;
+    const absPath = path.join(FOTOS_DIR, "bem", fileName);
+    fs.writeFileSync(absPath, optimized);
+    const fotoUrl = `/fotos/${relPath}`;
+
+    await client.query("BEGIN");
+
+    const ev = await client.query(
+      `SELECT id, status::text AS status, codigo_evento AS "codigoEvento"
+       FROM eventos_inventario WHERE id = $1 LIMIT 1;`,
+      [eventoInventarioId],
+    );
+    if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+    if (String(ev.rows[0].status) !== "EM_ANDAMENTO") {
+      throw new HttpError(409, "EVENTO_NAO_ATIVO", "Registro exige evento EM_ANDAMENTO.");
+    }
+
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: encontradoPorPerfilId });
+
+    // Catalogo "generico" para itens nao identificados
+    const cat = await client.query(
+      `INSERT INTO catalogo_bens (codigo_catalogo, descricao, grupo, material_permanente)
+       VALUES ('NAO_IDENTIFICADO_GENERICO', 'Bem sem placa/identificação', 'NAO_IDENTIFICADOS', FALSE)
+       ON CONFLICT (codigo_catalogo) DO UPDATE SET updated_at = NOW() RETURNING id;`,
+    );
+    const catalogoBemId = cat.rows[0].id;
+
+    // Identificador para by-pass na check constraint do GEAFIN
+    const identificadorExterno = `NAI-${String(Date.now())}`;
+
+    const bemIns = await client.query(
+      `INSERT INTO bens(
+      numero_tombamento, identificador_externo, catalogo_bem_id,
+      descricao_complementar, unidade_dona_id, local_fisico, status,
+      eh_bem_terceiro, proprietario_externo, foto_url
+    ) VALUES(
+      NULL, $1, $2, $3, $4, $5, 'OK', TRUE, 'SEM_IDENTIFICACAO', $6
+    ) RETURNING id; `,
+      [identificadorExterno, catalogoBemId, descricaoDetalhada, unidadeEncontradaId, salaEncontrada, fotoUrl],
+    );
+    const bemId = bemIns.rows[0].id;
+
+    const cont = await client.query(
+      `INSERT INTO contagens(
+      evento_inventario_id, bem_id, unidade_encontrada_id, sala_encontrada,
+      status_apurado, tipo_ocorrencia, regularizacao_pendente,
+      encontrado_por_perfil_id, encontrado_em, observacoes
+    ) VALUES($1, $2, $3, $4, 'OK', 'BEM_NAO_IDENTIFICADO', TRUE, $5, NOW(), $6)
+       RETURNING id, tipo_ocorrencia::text AS "tipoOcorrencia", encontrado_em AS "encontradoEm", observacoes; `,
+      [eventoInventarioId, bemId, unidadeEncontradaId, salaEncontrada, encontradoPorPerfilId, observacoes],
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ requestId: req.requestId, fotoUrl, contagem: cont.rows[0] });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+/**
  * Lista documentos/evidencias vinculados a movimentacoes/contagens.
  *
  * Regra operacional:
@@ -1148,45 +1252,45 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
     let i = 1;
 
     if (movimentacaoId) {
-      where.push(`movimentacao_id = $${i}`);
+      where.push(`movimentacao_id = $${i} `);
       params.push(movimentacaoId);
       i += 1;
     }
     if (contagemId) {
-      where.push(`contagem_id = $${i}`);
+      where.push(`contagem_id = $${i} `);
       params.push(contagemId);
       i += 1;
     }
 
     const supportsAvaliacao = await documentosHasAvaliacaoInservivelIdColumn();
     if (supportsAvaliacao && avaliacaoInservivelId) {
-      where.push(`avaliacao_inservivel_id = $${i}`);
+      where.push(`avaliacao_inservivel_id = $${i} `);
       params.push(avaliacaoInservivelId);
       i += 1;
     }
 
     const r = await pool.query(
       `SELECT
-         id,
-         tipo::text AS "tipo",
-         titulo,
-         movimentacao_id AS "movimentacaoId",
-         contagem_id AS "contagemId",
-         ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
+    id,
+      tipo::text AS "tipo",
+        titulo,
+        movimentacao_id AS "movimentacaoId",
+          contagem_id AS "contagemId",
+            ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
          termo_referencia AS "termoReferencia",
-         arquivo_nome AS "arquivoNome",
-         mime,
-         bytes,
-         sha256,
-         drive_file_id AS "driveFileId",
-         drive_url AS "driveUrl",
-         gerado_por_perfil_id AS "geradoPorPerfilId",
-         gerado_em AS "geradoEm",
-         observacoes
+      arquivo_nome AS "arquivoNome",
+        mime,
+        bytes,
+        sha256,
+        drive_file_id AS "driveFileId",
+          drive_url AS "driveUrl",
+            gerado_por_perfil_id AS "geradoPorPerfilId",
+              gerado_em AS "geradoEm",
+                observacoes
        FROM documentos
        WHERE ${where.join(" AND ")}
        ORDER BY gerado_em DESC
-       LIMIT 500;`,
+       LIMIT 500; `,
       params,
     );
 
@@ -1251,26 +1355,26 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
     }
 
     const r = await pool.query(
-      `INSERT INTO documentos (
-         tipo, titulo, movimentacao_id, contagem_id, ${supportsAvaliacao ? "avaliacao_inservivel_id," : ""} termo_referencia,
-         arquivo_nome, mime, bytes, sha256, drive_file_id, drive_url,
-         gerado_por_perfil_id, observacoes
-       ) VALUES (
-         $1::public.tipo_documento, $2, $3, $4, ${supportsAvaliacao ? "$5," : ""} $${supportsAvaliacao ? 6 : 5},
-         $${supportsAvaliacao ? 7 : 6}, $${supportsAvaliacao ? 8 : 7}, $${supportsAvaliacao ? 9 : 8}, $${supportsAvaliacao ? 10 : 9}, $${supportsAvaliacao ? 11 : 10}, $${supportsAvaliacao ? 12 : 11},
-         $${supportsAvaliacao ? 13 : 12}, $${supportsAvaliacao ? 14 : 13}
-       )
-       RETURNING
-         id,
-         tipo::text AS "tipo",
-         titulo,
-         movimentacao_id AS "movimentacaoId",
-         contagem_id AS "contagemId",
-         ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
+      `INSERT INTO documentos(
+                  tipo, titulo, movimentacao_id, contagem_id, ${supportsAvaliacao ? "avaliacao_inservivel_id," : ""} termo_referencia,
+                  arquivo_nome, mime, bytes, sha256, drive_file_id, drive_url,
+                  gerado_por_perfil_id, observacoes
+                ) VALUES(
+                  $1:: public.tipo_documento, $2, $3, $4, ${supportsAvaliacao ? "$5," : ""} $${supportsAvaliacao ? 6 : 5},
+                  $${supportsAvaliacao ? 7 : 6}, $${supportsAvaliacao ? 8 : 7}, $${supportsAvaliacao ? 9 : 8}, $${supportsAvaliacao ? 10 : 9}, $${supportsAvaliacao ? 11 : 10}, $${supportsAvaliacao ? 12 : 11},
+                  $${supportsAvaliacao ? 13 : 12}, $${supportsAvaliacao ? 14 : 13}
+                )
+    RETURNING
+    id,
+      tipo::text AS "tipo",
+        titulo,
+        movimentacao_id AS "movimentacaoId",
+          contagem_id AS "contagemId",
+            ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
          termo_referencia AS "termoReferencia",
-         drive_file_id AS "driveFileId",
-         drive_url AS "driveUrl",
-         gerado_em AS "geradoEm";`,
+      drive_file_id AS "driveFileId",
+        drive_url AS "driveUrl",
+          gerado_em AS "geradoEm"; `,
       supportsAvaliacao
         ? [
           tipo,
@@ -1342,26 +1446,26 @@ app.patch("/documentos/:id", mustAdmin, async (req, res, next) => {
 
     const r = await pool.query(
       `UPDATE documentos
-       SET
-         drive_url = $2,
-         drive_file_id = COALESCE($3, drive_file_id),
-         arquivo_nome = COALESCE($4, arquivo_nome),
-         mime = COALESCE($5, mime),
-         bytes = COALESCE($6, bytes),
-         sha256 = COALESCE($7, sha256),
-         observacoes = COALESCE($8, observacoes),
-         updated_at = NOW()
+    SET
+    drive_url = $2,
+      drive_file_id = COALESCE($3, drive_file_id),
+      arquivo_nome = COALESCE($4, arquivo_nome),
+      mime = COALESCE($5, mime),
+      bytes = COALESCE($6, bytes),
+      sha256 = COALESCE($7, sha256),
+      observacoes = COALESCE($8, observacoes),
+      updated_at = NOW()
        WHERE id = $1
-       RETURNING
-         id,
-         tipo::text AS "tipo",
-         titulo,
-         movimentacao_id AS "movimentacaoId",
-         contagem_id AS "contagemId",
-         termo_referencia AS "termoReferencia",
-         drive_file_id AS "driveFileId",
-         drive_url AS "driveUrl",
-         updated_at AS "updatedAt";`,
+    RETURNING
+    id,
+      tipo::text AS "tipo",
+        titulo,
+        movimentacao_id AS "movimentacaoId",
+          contagem_id AS "contagemId",
+            termo_referencia AS "termoReferencia",
+              drive_file_id AS "driveFileId",
+                drive_url AS "driveUrl",
+                  updated_at AS "updatedAt"; `,
       [id, driveUrl, driveFileId, arquivoNome, mime, bytes, sha256, observacoes],
     );
     if (!r.rowCount) throw new HttpError(404, "DOCUMENTO_NAO_ENCONTRADO", "Documento nao encontrado.");
@@ -1396,21 +1500,21 @@ app.post("/inserviveis/avaliacoes", mustAdmin, async (req, res, next) => {
     await client.query("BEGIN");
     await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
 
-    const bemR = await client.query(`SELECT id, numero_tombamento, status::text AS status FROM bens WHERE id = $1 FOR UPDATE;`, [bemId]);
+    const bemR = await client.query(`SELECT id, numero_tombamento, status::text AS status FROM bens WHERE id = $1 FOR UPDATE; `, [bemId]);
     if (!bemR.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
 
     const ins = await client.query(
-      `INSERT INTO avaliacoes_inserviveis (
-         bem_id, tipo_inservivel, descricao_informada, justificativa, criterios, avaliado_por_perfil_id
-       ) VALUES (
-         $1,$2::public.tipo_inservivel,$3,$4,$5,$6
-       )
-       RETURNING id, bem_id AS "bemId", tipo_inservivel::text AS "tipoInservivel", avaliado_em AS "avaliadoEm";`,
+      `INSERT INTO avaliacoes_inserviveis(
+                    bem_id, tipo_inservivel, descricao_informada, justificativa, criterios, avaliado_por_perfil_id
+                  ) VALUES(
+                    $1, $2:: public.tipo_inservivel, $3, $4, $5, $6
+                  )
+       RETURNING id, bem_id AS "bemId", tipo_inservivel::text AS "tipoInservivel", avaliado_em AS "avaliadoEm"; `,
       [bemId, tipo, descricaoInformada, justificativa, criterios ? JSON.stringify(criterios) : null, req.user?.id || null],
     );
 
     await client.query(
-      `UPDATE bens SET tipo_inservivel = $2::public.tipo_inservivel, updated_at = NOW() WHERE id = $1;`,
+      `UPDATE bens SET tipo_inservivel = $2:: public.tipo_inservivel, updated_at = NOW() WHERE id = $1; `,
       [bemId, tipo],
     );
 
@@ -1434,18 +1538,18 @@ app.get("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
 
     const r = await pool.query(
       `SELECT
-         id,
-         bem_id AS "bemId",
-         tipo_inservivel::text AS "tipoInservivel",
-         descricao_informada AS "descricaoInformada",
-         justificativa,
-         criterios,
-         avaliado_por_perfil_id AS "avaliadoPorPerfilId",
-         avaliado_em AS "avaliadoEm"
+    id,
+      bem_id AS "bemId",
+        tipo_inservivel::text AS "tipoInservivel",
+          descricao_informada AS "descricaoInformada",
+            justificativa,
+            criterios,
+            avaliado_por_perfil_id AS "avaliadoPorPerfilId",
+              avaliado_em AS "avaliadoEm"
        FROM avaliacoes_inserviveis
        WHERE bem_id = $1
        ORDER BY avaliado_em DESC
-       LIMIT 50;`,
+       LIMIT 50; `,
       [bemId],
     );
 
@@ -1472,7 +1576,7 @@ app.get("/locais", mustAuth, async (req, res, next) => {
     const params = [];
     let i = 1;
     if (unidadeId != null) {
-      where.push(`unidade_id = $${i}`);
+      where.push(`unidade_id = $${i} `);
       params.push(unidadeId);
       i += 1;
     }
@@ -1481,14 +1585,14 @@ app.get("/locais", mustAuth, async (req, res, next) => {
     if (!includeInativos) {
       where.push(`ativo = TRUE`);
     }
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")} ` : "";
 
     const r = await pool.query(
       `SELECT id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo
        FROM locais
        ${whereSql}
        ORDER BY nome ASC
-       LIMIT 2000;`,
+       LIMIT 2000; `,
       params,
     );
     res.json({ requestId: req.requestId, items: r.rows });
@@ -1524,17 +1628,17 @@ app.post("/locais", mustAdmin, async (req, res, next) => {
       ? await client.query(
         `UPDATE locais
            SET unidade_id = $2,
-               tipo = $3,
-               observacoes = $4,
-               ativo = $5
+      tipo = $3,
+      observacoes = $4,
+      ativo = $5
            WHERE id = $1
-           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
+           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo; `,
         [existing.rows[0].id, unidadeId, tipo, observacoes, ativo],
       )
       : await client.query(
-        `INSERT INTO locais (nome, unidade_id, tipo, observacoes)
-           VALUES ($1,$2,$3,$4)
-           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
+        `INSERT INTO locais(nome, unidade_id, tipo, observacoes)
+    VALUES($1, $2, $3, $4)
+           RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo; `,
         [nome, unidadeId, tipo, observacoes],
       );
 
@@ -1590,27 +1694,27 @@ app.patch("/locais/:id", mustAdmin, async (req, res, next) => {
     const params = [];
     let i = 1;
     if (patch.nome != null) {
-      fields.push(`nome = $${i}`);
+      fields.push(`nome = $${i} `);
       params.push(patch.nome);
       i += 1;
     }
     if (patch.unidadeId !== undefined) {
-      fields.push(`unidade_id = $${i}`);
+      fields.push(`unidade_id = $${i} `);
       params.push(patch.unidadeId);
       i += 1;
     }
     if (patch.tipo !== undefined) {
-      fields.push(`tipo = $${i}`);
+      fields.push(`tipo = $${i} `);
       params.push(patch.tipo);
       i += 1;
     }
     if (patch.observacoes !== undefined) {
-      fields.push(`observacoes = $${i}`);
+      fields.push(`observacoes = $${i} `);
       params.push(patch.observacoes);
       i += 1;
     }
     if (patch.ativo !== undefined) {
-      fields.push(`ativo = $${i}`);
+      fields.push(`ativo = $${i} `);
       params.push(patch.ativo);
       i += 1;
     }
@@ -1621,7 +1725,7 @@ app.patch("/locais/:id", mustAdmin, async (req, res, next) => {
       `UPDATE locais
        SET ${fields.join(", ")}
        WHERE id = $${i}
-       RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo;`,
+       RETURNING id, nome, unidade_id AS "unidadeId", tipo, observacoes, ativo; `,
       [...params, id],
     );
     if (!r.rowCount) throw new HttpError(404, "LOCAL_NAO_ENCONTRADO", "Local nao encontrado.");
@@ -1663,7 +1767,7 @@ app.get("/pdf/forasteiros", mustAdmin, async (req, res, next) => {
       `SELECT contagem_id, codigo_evento, numero_tombamento, descricao, unidade_dona_id, unidade_encontrada_id, sala_encontrada, encontrado_em
        FROM public.vw_forasteiros
        ORDER BY encontrado_em DESC
-       LIMIT $1;`,
+       LIMIT $1; `,
       [limit],
     );
 
@@ -1705,17 +1809,17 @@ app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
 
     const r = await pool.query(
       `UPDATE bens
-       SET
-         local_fisico = COALESCE($2, local_fisico),
-         local_id = $3,
-         foto_url = COALESCE($4, foto_url),
-         updated_at = NOW()
+    SET
+    local_fisico = COALESCE($2, local_fisico),
+      local_id = $3,
+      foto_url = COALESCE($4, foto_url),
+      updated_at = NOW()
        WHERE id = $1
        RETURNING id,
-         numero_tombamento AS "numeroTombamento",
-         local_fisico AS "localFisico",
-         local_id AS "localId",
-         foto_url AS "fotoUrl";`,
+      numero_tombamento AS "numeroTombamento",
+        local_fisico AS "localFisico",
+          local_id AS "localId",
+            foto_url AS "fotoUrl"; `,
       [id, localFisico, localId, fotoUrl],
     );
     if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
@@ -1733,10 +1837,10 @@ function deleteLocalFoto(relUrl) {
     const filePath = path.join(__dirname, "data", relUrl);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log(`[DELETE] Foto removida: ${filePath}`);
+      console.log(`[DELETE] Foto removida: ${filePath} `);
     }
   } catch (err) {
-    console.error(`[DELETE ERROR] Falha ao remover ${relUrl}:`, err);
+    console.error(`[DELETE ERROR] Falha ao remover ${relUrl}: `, err);
   }
 }
 
@@ -1850,62 +1954,62 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     let i = 1;
 
     if (patch.catalogoBemId != null) {
-      fields.push(`catalogo_bem_id = $${i}`);
+      fields.push(`catalogo_bem_id = $${i} `);
       params.push(patch.catalogoBemId);
       i += 1;
     }
     if (patch.descricaoComplementar !== undefined) {
-      fields.push(`descricao_complementar = $${i}`);
+      fields.push(`descricao_complementar = $${i} `);
       params.push(patch.descricaoComplementar);
       i += 1;
     }
     if (patch.unidadeDonaId != null) {
-      fields.push(`unidade_dona_id = $${i}`);
+      fields.push(`unidade_dona_id = $${i} `);
       params.push(patch.unidadeDonaId);
       i += 1;
     }
     if (patch.responsavelPerfilId !== undefined) {
-      fields.push(`responsavel_perfil_id = $${i}`);
+      fields.push(`responsavel_perfil_id = $${i} `);
       params.push(patch.responsavelPerfilId);
       i += 1;
     }
     if (patch.localFisico !== undefined) {
-      fields.push(`local_fisico = $${i}`);
+      fields.push(`local_fisico = $${i} `);
       params.push(patch.localFisico);
       i += 1;
     }
     if (patch.localId !== undefined) {
-      fields.push(`local_id = $${i}`);
+      fields.push(`local_id = $${i} `);
       params.push(patch.localId);
       i += 1;
     }
     if (patch.status != null) {
-      fields.push(`status = $${i}::public.status_bem`);
+      fields.push(`status = $${i}:: public.status_bem`);
       params.push(patch.status);
       i += 1;
     }
     if (patch.tipoInservivel !== undefined) {
-      fields.push(`tipo_inservivel = $${i}::public.tipo_inservivel`);
+      fields.push(`tipo_inservivel = $${i}:: public.tipo_inservivel`);
       params.push(patch.tipoInservivel);
       i += 1;
     }
     if (patch.contratoReferencia !== undefined) {
-      fields.push(`contrato_referencia = $${i}`);
+      fields.push(`contrato_referencia = $${i} `);
       params.push(patch.contratoReferencia);
       i += 1;
     }
     if (patch.dataAquisicao !== undefined) {
-      fields.push(`data_aquisicao = $${i}`);
+      fields.push(`data_aquisicao = $${i} `);
       params.push(patch.dataAquisicao);
       i += 1;
     }
     if (patch.valorAquisicao !== undefined) {
-      fields.push(`valor_aquisicao = $${i}`);
+      fields.push(`valor_aquisicao = $${i} `);
       params.push(patch.valorAquisicao);
       i += 1;
     }
     if (patch.fotoUrl !== undefined) {
-      fields.push(`foto_url = $${i}`);
+      fields.push(`foto_url = $${i} `);
       params.push(patch.fotoUrl);
       i += 1;
 
@@ -1926,20 +2030,20 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
        SET ${fields.join(", ")}, updated_at = NOW()
        WHERE id = $${i}
        RETURNING id,
-         numero_tombamento AS "numeroTombamento",
-         catalogo_bem_id AS "catalogoBemId",
-         descricao_complementar AS "descricaoComplementar",
-         unidade_dona_id AS "unidadeDonaId",
-         responsavel_perfil_id AS "responsavelPerfilId",
-         local_fisico AS "localFisico",
-         local_id AS "localId",
-         status::text AS "status",
-         tipo_inservivel::text AS "tipoInservivel",
-         contrato_referencia AS "contratoReferencia",
-         data_aquisicao AS "dataAquisicao",
-         valor_aquisicao AS "valorAquisicao",
-         foto_url AS "fotoUrl",
-         updated_at AS "updatedAt";`,
+      numero_tombamento AS "numeroTombamento",
+        catalogo_bem_id AS "catalogoBemId",
+          descricao_complementar AS "descricaoComplementar",
+            unidade_dona_id AS "unidadeDonaId",
+              responsavel_perfil_id AS "responsavelPerfilId",
+                local_fisico AS "localFisico",
+                  local_id AS "localId",
+                    status::text AS "status",
+                      tipo_inservivel::text AS "tipoInservivel",
+                        contrato_referencia AS "contratoReferencia",
+                          data_aquisicao AS "dataAquisicao",
+                            valor_aquisicao AS "valorAquisicao",
+                              foto_url AS "fotoUrl",
+                                updated_at AS "updatedAt"; `,
       [...params, id],
     );
     if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");

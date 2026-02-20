@@ -52,6 +52,15 @@ Importante:
 - A lista de "forasteiros" (fila) **só aparece após o evento ser ENCERRADO**.
 - Enquanto o evento estiver `EM_ANDAMENTO`, as divergências existem em `contagens`, mas não entram na fila pós-inventário.
 
+## 3.1) Bens Não Identificados (Evidências Visuais - Art. 175)
+
+Na tela de Regularização, bens que **perderam a placa de tombamento** são apresentados assim:
+- Em vez de um tombo, recebem um selo vermelho de **SEM PLACA** e o ID automático `NAI-XXXX...`.
+- Aparece o botão **📸 Ver Foto** em azul, permitindo a visualização exata do item.
+- Exibe-se a descrição com detalhes complementares informados no momento em que o item foi fisicamente achado.
+
+Essa materialidade é exigência do **Art. 175 (AN303_Art175)**, assegurando que o gestor tome a decisão baseado na prova visual coletada na sala inventariada.
+
 ## 4) Ações disponíveis
 
 ### 4.1) Manter carga (encerra a pendência sem transferir)

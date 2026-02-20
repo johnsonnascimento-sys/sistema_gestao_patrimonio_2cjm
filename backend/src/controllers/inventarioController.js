@@ -146,9 +146,14 @@ function createInventarioController(deps) {
           c.observacoes,
           b.id AS "bemId",
           b.numero_tombamento AS "numeroTombamento",
-          b.unidade_dona_id AS "unidadeDonaId"
+          b.identificador_externo AS "identificadorExterno",
+          b.descricao_complementar AS "descricaoComplementar",
+          b.foto_url AS "fotoUrl",
+          b.unidade_dona_id AS "unidadeDonaId",
+          cb.descricao AS "catalogoDescricao"
         FROM contagens c
         JOIN bens b ON b.id = c.bem_id
+        JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
         WHERE ${where.join(" AND ")}
         ORDER BY c.encontrado_em DESC
         LIMIT $${i};`;
@@ -291,6 +296,9 @@ function createInventarioController(deps) {
           f.unidade_inventariada_id AS "unidadeInventariadaId",
           f.bem_id AS "bemId",
           f.numero_tombamento AS "numeroTombamento",
+          f.identificador_externo AS "identificadorExterno",
+          f.foto_url AS "fotoUrl",
+          f.descricao AS "descricaoComplementar",
           b.catalogo_bem_id AS "catalogoBemId",
           cb.codigo_catalogo AS "codigoCatalogo",
           cb.descricao AS "catalogoDescricao",

@@ -240,7 +240,33 @@ Body JSON (exemplo):
 - `proprietarioExterno` (string)
 - `identificadorExterno` (opcional)
 
-## Inservíveis (Wizard Art. 141)
+### POST `/inventario/bens-nao-identificados`
+
+Uso: registrar bem encontrado sem identificação (sem plaqueta/etiqueta ilegível) durante inventário, com foto obrigatória.
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer autenticação (qualquer papel).
+
+Body JSON:
+
+- `eventoInventarioId` (UUID, obrigatório)
+- `unidadeEncontradaId` (1..4, obrigatório)
+- `salaEncontrada` (string, obrigatório)
+- `descricao` (string, mín. 3 caracteres, obrigatório)
+- `localizacaoExata` (string, mín. 3 caracteres, obrigatório)
+- `base64Data` (string, base64 da imagem, obrigatório — max ~12 MB)
+
+O sistema:
+
+- Otimiza a foto (WebP, max 1200px) e persiste em `./data/fotos/bem/`.
+- Cria catálogo genérico `NAO_IDENTIFICADO_GENERICO` se não existir.
+- Insere bem com `eh_bem_terceiro=true` e `proprietario_externo='SEM_IDENTIFICACAO'`.
+- Cria contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` e `regularizacao_pendente=true`.
+
+Regra legal: Art. 175, IX (AN303_Art175_IX)
+
+
 
 ### POST `/inserviveis/avaliacoes`
 
