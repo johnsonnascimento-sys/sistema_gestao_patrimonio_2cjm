@@ -2831,8 +2831,16 @@ function normalizeGeafin(raw, rowNo, fallbackUnit) {
       nomeResumo: pick(row, ["nome"]),
       cod2Aud: (() => {
         const campoAdicional = row["campo_adicional"] || "";
-        const m = campoAdicional.match(/\[Cod2Aud:(\d+)\]/i);
-        return m ? m[1] : null;
+        let m = campoAdicional.match(/\[Cod2Aud:(\d+)\]/i);
+        if (m) return m[1];
+        // Busca resiliente em todas as colunas (caso o CSV esteja desalinhado por vírgulas extras)
+        for (const v of Object.values(row)) {
+          if (typeof v === "string") {
+            const m2 = v.match(/\[Cod2Aud:(\d+)\]/i);
+            if (m2) return m2[1];
+          }
+        }
+        return null;
       })(),
       grupo: pick(row, ["grupo", "grupo_material", "classe", "categoria"]),
       localFisico: pick(row, ["local_fisico", "localizacao", "sala", "local", "ambiente", "siglalotacao"]) || "NAO_INFORMADO",
