@@ -472,6 +472,11 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       params.push(`%${filters.texto}%`);
       i += 1;
     }
+    if (filters.codigoCatalogo) {
+      where.push(`cb.codigo_catalogo ILIKE $${i}`);
+      params.push(`%${filters.codigoCatalogo}%`);
+      i += 1;
+    }
     if (filters.localFisico) {
       where.push(`b.local_fisico ILIKE $${i}`);
       params.push(`%${filters.localFisico}%`);
@@ -506,6 +511,7 @@ app.get("/bens", mustAuth, async (req, res, next) => {
         b.nome_resumo AS "nomeResumo",
         COALESCE(NULLIF(b.nome_resumo, ''), NULLIF(b.descricao_complementar, ''), cb.descricao) AS "descricao",
         b.catalogo_bem_id AS "catalogoBemId",
+        cb.codigo_catalogo AS "codigoCatalogo",
         cb.descricao AS "catalogoDescricao",
         b.unidade_dona_id AS "unidadeDonaId",
         b.local_fisico AS "localFisico",
@@ -2427,7 +2433,7 @@ function validateMov(body, opts) {
 /**
  * Valida query de listagem/consulta de bens.
  * @param {object} query Query string bruta do Express.
- * @returns {{numeroTombamento: string|null, tipoBusca: ("antigo"|"novo"|null), texto: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
+ * @returns {{numeroTombamento: string|null, tipoBusca: ("antigo"|"novo"|null), texto: string|null, codigoCatalogo: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
  */
 function validateBensQuery(query) {
   const numeroTombamento = normalizeTombamento(query.numeroTombamento || query.tombamento);
@@ -2469,6 +2475,11 @@ function validateBensQuery(query) {
   const texto = query.q ? String(query.q).trim() : null;
   const textoFinal = texto && texto.length ? texto.slice(0, 120) : null;
 
+  const codigoCatalogoRaw = query.codigoCatalogo || query.codigo_catalogo || query.catalogo || null;
+  const codigoCatalogo = codigoCatalogoRaw != null && String(codigoCatalogoRaw).trim() !== ""
+    ? String(codigoCatalogoRaw).trim().slice(0, 120)
+    : null;
+
   const localFisicoRaw = query.localFisico || query.local_fisico || query.sala || null;
   const localFisico = localFisicoRaw != null && String(localFisicoRaw).trim() !== ""
     ? String(localFisicoRaw).trim().slice(0, 180)
@@ -2498,7 +2509,19 @@ function validateBensQuery(query) {
 
   const incluirTerceiros = parseBool(query.incluirTerceiros, false);
 
-  return { numeroTombamento, tipoBusca, texto: textoFinal, localFisico, localId, unidadeDonaId, status, limit, offset, incluirTerceiros };
+  return {
+    numeroTombamento,
+    tipoBusca,
+    texto: textoFinal,
+    codigoCatalogo,
+    localFisico,
+    localId,
+    unidadeDonaId,
+    status,
+    limit,
+    offset,
+    incluirTerceiros,
+  };
 }
 
 /**

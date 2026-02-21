@@ -38,6 +38,7 @@ export default function AssetsExplorer() {
   const [detail, setDetail] = useState({ open: false, loading: false, data: null, error: null });
   const [filters, setFilters] = useState({
     numeroTombamento: "",
+    codigoCatalogo: "",
     q: "",
     localFisico: "",
     unidadeDonaId: "",
@@ -69,20 +70,22 @@ export default function AssetsExplorer() {
     }
   };
 
-  const loadList = async (newOffset, forcedTipoBusca) => {
+  const loadList = async (newOffset, forcedTipoBusca, forcedFilters) => {
     setList({ loading: true, data: null, error: null });
     try {
-      const tombamentoRaw = filters.numeroTombamento.trim();
+      const activeFilters = forcedFilters || filters;
+      const tombamentoRaw = activeFilters.numeroTombamento.trim();
       const tipoBusca =
         tombamentoRaw.length === 4 ? (forcedTipoBusca ?? tipoBusca4Digitos ?? undefined) : undefined;
 
       const data = await listarBens({
         numeroTombamento: tombamentoRaw || undefined,
         tipoBusca,
-        q: filters.q.trim() || undefined,
-        localFisico: filters.localFisico.trim() || undefined,
-        unidadeDonaId: filters.unidadeDonaId ? Number(filters.unidadeDonaId) : undefined,
-        status: filters.status || undefined,
+        codigoCatalogo: activeFilters.codigoCatalogo.trim() || undefined,
+        q: activeFilters.q.trim() || undefined,
+        localFisico: activeFilters.localFisico.trim() || undefined,
+        unidadeDonaId: activeFilters.unidadeDonaId ? Number(activeFilters.unidadeDonaId) : undefined,
+        status: activeFilters.status || undefined,
         limit: paging.limit,
         offset: newOffset,
       });
@@ -126,9 +129,10 @@ export default function AssetsExplorer() {
     setFormError(null);
     setTipoBusca4Digitos(null);
     setTagIdModal({ isOpen: false, value: "" });
-    setFilters({ numeroTombamento: "", q: "", localFisico: "", unidadeDonaId: "", status: "" });
+    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localFisico: "", unidadeDonaId: "", status: "" };
+    setFilters(clearedFilters);
     setPaging((prev) => ({ ...prev, offset: 0 }));
-    setTimeout(() => loadList(0), 0);
+    setTimeout(() => loadList(0, undefined, clearedFilters), 0);
   };
 
   const onSelectTipoBusca = async (tipoBusca) => {
@@ -139,6 +143,22 @@ export default function AssetsExplorer() {
   };
 
   const items = list.data?.items || [];
+
+  const aplicarMesmoCatalogo = (codigoCatalogo) => {
+    const codigo = String(codigoCatalogo || "").trim();
+    if (!codigo) return;
+    setFormError(null);
+    setTipoBusca4Digitos(null);
+    setTagIdModal({ isOpen: false, value: "" });
+    const nextFilters = {
+      ...filters,
+      numeroTombamento: "",
+      codigoCatalogo: codigo,
+    };
+    setFilters(nextFilters);
+    setPaging((prev) => ({ ...prev, offset: 0 }));
+    setTimeout(() => loadList(0, undefined, nextFilters), 0);
+  };
 
   const copyTombamento = async (value) => {
     if (!value) return;
@@ -167,7 +187,7 @@ export default function AssetsExplorer() {
       <header className="space-y-2">
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens (dados reais)</h2>
         <p className="text-sm text-slate-300">
-          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo) ou texto da descricao.
+          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo), codigo de catalogo ou texto da descricao.
         </p>
       </header>
 
@@ -231,6 +251,15 @@ export default function AssetsExplorer() {
               value={filters.q}
               onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
               placeholder="Ex.: ARMARIO, PROJETOR, NOTEBOOK"
+              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs text-slate-300">Numero do catalogo</span>
+            <input
+              value={filters.codigoCatalogo}
+              onChange={(e) => setFilters((prev) => ({ ...prev, codigoCatalogo: e.target.value }))}
+              placeholder="Ex.: 101004470"
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
           </label>
@@ -325,6 +354,7 @@ export default function AssetsExplorer() {
               <tr>
                 <th className="px-3 py-2">Tombo</th>
                 <th className="px-3 py-2">Antigo (Azul)</th>
+                <th className="px-3 py-2">Catalogo</th>
                 <th className="px-3 py-2">Descrição / Resumo</th>
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
@@ -336,7 +366,7 @@ export default function AssetsExplorer() {
             <tbody className="divide-y divide-white/10 bg-slate-950/30">
               {items.length === 0 && !list.loading && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-300">
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-300">
                     Nenhum bem encontrado para os filtros informados.
                   </td>
                 </tr>
@@ -355,6 +385,9 @@ export default function AssetsExplorer() {
                   </td>
                   <td className="px-3 py-2 font-mono text-[11px] text-cyan-300">
                     {item.cod2Aud || "-"}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[11px] text-emerald-300">
+                    {item.codigoCatalogo || "-"}
                   </td>
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-100">
@@ -383,13 +416,24 @@ export default function AssetsExplorer() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openDetail(item.id)}
-                      className="rounded-md border border-white/20 bg-slate-900/60 px-2 py-1 text-xs hover:bg-slate-900"
-                    >
-                      Detalhes
-                    </button>
+                    <div className="inline-flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => aplicarMesmoCatalogo(item.codigoCatalogo)}
+                        disabled={!item.codigoCatalogo}
+                        className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        title="Filtrar itens do mesmo catalogo"
+                      >
+                        Mesmo catalogo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openDetail(item.id)}
+                        className="rounded-md border border-white/20 bg-slate-900/60 px-2 py-1 text-xs hover:bg-slate-900"
+                      >
+                        Detalhes
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -164,6 +164,7 @@ export async function getStats(incluirTerceiros = false) {
  * @param {string=} filters.numeroTombamento Tombamento GEAFIN (10 digitos) ou codigo de 4 digitos.
  * @param {"antigo"|"novo"=} filters.tipoBusca Obrigatorio quando numeroTombamento tiver 4 digitos.
  * @param {string=} filters.q Texto parcial para descricao.
+ * @param {string=} filters.codigoCatalogo Codigo/numero de catalogo para busca.
  * @param {string=} filters.localFisico Texto parcial para filtrar por local_fisico (inventario/sala).
  * @param {string=} filters.localId UUID do local cadastrado (tabela locais) vinculado ao bem.
  * @param {number=} filters.unidadeDonaId Unidade 1..4.
@@ -177,6 +178,7 @@ export async function listarBens(filters = {}) {
   const params = new URLSearchParams();
   if (filters.numeroTombamento) params.set("numeroTombamento", filters.numeroTombamento);
   if (filters.q) params.set("q", filters.q);
+  if (filters.codigoCatalogo) params.set("codigoCatalogo", filters.codigoCatalogo);
   if (filters.localFisico) params.set("localFisico", filters.localFisico);
   if (filters.localId) params.set("localId", String(filters.localId));
   if (filters.unidadeDonaId) params.set("unidadeDonaId", String(filters.unidadeDonaId));
