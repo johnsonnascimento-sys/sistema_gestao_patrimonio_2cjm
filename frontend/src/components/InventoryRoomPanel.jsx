@@ -3,7 +3,7 @@
  * Arquivo: InventoryRoomPanel.jsx
  * Funcao no sistema: modo inventario (offline-first) com contagens por sala e sincronizacao deterministica.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { get as idbGet, set as idbSet } from "idb-keyval";
 import useOfflineSync from "../hooks/useOfflineSync.js";
@@ -27,6 +27,11 @@ const INVENTORY_UI_KEY = "cjm_inventory_ui_v1";
 function normalizeRoomKey(raw) {
   if (raw == null) return "";
   return String(raw).trim().toLowerCase();
+}
+
+function normalizeRoomLabel(raw) {
+  if (raw == null) return "";
+  return String(raw).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function roomCacheKey(localIdOrName) {
@@ -64,8 +69,6 @@ function normalizeTombamentoInput(raw) {
   return cleaned.slice(0, 10);
 }
 
-
-
 function playAlertBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -83,6 +86,26 @@ function playAlertBeep() {
     }, 180);
   } catch (_error) {
     // Sem audio em alguns navegadores; não impede o fluxo.
+  }
+}
+
+function playSuccessBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = 660;
+    g.gain.value = 0.07;
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    setTimeout(() => {
+      o.stop();
+      ctx.close().catch(() => undefined);
+    }, 120);
+  } catch (_error) {
+    // Sem audio em alguns navegadores; nao impede o fluxo.
   }
 }
 
@@ -119,6 +142,7 @@ export default function InventoryRoomPanel() {
   const [salaEncontrada, setSalaEncontrada] = useState(initialUi?.salaEncontrada || "");
   const [scannerValue, setScannerValue] = useState("");
   const [uiError, setUiError] = useState(null);
+  const [scanFeedback, setScanFeedback] = useState(null);
   const [lastScans, setLastScans] = useState([]);
   const [unitEffectReady, setUnitEffectReady] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -138,6 +162,8 @@ export default function InventoryRoomPanel() {
   const [naoIdStatus, setNaoIdStatus] = useState(null);
 
   const [divergenteAlertItem, setDivergenteAlertItem] = useState(null);
+  const scannedSessionRef = useRef(new Set());
+  const scanCooldownRef = useRef(new Map());
 
 
   useEffect(() => {
@@ -150,6 +176,10 @@ export default function InventoryRoomPanel() {
     // salaEncontrada sera limpada pelo efeito de coerencia do local.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidadeEncontradaId]);
+
+  useEffect(() => {
+    setScanFeedback(null);
+  }, [selectedEventoIdFinal, selectedLocalId, salaEncontrada, unidadeEncontradaId]);
 
   if (initialUi && !initialUi._migrated) {
     // Marca como migrado para evitar reprocessamento em renders futuros.
@@ -263,6 +293,18 @@ export default function InventoryRoomPanel() {
     },
   });
 
+  const contagensEventoQuery = useQuery({
+    queryKey: ["inventarioContagensEvento", selectedEventoIdFinal],
+    enabled: Boolean(selectedEventoIdFinal && navigator.onLine),
+    queryFn: async () => {
+      const data = await listarContagensInventario({
+        eventoInventarioId: selectedEventoIdFinal,
+        limit: 10000,
+      });
+      return data.items || [];
+    },
+  });
+
   const terceirosSalaQuery = useQuery({
     queryKey: ["inventarioBensTerceiros", selectedEventoIdFinal, salaEncontrada],
     enabled: Boolean(selectedEventoIdFinal && selectedLocalId && salaEncontrada.trim().length >= 2 && navigator.onLine),
@@ -308,6 +350,14 @@ export default function InventoryRoomPanel() {
     return map;
   }, [contagensSalaQuery.data]);
 
+  const contagemAnyByTombamento = useMemo(() => {
+    const map = new Map();
+    for (const c of contagensEventoQuery.data || []) {
+      if (c.numeroTombamento) map.set(c.numeroTombamento, c);
+    }
+    return map;
+  }, [contagensEventoQuery.data]);
+
   const pendingByTombamento = useMemo(() => {
     const map = new Map();
     const salaKey = normalizeRoomKey(salaEncontrada);
@@ -320,16 +370,29 @@ export default function InventoryRoomPanel() {
     return map;
   }, [offline.items, salaEncontrada, selectedEventoIdFinal]);
 
+  const pendingAnyByTombamento = useMemo(() => {
+    const map = new Map();
+    const evId = selectedEventoIdFinal;
+    for (const it of offline.items || []) {
+      if (!evId || it.eventoInventarioId !== evId) continue;
+      if (it.numeroTombamento) map.set(it.numeroTombamento, it);
+    }
+    return map;
+  }, [offline.items, selectedEventoIdFinal]);
+
   const foundSet = useMemo(() => {
     const s = new Set();
     for (const t of contagemByTombamento.keys()) s.add(t);
+    for (const t of contagemAnyByTombamento.keys()) s.add(t);
     for (const t of pendingByTombamento.keys()) s.add(t);
+    for (const t of pendingAnyByTombamento.keys()) s.add(t);
     return s;
-  }, [contagemByTombamento, pendingByTombamento]);
+  }, [contagemAnyByTombamento, contagemByTombamento, pendingAnyByTombamento, pendingByTombamento]);
 
   function getConferenciaMeta(bem) {
     const t = bem?.numeroTombamento || null;
     if (!t) return { encontrado: false, divergente: false, fonte: null };
+    const salaAtualKey = normalizeRoomKey(salaEncontrada);
 
     const c = contagemByTombamento.get(t);
     if (c) {
@@ -340,14 +403,48 @@ export default function InventoryRoomPanel() {
       };
     }
 
+    const cAny = contagemAnyByTombamento.get(t);
+    if (cAny) {
+      const encontradoEmOutraSala = normalizeRoomKey(cAny.salaEncontrada) !== salaAtualKey;
+      return {
+        encontrado: true,
+        divergente: cAny.tipoOcorrencia === "ENCONTRADO_EM_LOCAL_DIVERGENTE" || encontradoEmOutraSala,
+        fonte: encontradoEmOutraSala ? "SERVIDOR_OUTRA_SALA" : "SERVIDOR",
+      };
+    }
+
     const p = pendingByTombamento.get(t);
     if (p) {
       const unidadeEncontrada = Number(p.unidadeEncontradaId);
       const unidadeDona = Number(bem.unidadeDonaId);
+      const localDonoId = bem?.localId != null ? String(bem.localId) : null;
+      const localEncontradoId = p?.localEncontradoId != null ? String(p.localEncontradoId) : null;
+      const divergenciaUnidade = Number.isInteger(unidadeEncontrada) && Number.isInteger(unidadeDona) ? unidadeEncontrada !== unidadeDona : false;
+      const divergenciaSala = localDonoId && localEncontradoId
+        ? localDonoId !== localEncontradoId
+        : normalizeRoomLabel(bem?.localFisico) !== "" && normalizeRoomLabel(p?.salaEncontrada) !== ""
+          ? normalizeRoomLabel(bem?.localFisico) !== normalizeRoomLabel(p?.salaEncontrada)
+          : false;
       return {
         encontrado: true,
-        divergente: Number.isInteger(unidadeEncontrada) && Number.isInteger(unidadeDona) ? unidadeEncontrada !== unidadeDona : false,
+        divergente: divergenciaUnidade || divergenciaSala,
         fonte: "PENDENTE",
+      };
+    }
+
+    const pAny = pendingAnyByTombamento.get(t);
+    if (pAny) {
+      const unidadeEncontrada = Number(pAny.unidadeEncontradaId);
+      const unidadeDona = Number(bem.unidadeDonaId);
+      const localDonoId = bem?.localId != null ? String(bem.localId) : null;
+      const localEncontradoId = pAny?.localEncontradoId != null ? String(pAny.localEncontradoId) : null;
+      const divergenciaUnidade = Number.isInteger(unidadeEncontrada) && Number.isInteger(unidadeDona) ? unidadeEncontrada !== unidadeDona : false;
+      const divergenciaSalaById = localDonoId && localEncontradoId ? localDonoId !== localEncontradoId : false;
+      const divergenciaSalaByNome = normalizeRoomKey(pAny.salaEncontrada) !== salaAtualKey;
+      return {
+        encontrado: true,
+        divergente: divergenciaUnidade || divergenciaSalaById || divergenciaSalaByNome,
+        fonte: "PENDENTE_OUTRA_SALA",
       };
     }
 
@@ -509,6 +606,7 @@ export default function InventoryRoomPanel() {
 
   const handleScanValue = async (rawValue) => {
     setUiError(null);
+    setScanFeedback(null);
 
     if (!canRegister) {
       setUiError("Selecione evento ativo, unidade encontrada e sala antes de registrar.");
@@ -537,11 +635,14 @@ export default function InventoryRoomPanel() {
 
   const processScan = async (numeroTombamento, tipoBusca = null) => {
     setUiError(null);
+    setScanFeedback(null);
     const unidadeEncontrada = Number(unidadeEncontradaId);
+    const localEncontradoId = selectedLocalId ? String(selectedLocalId).trim() : "";
+    const salaAtual = salaEncontrada.trim();
     let bem = bemByTombamento.get(numeroTombamento) || null;
     let lookupItems = [];
 
-    // Scanner hibrido: se o tombo não estiver no catálogo da sala carregado, tenta lookup rapido no backend (quando online).
+    // Scanner hibrido: se o tombo nao estiver no catalogo da sala carregado, tenta lookup rapido no backend (quando online).
     if (!bem && navigator.onLine) {
       try {
         const lookup = await listarBens({
@@ -554,7 +655,7 @@ export default function InventoryRoomPanel() {
         lookupItems = lookup.items || [];
         bem = lookupItems[0] || null;
       } catch (_error) {
-        // Falha de lookup não impede enfileirar o scan.
+        // Falha de lookup nao impede enfileirar o scan.
       }
     }
 
@@ -565,7 +666,7 @@ export default function InventoryRoomPanel() {
         .filter(Boolean)
         .join(", ");
       setUiError(
-        `Codigo "${numeroTombamento}" encontrou ${lookupItems.length} patrimônios (${candidatos}${lookupItems.length > 5 ? ", ..." : ""}). Informe os 10 dígitos.`,
+        `Codigo "${numeroTombamento}" encontrou ${lookupItems.length} patrimonios (${candidatos}${lookupItems.length > 5 ? ", ..." : ""}). Informe os 10 digitos.`,
       );
       setScannerValue("");
       return;
@@ -582,7 +683,45 @@ export default function InventoryRoomPanel() {
     }
 
     const finalTombamento = bem?.numeroTombamento || numeroTombamento;
-    const divergente = bem ? Number(bem.unidadeDonaId) !== unidadeEncontrada : false;
+    const scanKey = [selectedEventoIdFinal, localEncontradoId || normalizeRoomKey(salaAtual), finalTombamento].join("|");
+    const now = Date.now();
+    const lastScanAt = scanCooldownRef.current.get(scanKey);
+    if (lastScanAt && now - lastScanAt < 1200) {
+      playAlertBeep();
+      setScanFeedback({
+        kind: "warn",
+        message: `${finalTombamento} ja foi capturado agora. Afaste a camera para evitar leitura repetida.`,
+      });
+      setScannerValue("");
+      return;
+    }
+
+    const alreadyFromServer = contagemByTombamento.get(finalTombamento);
+    const alreadyPending = pendingByTombamento.get(finalTombamento);
+    const alreadyInSession = scannedSessionRef.current.has(scanKey);
+    if (alreadyFromServer || alreadyPending || alreadyInSession) {
+      playAlertBeep();
+      scanCooldownRef.current.set(scanKey, now);
+      setScanFeedback({
+        kind: "warn",
+        message: `${finalTombamento} ja foi lido nesta sala.`,
+      });
+      setScannerValue("");
+      return;
+    }
+
+    const unidadeDonaId = bem?.unidadeDonaId != null ? Number(bem.unidadeDonaId) : null;
+    const localEsperadoId = bem?.localId != null ? String(bem.localId) : null;
+    const localEsperadoNome = localEsperadoId
+      ? (locaisQuery.data || []).find((l) => String(l.id) === localEsperadoId)?.nome || bem?.localFisico || null
+      : bem?.localFisico || null;
+    const divergenciaUnidade = Number.isInteger(unidadeDonaId) ? unidadeDonaId !== unidadeEncontrada : false;
+    const divergenciaSala = localEsperadoId && localEncontradoId
+      ? localEsperadoId !== localEncontradoId
+      : normalizeRoomLabel(localEsperadoNome) !== "" && normalizeRoomLabel(salaAtual) !== ""
+        ? normalizeRoomLabel(localEsperadoNome) !== normalizeRoomLabel(salaAtual)
+        : false;
+    const divergente = divergenciaUnidade || divergenciaSala;
 
     // Regra legal: divergencia de local deve gerar ocorrencia sem trocar carga no inventario.
     // Art. 185 (AN303_Art185).
@@ -590,24 +729,36 @@ export default function InventoryRoomPanel() {
       playAlertBeep();
       setDivergenteAlertItem({
         numeroTombamento: finalTombamento,
-        salaEncontrada: salaEncontrada.trim(),
-        unidadeDonaId: bem.unidadeDonaId,
-        unidadeEncontradaId: unidadeEncontrada
+        salaEncontrada: salaAtual,
+        salaEsperada: localEsperadoNome,
+        unidadeDonaId: bem?.unidadeDonaId || null,
+        unidadeEncontradaId: unidadeEncontrada,
+        divergenciaUnidade,
+        divergenciaSala,
       });
     }
 
+    const observacoes = divergente
+      ? [
+        divergenciaUnidade ? "Divergencia de unidade detectada na leitura." : null,
+        divergenciaSala ? "Divergencia de sala detectada na leitura." : null,
+      ].filter(Boolean).join(" ")
+      : null;
     const payload = {
       id: crypto.randomUUID(),
       eventoInventarioId: selectedEventoIdFinal,
       unidadeEncontradaId: unidadeEncontrada,
-      salaEncontrada: salaEncontrada.trim(),
+      salaEncontrada: salaAtual,
+      localEncontradoId: localEncontradoId || undefined,
       encontradoPorPerfilId: auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim() || null,
       numeroTombamento: finalTombamento,
       encontradoEm: new Date().toISOString(),
-      observacoes: divergente ? "Detectado como local divergente na UI (alerta)." : null,
+      observacoes,
       metaBusca: tipoBusca ? { tipoBusca, valorOriginal: numeroTombamento } : undefined,
     };
 
+    scannedSessionRef.current.add(scanKey);
+    scanCooldownRef.current.set(scanKey, now);
     await offline.enqueue(payload);
     setScannerValue("");
     saveInventoryUiState({
@@ -616,13 +767,26 @@ export default function InventoryRoomPanel() {
       selectedLocalId,
       selectedEventoId: selectedEventoIdFinal,
     });
+    const statusLabel = divergente
+      ? `Divergente${divergenciaSala ? " de sala" : ""}${divergenciaUnidade ? `${divergenciaSala ? " e" : " de"} unidade` : ""}`
+      : "Conforme";
+    setScanFeedback({
+      kind: divergente ? "warn" : "success",
+      message: `${finalTombamento} ${statusLabel}.`,
+    });
+    if (!divergente) playSuccessBeep();
+
     setLastScans((prev) => [
       {
         id: payload.id,
         numeroTombamento: finalTombamento,
         divergente,
+        divergenciaSala,
+        divergenciaUnidade,
         unidadeDonaId: bem?.unidadeDonaId || null,
         unidadeEncontradaId: unidadeEncontrada,
+        salaEsperada: localEsperadoNome,
+        statusLabel,
         when: new Date().toLocaleString(),
       },
       ...prev,
@@ -631,6 +795,7 @@ export default function InventoryRoomPanel() {
     if (navigator.onLine) {
       await offline.syncNow();
       await contagensSalaQuery.refetch();
+      await contagensEventoQuery.refetch();
     }
   };
 
@@ -660,6 +825,18 @@ export default function InventoryRoomPanel() {
       {(uiError || offline.lastError) && (
         <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
           {uiError || offline.lastError}
+        </p>
+      )}
+
+      {scanFeedback && (
+        <p
+          className={`mt-4 rounded-xl border p-3 text-sm ${
+            scanFeedback.kind === "success"
+              ? "border-emerald-300/30 bg-emerald-200/10 text-emerald-200"
+              : "border-amber-300/30 bg-amber-200/10 text-amber-100"
+          }`}
+        >
+          {scanFeedback.message}
         </p>
       )}
 
@@ -796,10 +973,11 @@ export default function InventoryRoomPanel() {
                   <div className="mt-1 text-slate-300">
                     {s.divergente ? (
                       <span className="text-amber-200">
-                        Divergente: dono={formatUnidade(Number(s.unidadeDonaId))} encontrado={formatUnidade(Number(s.unidadeEncontradaId))}
+                        {s.statusLabel || "Divergente"}: dono={formatUnidade(Number(s.unidadeDonaId))} encontrado={formatUnidade(Number(s.unidadeEncontradaId))}
+                        {s.divergenciaSala && s.salaEsperada ? ` | sala esperada=${s.salaEsperada}` : ""}
                       </span>
                     ) : (
-                      <span className="text-emerald-200">Conforme</span>
+                      <span className="text-emerald-200">{s.statusLabel || "Conforme"}</span>
                     )}
                   </div>
                 </div>
@@ -1198,7 +1376,18 @@ export default function InventoryRoomPanel() {
               </div>
 
               <p className="mb-4 text-base text-slate-200">
-                O item <strong className="font-mono text-white">{divergenteAlertItem.numeroTombamento}</strong> pertence à unidade local <strong>{formatUnidade(divergenteAlertItem.unidadeDonaId)}</strong>, mas acaba de ser registrado na unidade <strong>{formatUnidade(divergenteAlertItem.unidadeEncontradaId)}</strong> ({divergenteAlertItem.salaEncontrada}).
+                O item <strong className="font-mono text-white">{divergenteAlertItem.numeroTombamento}</strong> foi registrado em <strong>{divergenteAlertItem.salaEncontrada}</strong>.
+                {divergenteAlertItem.divergenciaUnidade ? (
+                  <>
+                    {" "}Unidade de carga: <strong>{formatUnidade(Number(divergenteAlertItem.unidadeDonaId))}</strong>. Unidade encontrada:{" "}
+                    <strong>{formatUnidade(Number(divergenteAlertItem.unidadeEncontradaId))}</strong>.
+                  </>
+                ) : null}
+                {divergenteAlertItem.divergenciaSala ? (
+                  <>
+                    {" "}Sala de carga: <strong>{divergenteAlertItem.salaEsperada || "nao informada"}</strong>.
+                  </>
+                ) : null}
               </p>
 
               <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
@@ -1265,14 +1454,19 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
       const b = it.numeroTombamento ? bemByTomb.get(String(it.numeroTombamento)) : null;
       const unidadeDonaId = b?.unidadeDonaId != null ? Number(b.unidadeDonaId) : null;
       const unidadeEncontradaId = it.unidadeEncontradaId != null ? Number(it.unidadeEncontradaId) : null;
-      const divergente =
+      const localDonoId = b?.localId != null ? String(b.localId) : null;
+      const localEncontradoId = it?.localEncontradoId != null ? String(it.localEncontradoId) : null;
+      const divergenciaUnidade =
         Number.isInteger(unidadeDonaId) && Number.isInteger(unidadeEncontradaId) ? unidadeDonaId !== unidadeEncontradaId : false;
+      const divergenciaSala = localDonoId && localEncontradoId ? localDonoId !== localEncontradoId : false;
+      const divergente = divergenciaUnidade || divergenciaSala;
       if (!divergente) continue;
       out.push({
         fonte: "PENDENTE",
         numeroTombamento: it.numeroTombamento,
         unidadeDonaId,
         unidadeEncontradaId,
+        observacoes: divergenciaSala && b?.localFisico ? `Sala esperada: ${b.localFisico}` : undefined,
         encontradoEm: it.encontradoEm,
       });
     }
@@ -1366,3 +1560,5 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
+
+

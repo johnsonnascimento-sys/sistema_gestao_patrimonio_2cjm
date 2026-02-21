@@ -96,7 +96,7 @@ function createInventarioController(deps) {
    * Query params:
    * - eventoInventarioId: UUID (obrigatorio)
    * - salaEncontrada: string (opcional; comparacao case-insensitive + trim)
-   * - limit: number (opcional; default 500; max 2000)
+   * - limit: number (opcional; default 500; max 10000)
    *
    * @param {import("express").Request} req Request.
    * @param {import("express").Response} res Response.
@@ -115,7 +115,7 @@ function createInventarioController(deps) {
 
       const limitRaw = q.limit != null ? Number(q.limit) : 500;
       const limit = Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 500;
-      const limitFinal = Math.max(1, Math.min(2000, limit));
+      const limitFinal = Math.max(1, Math.min(10000, limit));
 
       const where = ["c.evento_inventario_id = $1"];
       const params = [eventoInventarioId];
@@ -150,10 +150,13 @@ function createInventarioController(deps) {
           b.descricao_complementar AS "descricaoComplementar",
           b.foto_url AS "fotoUrl",
           b.unidade_dona_id AS "unidadeDonaId",
+          b.local_id AS "localEsperadoId",
+          l.nome AS "localEsperadoNome",
           cb.descricao AS "catalogoDescricao"
         FROM contagens c
         JOIN bens b ON b.id = c.bem_id
         JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+        LEFT JOIN locais l ON l.id = b.local_id
         WHERE ${where.join(" AND ")}
         ORDER BY c.encontrado_em DESC
         LIMIT $${i};`;
@@ -619,6 +622,13 @@ function createInventarioController(deps) {
       if (!salaEncontrada) throw new HttpError(422, "SALA_OBRIGATORIA", "salaEncontrada e obrigatoria.");
       if (salaEncontrada.length > 180) throw new HttpError(422, "SALA_TAMANHO", "salaEncontrada excede 180 caracteres.");
 
+      const localEncontradoId = body.localEncontradoId != null && String(body.localEncontradoId).trim() !== ""
+        ? String(body.localEncontradoId).trim()
+        : null;
+      if (localEncontradoId && !UUID_RE.test(localEncontradoId)) {
+        throw new HttpError(422, "LOCAL_ENCONTRADO_INVALIDO", "localEncontradoId deve ser UUID.");
+      }
+
       const encontradoPorPerfilId = body.encontradoPorPerfilId != null && String(body.encontradoPorPerfilId).trim() !== ""
         ? String(body.encontradoPorPerfilId).trim()
         : req.user?.id
@@ -650,6 +660,7 @@ function createInventarioController(deps) {
         divergentes: 0,
         erros: [],
       };
+      const normalizeRoomLabel = (raw) => String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
 
       for (let i = 0; i < itens.length; i += 1) {
         const sp = `sp_sync_${i}`;
@@ -673,9 +684,10 @@ function createInventarioController(deps) {
         await client.query(`SAVEPOINT ${sp}`);
         try {
           const b = await client.query(
-            `SELECT id, unidade_dona_id
-             FROM bens
-             WHERE numero_tombamento = $1
+            `SELECT b.id, b.unidade_dona_id, b.local_id, l.nome AS local_nome
+             FROM bens b
+             LEFT JOIN locais l ON l.id = b.local_id
+             WHERE b.numero_tombamento = $1
              LIMIT 1`,
             [numeroTombamento],
           );
@@ -687,7 +699,16 @@ function createInventarioController(deps) {
 
           const bemId = b.rows[0].id;
           const unidadeDonaId = Number(b.rows[0].unidade_dona_id);
-          const divergente = unidadeDonaId !== unidadeEncontradaId;
+          const localDonoId = b.rows[0].local_id != null ? String(b.rows[0].local_id) : null;
+          const localDonoNome = b.rows[0].local_nome != null ? String(b.rows[0].local_nome) : null;
+          const divergenciaUnidade = unidadeDonaId !== unidadeEncontradaId;
+          let divergenciaSala = false;
+          if (localDonoId && localEncontradoId) {
+            divergenciaSala = localDonoId !== localEncontradoId;
+          } else if (localDonoNome) {
+            divergenciaSala = normalizeRoomLabel(localDonoNome) !== normalizeRoomLabel(salaEncontrada);
+          }
+          const divergente = divergenciaUnidade || divergenciaSala;
           const tipoOcorrencia = divergente ? "ENCONTRADO_EM_LOCAL_DIVERGENTE" : "CONFORME";
           const regularizacaoPendente = divergente ? true : false;
 

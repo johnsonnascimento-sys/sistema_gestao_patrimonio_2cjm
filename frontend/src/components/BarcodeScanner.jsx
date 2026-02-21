@@ -16,6 +16,7 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
   const onScanRef = useRef(onScan);
   const onCloseRef = useRef(onClose);
   const requestCloseRef = useRef(() => undefined);
+  const lastReadRef = useRef({ value: "", at: 0 });
 
   const [errorLabel, setErrorLabel] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -77,8 +78,15 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
     };
 
     const onScanSuccessLocal = (decodedText) => {
+      const decoded = typeof decodedText === "string" ? decodedText.trim() : String(decodedText || "").trim();
+      const now = Date.now();
+      if (decoded && lastReadRef.current.value === decoded && now - lastReadRef.current.at < 1200) {
+        return;
+      }
+      lastReadRef.current = { value: decoded, at: now };
+
       if (typeof onScanRef.current === "function") {
-        onScanRef.current(decodedText);
+        onScanRef.current(decoded || decodedText);
       }
 
       if (!continuous && !isStopping) {

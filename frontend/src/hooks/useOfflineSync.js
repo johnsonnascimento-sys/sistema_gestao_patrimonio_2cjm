@@ -20,6 +20,7 @@ function groupBySyncKey(items) {
       item.eventoInventarioId,
       item.unidadeEncontradaId,
       item.salaEncontrada,
+      item.localEncontradoId || "",
       item.encontradoPorPerfilId || "",
     ].join("|");
     const group = groups.get(key) || [];
@@ -91,6 +92,7 @@ export default function useOfflineSync() {
           eventoInventarioId: head.eventoInventarioId,
           unidadeEncontradaId: head.unidadeEncontradaId,
           salaEncontrada: head.salaEncontrada,
+          localEncontradoId: head.localEncontradoId || undefined,
           encontradoPorPerfilId: head.encontradoPorPerfilId || undefined,
           itens: items.map((it) => ({
             numeroTombamento: it.numeroTombamento,
