@@ -16,8 +16,24 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
     const [isInitializing, setIsInitializing] = useState(true);
 
     useEffect(() => {
+        let unmounted = false;
+        let isSetupComplete = false;
+        let isStopping = false;
         const html5QrCode = new Html5Qrcode(regionId);
-        scannerRef.current = html5QrCode;
+
+        const stopAndClear = () => {
+            if (isStopping) return;
+            isStopping = true;
+            if (html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                }).catch(() => {
+                    try { html5QrCode.clear(); } catch (e) { }
+                });
+            } else {
+                try { html5QrCode.clear(); } catch (e) { }
+            }
+        };
 
         const config = {
             fps: 10,
@@ -26,17 +42,18 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
             disableFlip: false,
         };
 
-        const onScanSuccess = (decodedText) => {
+        const onScanSuccessLocal = (decodedText) => {
             onScan(decodedText);
             if (!continuous) {
-                html5QrCode.stop().then(() => onClose()).catch(() => onClose());
+                if (!isStopping) {
+                    isStopping = true;
+                    html5QrCode.stop().then(() => onClose()).catch(() => onClose());
+                }
             }
         };
 
-        const onScanFailure = (_errorMessage) => { };
+        const onScanFailureLocal = (_errorMessage) => { };
 
-        // Para evitar problemas de foco em aparelhos novos (ex: Galaxy S23)
-        // que acabam ativando a lente ultrawide, priorizamos focusMode e alta resolução.
         const idealConstraints = {
             facingMode: "environment",
             width: { ideal: 1920, min: 1280 },
@@ -48,32 +65,32 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
             facingMode: "environment"
         };
 
-        let isMounted = true;
-
         const startCamera = async () => {
+            let success = false;
             try {
-                await html5QrCode.start(idealConstraints, config, onScanSuccess, onScanFailure);
-                if (!isMounted) {
-                    await html5QrCode.stop().catch(() => { });
-                    return;
-                }
-                setIsInitializing(false);
+                await html5QrCode.start(idealConstraints, config, onScanSuccessLocal, onScanFailureLocal);
+                success = true;
             } catch (err) {
-                console.warn("Falha ao iniciar com foco contínuo e res alta. Tentando fallback básico...", err);
-                if (!isMounted) return;
+                if (unmounted) return;
+                console.warn("Falha ao iniciar ideal. Tentando basic...", err);
                 try {
-                    await html5QrCode.start(basicConstraints, config, onScanSuccess, onScanFailure);
-                    if (!isMounted) {
-                        await html5QrCode.stop().catch(() => { });
-                        return;
-                    }
-                    setIsInitializing(false);
+                    await html5QrCode.start(basicConstraints, config, onScanSuccessLocal, onScanFailureLocal);
+                    success = true;
                 } catch (errBasic) {
-                    if (!isMounted) return;
+                    if (unmounted) return;
                     setIsInitializing(false);
                     const errMsg = errBasic?.message || errBasic?.name || String(errBasic);
                     setErrorLabel(`Erro na câmera: ${errMsg}. Verifique permissões/HTTPS.`);
                     console.error("Camera start error:", errBasic);
+                }
+            }
+
+            if (success) {
+                if (unmounted) {
+                    stopAndClear();
+                } else {
+                    isSetupComplete = true;
+                    setIsInitializing(false);
                 }
             }
         };
@@ -81,17 +98,9 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
         startCamera();
 
         return () => {
-            isMounted = false;
-            // Limpeza ao desmontar
-            if (scannerRef.current) {
-                if (scannerRef.current.isScanning) {
-                    scannerRef.current.stop().catch(() => { });
-                }
-                try {
-                    scannerRef.current.clear();
-                } catch (e) {
-                    // Ignora erro se não puder limpar
-                }
+            unmounted = true;
+            if (isSetupComplete) {
+                stopAndClear();
             }
         };
     }, [onScan, onClose, continuous]);
