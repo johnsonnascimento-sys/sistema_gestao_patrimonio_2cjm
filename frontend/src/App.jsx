@@ -26,22 +26,50 @@ import {
 class SectionErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: "" };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: String(error?.message || "Erro interno na renderizacao desta secao."),
+    };
   }
 
-  componentDidCatch(error) {
-    console.error("SectionErrorBoundary:", error);
+  componentDidCatch(error, info) {
+    console.error("SectionErrorBoundary:", error, info);
+  }
+
+  reset = () => {
+    this.setState({ hasError: false, errorMessage: "" });
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="rounded-2xl border border-rose-300/30 bg-rose-200/10 p-4 text-rose-200">
-          Falha ao renderizar esta seção. Recarregue a página para atualizar os scripts.
+        <div className="rounded-2xl border border-rose-300/30 bg-rose-200/10 p-4 text-rose-200 space-y-3">
+          <p>Falha ao renderizar esta seção.</p>
+          {this.state.errorMessage ? (
+            <p className="text-xs text-rose-100/90 break-words">
+              Detalhe técnico: {this.state.errorMessage}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={this.reset}
+              className="rounded-lg border border-rose-200/50 px-3 py-1 text-xs font-semibold hover:bg-rose-100/10"
+            >
+              Tentar novamente
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg border border-rose-200/50 px-3 py-1 text-xs font-semibold hover:bg-rose-100/10"
+            >
+              Recarregar página
+            </button>
+          </div>
         </div>
       );
     }

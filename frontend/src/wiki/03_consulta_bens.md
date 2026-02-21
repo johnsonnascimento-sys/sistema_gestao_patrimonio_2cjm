@@ -63,7 +63,16 @@ Campos t√≠picos no resumo:
 - Descri√ß√£o (do cat√°logo ou descri√ß√£o consolidada)
 - Unidade (carga)
 - Local (local fisico)
+- Tombo antigo (Azul) (`cod2Aud`)
+- Cat·logo (SKU)
 - Status (OK/EM_CAUTELA/BAIXADO/AGUARDANDO_RECEBIMENTO quando aplicavel)
+
+Na grade de resultados, vocÍ pode habilitar:
+
+- Foto do item
+- Foto do cat·logo
+
+Essas opÁıes ficam acima da tabela e valem para toda a listagem (n„o apenas no modal).
 
 ## Ver mais detalhes (modal "Detalhes")
 
@@ -85,6 +94,7 @@ Use isso quando precisar:
 No modal de detalhes, usu√°rios `ADMIN` podem editar os campos operacionais do bem (exceto chaves), incluindo:
 
 - Unidade (carga)
+- Nome resumo
 - Status
 - Descri√ß√£o complementar
 - Respons√°vel (perfilId)

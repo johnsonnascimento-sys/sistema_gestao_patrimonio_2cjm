@@ -103,6 +103,14 @@ Comportamentos ap√≥s a leitura:
 - Se o bem existe e pertence a mesma unidade do ambiente: marca como encontrado (contagem conforme).
 - Se o bem existe mas pertence a outra unidade: alerta de intruso e registra diverg√™ncia (sem transferir).
 - Se o bem n√£o existe (tombamento n√£o cadastrado): registra ocorr√™ncia para investiga√ß√£o (dependendo do modo).
+- Se o mesmo bem for lido repetidamente na mesma sala, o sistema avisa que j· foi lido e n„o duplica silenciosamente.
+- DivergÍncia considera unidade e sala: se a unidade for igual mas a sala esperada for diferente, o registro È divergente.
+
+Feedback visual na leitura:
+
+- `Conforme` quando unidade e sala conferem.
+- `Divergente de sala` quando a sala encontrada difere da sala de carga.
+- `Divergente de unidade` quando a unidade encontrada difere da unidade de carga.
 
 ## Intruso no invent√°rio (Art. 185)
 
@@ -130,6 +138,11 @@ Importante:
 ## Divergencias por sala (lista)
 
 A tela mostra um painel de **Divergencias na sala** com:
+
+Na lista de bens da sala, h· toggles para exibir:
+
+- foto do item
+- foto do cat·logo
 
 - Itens divergentes ja persistidos no servidor (fonte `SERVIDOR`).
 - Itens divergentes ainda pendentes offline (fonte `PENDENTE`).

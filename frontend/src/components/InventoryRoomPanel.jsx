@@ -112,6 +112,7 @@ function playSuccessBeep() {
 }
 
 function loadInventoryUiState() {
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(INVENTORY_UI_KEY);
     if (!raw) return null;
@@ -123,6 +124,7 @@ function loadInventoryUiState() {
 }
 
 function saveInventoryUiState(patch) {
+  if (typeof window === "undefined") return;
   try {
     const prev = loadInventoryUiState() || {};
     const next = { ...prev, ...patch, updatedAt: new Date().toISOString() };
@@ -139,9 +141,15 @@ export default function InventoryRoomPanel() {
 
   const initialUi = loadInventoryUiState();
 
-  const [unidadeEncontradaId, setUnidadeEncontradaId] = useState(initialUi?.unidadeEncontradaId || "");
-  const [selectedLocalId, setSelectedLocalId] = useState(initialUi?.selectedLocalId || "");
-  const [salaEncontrada, setSalaEncontrada] = useState(initialUi?.salaEncontrada || "");
+  const [unidadeEncontradaId, setUnidadeEncontradaId] = useState(
+    initialUi?.unidadeEncontradaId != null ? String(initialUi.unidadeEncontradaId) : "",
+  );
+  const [selectedLocalId, setSelectedLocalId] = useState(
+    initialUi?.selectedLocalId != null ? String(initialUi.selectedLocalId) : "",
+  );
+  const [salaEncontrada, setSalaEncontrada] = useState(
+    initialUi?.salaEncontrada != null ? String(initialUi.salaEncontrada) : "",
+  );
   const [scannerValue, setScannerValue] = useState("");
   const [uiError, setUiError] = useState(null);
   const [scanFeedback, setScanFeedback] = useState(null);
@@ -181,10 +189,6 @@ export default function InventoryRoomPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidadeEncontradaId]);
 
-  useEffect(() => {
-    setScanFeedback(null);
-  }, [selectedEventoIdFinal, selectedLocalId, salaEncontrada, unidadeEncontradaId]);
-
   if (initialUi && !initialUi._migrated) {
     // Marca como migrado para evitar reprocessamento em renders futuros.
     saveInventoryUiState({ _migrated: true });
@@ -205,6 +209,10 @@ export default function InventoryRoomPanel() {
   }, [eventosQuery.data]);
 
   const selectedEventoIdFinal = eventoAtivo?.id || "";
+
+  useEffect(() => {
+    setScanFeedback(null);
+  }, [selectedEventoIdFinal, selectedLocalId, salaEncontrada, unidadeEncontradaId]);
 
   const registrarBemTerceiroMut = useMutation({
     mutationFn: (payload) => registrarBemTerceiroInventario(payload),
@@ -245,7 +253,7 @@ export default function InventoryRoomPanel() {
     queryKey: ["bensSala", selectedLocalId],
     enabled: Boolean(selectedLocalId && String(selectedLocalId).trim() !== ""),
     queryFn: async () => {
-      const localId = selectedLocalId.trim();
+      const localId = String(selectedLocalId || "").trim();
       if (!localId) return [];
 
       // Offline-first: se não houver conexao, tenta carregar o ultimo catalogo baixado para esta sala.
@@ -495,7 +503,7 @@ export default function InventoryRoomPanel() {
     setUiError(null);
     setNaoIdStatus(null);
 
-    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
+    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : "";
     if (!perfilIdFinal) {
       setUiError("Informe um perfilId (UUID) para registrar bem não identificado.");
       return;
@@ -522,7 +530,7 @@ export default function InventoryRoomPanel() {
     setUiError(null);
     setTerceiroStatus(null);
 
-    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
+    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : "";
     if (!perfilIdFinal) {
       setUiError("Informe um perfilId (UUID) para registrar bem de terceiro.");
       return;
@@ -543,68 +551,6 @@ export default function InventoryRoomPanel() {
       proprietarioExterno: terceiroProprietario.trim(),
       identificadorExterno: terceiroIdentificador.trim() || undefined,
       observacoes: "UI: registro de bem de terceiro durante inventário.",
-    });
-  };
-
-
-  const onCreateEvento = async (event) => {
-    event.preventDefault();
-    setUiError(null);
-
-    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
-    if (!perfilIdFinal) {
-      setUiError("Informe um perfilId (UUID) para abrir o evento.");
-      return;
-    }
-
-    const unidadeFinal = unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId);
-    const codigo = generateCodigoEvento(unidadeFinal);
-
-    criarEventoMut.mutate({
-      codigoEvento: codigo,
-      unidadeInventariadaId: unidadeFinal,
-      abertoPorPerfilId: perfilIdFinal,
-    });
-  };
-
-  const onUpdateStatus = async (status) => {
-    setUiError(null);
-    const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
-    if (!perfilIdFinal) {
-      setUiError("Informe um perfilId (UUID) para encerrar/cancelar o evento.");
-      return;
-    }
-    if (!selectedEventoIdFinal) return;
-
-    if (offline.pendingCount > 0) {
-      const msgBase = `Há ${offline.pendingCount} item(ns) pendente(s) de sincronização offline.`;
-      if (navigator.onLine) {
-        const sync = window.confirm(`${msgBase}\n\nDeseja sincronizar agora antes de ${status.toLowerCase()} o evento?`);
-        if (sync) {
-          try {
-            await offline.syncNow();
-            await contagensSalaQuery.refetch().catch(() => undefined);
-          } catch (_e) {
-            // sem fatal; a tela vai mostrar erro do hook se falhar
-          }
-        }
-      }
-
-      if (status === "ENCERRADO" && offline.pendingCount > 0) {
-        const proceed = window.confirm(
-          `${msgBase}\n\nEncerrar com pendências pode fazer você "perder" registros no servidor até sincronizar.\n\nDeseja encerrar mesmo assim?`,
-        );
-        if (!proceed) return;
-      }
-    }
-
-    atualizarStatusMut.mutate({
-      id: selectedEventoIdFinal,
-      payload: {
-        status,
-        encerradoPorPerfilId: perfilIdFinal,
-        observacoes: encerramentoObs.trim() || undefined,
-      },
     });
   };
 
@@ -754,7 +700,7 @@ export default function InventoryRoomPanel() {
       unidadeEncontradaId: unidadeEncontrada,
       salaEncontrada: salaAtual,
       localEncontradoId: localEncontradoId || undefined,
-      encontradoPorPerfilId: auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim() || null,
+      encontradoPorPerfilId: auth.perfil?.id ? String(auth.perfil.id).trim() : null,
       numeroTombamento: finalTombamento,
       encontradoEm: new Date().toISOString(),
       observacoes,
@@ -1614,5 +1560,4 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
-
 

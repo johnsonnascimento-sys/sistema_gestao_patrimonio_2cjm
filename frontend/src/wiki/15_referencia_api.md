@@ -80,6 +80,13 @@ ParÃ¢metros comuns (query):
 - `status=OK|EM_CAUTELA|BAIXADO|AGUARDANDO_RECEBIMENTO`
 - `localFisico=Sala 101`
 
+Campos úteis no retorno da listagem (`GET /bens`):
+
+- `cod2Aud` (etiqueta azul)
+- `nomeResumo`
+- `fotoUrl` (foto do item)
+- `fotoReferenciaUrl` (foto de referência do catálogo)
+
 ### GET `/bens/{id}`
 
 Uso: modal "Detalhes" do bem.
@@ -90,6 +97,16 @@ Retorna:
 - `catalogo`
 - `movimentacoesRecentes`
 - `historicoTransferencias`
+
+### PATCH `/bens/{id}`
+
+Uso: atualizar campos operacionais do bem (ADMIN).
+
+Campos relevantes:
+
+- `nomeResumo` (aceita `null`)
+- `descricaoComplementar`
+- `localId`, `localFisico`, `status`, `unidadeDonaId`
 
 ## Perfis
 
@@ -213,6 +230,8 @@ Uso: sincronizar scans/contagens (inclusive offline).
 Comportamento:
 
 - Se unidade dona do bem != unidade encontrada: registra divergÃªncia (Art. 185), sem transferir carga.
+- A classificação de divergência considera unidade e sala (quando `localEncontradoId` é enviado).
+- Payload de sync pode incluir `localEncontradoId` (UUID do local selecionado).
 
 ### POST `/inventario/regularizacoes`
 

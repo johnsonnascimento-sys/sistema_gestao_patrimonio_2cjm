@@ -86,6 +86,18 @@ O que fazer (rápido):
 2. Se continuar, limpe os dados do site (DevTools -> Application -> Clear storage) e recarregue.
 3. Confirme que o deploy foi feito com `./scripts/vps_deploy.sh all`.
 
+## "Falha ao renderizar esta seção. Recarregue a página para atualizar os scripts."
+
+Quando acontece:
+
+- A aba carregou com script antigo em cache ou houve erro de execução pontual em uma seção.
+
+O que fazer:
+
+1. Clique em **Tentar novamente** na própria mensagem.
+2. Se persistir, clique em **Recarregar página**.
+3. Se ainda persistir, faça Ctrl+F5 e depois limpe cache/storage do site.
+
 ## "Un" ao lado do botão Importar
 
 Isso é um fragmento visual do layout atual (botão/rótulo) e não representa uma unidade.
