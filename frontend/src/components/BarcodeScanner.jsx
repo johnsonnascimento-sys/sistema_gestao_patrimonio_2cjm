@@ -54,7 +54,7 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
             try {
                 await html5QrCode.start(idealConstraints, config, onScanSuccess, onScanFailure);
                 if (!isMounted) {
-                    await html5QrCode.stop().catch(() => {});
+                    await html5QrCode.stop().catch(() => { });
                     return;
                 }
                 setIsInitializing(false);
@@ -64,14 +64,15 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
                 try {
                     await html5QrCode.start(basicConstraints, config, onScanSuccess, onScanFailure);
                     if (!isMounted) {
-                        await html5QrCode.stop().catch(() => {});
+                        await html5QrCode.stop().catch(() => { });
                         return;
                     }
                     setIsInitializing(false);
                 } catch (errBasic) {
                     if (!isMounted) return;
                     setIsInitializing(false);
-                    setErrorLabel("Não foi possível acessar a câmera. Verifique as permissões de vídeo no navegador.");
+                    const errMsg = errBasic?.message || errBasic?.name || String(errBasic);
+                    setErrorLabel(`Erro na câmera: ${errMsg}. Verifique permissões/HTTPS.`);
                     console.error("Camera start error:", errBasic);
                 }
             }
