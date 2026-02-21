@@ -2841,9 +2841,8 @@ function sanitizeNomeResumo(raw) {
   let txt = fixMojibakeUtf8FromLatin1(String(raw)).trim();
   if (!txt) return null;
 
-  // Remove marcadores antigos de catalogo no sufixo (ex.: 1/10, (1-2), (2/2)).
-  txt = txt.replace(/\s*\(\s*\d{1,3}\s*[-/]\s*\d{1,3}\s*\)\s*$/u, "");
-  txt = txt.replace(/\s*-?\s*\d{1,3}\s*\/\s*\d{1,3}\s*$/u, "");
+  // Remove marcadores antigos de catalogo no sufixo (ex.: 1/10, (1-2), 17-21).
+  txt = txt.replace(/\s*(?:[-(])?\s*\d{1,3}\s*[-/]\s*\d{1,3}\s*\)?\s*$/u, "");
   txt = txt.replace(/\s{2,}/g, " ").trim();
 
   return txt ? txt.slice(0, 240) : null;
