@@ -10,28 +10,41 @@ import { Html5Qrcode } from "html5-qrcode";
  * @param {boolean} [props.continuous=false] - Se true, a câmera não fecha automaticamente após ler um código (modo supermercado).
  */
 export default function BarcodeScanner({ onScan, onClose, continuous = false }) {
-    const scannerRef = useRef(null);
-    const regionId = "barcode-scanner-region";
+    const regionIdRef = useRef(`barcode-scanner-region-${Math.random().toString(36).slice(2, 10)}`);
+    const regionId = regionIdRef.current;
+    const onScanRef = useRef(onScan);
+    const onCloseRef = useRef(onClose);
     const [errorLabel, setErrorLabel] = useState(null);
     const [isInitializing, setIsInitializing] = useState(true);
 
     useEffect(() => {
+        onScanRef.current = onScan;
+    }, [onScan]);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    useEffect(() => {
         let unmounted = false;
-        let isSetupComplete = false;
+        let hasStarted = false;
         let isStopping = false;
         const html5QrCode = new Html5Qrcode(regionId);
 
-        const stopAndClear = () => {
+        const stopAndClear = async () => {
             if (isStopping) return;
             isStopping = true;
-            if (html5QrCode.isScanning) {
-                html5QrCode.stop().then(() => {
-                    html5QrCode.clear();
-                }).catch(() => {
-                    try { html5QrCode.clear(); } catch (e) { }
-                });
-            } else {
-                try { html5QrCode.clear(); } catch (e) { }
+            try {
+                if (html5QrCode.isScanning) {
+                    await html5QrCode.stop();
+                }
+            } catch (_error) {
+                // Alguns navegadores podem reportar transicao de estado durante desmontagem.
+            }
+            try {
+                html5QrCode.clear();
+            } catch (_error) {
+                // clear pode falhar se o elemento ja foi removido; ignoramos no teardown.
             }
         };
 
@@ -43,11 +56,20 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
         };
 
         const onScanSuccessLocal = (decodedText) => {
-            onScan(decodedText);
+            if (typeof onScanRef.current === "function") {
+                onScanRef.current(decodedText);
+            }
             if (!continuous) {
                 if (!isStopping) {
                     isStopping = true;
-                    html5QrCode.stop().then(() => onClose()).catch(() => onClose());
+                    html5QrCode
+                        .stop()
+                        .catch(() => undefined)
+                        .finally(() => {
+                            if (typeof onCloseRef.current === "function") {
+                                onCloseRef.current();
+                            }
+                        });
                 }
             }
         };
@@ -87,9 +109,9 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
 
             if (success) {
                 if (unmounted) {
-                    stopAndClear();
+                    await stopAndClear();
                 } else {
-                    isSetupComplete = true;
+                    hasStarted = true;
                     setIsInitializing(false);
                 }
             }
@@ -99,11 +121,11 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
 
         return () => {
             unmounted = true;
-            if (isSetupComplete) {
-                stopAndClear();
+            if (hasStarted || html5QrCode.isScanning) {
+                void stopAndClear();
             }
         };
-    }, [onScan, onClose, continuous]);
+    }, [continuous, regionId]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 px-4">
