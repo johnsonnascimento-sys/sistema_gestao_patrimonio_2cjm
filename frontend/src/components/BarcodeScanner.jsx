@@ -73,10 +73,7 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
     };
 
     const cameraConstraints = {
-      facingMode: { ideal: "environment" },
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-      advanced: [{ focusMode: "continuous" }],
+      facingMode: "environment",
     };
 
     const onScanSuccessLocal = (decodedText) => {
