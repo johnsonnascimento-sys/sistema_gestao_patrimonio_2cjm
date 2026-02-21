@@ -1036,8 +1036,13 @@ export default function InventoryRoomPanel() {
                   return (
                     <summary className="cursor-pointer select-none">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
-                        <span>{g.catalogoDescricao}</span>
-                        <span className="text-xs font-normal text-slate-300">
+                        <div className="flex flex-col">
+                          <span>{g.items[0]?.nomeResumo || g.catalogoDescricao}</span>
+                          {g.items[0]?.nomeResumo && g.items[0]?.nomeResumo !== g.catalogoDescricao && (
+                            <span className="text-[10px] text-slate-400 font-normal italic">{g.catalogoDescricao}</span>
+                          )}
+                        </div>
+                        <span className="text-xs font-normal text-slate-300 ml-auto">
                           Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
                           | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
                           | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
@@ -1067,8 +1072,19 @@ export default function InventoryRoomPanel() {
                               className="h-4 w-4 accent-cyan-300"
                               title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
                             />
-                            <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
-                            <span className="text-[11px] text-slate-300">{formatUnidade(Number(b.unidadeDonaId))}</span>
+                            <div className="flex flex-col items-start gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
+                                {b.cod2Aud && (
+                                  <span className="rounded bg-cyan-500/20 px-1 py-0.5 text-[9px] font-bold text-cyan-300 border border-cyan-500/30" title={`Etiqueta Azul: ${b.cod2Aud}`}>
+                                    {b.cod2Aud}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-400 leading-tight">
+                                {formatUnidade(Number(b.unidadeDonaId))} • {b.nomeResumo || "Sem resumo"}
+                              </span>
+                            </div>
                           </label>
                           <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>
                             {badge.text}

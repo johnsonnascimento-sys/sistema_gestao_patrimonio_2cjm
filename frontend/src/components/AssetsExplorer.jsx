@@ -291,7 +291,8 @@ export default function AssetsExplorer() {
             <thead className="bg-slate-900/70 text-xs uppercase tracking-wider text-slate-300">
               <tr>
                 <th className="px-3 py-2">Tombo</th>
-                <th className="px-3 py-2">Descrição</th>
+                <th className="px-3 py-2">Antigo (Azul)</th>
+                <th className="px-3 py-2">Descrição / Resumo</th>
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
                 <th className="px-3 py-2">Status</th>
@@ -319,7 +320,19 @@ export default function AssetsExplorer() {
                       {item.numeroTombamento || "-"}
                     </button>
                   </td>
-                  <td className="px-3 py-2">{item.descricao || "-"}</td>
+                  <td className="px-3 py-2 font-mono text-[11px] text-cyan-300">
+                    {item.cod2Aud || "-"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-slate-100">
+                      {item.nomeResumo || item.descricao}
+                    </div>
+                    {item.nomeResumo && item.nomeResumo !== item.catalogoDescricao && (
+                      <div className="text-[10px] text-slate-400 italic">
+                        {item.catalogoDescricao}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs text-slate-200">
                     {formatUnidade(Number(item.unidadeDonaId))}
                   </td>
