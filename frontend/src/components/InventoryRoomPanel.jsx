@@ -9,19 +9,16 @@ import { get as idbGet, set as idbSet } from "idb-keyval";
 import useOfflineSync from "../hooks/useOfflineSync.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
-  atualizarStatusEventoInventario,
-  criarEventoInventario,
   listarContagensInventario,
   listarBens,
   listarBensTerceirosInventario,
   listarEventosInventario,
-  getProgressoInventario,
   listarLocais,
   registrarBemTerceiroInventario,
   registrarBemNaoIdentificadoInventario,
 } from "../services/apiClient.js";
 import BarcodeScanner from "./BarcodeScanner.jsx";
-
+import InventoryProgress from "./InventoryProgress.jsx";
 const TOMBAMENTO_RE = /^\d{10}$/;
 const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v2|";
 const INVENTORY_UI_KEY = "cjm_inventory_ui_v1";
@@ -66,17 +63,7 @@ function normalizeTombamentoInput(raw) {
   return cleaned.slice(0, 10);
 }
 
-function generateCodigoEvento(unidadeInventariadaId) {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  const u = Number(unidadeInventariadaId);
-  const suffix = u === 1 ? "1AUD" : u === 2 ? "2AUD" : u === 3 ? "FORO" : u === 4 ? "ALMOX" : "GERAL";
-  return `INV_${yyyy}_${mm}_${dd}_${hh}${min}_${suffix}`;
-}
+
 
 function playAlertBeep() {
   try {
@@ -125,11 +112,6 @@ export default function InventoryRoomPanel() {
   const offline = useOfflineSync();
 
   const initialUi = loadInventoryUiState();
-  const [perfilId, setPerfilId] = useState("");
-  const [selectedEventoId, setSelectedEventoId] = useState(initialUi?.selectedEventoId || "");
-  const [codigoEvento, setCodigoEvento] = useState("");
-  const [unidadeInventariadaId, setUnidadeInventariadaId] = useState("");
-  const [encerramentoObs, setEncerramentoObs] = useState("");
 
   const [unidadeEncontradaId, setUnidadeEncontradaId] = useState(initialUi?.unidadeEncontradaId || "");
   const [selectedLocalId, setSelectedLocalId] = useState(initialUi?.selectedLocalId || "");
@@ -156,11 +138,8 @@ export default function InventoryRoomPanel() {
   const [divergenteAlertItem, setDivergenteAlertItem] = useState(null);
 
   const [catalogMeta, setCatalogMeta] = useState({ source: null, loadedAt: null, count: 0 });
+  const [showCatalog, setShowCatalog] = useState(true);
 
-  useEffect(() => {
-    // UX: quando o usuario esta autenticado, nao faz sentido obrigar colar UUID manualmente.
-    if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
-  }, [auth?.perfil?.id, perfilId]);
 
   useEffect(() => {
     // Se o usuario mudar a unidade encontrada, o local deve ser re-selecionado (lista de locais e por unidade).
@@ -186,48 +165,13 @@ export default function InventoryRoomPanel() {
     },
   });
 
-  const todosEventosQuery = useQuery({
-    queryKey: ["inventarioEventos", "TODOS"],
-    queryFn: async () => {
-      const data = await listarEventosInventario();
-      return data.items || [];
-    },
-  });
-
   const eventoAtivo = useMemo(() => {
     const items = eventosQuery.data || [];
     if (!items.length) return null;
-    if (selectedEventoId) return items.find((e) => e.id === selectedEventoId) || items[0];
     return items[0];
-  }, [eventosQuery.data, selectedEventoId]);
+  }, [eventosQuery.data]);
 
   const selectedEventoIdFinal = eventoAtivo?.id || "";
-
-  const criarEventoMut = useMutation({
-    mutationFn: (payload) => criarEventoInventario(payload),
-    onSuccess: async () => {
-      setCodigoEvento("");
-      setUnidadeInventariadaId("");
-      await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
-      await qc.invalidateQueries({ queryKey: ["inventarioEventos", "TODOS"] });
-    },
-    onError: (error) => {
-      // Sem isso, falhas (422/401/rede) parecem "nada aconteceu" para o usuario.
-      setUiError(String(error?.message || "Falha ao abrir evento."));
-    },
-  });
-
-  const atualizarStatusMut = useMutation({
-    mutationFn: ({ id, payload }) => atualizarStatusEventoInventario(id, payload),
-    onSuccess: async () => {
-      setEncerramentoObs("");
-      await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
-      await qc.invalidateQueries({ queryKey: ["inventarioEventos", "TODOS"] });
-    },
-    onError: (error) => {
-      setUiError(String(error?.message || "Falha ao atualizar status do evento."));
-    },
-  });
 
   const registrarBemTerceiroMut = useMutation({
     mutationFn: (payload) => registrarBemTerceiroInventario(payload),
@@ -262,14 +206,7 @@ export default function InventoryRoomPanel() {
     }
   });
 
-  const progressoQuery = useQuery({
-    queryKey: ["inventarioProgresso", selectedEventoIdFinal],
-    enabled: Boolean(selectedEventoIdFinal && navigator.onLine),
-    queryFn: async () => {
-      const data = await getProgressoInventario(selectedEventoIdFinal);
-      return data.items || [];
-    },
-  });
+
 
   const bensSalaQuery = useQuery({
     queryKey: ["bensSala", selectedLocalId],
@@ -862,189 +799,9 @@ export default function InventoryRoomPanel() {
         </article>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <details className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 flex flex-col group">
-          <summary className="font-semibold cursor-pointer select-none">Gestão de Inventários</summary>
-          <div className="mt-3 group-open:block">
-            <p className="mt-1 text-xs text-slate-300">
-              Inventário ativo bloqueia mudança de carga (Art. 183 - AN303_Art183).
-            </p>
-
-            {auth.perfil ? (
-              <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/25 p-3 text-xs text-slate-300">
-                <p className="font-semibold text-slate-100">Executor</p>
-                <p className="mt-1">
-                  {auth.perfil.nome} ({auth.perfil.matricula}) - perfilId {String(auth.perfil.id).slice(0, 8)}...
-                </p>
-              </div>
-            ) : (
-              <label className="mt-3 block space-y-1">
-                <span className="text-xs text-slate-300">PerfilId (UUID) para abrir/encerrar</span>
-                <input
-                  value={perfilId}
-                  onChange={(e) => setPerfilId(e.target.value)}
-                  placeholder="UUID do perfil (crie em Operações API)"
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                />
-              </label>
-            )}
-
-            {eventosQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando eventos...</p>}
-            {eventosQuery.error && (
-              <p className="mt-3 text-sm text-rose-300">Falha ao listar eventos ativos.</p>
-            )}
-
-            {(todosEventosQuery.data || []).length > 0 && (
-              <div className="mt-4 mb-4">
-                <h4 className="text-sm font-semibold mb-2">Histórico de Inventários</h4>
-                <div className="max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2">
-                  {(todosEventosQuery.data || []).map(ev => (
-                    <div key={ev.id} className="text-xs p-2 rounded bg-slate-800 flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">{ev.codigoEvento}</p>
-                        <p className="text-slate-400 text-[10px]">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-300' : 'bg-emerald-300/20 text-emerald-300'}`}>{ev.status}</span>
-                        <p className="text-slate-400 text-[10px] mt-1">{ev.unidadeInventariadaId ? `Unidade ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(eventosQuery.data || []).length > 0 ? (
-              <div className="mt-3 space-y-3">
-                <label className="block space-y-1">
-                  <span className="text-xs text-slate-300">Selecionar evento</span>
-                  <select
-                    value={selectedEventoIdFinal}
-                    onChange={(e) => setSelectedEventoId(e.target.value)}
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                  >
-                    {(eventosQuery.data || []).map((ev) => (
-                      <option key={ev.id} value={ev.id}>
-                        {ev.codigoEvento} (unidade={ev.unidadeInventariadaId ?? "geral"})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="grid gap-2 md:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => onUpdateStatus("ENCERRADO")}
-                    disabled={atualizarStatusMut.isPending}
-                    className="rounded-lg bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-                  >
-                    Encerrar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onUpdateStatus("CANCELADO")}
-                    disabled={atualizarStatusMut.isPending}
-                    className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-
-                <label className="block space-y-1">
-                  <span className="text-xs text-slate-300">Observacoes de encerramento (opcional)</span>
-                  <textarea
-                    value={encerramentoObs}
-                    onChange={(e) => setEncerramentoObs(e.target.value)}
-                    className="min-h-20 w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                  />
-                </label>
-              </div>
-            ) : (
-              <form onSubmit={onCreateEvento} className="mt-3 space-y-3">
-                <p className="text-sm text-slate-300">
-                  Nenhum evento ativo. Abra um evento para iniciar o inventario.
-                </p>
-                <label className="block space-y-1">
-                  <span className="text-xs text-slate-300">Unidade inventariada (opcional)</span>
-                  <select
-                    value={unidadeInventariadaId}
-                    onChange={(e) => setUnidadeInventariadaId(e.target.value)}
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                  >
-                    <option value="">(geral)</option>
-                    <option value="1">{formatUnidade(1)}</option>
-                    <option value="2">{formatUnidade(2)}</option>
-                    <option value="3">{formatUnidade(3)}</option>
-                    <option value="4">{formatUnidade(4)}</option>
-                  </select>
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs text-slate-300">Codigo do evento</span>
-                  <input
-                    disabled
-                    value={generateCodigoEvento(unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId))}
-                    className="w-full rounded-lg border border-white/20 bg-slate-800/50 px-3 py-2 text-sm text-slate-400 cursor-not-allowed"
-                  />
-                  <p className="text-[11px] text-slate-400">
-                    Gerado automaticamente conforme padronização.
-                  </p>
-                </label>
-                <button
-                  type="submit"
-                  disabled={criarEventoMut.isPending}
-                  className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
-                >
-                  {criarEventoMut.isPending ? "Abrindo..." : "Abrir evento"}
-                </button>
-              </form>
-            )}
-          </div>
-        </details>
-
-        <details className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 flex flex-col group">
-          <summary className="font-semibold cursor-pointer select-none">Progresso do Inventário</summary>
-          <div className="mt-3 group-open:block">
-            <p className="text-xs text-slate-300 mb-3">
-              Itens esperados vs inventariados por sala.
-            </p>
-
-            {!selectedEventoIdFinal ? (
-              <p className="mt-3 text-sm text-slate-300">Nenhum evento ativo.</p>
-            ) : progressoQuery.isFetching ? (
-              <p className="mt-3 text-sm text-slate-300">Carregando progresso...</p>
-            ) : progressoQuery.error ? (
-              <p className="mt-3 text-sm text-rose-300">Falha ao carregar progresso.</p>
-            ) : (progressoQuery.data || []).length === 0 ? (
-              <p className="mt-3 text-sm text-slate-300">Sem dados de progresso.</p>
-            ) : (
-              <div className="mt-4 flex-1 overflow-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2 max-h-80">
-                {(progressoQuery.data || []).map((p, idx) => {
-                  const perc = p.qtdEsperados > 0
-                    ? Math.min(100, Math.round((p.qtdInventariados / p.qtdEsperados) * 100))
-                    : p.qtdInventariados > 0 ? 100 : 0;
-
-                  return (
-                    <div key={idx} className="rounded-xl border border-white/10 bg-slate-800 p-2">
-                      <div className="flex justify-between items-end mb-1">
-                        <p className="text-xs font-semibold text-slate-100">{p.salaEncontrada || 'Desconhecida'}</p>
-                        <p className="text-[10px] text-slate-300">
-                          {p.qtdInventariados}/{p.qtdEsperados}
-                        </p>
-                      </div>
-                      <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex">
-                        <div
-                          className={`h-full ${perc === 100 ? 'bg-emerald-400' : 'bg-cyan-400'}`}
-                          style={{ width: `${perc}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </details>
-      </div >
+      <div className="mt-5 max-w-2xl">
+        <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
+      </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <details className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 lg:col-span-1 group">
@@ -1247,112 +1004,119 @@ export default function InventoryRoomPanel() {
 
           <button
             type="button"
-            onClick={onLoadSala}
+            onClick={() => {
+              if (bensSalaQuery.data?.length) setShowCatalog(!showCatalog);
+              else onLoadSala();
+            }}
             disabled={bensSalaQuery.isFetching}
             className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-bold text-emerald-950 disabled:opacity-50 hover:bg-emerald-300 transition-colors shadow-lg shadow-emerald-900/20 w-full sm:w-auto"
           >
-            {bensSalaQuery.isFetching ? "Aguarde..." : "Baixar catálogo da sala"}
+            {bensSalaQuery.isFetching ? "Aguarde..." : (bensSalaQuery.data?.length ? (showCatalog ? "Ocultar catálogo da sala" : "Ver catálogo da sala") : "Ver catálogo da sala")}
           </button>
         </div>
 
-        <div className="mt-2">
-          <p className="text-xs text-slate-300">
-            Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
-          </p>
-        </div>
+        {showCatalog && (
+          <>
+            <div className="mt-2">
+              <p className="text-xs text-slate-300">
+                Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
+              </p>
+            </div>
 
-        {catalogMeta?.source && (
-          <p className="mt-2 text-[11px] text-slate-400">
-            fonte:{" "}
-            <span className="font-semibold text-slate-200">
-              {catalogMeta.source === "API" ? "API (online)" : "CACHE (offline)"}
-            </span>
-            {catalogMeta.loadedAt ? (
-              <span>
-                {" "}
-                | carregado em: {new Date(catalogMeta.loadedAt).toLocaleString()}
-              </span>
-            ) : null}
-          </p>
-        )}
+            {catalogMeta?.source && (
+              <p className="mt-2 text-[11px] text-slate-400">
+                fonte:{" "}
+                <span className="font-semibold text-slate-200">
+                  {catalogMeta.source === "API" ? "API (online)" : "CACHE (offline)"}
+                </span>
+                {catalogMeta.loadedAt ? (
+                  <span>
+                    {" "}
+                    | carregado em: {new Date(catalogMeta.loadedAt).toLocaleString()}
+                  </span>
+                ) : null}
+              </p>
+            )}
 
-        {bensSalaQuery.error && (
-          <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
-        )}
-        {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
-          <p className="mt-3 text-sm text-slate-300">Selecione um local cadastrado e clique em "Baixar catálogo da sala".</p>
-        )}
-        {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
-          <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
-            <p className="text-sm text-slate-200">
-              Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
-            </p>
-            <p className="text-xs text-slate-400">
-              Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
-              Para aparecerem itens, um Admin deve vincular os bens a este local (aba "Operações API"{" > "} "Locais"{" > "} "Vincular bens ao local").
-            </p>
-          </div>
-        )}
-
-        <div className="mt-3 space-y-2">
-          {grouped.map((g) => (
-            <details key={g.catalogoBemId} className="rounded-xl border border-white/10 bg-slate-900/55 p-3">
-              {(() => {
-                const total = g.items.length;
-                const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
-                const faltantes = Math.max(0, total - encontrados);
-                const divergentes = g.items.reduce((acc, b) => {
-                  const meta = getConferenciaMeta(b);
-                  return acc + (meta.encontrado && meta.divergente ? 1 : 0);
-                }, 0);
-                return (
-                  <summary className="cursor-pointer select-none">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
-                      <span>{g.catalogoDescricao}</span>
-                      <span className="text-xs font-normal text-slate-300">
-                        Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
-                        | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
-                        | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
-                        | Faltantes: <span className="font-semibold text-amber-200">{faltantes}</span>
-                      </span>
-                    </div>
-                  </summary>
-                );
-              })()}
-              <div className="mt-3 overflow-auto rounded-lg border border-white/10">
-                <ul className="divide-y divide-white/10 bg-slate-950/20">
-                  {g.items.slice(0, 200).map((b) => {
-                    const meta = getConferenciaMeta(b);
-                    const badge = meta.encontrado
-                      ? meta.divergente
-                        ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-200 bg-rose-200/10" }
-                        : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-200 bg-emerald-200/10" }
-                      : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-200 bg-amber-200/10" };
-
-                    return (
-                      <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                        <label className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={meta.encontrado}
-                            readOnly
-                            className="h-4 w-4 accent-cyan-300"
-                            title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
-                          />
-                          <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
-                          <span className="text-[11px] text-slate-300">{formatUnidade(Number(b.unidadeDonaId))}</span>
-                        </label>
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>
-                          {badge.text}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+            {bensSalaQuery.error && (
+              <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
+            )}
+            {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
+              <p className="mt-3 text-sm text-slate-300">Selecione um local cadastrado e clique em "Baixar catálogo da sala".</p>
+            )}
+            {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
+              <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
+                <p className="text-sm text-slate-200">
+                  Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
+                </p>
+                <p className="text-xs text-slate-400">
+                  Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
+                  Para aparecerem itens, um Admin deve vincular os bens a este local (aba "Operações API"{" > "} "Locais"{" > "} "Vincular bens ao local").
+                </p>
               </div>
-            </details>
-          ))}
-        </div>
+            )}
+
+            <div className="mt-3 space-y-2">
+              {grouped.map((g) => (
+                <details key={g.catalogoBemId} className="rounded-xl border border-white/10 bg-slate-900/55 p-3">
+                  {(() => {
+                    const total = g.items.length;
+                    const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
+                    const faltantes = Math.max(0, total - encontrados);
+                    const divergentes = g.items.reduce((acc, b) => {
+                      const meta = getConferenciaMeta(b);
+                      return acc + (meta.encontrado && meta.divergente ? 1 : 0);
+                    }, 0);
+                    return (
+                      <summary className="cursor-pointer select-none">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
+                          <span>{g.catalogoDescricao}</span>
+                          <span className="text-xs font-normal text-slate-300">
+                            Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
+                            | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
+                            | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
+                            | Faltantes: <span className="font-semibold text-amber-200">{faltantes}</span>
+                          </span>
+                        </div>
+                      </summary>
+                    );
+                  })()}
+                  <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+                    <ul className="divide-y divide-white/10 bg-slate-950/20">
+                      {g.items.slice(0, 200).map((b) => {
+                        const meta = getConferenciaMeta(b);
+                        const badge = meta.encontrado
+                          ? meta.divergente
+                            ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-200 bg-rose-200/10" }
+                            : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-200 bg-emerald-200/10" }
+                          : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-200 bg-amber-200/10" };
+
+                        return (
+                          <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                            <label className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={meta.encontrado}
+                                readOnly
+                                className="h-4 w-4 accent-cyan-300"
+                                title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
+                              />
+                              <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
+                              <span className="text-[11px] text-slate-300">{formatUnidade(Number(b.unidadeDonaId))}</span>
+                            </label>
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>
+                              {badge.text}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </>
+        )}
       </article>
 
       <DivergencesPanel

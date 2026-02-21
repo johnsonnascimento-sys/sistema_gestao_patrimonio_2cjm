@@ -1,0 +1,14 @@
+[31mx[39m Build failed in 673ms
+[31merror during build:
+[31m[vite]: Rollup failed to resolve import "html5-qrcode" from "C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/src/components/BarcodeScanner.jsx".
+This is most likely unintended because it can break your application at runtime.
+If you do want to externalize this module explicitly add it to
+`build.rollupOptions.external`[31m
+    at viteWarn (file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:65855:17)
+    at onwarn (file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/@vitejs/plugin-react/dist/index.js:90:7)
+    at onRollupWarning (file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:65885:5)
+    at onwarn (file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:65550:7)
+    at file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/rollup/dist/es/shared/node-entry.js:20972:13
+    at Object.logger [as onLog] (file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/rollup/dist/es/shared/node-entry.js:22945:9)
+    at ModuleLoader.handleInvalidResolvedId (file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/rollup/dist/es/shared/node-entry.js:21689:26)
+    at file:///C:/Users/jtnas/sistema_gestao_patrimonio_2cjm/sistema_gestao_patrimonio_2cjm/frontend/node_modules/rollup/dist/es/shared/node-entry.js:21647:26[39m

@@ -9,10 +9,10 @@ import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
+import InventoryAdminPanel from "./components/InventoryAdminPanel.jsx";
 import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
-import RegularizationPanel from "./components/RegularizationPanel.jsx";
 import WikiManual from "./components/WikiManual.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import {
@@ -172,17 +172,17 @@ function AppShell() {
             </button>
             <button
               type="button"
-              onClick={() => setTab("inventario")}
-              className={`pill ${tab === "inventario" ? "pill-active" : ""}`}
+              onClick={() => setTab("inventario-contagem")}
+              className={`pill ${tab === "inventario-contagem" ? "pill-active" : ""}`}
             >
-              Modo Inventário
+              Inventário - Contagem
             </button>
             <button
               type="button"
-              onClick={() => setTab("regularizacao")}
-              className={`pill ${tab === "regularizacao" ? "pill-active" : ""}`}
+              onClick={() => setTab("inventario-admin")}
+              className={`pill ${tab === "inventario-admin" ? "pill-active" : ""}`}
             >
-              Regularização
+              Inventário - Administração
             </button>
             <button
               type="button"
@@ -246,13 +246,17 @@ function AppShell() {
 
         {tab === "bens" && <AssetsExplorer />}
 
-        {tab === "inventario" && (
+        {tab === "inventario-contagem" && (
           <div className="mt-6">
             <InventoryRoomPanel />
           </div>
         )}
 
-        {tab === "regularizacao" && <RegularizationPanel />}
+        {tab === "inventario-admin" && (
+          <div className="mt-6">
+            <InventoryAdminPanel />
+          </div>
+        )}
 
         {tab === "movimentacoes" && <MovimentacoesPanel />}
 
