@@ -5,6 +5,8 @@ import {
     atualizarStatusEventoInventario,
     criarEventoInventario,
     listarEventosInventario,
+    excluirEventoInventario,
+    atualizarEventoInventario
 } from "../services/apiClient.js";
 import InventoryProgress from "./InventoryProgress.jsx";
 import RegularizationPanel from "./RegularizationPanel.jsx";
@@ -32,12 +34,15 @@ function generateCodigoEvento(unidadeInventariadaId) {
 export default function InventoryAdminPanel() {
     const qc = useQueryClient();
     const auth = useAuth();
+    const isAdmin = auth?.perfil?.role === "ADMIN";
 
     const [perfilId, setPerfilId] = useState("");
     const [selectedEventoId, setSelectedEventoId] = useState("");
     const [unidadeInventariadaId, setUnidadeInventariadaId] = useState("");
     const [encerramentoObs, setEncerramentoObs] = useState("");
     const [uiError, setUiError] = useState(null);
+    const [editingEventoId, setEditingEventoId] = useState(null);
+    const [editForm, setEditForm] = useState({ codigoEvento: "", observacoes: "" });
 
     useEffect(() => {
         if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
@@ -72,8 +77,7 @@ export default function InventoryAdminPanel() {
         mutationFn: (payload) => criarEventoInventario(payload),
         onSuccess: async () => {
             setUnidadeInventariadaId("");
-            await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
-            await qc.invalidateQueries({ queryKey: ["inventarioEventos", "TODOS"] });
+            await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
         },
         onError: (error) => {
             setUiError(String(error?.message || "Falha ao abrir evento."));
@@ -84,11 +88,32 @@ export default function InventoryAdminPanel() {
         mutationFn: ({ id, payload }) => atualizarStatusEventoInventario(id, payload),
         onSuccess: async () => {
             setEncerramentoObs("");
-            await qc.invalidateQueries({ queryKey: ["inventarioEventos", "EM_ANDAMENTO"] });
-            await qc.invalidateQueries({ queryKey: ["inventarioEventos", "TODOS"] });
+            await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
         },
         onError: (error) => {
             setUiError(String(error?.message || "Falha ao atualizar status do evento."));
+        },
+    });
+
+    const excluirEventoMut = useMutation({
+        mutationFn: excluirEventoInventario,
+        onSuccess: async () => {
+            await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
+            if (editingEventoId) setEditingEventoId(null);
+        },
+        onError: (error) => {
+            setUiError(String(error?.message || "Falha ao excluir evento."));
+        },
+    });
+
+    const atualizarEventoMut = useMutation({
+        mutationFn: ({ id, payload }) => atualizarEventoInventario(id, payload),
+        onSuccess: async () => {
+            setEditingEventoId(null);
+            await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
+        },
+        onError: (error) => {
+            setUiError(String(error?.message || "Falha ao atualizar evento."));
         },
     });
 
@@ -138,6 +163,30 @@ export default function InventoryAdminPanel() {
         });
     };
 
+    const handleDeleteEvento = (ev) => {
+        const proceed = window.confirm(`CUIDADO: Excluir o evento ${ev.codigoEvento} removerá em cascata todas as suas contagens (forasteiros e regulares).\nDeseja continuar?`);
+        if (!proceed) return;
+        setUiError(null);
+        excluirEventoMut.mutate(ev.id);
+    };
+
+    const handleEditEvento = (ev) => {
+        setEditingEventoId(ev.id);
+        setEditForm({ codigoEvento: ev.codigoEvento, observacoes: ev.observacoes || "" });
+    };
+
+    const saveEditEvento = () => {
+        if (!editingEventoId) return;
+        setUiError(null);
+        atualizarEventoMut.mutate({
+            id: editingEventoId,
+            payload: {
+                codigoEvento: editForm.codigoEvento.trim() || undefined,
+                observacoes: editForm.observacoes.trim() || undefined
+            }
+        });
+    };
+
     return (
         <div className="space-y-6">
             <section className="rounded-2xl border border-white/15 bg-slate-900/55 p-3 md:p-5">
@@ -156,7 +205,7 @@ export default function InventoryAdminPanel() {
                     </p>
                 )}
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+                <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
                     <div className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 flex flex-col group">
                         <h3 className="font-semibold select-none mb-3">Gestão do Evento</h3>
                         <div>
@@ -281,19 +330,60 @@ export default function InventoryAdminPanel() {
                         {(todosEventosQuery.data || []).length > 0 && (
                             <div className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 flex-1">
                                 <h4 className="text-sm font-semibold mb-2">Histórico Resumido</h4>
-                                <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2">
-                                    {(todosEventosQuery.data || []).slice(0, 10).map(ev => (
-                                        <div key={ev.id} className="text-[11px] p-2 rounded bg-slate-800 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-semibold">{ev.codigoEvento}</p>
-                                                <p className="text-slate-400">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
+                                <div className="max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2">
+                                    {(todosEventosQuery.data || []).slice(0, 15).map(ev => {
+                                        const isEditing = editingEventoId === ev.id;
+                                        return (
+                                            <div key={ev.id} className="text-[11px] p-2 rounded bg-slate-800 flex justify-between items-start gap-2 border border-slate-700">
+                                                <div className="flex-1">
+                                                    {isEditing ? (
+                                                        <input
+                                                            className="w-full rounded bg-slate-900 border border-slate-600 px-2 py-1 text-xs mb-1 focus:outline-none"
+                                                            value={editForm.codigoEvento}
+                                                            onChange={(e) => setEditForm({ ...editForm, codigoEvento: e.target.value })}
+                                                        />
+                                                    ) : (
+                                                        <p className="font-semibold text-slate-200">{ev.codigoEvento}</p>
+                                                    )}
+
+                                                    <p className="text-slate-400">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
+
+                                                    {isEditing ? (
+                                                        <textarea
+                                                            className="w-full h-12 rounded bg-slate-900 border border-slate-600 px-2 py-1 text-xs mt-1 focus:outline-none"
+                                                            value={editForm.observacoes}
+                                                            placeholder="Observações..."
+                                                            onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
+                                                        />
+                                                    ) : (
+                                                        ev.observacoes && <p className="text-slate-400 mt-1 italic leading-tight">"{ev.observacoes}"</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <span className={`px-2 py-0.5 rounded font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-300' : 'bg-emerald-300/20 text-emerald-300'}`}>{ev.status}</span>
+                                                    </div>
+                                                    <p className="text-slate-400 shrink-0">{ev.unidadeInventariadaId ? `Unid ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'}</p>
+
+                                                    {isAdmin && (
+                                                        <div className="flex gap-1.5 mt-2">
+                                                            {isEditing ? (
+                                                                <>
+                                                                    <button onClick={saveEditEvento} disabled={atualizarEventoMut.isPending} className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 px-2 py-1 rounded transition-colors text-xs font-medium">Salvar</button>
+                                                                    <button onClick={() => setEditingEventoId(null)} className="bg-slate-600/30 hover:bg-slate-600/50 text-slate-300 px-2 py-1 rounded transition-colors text-xs font-medium">Cancelar</button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <button onClick={() => handleEditEvento(ev)} className="bg-slate-700/50 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded transition-colors text-xs font-medium">Editar</button>
+                                                                    <button onClick={() => handleDeleteEvento(ev)} disabled={excluirEventoMut.isPending} className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 px-2 py-1 rounded transition-colors text-xs font-medium">Excluir</button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="text-right">
-                                                <span className={`px-2 py-0.5 rounded font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-300' : 'bg-emerald-300/20 text-emerald-300'}`}>{ev.status}</span>
-                                                <p className="text-slate-400 mt-1">{ev.unidadeInventariadaId ? `Unid ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'}</p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -301,7 +391,6 @@ export default function InventoryAdminPanel() {
                 </div>
             </section>
 
-            {/* Embedding Regularization directly below the main admin block */}
             <RegularizationPanel />
         </div>
     );

@@ -138,7 +138,6 @@ export default function InventoryRoomPanel() {
   const [divergenteAlertItem, setDivergenteAlertItem] = useState(null);
 
   const [catalogMeta, setCatalogMeta] = useState({ source: null, loadedAt: null, count: 0 });
-  const [showCatalog, setShowCatalog] = useState(true);
 
 
   useEffect(() => {
@@ -797,10 +796,9 @@ export default function InventoryRoomPanel() {
             </div>
           )}
         </article>
-      </div>
-
-      <div className="mt-5 max-w-2xl">
-        <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
+        <div className="flex flex-col gap-4">
+          <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
+        </div>
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
@@ -1001,122 +999,108 @@ export default function InventoryRoomPanel() {
               (agrupado por catálogo)
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (bensSalaQuery.data?.length) setShowCatalog(!showCatalog);
-              else onLoadSala();
-            }}
-            disabled={bensSalaQuery.isFetching}
-            className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-bold text-emerald-950 disabled:opacity-50 hover:bg-emerald-300 transition-colors shadow-lg shadow-emerald-900/20 w-full sm:w-auto"
-          >
-            {bensSalaQuery.isFetching ? "Aguarde..." : (bensSalaQuery.data?.length ? (showCatalog ? "Ocultar catálogo da sala" : "Ver catálogo da sala") : "Ver catálogo da sala")}
-          </button>
         </div>
 
-        {showCatalog && (
-          <>
-            <div className="mt-2">
-              <p className="text-xs text-slate-300">
-                Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
-              </p>
-            </div>
+        <>
+          <div className="mt-2">
+            <p className="text-xs text-slate-300">
+              Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
+            </p>
+          </div>
 
-            {catalogMeta?.source && (
-              <p className="mt-2 text-[11px] text-slate-400">
-                fonte:{" "}
-                <span className="font-semibold text-slate-200">
-                  {catalogMeta.source === "API" ? "API (online)" : "CACHE (offline)"}
+          {catalogMeta?.source && (
+            <p className="mt-2 text-[11px] text-slate-400">
+              fonte:{" "}
+              <span className="font-semibold text-slate-200">
+                {catalogMeta.source === "API" ? "API (online)" : "CACHE (offline)"}
+              </span>
+              {catalogMeta.loadedAt ? (
+                <span>
+                  {" "}
+                  | carregado em: {new Date(catalogMeta.loadedAt).toLocaleString()}
                 </span>
-                {catalogMeta.loadedAt ? (
-                  <span>
-                    {" "}
-                    | carregado em: {new Date(catalogMeta.loadedAt).toLocaleString()}
-                  </span>
-                ) : null}
+              ) : null}
+            </p>
+          )}
+
+          {bensSalaQuery.error && (
+            <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
+          )}
+          {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
+            <p className="mt-3 text-sm text-slate-300">Selecione um local cadastrado e clique em "Baixar catálogo da sala".</p>
+          )}
+          {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
+            <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
+              <p className="text-sm text-slate-200">
+                Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
               </p>
-            )}
-
-            {bensSalaQuery.error && (
-              <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
-            )}
-            {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
-              <p className="mt-3 text-sm text-slate-300">Selecione um local cadastrado e clique em "Baixar catálogo da sala".</p>
-            )}
-            {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
-              <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
-                <p className="text-sm text-slate-200">
-                  Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
-                </p>
-                <p className="text-xs text-slate-400">
-                  Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
-                  Para aparecerem itens, um Admin deve vincular os bens a este local (aba "Operações API"{" > "} "Locais"{" > "} "Vincular bens ao local").
-                </p>
-              </div>
-            )}
-
-            <div className="mt-3 space-y-2">
-              {grouped.map((g) => (
-                <details key={g.catalogoBemId} className="rounded-xl border border-white/10 bg-slate-900/55 p-3">
-                  {(() => {
-                    const total = g.items.length;
-                    const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
-                    const faltantes = Math.max(0, total - encontrados);
-                    const divergentes = g.items.reduce((acc, b) => {
-                      const meta = getConferenciaMeta(b);
-                      return acc + (meta.encontrado && meta.divergente ? 1 : 0);
-                    }, 0);
-                    return (
-                      <summary className="cursor-pointer select-none">
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
-                          <span>{g.catalogoDescricao}</span>
-                          <span className="text-xs font-normal text-slate-300">
-                            Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
-                            | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
-                            | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
-                            | Faltantes: <span className="font-semibold text-amber-200">{faltantes}</span>
-                          </span>
-                        </div>
-                      </summary>
-                    );
-                  })()}
-                  <div className="mt-3 overflow-auto rounded-lg border border-white/10">
-                    <ul className="divide-y divide-white/10 bg-slate-950/20">
-                      {g.items.slice(0, 200).map((b) => {
-                        const meta = getConferenciaMeta(b);
-                        const badge = meta.encontrado
-                          ? meta.divergente
-                            ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-200 bg-rose-200/10" }
-                            : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-200 bg-emerald-200/10" }
-                          : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-200 bg-amber-200/10" };
-
-                        return (
-                          <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                            <label className="flex items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={meta.encontrado}
-                                readOnly
-                                className="h-4 w-4 accent-cyan-300"
-                                title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
-                              />
-                              <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
-                              <span className="text-[11px] text-slate-300">{formatUnidade(Number(b.unidadeDonaId))}</span>
-                            </label>
-                            <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>
-                              {badge.text}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </details>
-              ))}
+              <p className="text-xs text-slate-400">
+                Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
+                Para aparecerem itens, um Admin deve vincular os bens a este local (aba "Operações API"{" > "} "Locais"{" > "} "Vincular bens ao local").
+              </p>
             </div>
-          </>
-        )}
+          )}
+
+          <div className="mt-3 space-y-2">
+            {grouped.map((g) => (
+              <details key={g.catalogoBemId} className="rounded-xl border border-white/10 bg-slate-900/55 p-3">
+                {(() => {
+                  const total = g.items.length;
+                  const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
+                  const faltantes = Math.max(0, total - encontrados);
+                  const divergentes = g.items.reduce((acc, b) => {
+                    const meta = getConferenciaMeta(b);
+                    return acc + (meta.encontrado && meta.divergente ? 1 : 0);
+                  }, 0);
+                  return (
+                    <summary className="cursor-pointer select-none">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
+                        <span>{g.catalogoDescricao}</span>
+                        <span className="text-xs font-normal text-slate-300">
+                          Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
+                          | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
+                          | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
+                          | Faltantes: <span className="font-semibold text-amber-200">{faltantes}</span>
+                        </span>
+                      </div>
+                    </summary>
+                  );
+                })()}
+                <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+                  <ul className="divide-y divide-white/10 bg-slate-950/20">
+                    {g.items.slice(0, 200).map((b) => {
+                      const meta = getConferenciaMeta(b);
+                      const badge = meta.encontrado
+                        ? meta.divergente
+                          ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-200 bg-rose-200/10" }
+                          : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-200 bg-emerald-200/10" }
+                        : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-200 bg-amber-200/10" };
+
+                      return (
+                        <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                          <label className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={meta.encontrado}
+                              readOnly
+                              className="h-4 w-4 accent-cyan-300"
+                              title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
+                            />
+                            <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
+                            <span className="text-[11px] text-slate-300">{formatUnidade(Number(b.unidadeDonaId))}</span>
+                          </label>
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>
+                            {badge.text}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </details>
+            ))}
+          </div>
+        </>
       </article>
 
       <DivergencesPanel

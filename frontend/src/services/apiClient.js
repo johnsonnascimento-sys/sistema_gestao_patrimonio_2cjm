@@ -714,6 +714,37 @@ export async function atualizarStatusEventoInventario(id, payload) {
 }
 
 /**
+ * Atualiza dados gerais do evento de inventario (codigo, unidade, observacoes).
+ * @param {string} id UUID do evento.
+ * @param {{codigoEvento?: string, unidadeInventariadaId?: number|null, observacoes?: string}} payload Payload.
+ * @returns {Promise<object>} Evento atualizado.
+ */
+export async function atualizarEventoInventario(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Exclui um evento de inventario e em cascata suas contagens (forasteiros).
+ * @param {string} id UUID do evento.
+ * @returns {Promise<object>}
+ */
+export async function excluirEventoInventario(id) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${id}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Sincroniza contagens do inventario (offline-first).
  * @param {object} payload Payload conforme contrato de /inventario/sync.
  * @returns {Promise<object>} Resumo do sync.

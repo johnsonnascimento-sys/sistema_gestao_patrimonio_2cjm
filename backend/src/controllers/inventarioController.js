@@ -510,6 +510,92 @@ function createInventarioController(deps) {
   }
 
   /**
+   * Atualiza dados gerais do evento de inventario (codigo, unidade, observacoes).
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function patchEvento(req, res, next) {
+    try {
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+
+      const body = req.body || {};
+      const fields = [];
+      const params = [];
+      let i = 1;
+
+      if (body.codigoEvento !== undefined) {
+        const codigo = String(body.codigoEvento || "").trim();
+        if (!codigo) throw new HttpError(422, "CODIGO_EVENTO_OBRIGATORIO", "codigoEvento nao pode ser vazio.");
+        fields.push(`codigo_evento = $${i}`);
+        params.push(codigo);
+        i += 1;
+      }
+      if (body.unidadeInventariadaId !== undefined) {
+        const uId = body.unidadeInventariadaId ? Number(body.unidadeInventariadaId) : null;
+        if (uId != null && (!Number.isInteger(uId) || !VALID_UNIDADES.has(uId))) {
+          throw new HttpError(422, "UNIDADE_INVENTARIADA_INVALIDA", "unidadeInventariadaId deve ser 1..4 ou null.");
+        }
+        fields.push(`unidade_inventariada_id = $${i}`);
+        params.push(uId);
+        i += 1;
+      }
+      if (body.observacoes !== undefined) {
+        fields.push(`observacoes = $${i}`);
+        params.push(body.observacoes ? String(body.observacoes).trim().slice(0, 2000) : null);
+        i += 1;
+      }
+
+      if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
+
+      fields.push("updated_at = NOW()");
+      const r = await pool.query(
+        `UPDATE eventos_inventario
+         SET ${fields.join(", ")}
+         WHERE id = $${i}
+         RETURNING
+           id,
+           codigo_evento AS "codigoEvento",
+           unidade_inventariada_id AS "unidadeInventariadaId",
+           status::text AS "status",
+           observacoes;`,
+        [...params, eventoId],
+      );
+      if (!r.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+
+      res.json({ requestId: req.requestId, evento: r.rows[0] });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Exclui um evento de inventario e em cascata suas contagens (forasteiros).
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function deleteEvento(req, res, next) {
+    try {
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+
+      const r = await pool.query(
+        `DELETE FROM eventos_inventario
+         WHERE id = $1
+         RETURNING id;`,
+        [eventoId],
+      );
+      if (!r.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+
+      res.json({ requestId: req.requestId, deletedId: r.rows[0].id });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Sincroniza contagens do inventario (offline-first).
    * Regra legal: divergencias nao mudam carga automaticamente durante inventario.
    * Art. 185 (AN303_Art185).
@@ -1009,6 +1095,8 @@ function createInventarioController(deps) {
     getBensTerceiros,
     postEvento,
     patchEventoStatus,
+    patchEvento,
+    deleteEvento,
     postSync,
     postBemTerceiro,
     postRegularizacao,
