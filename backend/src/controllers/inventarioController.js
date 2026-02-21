@@ -151,6 +151,7 @@ function createInventarioController(deps) {
           b.foto_url AS "fotoUrl",
           b.unidade_dona_id AS "unidadeDonaId",
           b.local_id AS "localEsperadoId",
+          b.local_fisico AS "localEsperadoTexto",
           l.nome AS "localEsperadoNome",
           cb.descricao AS "catalogoDescricao"
         FROM contagens c
@@ -308,12 +309,16 @@ function createInventarioController(deps) {
           f.unidade_dona_id AS "unidadeDonaId",
           f.unidade_encontrada_id AS "unidadeEncontradaId",
           f.sala_encontrada AS "salaEncontrada",
+          b.local_id AS "localEsperadoId",
+          b.local_fisico AS "localEsperadoTexto",
+          l.nome AS "localEsperadoNome",
           f.encontrado_em AS "encontradoEm",
           f.encontrado_por_perfil_id AS "encontradoPorPerfilId",
           f.observacoes
         FROM public.vw_forasteiros f
         JOIN public.bens b ON b.id = f.bem_id
         JOIN public.catalogo_bens cb ON cb.id = b.catalogo_bem_id
+        LEFT JOIN public.locais l ON l.id = b.local_id
         WHERE ${where.join(" AND ")}
         ORDER BY f.encontrado_em DESC
         LIMIT $${i};`;

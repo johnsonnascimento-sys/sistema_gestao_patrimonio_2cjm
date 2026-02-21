@@ -10,6 +10,54 @@ import { listarForasteirosInventario, listarEventosInventario, regularizarForast
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function normalizeLabel(raw) {
+  return String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function describeDivergence(item) {
+  const unidadeDona = Number(item?.unidadeDonaId);
+  const unidadeEncontrada = Number(item?.unidadeEncontradaId);
+  const hasUnits = Number.isInteger(unidadeDona) && Number.isInteger(unidadeEncontrada);
+  const unidadeDivergente = hasUnits ? unidadeDona !== unidadeEncontrada : false;
+
+  const salaEsperada = String(item?.localEsperadoNome || item?.localEsperadoTexto || "").trim();
+  const salaEncontrada = String(item?.salaEncontrada || "").trim();
+  const salaDivergente = salaEsperada && salaEncontrada
+    ? normalizeLabel(salaEsperada) !== normalizeLabel(salaEncontrada)
+    : false;
+
+  if (unidadeDivergente && salaDivergente) {
+    return {
+      badge: "UNIDADE + SALA",
+      badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-200",
+      title: "Carga em unidade diferente e sala divergente.",
+      detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
+    };
+  }
+  if (unidadeDivergente) {
+    return {
+      badge: "UNIDADE",
+      badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-200",
+      title: "Carga em unidade diferente.",
+      detail: "",
+    };
+  }
+  if (salaDivergente) {
+    return {
+      badge: "SALA",
+      badgeClass: "border-cyan-300/40 bg-cyan-200/10 text-cyan-200",
+      title: "Mesma unidade, mas sala divergente.",
+      detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
+    };
+  }
+  return {
+    badge: "REGISTRO",
+    badgeClass: "border-white/25 bg-white/10 text-slate-200",
+    title: "Divergencia registrada (sem detalhe de local esperado).",
+    detail: salaEsperada ? `Sala de referencia: ${salaEsperada}.` : "",
+  };
+}
+
 function formatUnidade(id) {
   if (id === 1) return "1 (1ª Aud)";
   if (id === 2) return "2 (2ª Aud)";
@@ -54,6 +102,11 @@ export default function RegularizationPanel() {
     });
   }, [forasteirosQuery.data, filterEvento, filterSala]);
 
+  const enrichedItems = useMemo(
+    () => filteredItems.map((it) => ({ ...it, divergence: describeDivergence(it) })),
+    [filteredItems],
+  );
+
   const perfilIdEffective = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
   const canUsePerfil = Boolean(perfilIdEffective && UUID_RE.test(perfilIdEffective));
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
@@ -86,9 +139,10 @@ export default function RegularizationPanel() {
     }
 
     const label = it.numeroTombamento || "BEM SEM PLACA";
+    const divergence = describeDivergence(it);
     const msg = acao === "TRANSFERIR_CARGA"
-      ? `Confirmar TRANSFERIR carga do bem ${label} para unidade ${formatUnidade(Number(it.unidadeEncontradaId))}?\n\nRegra legal: Art. 185 (AN303_Art185) e Arts. 124/127 (AN303_Art124/AN303_Art127).`
-      : `Confirmar encerrar pendencia (MANTER_CARGA) do bem ${label} sem alterar a carga?\n\nRegra legal: Art. 185 (AN303_Art185).`;
+      ? `Confirmar TRANSFERIR carga do bem ${label} para unidade ${formatUnidade(Number(it.unidadeEncontradaId))}?\n\nDivergencia identificada: ${divergence.title}${divergence.detail ? `\n${divergence.detail}` : ""}\n\nRegra legal: Art. 185 (AN303_Art185) e Arts. 124/127 (AN303_Art124/AN303_Art127).`
+      : `Confirmar encerrar pendencia (MANTER_CARGA) do bem ${label} sem alterar a carga?\n\nDivergencia identificada: ${divergence.title}${divergence.detail ? `\n${divergence.detail}` : ""}\n\nRegra legal: Art. 185 (AN303_Art185).`;
 
     if (!window.confirm(msg)) return;
 
@@ -119,7 +173,7 @@ export default function RegularizationPanel() {
         <div className="text-right text-xs text-slate-300">
           <div className="flex flex-col items-end gap-2">
             <div>
-              Pendências: <span className="font-semibold text-amber-200">{filteredItems.length}</span>
+              Pendências: <span className="font-semibold text-amber-200">{enrichedItems.length}</span>
             </div>
             <button
               type="button"
@@ -206,15 +260,15 @@ export default function RegularizationPanel() {
         <p className="mt-4 text-sm text-slate-300">Carregando dados...</p>
       )}
 
-      {!forasteirosQuery.isLoading && filteredItems.length === 0 && (
+      {!forasteirosQuery.isLoading && enrichedItems.length === 0 && (
         <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-300">
           Nenhuma divergência pendente de regularização encontrada.
         </p>
       )}
 
-      {filteredItems.length > 0 && (
+      {enrichedItems.length > 0 && (
         <div className="mt-4 overflow-auto rounded-2xl border border-white/10">
-          <table className="min-w-[1100px] w-full text-sm">
+          <table className="min-w-[1280px] w-full text-sm">
             <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
               <tr>
                 <th className="px-3 py-3 text-left">Evento</th>
@@ -223,12 +277,13 @@ export default function RegularizationPanel() {
                 <th className="px-3 py-3 text-left">Unid. dona</th>
                 <th className="px-3 py-3 text-left">Unid. encontrada</th>
                 <th className="px-3 py-3 text-left">Sala</th>
+                <th className="px-3 py-3 text-left">Qual divergencia</th>
                 <th className="px-3 py-3 text-left">Encontrado em</th>
                 <th className="px-3 py-3 text-left">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10 bg-slate-900/40">
-              {filteredItems.map((it) => (
+              {enrichedItems.map((it) => (
                 <tr key={it.contagemId} className="align-top hover:bg-white/5 transition-colors">
                   <td className="px-3 py-3">
                     <div className="font-semibold text-slate-100">{it.codigoEvento || "-"}</div>
@@ -268,7 +323,23 @@ export default function RegularizationPanel() {
                   </td>
                   <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(it.unidadeDonaId))}</td>
                   <td className="px-3 py-3 text-amber-100 font-medium">{formatUnidade(Number(it.unidadeEncontradaId))}</td>
-                  <td className="px-3 py-3 text-slate-200">{it.salaEncontrada}</td>
+                  <td className="px-3 py-3 text-slate-200">
+                    <div>{it.salaEncontrada || "-"}</div>
+                    {(it.localEsperadoNome || it.localEsperadoTexto) && (
+                      <div className="mt-1 text-[11px] text-slate-400">
+                        Sala esperada: <span className="font-medium text-slate-300">{it.localEsperadoNome || it.localEsperadoTexto}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${it.divergence.badgeClass}`}>
+                      {it.divergence.badge}
+                    </span>
+                    <div className="mt-1 text-xs text-slate-200">{it.divergence.title}</div>
+                    {it.divergence.detail && (
+                      <div className="mt-1 text-[11px] text-slate-400">{it.divergence.detail}</div>
+                    )}
+                  </td>
                   <td className="px-3 py-3 text-slate-300 text-xs">
                     {it.encontradoEm ? new Date(it.encontradoEm).toLocaleString() : "-"}
                   </td>

@@ -1412,6 +1412,50 @@ export default function InventoryRoomPanel() {
   );
 }
 
+function describeRowDivergence(row) {
+  const unidadeDona = Number(row?.unidadeDonaId);
+  const unidadeEncontrada = Number(row?.unidadeEncontradaId);
+  const hasUnits = Number.isInteger(unidadeDona) && Number.isInteger(unidadeEncontrada);
+  const unidadeDivergente = hasUnits ? unidadeDona !== unidadeEncontrada : false;
+
+  const salaEsperada = String(row?.localEsperadoNome || row?.localEsperadoTexto || "").trim();
+  const salaEncontrada = String(row?.salaEncontrada || "").trim();
+  const salaDivergente = salaEsperada && salaEncontrada
+    ? normalizeRoomLabel(salaEsperada) !== normalizeRoomLabel(salaEncontrada)
+    : false;
+
+  if (unidadeDivergente && salaDivergente) {
+    return {
+      badge: "UNIDADE + SALA",
+      badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-200",
+      title: "Carga em unidade diferente e sala divergente.",
+      detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
+    };
+  }
+  if (unidadeDivergente) {
+    return {
+      badge: "UNIDADE",
+      badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-200",
+      title: "Carga em unidade diferente.",
+      detail: "",
+    };
+  }
+  if (salaDivergente) {
+    return {
+      badge: "SALA",
+      badgeClass: "border-cyan-300/40 bg-cyan-200/10 text-cyan-200",
+      title: "Mesma unidade, mas sala divergente.",
+      detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
+    };
+  }
+  return {
+    badge: "REGISTRO",
+    badgeClass: "border-white/25 bg-white/10 text-slate-200",
+    title: "Divergencia registrada (sem detalhe de local esperado).",
+    detail: salaEsperada ? `Sala de referencia: ${salaEsperada}.` : "",
+  };
+}
+
 function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, eventoInventarioId }) {
   const salaKey = normalizeRoomKey(salaEncontrada);
 
@@ -1440,6 +1484,10 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
         observacoes: c.observacoes,
         unidadeDonaId: c.unidadeDonaId,
         unidadeEncontradaId: c.unidadeEncontradaId,
+        salaEncontrada: c.salaEncontrada,
+        localEsperadoId: c.localEsperadoId,
+        localEsperadoTexto: c.localEsperadoTexto,
+        localEsperadoNome: c.localEsperadoNome,
         encontradoEm: c.encontradoEm,
       });
     }
@@ -1466,6 +1514,9 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
         numeroTombamento: it.numeroTombamento,
         unidadeDonaId,
         unidadeEncontradaId,
+        salaEncontrada: it.salaEncontrada,
+        localEsperadoId: b?.localId != null ? String(b.localId) : null,
+        localEsperadoNome: b?.localFisico || null,
         observacoes: divergenciaSala && b?.localFisico ? `Sala esperada: ${b.localFisico}` : undefined,
         encontradoEm: it.encontradoEm,
       });
@@ -1504,13 +1555,14 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
           <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
         ) : (
           <div className="mt-3 overflow-auto rounded-xl border border-white/10 pb-2">
-            <table className="min-w-[820px] w-full text-sm">
+            <table className="min-w-[1120px] w-full text-sm">
               <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
                 <tr>
                   <th className="px-3 py-3 text-left">Tombo</th>
                   <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
                   <th className="px-3 py-3 text-left">Unid. dona</th>
                   <th className="px-3 py-3 text-left">Unid. encontrada</th>
+                  <th className="px-3 py-3 text-left">Qual divergencia</th>
                   <th className="px-3 py-3 text-left">Fonte</th>
                   <th className="px-3 py-3 text-left">Quando</th>
                 </tr>
@@ -1543,6 +1595,20 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
                       </td>
                       <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(d.unidadeDonaId))}</td>
                       <td className="px-3 py-3 text-amber-100">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
+                      {(() => {
+                        const divergence = describeRowDivergence(d);
+                        return (
+                          <td className="px-3 py-3">
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${divergence.badgeClass}`}>
+                              {divergence.badge}
+                            </span>
+                            <div className="mt-1 text-xs text-slate-200">{divergence.title}</div>
+                            {divergence.detail && (
+                              <div className="mt-1 text-[11px] text-slate-400">{divergence.detail}</div>
+                            )}
+                          </td>
+                        );
+                      })()}
                       <td className="px-3 py-3">
                         <span className={`rounded-full border px-2 py-0.5 text-[11px] ${d.fonte === "SERVIDOR" ? "border-emerald-300/40 bg-emerald-200/10 text-emerald-200" : "border-amber-300/40 bg-amber-200/10 text-amber-200"}`}>
                           {d.fonte}
@@ -1560,4 +1626,3 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
-
