@@ -33,6 +33,8 @@ export default function AssetsExplorer() {
   const [stats, setStats] = useState({ loading: false, data: null, error: null });
   const [list, setList] = useState({ loading: false, data: null, error: null });
   const [formError, setFormError] = useState(null);
+  const [tipoBusca4Digitos, setTipoBusca4Digitos] = useState(null);
+  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "" });
   const [detail, setDetail] = useState({ open: false, loading: false, data: null, error: null });
   const [filters, setFilters] = useState({
     numeroTombamento: "",
@@ -67,11 +69,16 @@ export default function AssetsExplorer() {
     }
   };
 
-  const loadList = async (newOffset) => {
+  const loadList = async (newOffset, forcedTipoBusca) => {
     setList({ loading: true, data: null, error: null });
     try {
+      const tombamentoRaw = filters.numeroTombamento.trim();
+      const tipoBusca =
+        tombamentoRaw.length === 4 ? (forcedTipoBusca ?? tipoBusca4Digitos ?? undefined) : undefined;
+
       const data = await listarBens({
-        numeroTombamento: filters.numeroTombamento.trim() || undefined,
+        numeroTombamento: tombamentoRaw || undefined,
+        tipoBusca,
         q: filters.q.trim() || undefined,
         localFisico: filters.localFisico.trim() || undefined,
         unidadeDonaId: filters.unidadeDonaId ? Number(filters.unidadeDonaId) : undefined,
@@ -101,18 +108,34 @@ export default function AssetsExplorer() {
     setFormError(null);
 
     const tombo = String(filters.numeroTombamento || "").trim();
-    if (tombo && !/^\d{10}$/.test(tombo)) {
-      setFormError("Tombamento inválido: informe exatamente 10 dígitos (ex.: 1290001788).");
+    if (tombo && !/^\d{10}$/.test(tombo) && !/^\d{4}$/.test(tombo)) {
+      setFormError("Tombamento inválido: use 10 dígitos (ex.: 1290001788) ou 4 dígitos (ex.: 1260 ou 2657).");
       return;
+    }
+    if (/^\d{4}$/.test(tombo) && !tipoBusca4Digitos) {
+      setTagIdModal({ isOpen: true, value: tombo });
+      return;
+    }
+    if (/^\d{10}$/.test(tombo) && tipoBusca4Digitos) {
+      setTipoBusca4Digitos(null);
     }
     loadList(0);
   };
 
   const onClear = () => {
     setFormError(null);
+    setTipoBusca4Digitos(null);
+    setTagIdModal({ isOpen: false, value: "" });
     setFilters({ numeroTombamento: "", q: "", localFisico: "", unidadeDonaId: "", status: "" });
     setPaging((prev) => ({ ...prev, offset: 0 }));
     setTimeout(() => loadList(0), 0);
+  };
+
+  const onSelectTipoBusca = async (tipoBusca) => {
+    setFormError(null);
+    setTipoBusca4Digitos(tipoBusca);
+    setTagIdModal({ isOpen: false, value: "" });
+    await loadList(0, tipoBusca);
   };
 
   const items = list.data?.items || [];
@@ -144,7 +167,7 @@ export default function AssetsExplorer() {
       <header className="space-y-2">
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens (dados reais)</h2>
         <p className="text-sm text-slate-300">
-          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos) ou texto da descricao.
+          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo) ou texto da descricao.
         </p>
       </header>
 
@@ -176,7 +199,7 @@ export default function AssetsExplorer() {
         <h3 className="font-semibold">Filtros</h3>
         <form onSubmit={onSubmit} className="mt-3 grid gap-3 md:grid-cols-4">
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Tombamento (10 digitos)</span>
+            <span className="text-xs text-slate-300">Tombamento (10) ou Etiqueta (4)</span>
             <input
               value={filters.numeroTombamento}
               onChange={(e) => {
@@ -184,13 +207,23 @@ export default function AssetsExplorer() {
                 const raw = String(e.target.value || "");
                 const normalized = raw.replace(/^\"+|\"+$/g, "").replace(/\D+/g, "").slice(0, 10);
                 setFilters((prev) => ({ ...prev, numeroTombamento: normalized }));
+                if (normalized.length !== 4 || normalized !== String(filters.numeroTombamento || "")) {
+                  setTipoBusca4Digitos(null);
+                }
                 setFormError(null);
               }}
-              placeholder="Ex.: 1290001788"
+              placeholder="Ex.: 1290001788 ou 2657"
               inputMode="numeric"
               maxLength={10}
               className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
             />
+            {filters.numeroTombamento.length === 4 && (
+              <p className="text-[11px] text-slate-400">
+                {tipoBusca4Digitos
+                  ? `Busca de 4 digitos selecionada: ${tipoBusca4Digitos === "antigo" ? "Etiqueta azul antiga" : "Etiqueta nova impressa errada"}.`
+                  : "Ao consultar, o sistema vai perguntar se este codigo e etiqueta azul antiga ou etiqueta nova impressa errada."}
+              </p>
+            )}
           </label>
           <label className="space-y-1 md:col-span-2">
             <span className="text-xs text-slate-300">Texto na descricao</span>
@@ -303,7 +336,7 @@ export default function AssetsExplorer() {
             <tbody className="divide-y divide-white/10 bg-slate-950/30">
               {items.length === 0 && !list.loading && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-300">
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-300">
                     Nenhum bem encontrado para os filtros informados.
                   </td>
                 </tr>
@@ -365,6 +398,44 @@ export default function AssetsExplorer() {
         </div>
       </article>
 
+      {tagIdModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900 p-6 shadow-2xl">
+            <h3 className="font-[Space_Grotesk] text-xl font-bold text-white">Identificar Etiqueta</h3>
+            <p className="mt-4 text-slate-300">
+              O codigo <span className="font-mono font-bold text-cyan-400">"{tagIdModal.value}"</span> possui 4 digitos. Como deseja consultar?
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => onSelectTipoBusca("antigo")}
+                className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-left hover:bg-blue-500/20"
+              >
+                <div className="font-bold text-blue-300">Etiqueta Antiga (Azul)</div>
+                <div className="text-xs text-blue-400/80">Busca por Cod2Aud da 2ª Auditoria</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectTipoBusca("novo")}
+                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left hover:bg-emerald-500/20"
+              >
+                <div className="font-bold text-emerald-300">Etiqueta Nova (Erro)</div>
+                <div className="text-xs text-emerald-400/80">Busca pelo sufixo de 4 digitos no tombamento GEAFIN</div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setTagIdModal({ isOpen: false, value: "" })}
+              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-400 hover:text-white"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {detail.open && (
         <BemDetailModal
           state={detail}
@@ -383,6 +454,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const responsavel = state?.data?.responsavel || null;
   const movs = state?.data?.movimentacoes || [];
   const hist = state?.data?.historicoTransferencias || [];
+  const divergenciaPendente = imp?.divergenciaPendente || state?.data?.divergenciaPendente || null;
 
   const [edit, setEdit] = useState({
     catalogoBemId: imp?.catalogoBemId || "",
@@ -560,7 +632,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
           {!state.loading && !state.error && imp && (
             <div className="space-y-4">
-              {state.data?.divergenciaPendente && (
+              {divergenciaPendente && (
                 <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 animate-pulse">
                   <div className="flex items-center gap-3 text-rose-400">
                     <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -569,8 +641,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <h3 className="font-bold uppercase tracking-wide">Divergência Pendente Detectada!</h3>
                   </div>
                   <p className="mt-2 text-sm text-slate-200">
-                    Este bem foi encontrado em local divergente em <strong>{new Date(state.data.divergenciaPendente.encontradoEm).toLocaleString()}</strong>.
-                    Local encontrado: <strong>{state.data.divergenciaPendente.salaEncontrada}</strong> ({formatUnidade(state.data.divergenciaPendente.unidadeEncontradaId)}).
+                    Este bem foi encontrado em local divergente em <strong>{new Date(divergenciaPendente.encontradoEm).toLocaleString()}</strong>.
+                    Local encontrado: <strong>{divergenciaPendente.salaEncontrada}</strong> ({formatUnidade(divergenciaPendente.unidadeEncontradaId)}).
                   </p>
                   <p className="mt-1 text-xs text-rose-300 font-medium">
                     Art. 185 (ATN 303): Regularização pendente.

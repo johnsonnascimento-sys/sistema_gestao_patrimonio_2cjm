@@ -507,8 +507,7 @@ export default function InventoryRoomPanel() {
     });
   };
 
-  const registerScan = async (event) => {
-    event.preventDefault();
+  const handleScanValue = async (rawValue) => {
     setUiError(null);
 
     if (!canRegister) {
@@ -516,7 +515,7 @@ export default function InventoryRoomPanel() {
       return;
     }
 
-    const numeroTombamento = normalizeTombamentoInput(scannerValue);
+    const numeroTombamento = normalizeTombamentoInput(rawValue);
 
     if (TOMBAMENTO_4_DIGITS_RE.test(numeroTombamento)) {
       setTagIdModal({ isOpen: true, value: numeroTombamento, type: null });
@@ -531,29 +530,53 @@ export default function InventoryRoomPanel() {
     await processScan(numeroTombamento);
   };
 
+  const registerScan = async (event) => {
+    event.preventDefault();
+    await handleScanValue(scannerValue);
+  };
+
   const processScan = async (numeroTombamento, tipoBusca = null) => {
     setUiError(null);
     const unidadeEncontrada = Number(unidadeEncontradaId);
     let bem = bemByTombamento.get(numeroTombamento) || null;
+    let lookupItems = [];
 
     // Scanner hibrido: se o tombo não estiver no catálogo da sala carregado, tenta lookup rapido no backend (quando online).
     if (!bem && navigator.onLine) {
       try {
         const lookup = await listarBens({
           numeroTombamento,
-          limit: 1,
+          limit: tipoBusca ? 10 : 1,
           offset: 0,
           incluirTerceiros: false,
-          tipoBusca
+          tipoBusca,
         });
-        bem = (lookup.items || [])[0] || null;
+        lookupItems = lookup.items || [];
+        bem = lookupItems[0] || null;
       } catch (_error) {
         // Falha de lookup não impede enfileirar o scan.
       }
     }
 
+    if (tipoBusca && lookupItems.length > 1) {
+      const candidatos = lookupItems
+        .slice(0, 5)
+        .map((x) => x.numeroTombamento)
+        .filter(Boolean)
+        .join(", ");
+      setUiError(
+        `Codigo "${numeroTombamento}" encontrou ${lookupItems.length} patrimônios (${candidatos}${lookupItems.length > 5 ? ", ..." : ""}). Informe os 10 dígitos.`,
+      );
+      setScannerValue("");
+      return;
+    }
+
     if (tipoBusca && !bem) {
-      setUiError(`Nenhum bem encontrado para a etiqueta ${tipoBusca === 'antigo' ? 'antiga' : 'nova'} "${numeroTombamento}".`);
+      if (!navigator.onLine) {
+        setUiError("Sem conexao para resolver etiqueta de 4 digitos. Conecte-se para identificar se e etiqueta azul ou sufixo de etiqueta nova.");
+      } else {
+        setUiError(`Nenhum bem encontrado para a etiqueta ${tipoBusca === "antigo" ? "antiga" : "nova"} "${numeroTombamento}".`);
+      }
       setScannerValue("");
       return;
     }
@@ -582,7 +605,7 @@ export default function InventoryRoomPanel() {
       numeroTombamento: finalTombamento,
       encontradoEm: new Date().toISOString(),
       observacoes: divergente ? "Detectado como local divergente na UI (alerta)." : null,
-      metaBusca: tipoBusca ? { tipoBusca, valorOriginal: numeroTombamento } : undefined
+      metaBusca: tipoBusca ? { tipoBusca, valorOriginal: numeroTombamento } : undefined,
     };
 
     await offline.enqueue(payload);
@@ -743,7 +766,7 @@ export default function InventoryRoomPanel() {
               onClose={() => setShowScanner(false)}
               onScan={(decodedText) => {
                 const cleaned = normalizeTombamentoInput(decodedText);
-                if (cleaned.length === 10) {
+                if (cleaned.length === 10 || cleaned.length === 4) {
                   setScannerValue(cleaned);
                   // Simula o envio do formulário programaticamente (para engatilhar a mesma lógica de registerScan)
                   if (!canRegister) return;
@@ -751,12 +774,11 @@ export default function InventoryRoomPanel() {
 
                   // Wrap in a setTimeout so the state update resolves before we submit the scan
                   setTimeout(() => {
-                    const fakeEvent = { preventDefault: () => { } };
-                    registerScan(fakeEvent);
+                    handleScanValue(cleaned);
                   }, 50);
-                } else if (!continuous) {
+                } else if (scannerMode === "single") {
                   // Manteve a varredura se estiver contínuo
-                  setScannerValue(decodedText);
+                  setScannerValue(cleaned || decodedText);
                 }
               }}
             />

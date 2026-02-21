@@ -161,7 +161,8 @@ export async function getStats(incluirTerceiros = false) {
 /**
  * Lista/consulta bens com paginacao.
  * @param {object} filters Filtros opcionais.
- * @param {string=} filters.numeroTombamento Tombamento exato (10 digitos).
+ * @param {string=} filters.numeroTombamento Tombamento GEAFIN (10 digitos) ou codigo de 4 digitos.
+ * @param {"antigo"|"novo"=} filters.tipoBusca Obrigatorio quando numeroTombamento tiver 4 digitos.
  * @param {string=} filters.q Texto parcial para descricao.
  * @param {string=} filters.localFisico Texto parcial para filtrar por local_fisico (inventario/sala).
  * @param {string=} filters.localId UUID do local cadastrado (tabela locais) vinculado ao bem.

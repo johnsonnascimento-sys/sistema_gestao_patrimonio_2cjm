@@ -52,6 +52,7 @@ const VALID_MOV = new Set(["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"])
 const VALID_STATUS_BEM = new Set(["OK", "BAIXADO", "EM_CAUTELA", "AGUARDANDO_RECEBIMENTO"]);
 const VALID_ROLES = new Set(["ADMIN", "OPERADOR"]);
 const TOMBAMENTO_GEAFIN_RE = /^\d{10}$/;
+const TOMBAMENTO_LEGADO_RE = /^\d{4}$/;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UNIT_MAP = new Map([
@@ -449,14 +450,14 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       where.push("b.eh_bem_terceiro = FALSE");
     }
     if (filters.numeroTombamento) {
-      if (filters.numeroTombamento.length === 4 && q.tipoBusca) {
-        if (q.tipoBusca === "antigo") {
+      if (filters.numeroTombamento.length === 4 && filters.tipoBusca) {
+        if (filters.tipoBusca === "antigo") {
           where.push(`b.cod_2_aud = $${i}`);
           params.push(filters.numeroTombamento);
         } else {
-          // Busca por sufixo de tombamento novo (ex: 1260 -> %1260)
-          where.push(`b.numero_tombamento LIKE $${i}`);
-          params.push(`%${filters.numeroTombamento}`);
+          // Busca por sufixo da etiqueta nova impressa com 4 digitos (ex.: 1260 -> ...1260).
+          where.push(`RIGHT(b.numero_tombamento, 4) = $${i}`);
+          params.push(filters.numeroTombamento);
         }
       } else {
         where.push(`b.numero_tombamento = $${i}`);
@@ -691,6 +692,8 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
       bem: {
         id: row.id,
         numeroTombamento: row.numeroTombamento,
+        cod2Aud: row.cod2Aud,
+        nomeResumo: row.nomeResumo,
         identificadorExterno: row.identificadorExterno,
         descricaoComplementar: row.descricaoComplementar,
         unidadeDonaId: row.unidadeDonaId,
@@ -708,6 +711,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         catalogoBemId: row.catalogoBemId,
+        divergenciaPendente: row.divergenciaPendente || null,
       },
       catalogo: {
         id: row.catalogoBemId,
@@ -722,6 +726,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
       responsavel: row.responsavelId
         ? { id: row.responsavelId, matricula: row.responsavelMatricula, nome: row.responsavelNome }
         : null,
+      divergenciaPendente: row.divergenciaPendente || null,
       movimentacoes: movimentacoes.rows,
       historicoTransferencias: historicoTransferencias.rows,
     });
@@ -2422,12 +2427,43 @@ function validateMov(body, opts) {
 /**
  * Valida query de listagem/consulta de bens.
  * @param {object} query Query string bruta do Express.
- * @returns {{numeroTombamento: string|null, texto: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
+ * @returns {{numeroTombamento: string|null, tipoBusca: ("antigo"|"novo"|null), texto: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
  */
 function validateBensQuery(query) {
   const numeroTombamento = normalizeTombamento(query.numeroTombamento || query.tombamento);
-  if (numeroTombamento && !TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
-    throw new HttpError(422, "TOMBAMENTO_INVALIDO", "numeroTombamento deve ter 10 digitos numericos (ex.: 1290001788).");
+
+  const tipoBuscaRaw = query.tipoBusca != null ? String(query.tipoBusca).trim().toLowerCase() : "";
+  const tipoBusca = tipoBuscaRaw
+    ? (tipoBuscaRaw === "antigo" || tipoBuscaRaw === "novo" ? tipoBuscaRaw : null)
+    : null;
+
+  if (tipoBuscaRaw && !tipoBusca) {
+    throw new HttpError(422, "TIPO_BUSCA_INVALIDO", "tipoBusca deve ser 'antigo' ou 'novo'.");
+  }
+  if (tipoBusca && !numeroTombamento) {
+    throw new HttpError(422, "TOMBAMENTO_OBRIGATORIO", "Informe numeroTombamento ao usar tipoBusca.");
+  }
+
+  if (numeroTombamento) {
+    const isGeafin = TOMBAMENTO_GEAFIN_RE.test(numeroTombamento);
+    const isLegacy = TOMBAMENTO_LEGADO_RE.test(numeroTombamento);
+    if (!isGeafin && !isLegacy) {
+      throw new HttpError(
+        422,
+        "TOMBAMENTO_INVALIDO",
+        "numeroTombamento deve ter 10 digitos (GEAFIN) ou 4 digitos para busca assistida.",
+      );
+    }
+    if (isLegacy && !tipoBusca) {
+      throw new HttpError(
+        422,
+        "TIPO_BUSCA_OBRIGATORIO",
+        "Para codigo de 4 digitos, informe tipoBusca='antigo' (etiqueta azul) ou tipoBusca='novo' (sufixo da etiqueta nova).",
+      );
+    }
+    if (isGeafin && tipoBusca) {
+      throw new HttpError(422, "TIPO_BUSCA_DESNECESSARIO", "tipoBusca so pode ser usado com codigo de 4 digitos.");
+    }
   }
 
   const texto = query.q ? String(query.q).trim() : null;
@@ -2462,7 +2498,7 @@ function validateBensQuery(query) {
 
   const incluirTerceiros = parseBool(query.incluirTerceiros, false);
 
-  return { numeroTombamento, texto: textoFinal, localFisico, localId, unidadeDonaId, status, limit, offset, incluirTerceiros };
+  return { numeroTombamento, tipoBusca, texto: textoFinal, localFisico, localId, unidadeDonaId, status, limit, offset, incluirTerceiros };
 }
 
 /**
@@ -2784,6 +2820,35 @@ function parseMoney(raw) {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+function extractCod2Aud(row) {
+  const direct = pick(row, ["cod2aud", "cod_2_aud", "cod2_aud", "codigo_2_auditoria"]);
+  if (direct) {
+    const m = direct.match(/(\d{4})/);
+    if (m && m[1] !== "0000") return m[1];
+  }
+
+  for (const v of Object.values(row)) {
+    if (typeof v !== "string") continue;
+    const m = v.match(/cod2aud\s*:\s*([0-9]{4})/i);
+    if (m && m[1] !== "0000") return m[1];
+  }
+
+  return null;
+}
+
+function sanitizeNomeResumo(raw) {
+  if (raw == null) return null;
+  let txt = fixMojibakeUtf8FromLatin1(String(raw)).trim();
+  if (!txt) return null;
+
+  // Remove marcadores antigos de catalogo no sufixo (ex.: 1/10, (1-2), (2/2)).
+  txt = txt.replace(/\s*\(\s*\d{1,3}\s*[-/]\s*\d{1,3}\s*\)\s*$/u, "");
+  txt = txt.replace(/\s*-?\s*\d{1,3}\s*\/\s*\d{1,3}\s*$/u, "");
+  txt = txt.replace(/\s{2,}/g, " ").trim();
+
+  return txt ? txt.slice(0, 240) : null;
+}
+
 /**
  * Normaliza tombamento para comparacao e validacao no padrao GEAFIN.
  * @param {string|number|undefined|null} raw Valor bruto informado.
@@ -2802,7 +2867,22 @@ function normalizeGeafin(raw, rowNo, fallbackUnit) {
   for (const [k, v] of Object.entries(raw || {})) row[normalizeKey(k)] = v == null ? "" : String(v).trim();
 
   const numeroTombamento = normalizeTombamento(
-    pick(row, ["numero_tombamento", "tombamento", "nr_tombamento", "num_tombamento", "tombo", "chapa"]),
+    pick(
+      row,
+      [
+        "numero_tombamento",
+        "tombamento",
+        "nr_tombamento",
+        "num_tombamento",
+        "tombo",
+        "chapa",
+        "codigo_qr_valor_do_codigo_de_barras",
+        "codigo_qr",
+        "codigo_de_barras",
+        "codigo_barras",
+        "valor_do_codigo_de_barras",
+      ],
+    ),
   );
   if (!numeroTombamento) return { ok: false, error: `Linha ${rowNo}: tombamento nao informado.` };
   if (!TOMBAMENTO_GEAFIN_RE.test(numeroTombamento)) {
@@ -2828,20 +2908,14 @@ function normalizeGeafin(raw, rowNo, fallbackUnit) {
       numeroTombamento,
       codigoCatalogo: pick(row, ["codigo_catalogo", "codigo_material", "codigo_item", "grupo_material_codigo", "codigo", "cod_material", "codmaterial"]) || `GEAFIN_${numeroTombamento}`,
       descricao,
-      nomeResumo: pick(row, ["nome"]),
-      cod2Aud: (() => {
-        const campoAdicional = row["campo_adicional"] || "";
-        let m = campoAdicional.match(/\[Cod2Aud:(\d+)\]/i);
-        if (m) return m[1];
-        // Busca resiliente em todas as colunas (caso o CSV esteja desalinhado por vírgulas extras)
-        for (const v of Object.values(row)) {
-          if (typeof v === "string") {
-            const m2 = v.match(/\[Cod2Aud:(\d+)\]/i);
-            if (m2) return m2[1];
-          }
-        }
-        return null;
-      })(),
+      nomeResumo: sanitizeNomeResumo(
+        pick(row, ["nome", "nome_resumo", "item", "nome_do_item", "resumo"]) || (() => {
+          // Fallback: usa a primeira coluna quando o CSV vier com headers customizados.
+          const keys = Object.keys(row);
+          return keys.length > 0 ? row[keys[0]] : null;
+        })(),
+      ),
+      cod2Aud: extractCod2Aud(row),
       grupo: pick(row, ["grupo", "grupo_material", "classe", "categoria"]),
       localFisico: pick(row, ["local_fisico", "localizacao", "sala", "local", "ambiente", "siglalotacao"]) || "NAO_INFORMADO",
       unidadeDonaId: unidadeDonaIdFinal,
