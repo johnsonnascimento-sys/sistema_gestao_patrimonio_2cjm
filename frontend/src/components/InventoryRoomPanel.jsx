@@ -137,8 +137,6 @@ export default function InventoryRoomPanel() {
 
   const [divergenteAlertItem, setDivergenteAlertItem] = useState(null);
 
-  const [catalogMeta, setCatalogMeta] = useState({ source: null, loadedAt: null, count: 0 });
-
 
   useEffect(() => {
     // Se o usuario mudar a unidade encontrada, o local deve ser re-selecionado (lista de locais e por unidade).
@@ -209,7 +207,7 @@ export default function InventoryRoomPanel() {
 
   const bensSalaQuery = useQuery({
     queryKey: ["bensSala", selectedLocalId],
-    enabled: false,
+    enabled: Boolean(selectedLocalId && String(selectedLocalId).trim() !== ""),
     queryFn: async () => {
       const localId = selectedLocalId.trim();
       if (!localId) return [];
@@ -445,32 +443,6 @@ export default function InventoryRoomPanel() {
     });
   };
 
-  const onLoadSala = async () => {
-    setUiError(null);
-    if (!selectedLocalId || !String(selectedLocalId).trim()) {
-      setUiError("Selecione um local cadastrado para baixar o catálogo da sala.");
-      return;
-    }
-    try {
-      const r = await bensSalaQuery.refetch();
-      const items = Array.isArray(r.data) ? r.data : [];
-      setCatalogMeta({
-        source: navigator.onLine ? "API" : "CACHE_OFFLINE",
-        loadedAt: new Date().toISOString(),
-        count: items.length,
-      });
-      saveInventoryUiState({
-        salaEncontrada,
-        unidadeEncontradaId,
-        selectedLocalId,
-        selectedEventoId: selectedEventoIdFinal,
-      });
-    } catch (error) {
-      if (String(error?.message || "").includes("SEM_CACHE_OFFLINE")) {
-        setUiError("Sem cache offline para esta sala. Conecte-se e baixe o catálogo da sala pelo menos uma vez.");
-      }
-    }
-  };
 
   const onCreateEvento = async (event) => {
     event.preventDefault();
@@ -693,16 +665,6 @@ export default function InventoryRoomPanel() {
                 Este campo nao e texto livre. O Admin cadastra os locais em "Operacoes API" (secao Locais).
               </p>
             </label>
-            <div className="flex flex-wrap items-center gap-2 md:col-span-2">
-              <button
-                type="button"
-                onClick={() => offline.syncNow()}
-                disabled={offline.isSyncing || offline.pendingCount === 0}
-                className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50 w-full sm:w-auto"
-              >
-                {offline.isSyncing ? "Sincronizando..." : "Sincronizar agora pendentes"}
-              </button>
-            </div>
           </div>
 
           <form onSubmit={registerScan} className="mt-4">
@@ -991,52 +953,44 @@ export default function InventoryRoomPanel() {
         </details>
       </div>
 
-      <article className="mt-5 rounded-2xl border border-white/15 bg-slate-950/30 p-3 md:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold">Bens da sala</h3>
-            <p className="text-xs text-slate-300">
-              (agrupado por catálogo)
-            </p>
-          </div>
-        </div>
+      <DivergencesPanel
+        salaEncontrada={salaEncontrada}
+        contagens={contagensSalaQuery.data || []}
+        offlineItems={offline.items || []}
+        bensSala={bensSalaQuery.data || []}
+        eventoInventarioId={selectedEventoIdFinal}
+      />
 
-        <>
+      <details className="mt-5 rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 group">
+        <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
+          <span>Bens da sala (agrupado por catálogo)</span>
+          {bensSalaQuery.isFetching && <span className="text-xs text-slate-400">Carregando...</span>}
+        </summary>
+        <div className="mt-3 group-open:block">
           <div className="mt-2">
             <p className="text-xs text-slate-300">
               Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
             </p>
           </div>
 
-          {catalogMeta?.source && (
+          {!navigator.onLine && (
             <p className="mt-2 text-[11px] text-slate-400">
-              fonte:{" "}
-              <span className="font-semibold text-slate-200">
-                {catalogMeta.source === "API" ? "API (online)" : "CACHE (offline)"}
-              </span>
-              {catalogMeta.loadedAt ? (
-                <span>
-                  {" "}
-                  | carregado em: {new Date(catalogMeta.loadedAt).toLocaleString()}
-                </span>
-              ) : null}
+              fonte: <span className="font-semibold text-slate-200">CACHE (offline)</span>
             </p>
           )}
 
           {bensSalaQuery.error && (
             <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
           )}
-          {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && !catalogMeta?.loadedAt && (
-            <p className="mt-3 text-sm text-slate-300">Selecione um local cadastrado e clique em "Baixar catálogo da sala".</p>
-          )}
-          {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && catalogMeta?.loadedAt && (
+
+          {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && (
             <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
               <p className="text-sm text-slate-200">
                 Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
               </p>
               <p className="text-xs text-slate-400">
                 Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
-                Para aparecerem itens, um Admin deve vincular os bens a este local (aba "Operações API"{" > "} "Locais"{" > "} "Vincular bens ao local").
+                Para aparecerem itens, um Admin deve vincular os bens a este local.
               </p>
             </div>
           )}
@@ -1100,16 +1054,8 @@ export default function InventoryRoomPanel() {
               </details>
             ))}
           </div>
-        </>
-      </article>
-
-      <DivergencesPanel
-        salaEncontrada={salaEncontrada}
-        contagens={contagensSalaQuery.data || []}
-        offlineItems={offline.items || []}
-        bensSala={bensSalaQuery.data || []}
-        eventoInventarioId={selectedEventoIdFinal}
-      />
+        </div>
+      </details>
 
       {/* MODAL ALERTA DIVERGÊNCIA */}
       {
@@ -1220,73 +1166,75 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
   if (!salaEncontrada.trim()) return null;
 
   return (
-    <article className="mt-5 rounded-2xl border border-white/15 bg-slate-950/30 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold">Divergências na sala (Art. 185)</h3>
-        <p className="text-xs text-slate-300">
+    <details className="mt-5 rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 group">
+      <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
+        <span>Divergências na sala (Art. 185)</span>
+        <span className="text-xs font-normal text-slate-300">
           Pendentes: <span className="font-semibold text-rose-200">{all.length}</span>
+        </span>
+      </summary>
+      <div className="mt-3 group-open:block">
+        <p className="mt-2 text-xs text-slate-400">
+          Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
         </p>
-      </div>
-      <p className="mt-2 text-xs text-slate-400">
-        Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
-      </p>
 
-      {all.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
-      ) : (
-        <div className="mt-3 overflow-auto rounded-xl border border-white/10 pb-2">
-          <table className="min-w-[820px] w-full text-sm">
-            <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
-              <tr>
-                <th className="px-3 py-3 text-left">Tombo</th>
-                <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
-                <th className="px-3 py-3 text-left">Unid. dona</th>
-                <th className="px-3 py-3 text-left">Unid. encontrada</th>
-                <th className="px-3 py-3 text-left">Fonte</th>
-                <th className="px-3 py-3 text-left">Quando</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10 bg-slate-900/40">
-              {all.slice(0, 120).map((d) => {
-                const b = d.numeroTombamento ? bemByTomb.get(String(d.numeroTombamento)) : null;
-                return (
-                  <tr key={`${d.fonte}|${d.numeroTombamento || d.identificadorExterno}`}>
-                    <td className="px-3 py-3 font-mono text-xs text-slate-100">{d.numeroTombamento || <span className="text-rose-400 font-bold">SEM PLACA<br /><span className="text-[10px] text-rose-300 font-normal">{d.identificadorExterno}</span></span>}</td>
-                    <td className="px-3 py-3">
-                      <div className="font-semibold text-slate-200">{d.catalogoDescricao || b?.catalogoDescricao || "-"}</div>
-                      {d.descricaoComplementar && (
-                        <div className="mt-1 text-xs text-amber-100/90 font-medium whitespace-pre-line">
-                          {d.descricaoComplementar}
-                        </div>
-                      )}
-                      {d.observacoes && (
-                        <div className="mt-1 text-[11px] text-slate-400 italic">
-                          {d.observacoes}
-                        </div>
-                      )}
-                      {d.fotoUrl && (
-                        <div className="mt-2">
-                          <a href={d.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
-                            📸 Ver Foto
-                          </a>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(d.unidadeDonaId))}</td>
-                    <td className="px-3 py-3 text-amber-100">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
-                    <td className="px-3 py-3">
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] ${d.fonte === "SERVIDOR" ? "border-emerald-300/40 bg-emerald-200/10 text-emerald-200" : "border-amber-300/40 bg-amber-200/10 text-amber-200"}`}>
-                        {d.fonte}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-slate-300">{d.encontradoEm ? new Date(d.encontradoEm).toLocaleString() : "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </article>
+        {all.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
+        ) : (
+          <div className="mt-3 overflow-auto rounded-xl border border-white/10 pb-2">
+            <table className="min-w-[820px] w-full text-sm">
+              <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
+                <tr>
+                  <th className="px-3 py-3 text-left">Tombo</th>
+                  <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
+                  <th className="px-3 py-3 text-left">Unid. dona</th>
+                  <th className="px-3 py-3 text-left">Unid. encontrada</th>
+                  <th className="px-3 py-3 text-left">Fonte</th>
+                  <th className="px-3 py-3 text-left">Quando</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 bg-slate-900/40">
+                {all.slice(0, 120).map((d) => {
+                  const b = d.numeroTombamento ? bemByTomb.get(String(d.numeroTombamento)) : null;
+                  return (
+                    <tr key={`${d.fonte}|${d.numeroTombamento || d.identificadorExterno}`}>
+                      <td className="px-3 py-3 font-mono text-xs text-slate-100">{d.numeroTombamento || <span className="text-rose-400 font-bold">SEM PLACA<br /><span className="text-[10px] text-rose-300 font-normal">{d.identificadorExterno}</span></span>}</td>
+                      <td className="px-3 py-3">
+                        <div className="font-semibold text-slate-200">{d.catalogoDescricao || b?.catalogoDescricao || "-"}</div>
+                        {d.descricaoComplementar && (
+                          <div className="mt-1 text-xs text-amber-100/90 font-medium whitespace-pre-line">
+                            {d.descricaoComplementar}
+                          </div>
+                        )}
+                        {d.observacoes && (
+                          <div className="mt-1 text-[11px] text-slate-400 italic">
+                            {d.observacoes}
+                          </div>
+                        )}
+                        {d.fotoUrl && (
+                          <div className="mt-2">
+                            <a href={d.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
+                              📸 Ver Foto
+                            </a>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(d.unidadeDonaId))}</td>
+                      <td className="px-3 py-3 text-amber-100">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
+                      <td className="px-3 py-3">
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${d.fonte === "SERVIDOR" ? "border-emerald-300/40 bg-emerald-200/10 text-emerald-200" : "border-amber-300/40 bg-amber-200/10 text-amber-200"}`}>
+                          {d.fonte}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-slate-300">{d.encontradoEm ? new Date(d.encontradoEm).toLocaleString() : "-"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
