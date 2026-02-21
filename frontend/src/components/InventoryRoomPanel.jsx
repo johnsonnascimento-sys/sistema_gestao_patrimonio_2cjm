@@ -12,10 +12,12 @@ import {
   listarContagensInventario,
   listarBens,
   listarBensTerceirosInventario,
+  listarForasteirosInventario,
   listarEventosInventario,
   listarLocais,
   registrarBemTerceiroInventario,
   registrarBemNaoIdentificadoInventario,
+  getFotoUrl,
 } from "../services/apiClient.js";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import InventoryProgress from "./InventoryProgress.jsx";
@@ -144,6 +146,8 @@ export default function InventoryRoomPanel() {
   const [uiError, setUiError] = useState(null);
   const [scanFeedback, setScanFeedback] = useState(null);
   const [lastScans, setLastScans] = useState([]);
+  const [showItemPhotoList, setShowItemPhotoList] = useState(false);
+  const [showCatalogPhotoList, setShowCatalogPhotoList] = useState(false);
   const [unitEffectReady, setUnitEffectReady] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannerMode, setScannerMode] = useState("single"); // 'single' ou 'continuous'
@@ -293,11 +297,11 @@ export default function InventoryRoomPanel() {
     },
   });
 
-  const contagensEventoQuery = useQuery({
-    queryKey: ["inventarioContagensEvento", selectedEventoIdFinal],
+  const forasteirosEventoQuery = useQuery({
+    queryKey: ["inventarioForasteirosEvento", selectedEventoIdFinal],
     enabled: Boolean(selectedEventoIdFinal && navigator.onLine),
     queryFn: async () => {
-      const data = await listarContagensInventario({
+      const data = await listarForasteirosInventario({
         eventoInventarioId: selectedEventoIdFinal,
         limit: 10000,
       });
@@ -350,13 +354,13 @@ export default function InventoryRoomPanel() {
     return map;
   }, [contagensSalaQuery.data]);
 
-  const contagemAnyByTombamento = useMemo(() => {
+  const forasteiroByTombamento = useMemo(() => {
     const map = new Map();
-    for (const c of contagensEventoQuery.data || []) {
+    for (const c of forasteirosEventoQuery.data || []) {
       if (c.numeroTombamento) map.set(c.numeroTombamento, c);
     }
     return map;
-  }, [contagensEventoQuery.data]);
+  }, [forasteirosEventoQuery.data]);
 
   const pendingByTombamento = useMemo(() => {
     const map = new Map();
@@ -383,11 +387,11 @@ export default function InventoryRoomPanel() {
   const foundSet = useMemo(() => {
     const s = new Set();
     for (const t of contagemByTombamento.keys()) s.add(t);
-    for (const t of contagemAnyByTombamento.keys()) s.add(t);
+    for (const t of forasteiroByTombamento.keys()) s.add(t);
     for (const t of pendingByTombamento.keys()) s.add(t);
     for (const t of pendingAnyByTombamento.keys()) s.add(t);
     return s;
-  }, [contagemAnyByTombamento, contagemByTombamento, pendingAnyByTombamento, pendingByTombamento]);
+  }, [contagemByTombamento, forasteiroByTombamento, pendingAnyByTombamento, pendingByTombamento]);
 
   function getConferenciaMeta(bem) {
     const t = bem?.numeroTombamento || null;
@@ -403,12 +407,12 @@ export default function InventoryRoomPanel() {
       };
     }
 
-    const cAny = contagemAnyByTombamento.get(t);
+    const cAny = forasteiroByTombamento.get(t);
     if (cAny) {
       const encontradoEmOutraSala = normalizeRoomKey(cAny.salaEncontrada) !== salaAtualKey;
       return {
         encontrado: true,
-        divergente: cAny.tipoOcorrencia === "ENCONTRADO_EM_LOCAL_DIVERGENTE" || encontradoEmOutraSala,
+        divergente: true,
         fonte: encontradoEmOutraSala ? "SERVIDOR_OUTRA_SALA" : "SERVIDOR",
       };
     }
@@ -795,7 +799,7 @@ export default function InventoryRoomPanel() {
     if (navigator.onLine) {
       await offline.syncNow();
       await contagensSalaQuery.refetch();
-      await contagensEventoQuery.refetch();
+      await forasteirosEventoQuery.refetch();
     }
   };
 
@@ -1198,6 +1202,26 @@ export default function InventoryRoomPanel() {
             <p className="text-xs text-slate-300">
               Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showItemPhotoList}
+                  onChange={(e) => setShowItemPhotoList(e.target.checked)}
+                  className="h-4 w-4 accent-cyan-300"
+                />
+                Mostrar foto do item
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showCatalogPhotoList}
+                  onChange={(e) => setShowCatalogPhotoList(e.target.checked)}
+                  className="h-4 w-4 accent-cyan-300"
+                />
+                Mostrar foto do catálogo
+              </label>
+            </div>
           </div>
 
           {!navigator.onLine && (
@@ -1284,6 +1308,36 @@ export default function InventoryRoomPanel() {
                               <span className="text-[10px] text-slate-400 leading-tight">
                                 {formatUnidade(Number(b.unidadeDonaId))} • {b.nomeResumo || "Sem resumo"}
                               </span>
+                              {(showItemPhotoList || showCatalogPhotoList) && (
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  {showItemPhotoList && (
+                                    b.fotoUrl ? (
+                                      <a href={getFotoUrl(b.fotoUrl)} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                          src={getFotoUrl(b.fotoUrl)}
+                                          alt={`Foto item ${b.numeroTombamento || ""}`}
+                                          className="h-10 w-10 rounded border border-white/20 object-cover"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500">Item sem foto</span>
+                                    )
+                                  )}
+                                  {showCatalogPhotoList && (
+                                    b.fotoReferenciaUrl ? (
+                                      <a href={getFotoUrl(b.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                          src={getFotoUrl(b.fotoReferenciaUrl)}
+                                          alt={`Foto catalogo ${b.codigoCatalogo || ""}`}
+                                          className="h-10 w-10 rounded border border-white/20 object-cover"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500">Catálogo sem foto</span>
+                                    )
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </label>
                           <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>

@@ -45,6 +45,10 @@ export default function AssetsExplorer() {
     status: "",
   });
   const [paging, setPaging] = useState({ limit: 50, offset: 0, total: 0 });
+  const [listView, setListView] = useState({
+    showItemPhoto: false,
+    showCatalogPhoto: false,
+  });
 
   const canPrev = paging.offset > 0;
   const canNext = paging.offset + paging.limit < paging.total;
@@ -324,6 +328,26 @@ export default function AssetsExplorer() {
       <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-semibold">Resultados</h3>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={listView.showItemPhoto}
+                onChange={(e) => setListView((prev) => ({ ...prev, showItemPhoto: e.target.checked }))}
+                className="h-4 w-4 accent-cyan-300"
+              />
+              Foto do item
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={listView.showCatalogPhoto}
+                onChange={(e) => setListView((prev) => ({ ...prev, showCatalogPhoto: e.target.checked }))}
+                className="h-4 w-4 accent-cyan-300"
+              />
+              Foto do catálogo
+            </label>
+          </div>
           <div className="flex items-center gap-2 text-xs text-slate-300">
             <span>
               {paging.total ? `${paging.offset + 1}-${Math.min(paging.offset + paging.limit, paging.total)}` : "0"} de{" "}
@@ -356,6 +380,8 @@ export default function AssetsExplorer() {
                 <th className="px-3 py-2">Antigo (Azul)</th>
                 <th className="px-3 py-2">Catalogo</th>
                 <th className="px-3 py-2">Descrição / Resumo</th>
+                {listView.showItemPhoto && <th className="px-3 py-2">Foto Item</th>}
+                {listView.showCatalogPhoto && <th className="px-3 py-2">Foto Catálogo</th>}
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
                 <th className="px-3 py-2">Status</th>
@@ -366,7 +392,7 @@ export default function AssetsExplorer() {
             <tbody className="divide-y divide-white/10 bg-slate-950/30">
               {items.length === 0 && !list.loading && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-300">
+                  <td colSpan={9 + (listView.showItemPhoto ? 1 : 0) + (listView.showCatalogPhoto ? 1 : 0)} className="px-3 py-8 text-center text-sm text-slate-300">
                     Nenhum bem encontrado para os filtros informados.
                   </td>
                 </tr>
@@ -399,6 +425,36 @@ export default function AssetsExplorer() {
                       </div>
                     )}
                   </td>
+                  {listView.showItemPhoto && (
+                    <td className="px-3 py-2">
+                      {item.fotoUrl ? (
+                        <a href={getFotoUrl(item.fotoUrl)} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={getFotoUrl(item.fotoUrl)}
+                            alt={`Foto item ${item.numeroTombamento || ""}`}
+                            className="h-10 w-10 rounded border border-white/20 object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-slate-500">-</span>
+                      )}
+                    </td>
+                  )}
+                  {listView.showCatalogPhoto && (
+                    <td className="px-3 py-2">
+                      {item.fotoReferenciaUrl ? (
+                        <a href={getFotoUrl(item.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={getFotoUrl(item.fotoReferenciaUrl)}
+                            alt={`Foto catálogo ${item.codigoCatalogo || ""}`}
+                            className="h-10 w-10 rounded border border-white/20 object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-slate-500">-</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-3 py-2 text-xs text-slate-200">
                     {formatUnidade(Number(item.unidadeDonaId))}
                   </td>
@@ -503,6 +559,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const [edit, setEdit] = useState({
     catalogoBemId: imp?.catalogoBemId || "",
     unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
+    nomeResumo: imp?.nomeResumo || "",
     status: imp?.status || "",
     descricaoComplementar: imp?.descricaoComplementar || "",
     responsavelPerfilId: imp?.responsavelPerfilId || "",
@@ -526,6 +583,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     setEdit({
       catalogoBemId: imp?.catalogoBemId || "",
       unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
+      nomeResumo: imp?.nomeResumo || "",
       status: imp?.status || "",
       descricaoComplementar: imp?.descricaoComplementar || "",
       responsavelPerfilId: imp?.responsavelPerfilId || "",
@@ -594,6 +652,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       const bemUpdated = await atualizarBem(imp.id, {
         catalogoBemId: edit.catalogoBemId ? String(edit.catalogoBemId).trim() : undefined,
         unidadeDonaId: edit.unidadeDonaId ? Number(edit.unidadeDonaId) : undefined,
+        nomeResumo: edit.nomeResumo || null,
         status: edit.status || undefined,
         descricaoComplementar: edit.descricaoComplementar || null,
         responsavelPerfilId: edit.responsavelPerfilId || null,
@@ -782,6 +841,16 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           </option>
                         ))}
                       </select>
+                    </label>
+
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-300">Nome Resumo</span>
+                      <input
+                        value={edit.nomeResumo}
+                        onChange={(e) => setEdit((p) => ({ ...p, nomeResumo: e.target.value }))}
+                        placeholder="Resumo curto para exibição em listas"
+                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                      />
                     </label>
 
                     <label className="space-y-1 md:col-span-2">

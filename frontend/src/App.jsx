@@ -3,7 +3,7 @@
  * Arquivo: App.jsx
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
  */
-import { useMemo, useState } from "react";
+import { Component, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
@@ -22,6 +22,32 @@ import {
   listarBens,
   listarEventosInventario,
 } from "./services/apiClient.js";
+
+class SectionErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error("SectionErrorBoundary:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-2xl border border-rose-300/30 bg-rose-200/10 p-4 text-rose-200">
+          Falha ao renderizar esta seção. Recarregue a página para atualizar os scripts.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppShell() {
   const auth = useAuth();
@@ -248,7 +274,9 @@ function AppShell() {
 
         {tab === "inventario-contagem" && (
           <div className="mt-6">
-            <InventoryRoomPanel />
+            <SectionErrorBoundary>
+              <InventoryRoomPanel />
+            </SectionErrorBoundary>
           </div>
         )}
 

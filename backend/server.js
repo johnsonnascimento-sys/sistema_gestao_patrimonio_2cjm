@@ -513,8 +513,10 @@ app.get("/bens", mustAuth, async (req, res, next) => {
         b.catalogo_bem_id AS "catalogoBemId",
         cb.codigo_catalogo AS "codigoCatalogo",
         cb.descricao AS "catalogoDescricao",
+        cb.foto_referencia_url AS "fotoReferenciaUrl",
         b.unidade_dona_id AS "unidadeDonaId",
         b.local_fisico AS "localFisico",
+        b.foto_url AS "fotoUrl",
         b.status::text AS "status",
         b.eh_bem_terceiro AS "ehBemTerceiro",
         EXISTS (
@@ -1924,6 +1926,10 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
       patch.descricaoComplementar = body.descricaoComplementar != null ? String(body.descricaoComplementar).trim().slice(0, 2000) : null;
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, "nomeResumo")) {
+      patch.nomeResumo = sanitizeNomeResumo(body.nomeResumo);
+    }
+
     if (Object.prototype.hasOwnProperty.call(body, "unidadeDonaId")) {
       const unidadeDonaId = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== "" ? Number(body.unidadeDonaId) : null;
       if (unidadeDonaId == null || !Number.isInteger(unidadeDonaId) || !VALID_UNIDADES.has(unidadeDonaId)) {
@@ -2005,6 +2011,11 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     if (patch.descricaoComplementar !== undefined) {
       fields.push(`descricao_complementar = $${i} `);
       params.push(patch.descricaoComplementar);
+      i += 1;
+    }
+    if (patch.nomeResumo !== undefined) {
+      fields.push(`nome_resumo = $${i} `);
+      params.push(patch.nomeResumo);
       i += 1;
     }
     if (patch.unidadeDonaId != null) {
