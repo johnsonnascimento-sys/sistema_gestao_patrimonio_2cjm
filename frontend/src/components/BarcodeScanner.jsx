@@ -48,16 +48,28 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
             facingMode: "environment"
         };
 
+        let isMounted = true;
+
         const startCamera = async () => {
             try {
                 await html5QrCode.start(idealConstraints, config, onScanSuccess, onScanFailure);
+                if (!isMounted) {
+                    await html5QrCode.stop().catch(() => {});
+                    return;
+                }
                 setIsInitializing(false);
             } catch (err) {
                 console.warn("Falha ao iniciar com foco contínuo e res alta. Tentando fallback básico...", err);
+                if (!isMounted) return;
                 try {
                     await html5QrCode.start(basicConstraints, config, onScanSuccess, onScanFailure);
+                    if (!isMounted) {
+                        await html5QrCode.stop().catch(() => {});
+                        return;
+                    }
                     setIsInitializing(false);
                 } catch (errBasic) {
+                    if (!isMounted) return;
                     setIsInitializing(false);
                     setErrorLabel("Não foi possível acessar a câmera. Verifique as permissões de vídeo no navegador.");
                     console.error("Camera start error:", errBasic);
@@ -68,9 +80,17 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
         startCamera();
 
         return () => {
+            isMounted = false;
             // Limpeza ao desmontar
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch(() => { });
+            if (scannerRef.current) {
+                if (scannerRef.current.isScanning) {
+                    scannerRef.current.stop().catch(() => { });
+                }
+                try {
+                    scannerRef.current.clear();
+                } catch (e) {
+                    // Ignora erro se não puder limpar
+                }
             }
         };
     }, [onScan, onClose, continuous]);
