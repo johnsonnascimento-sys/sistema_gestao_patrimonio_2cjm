@@ -295,6 +295,7 @@ export default function AssetsExplorer() {
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-center">Obs</th>
                 <th className="px-3 py-2 text-right">Acoes</th>
               </tr>
             </thead>
@@ -327,6 +328,13 @@ export default function AssetsExplorer() {
                     <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs">
                       {item.status}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {item.temDivergenciaPendente && (
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-lg shadow-rose-900/40" title="Divergência Pendente!">
+                        !
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button
@@ -539,12 +547,33 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
           {!state.loading && !state.error && imp && (
             <div className="space-y-4">
+              {state.data?.divergenciaPendente && (
+                <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 animate-pulse">
+                  <div className="flex items-center gap-3 text-rose-400">
+                    <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <h3 className="font-bold uppercase tracking-wide">Divergência Pendente Detectada!</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-200">
+                    Este bem foi encontrado em local divergente em <strong>{new Date(state.data.divergenciaPendente.encontradoEm).toLocaleString()}</strong>.
+                    Local encontrado: <strong>{state.data.divergenciaPendente.salaEncontrada}</strong> ({formatUnidade(state.data.divergenciaPendente.unidadeEncontradaId)}).
+                  </p>
+                  <p className="mt-1 text-xs text-rose-300 font-medium">
+                    Art. 185 (ATN 303): Regularização pendente.
+                  </p>
+                </div>
+              )}
+
               <section className="grid gap-3 md:grid-cols-2">
+
                 <div className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
                   <p className="text-xs uppercase tracking-widest text-slate-400">Operacional</p>
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="BemId" v={imp.id} mono />
-                    <Row k="Unidade (carga)" v={imp.unidadeDonaId} />
+                    <Row k="Unidade (carga)" v={formatUnidade(Number(imp.unidadeDonaId))} />
+                    <Row k="Tomb. Antigo (Azul)" v={imp.cod2Aud} />
+                    <Row k="Nome Resumo" v={imp.nomeResumo} />
                     <Row k="Local físico" v={imp.localFisico} />
                     <Row k="LocalId" v={imp.localId} mono />
                     <Row k="Status" v={imp.status} />

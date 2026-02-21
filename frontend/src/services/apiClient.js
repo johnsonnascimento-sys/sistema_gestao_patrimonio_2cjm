@@ -183,6 +183,7 @@ export async function listarBens(filters = {}) {
   if (filters.limit != null) params.set("limit", String(filters.limit));
   if (filters.offset != null) params.set("offset", String(filters.offset));
   if (filters.incluirTerceiros) params.set("incluirTerceiros", "true");
+  if (filters.tipoBusca) params.set("tipoBusca", filters.tipoBusca);
 
   const suffix = params.toString() ? `?${params.toString()}` : "";
   const response = await safeFetch(`${API_BASE_URL}/bens${suffix}`, {

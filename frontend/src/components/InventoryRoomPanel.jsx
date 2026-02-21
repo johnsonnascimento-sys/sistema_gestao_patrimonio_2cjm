@@ -20,6 +20,7 @@ import {
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import InventoryProgress from "./InventoryProgress.jsx";
 const TOMBAMENTO_RE = /^\d{10}$/;
+const TOMBAMENTO_4_DIGITS_RE = /^\d{4}$/;
 const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v2|";
 const INVENTORY_UI_KEY = "cjm_inventory_ui_v1";
 
@@ -122,6 +123,7 @@ export default function InventoryRoomPanel() {
   const [unitEffectReady, setUnitEffectReady] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannerMode, setScannerMode] = useState("single"); // 'single' ou 'continuous'
+  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "", type: null });
 
   // Registro segregado: bem de terceiro (sem tombamento GEAFIN).
   const [terceiroDescricao, setTerceiroDescricao] = useState("");
@@ -515,24 +517,48 @@ export default function InventoryRoomPanel() {
     }
 
     const numeroTombamento = normalizeTombamentoInput(scannerValue);
-    if (!TOMBAMENTO_RE.test(numeroTombamento)) {
-      setUiError("Tombamento inválido. Use 10 dígitos (ex.: 1290001788).");
+
+    if (TOMBAMENTO_4_DIGITS_RE.test(numeroTombamento)) {
+      setTagIdModal({ isOpen: true, value: numeroTombamento, type: null });
       return;
     }
 
+    if (!TOMBAMENTO_RE.test(numeroTombamento)) {
+      setUiError("Tombamento inválido. Use 10 dígitos (ex.: 1290001788) ou 4 dígitos (ex.: 1260 ou 2657).");
+      return;
+    }
+
+    await processScan(numeroTombamento);
+  };
+
+  const processScan = async (numeroTombamento, tipoBusca = null) => {
+    setUiError(null);
     const unidadeEncontrada = Number(unidadeEncontradaId);
     let bem = bemByTombamento.get(numeroTombamento) || null;
 
     // Scanner hibrido: se o tombo não estiver no catálogo da sala carregado, tenta lookup rapido no backend (quando online).
     if (!bem && navigator.onLine) {
       try {
-        const lookup = await listarBens({ numeroTombamento, limit: 1, offset: 0, incluirTerceiros: false });
+        const lookup = await listarBens({
+          numeroTombamento,
+          limit: 1,
+          offset: 0,
+          incluirTerceiros: false,
+          tipoBusca
+        });
         bem = (lookup.items || [])[0] || null;
       } catch (_error) {
         // Falha de lookup não impede enfileirar o scan.
       }
     }
 
+    if (tipoBusca && !bem) {
+      setUiError(`Nenhum bem encontrado para a etiqueta ${tipoBusca === 'antigo' ? 'antiga' : 'nova'} "${numeroTombamento}".`);
+      setScannerValue("");
+      return;
+    }
+
+    const finalTombamento = bem?.numeroTombamento || numeroTombamento;
     const divergente = bem ? Number(bem.unidadeDonaId) !== unidadeEncontrada : false;
 
     // Regra legal: divergencia de local deve gerar ocorrencia sem trocar carga no inventario.
@@ -540,7 +566,7 @@ export default function InventoryRoomPanel() {
     if (divergente) {
       playAlertBeep();
       setDivergenteAlertItem({
-        numeroTombamento,
+        numeroTombamento: finalTombamento,
         salaEncontrada: salaEncontrada.trim(),
         unidadeDonaId: bem.unidadeDonaId,
         unidadeEncontradaId: unidadeEncontrada
@@ -553,9 +579,10 @@ export default function InventoryRoomPanel() {
       unidadeEncontradaId: unidadeEncontrada,
       salaEncontrada: salaEncontrada.trim(),
       encontradoPorPerfilId: auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim() || null,
-      numeroTombamento,
+      numeroTombamento: finalTombamento,
       encontradoEm: new Date().toISOString(),
       observacoes: divergente ? "Detectado como local divergente na UI (alerta)." : null,
+      metaBusca: tipoBusca ? { tipoBusca, valorOriginal: numeroTombamento } : undefined
     };
 
     await offline.enqueue(payload);
@@ -569,7 +596,7 @@ export default function InventoryRoomPanel() {
     setLastScans((prev) => [
       {
         id: payload.id,
-        numeroTombamento,
+        numeroTombamento: finalTombamento,
         divergente,
         unidadeDonaId: bem?.unidadeDonaId || null,
         unidadeEncontradaId: unidadeEncontrada,
@@ -1056,6 +1083,69 @@ export default function InventoryRoomPanel() {
           </div>
         </div>
       </details>
+
+      {/* Modal Identificação Etiqueta 4 Dígitos */}
+      {tagIdModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900 p-6 shadow-2xl">
+            <h3 className="font-[Space_Grotesk] text-xl font-bold text-white">Identificar Etiqueta</h3>
+            <p className="mt-4 text-slate-300">
+              O código <span className="font-mono font-bold text-cyan-400">"{tagIdModal.value}"</span> possui apenas 4 dígitos. Como deseja identificá-lo?
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  processScan(tagIdModal.value, "antigo");
+                  setTagIdModal({ isOpen: false, value: "", type: null });
+                }}
+                className="flex items-center justify-between rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-left hover:bg-blue-500/20 transition-all"
+              >
+                <div>
+                  <div className="font-bold text-blue-300">Etiqueta Antiga (Azul)</div>
+                  <div className="text-xs text-blue-400/80">Código legado da 2ª Auditoria</div>
+                </div>
+                <div className="text-blue-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  processScan(tagIdModal.value, "novo");
+                  setTagIdModal({ isOpen: false, value: "", type: null });
+                }}
+                className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left hover:bg-emerald-500/20 transition-all"
+              >
+                <div>
+                  <div className="font-bold text-emerald-300">Etiqueta Nova (Erro)</div>
+                  <div className="text-xs text-emerald-400/80">Etiqueta GEAFIN impressa com erro (apenas sufixo)</div>
+                </div>
+                <div className="text-emerald-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTagIdModal({ isOpen: false, value: "", type: null });
+                setScannerValue("");
+              }}
+              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-400 hover:text-white transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MODAL ALERTA DIVERGÊNCIA */}
       {

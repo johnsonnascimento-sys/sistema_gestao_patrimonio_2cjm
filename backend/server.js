@@ -449,8 +449,19 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       where.push("b.eh_bem_terceiro = FALSE");
     }
     if (filters.numeroTombamento) {
-      where.push(`b.numero_tombamento = $${i}`);
-      params.push(filters.numeroTombamento);
+      if (filters.numeroTombamento.length === 4 && q.tipoBusca) {
+        if (q.tipoBusca === "antigo") {
+          where.push(`b.cod_2_aud = $${i}`);
+          params.push(filters.numeroTombamento);
+        } else {
+          // Busca por sufixo de tombamento novo (ex: 1260 -> %1260)
+          where.push(`b.numero_tombamento LIKE $${i}`);
+          params.push(`%${filters.numeroTombamento}`);
+        }
+      } else {
+        where.push(`b.numero_tombamento = $${i}`);
+        params.push(filters.numeroTombamento);
+      }
       i += 1;
     }
     if (filters.texto) {
@@ -490,13 +501,19 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       SELECT
         b.id,
         b.numero_tombamento AS "numeroTombamento",
-        COALESCE(NULLIF(b.descricao_complementar, ''), cb.descricao) AS "descricao",
+        b.cod_2_aud AS "cod2Aud",
+        b.nome_resumo AS "nomeResumo",
+        COALESCE(NULLIF(b.nome_resumo, ''), NULLIF(b.descricao_complementar, ''), cb.descricao) AS "descricao",
         b.catalogo_bem_id AS "catalogoBemId",
         cb.descricao AS "catalogoDescricao",
         b.unidade_dona_id AS "unidadeDonaId",
         b.local_fisico AS "localFisico",
         b.status::text AS "status",
-        b.eh_bem_terceiro AS "ehBemTerceiro"
+        b.eh_bem_terceiro AS "ehBemTerceiro",
+        EXISTS (
+          SELECT 1 FROM contagens c 
+          WHERE c.bem_id = b.id AND c.regularizacao_pendente = TRUE
+        ) AS "temDivergenciaPendente"
       FROM bens b
       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
       ${whereSql}
@@ -578,6 +595,8 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
       `SELECT
          b.id,
          b.numero_tombamento AS "numeroTombamento",
+         b.cod_2_aud AS "cod2Aud",
+         b.nome_resumo AS "nomeResumo",
          b.identificador_externo AS "identificadorExterno",
          b.descricao_complementar AS "descricaoComplementar",
          b.unidade_dona_id AS "unidadeDonaId",
@@ -604,7 +623,19 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          cb.updated_at AS "catalogoUpdatedAt",
          p.id AS "responsavelId",
          p.matricula AS "responsavelMatricula",
-         p.nome AS "responsavelNome"
+         p.nome AS "responsavelNome",
+         (
+           SELECT json_build_object(
+             'id', c.id,
+             'salaEncontrada', c.sala_encontrada,
+             'unidadeEncontradaId', c.unidade_encontrada_id,
+             'encontradoEm', c.encontrado_em,
+             'tipoOcorrencia', c.tipo_ocorrencia
+           )
+           FROM contagens c
+           WHERE c.bem_id = b.id AND c.regularizacao_pendente = TRUE
+           LIMIT 1
+         ) AS "divergenciaPendente"
        FROM bens b
        JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
        LEFT JOIN perfis p ON p.id = b.responsavel_perfil_id
@@ -2797,6 +2828,12 @@ function normalizeGeafin(raw, rowNo, fallbackUnit) {
       numeroTombamento,
       codigoCatalogo: pick(row, ["codigo_catalogo", "codigo_material", "codigo_item", "grupo_material_codigo", "codigo", "cod_material", "codmaterial"]) || `GEAFIN_${numeroTombamento}`,
       descricao,
+      nomeResumo: pick(row, ["nome"]),
+      cod2Aud: (() => {
+        const campoAdicional = row["campo_adicional"] || "";
+        const m = campoAdicional.match(/\[Cod2Aud:(\d+)\]/i);
+        return m ? m[1] : null;
+      })(),
       grupo: pick(row, ["grupo", "grupo_material", "classe", "categoria"]),
       localFisico: pick(row, ["local_fisico", "localizacao", "sala", "local", "ambiente", "siglalotacao"]) || "NAO_INFORMADO",
       unidadeDonaId: unidadeDonaIdFinal,
@@ -2841,8 +2878,9 @@ async function upsertBem(client, d, catId) {
     upsert AS (
       INSERT INTO bens (
         numero_tombamento, catalogo_bem_id, unidade_dona_id,
-        local_fisico, status, valor_aquisicao, eh_bem_terceiro
-      ) VALUES ($1,$2,$3,NULL,'AGUARDANDO_RECEBIMENTO',$6,FALSE)
+        local_fisico, status, valor_aquisicao, eh_bem_terceiro,
+        cod_2_aud, nome_resumo
+      ) VALUES ($1,$2,$3,NULL,'AGUARDANDO_RECEBIMENTO',$6,FALSE,$7,$8)
       ON CONFLICT (numero_tombamento) WHERE numero_tombamento IS NOT NULL
       DO UPDATE SET
         catalogo_bem_id = EXCLUDED.catalogo_bem_id,
@@ -2850,6 +2888,8 @@ async function upsertBem(client, d, catId) {
         local_fisico = $4,
         status = $5::public.status_bem,
         valor_aquisicao = COALESCE($6, bens.valor_aquisicao),
+        cod_2_aud = COALESCE(EXCLUDED.cod_2_aud, bens.cod_2_aud),
+        nome_resumo = COALESCE(EXCLUDED.nome_resumo, bens.nome_resumo),
         updated_at = NOW()
       RETURNING id, (xmax = 0) AS inserted, unidade_dona_id AS unidade_nova_id
     )
@@ -2859,7 +2899,7 @@ async function upsertBem(client, d, catId) {
       (NOT upsert.inserted) AND (existing.unidade_antiga_id IS DISTINCT FROM upsert.unidade_nova_id) AS "unidadeChanged"
     FROM upsert
     LEFT JOIN existing ON existing.id = upsert.id;`,
-    [d.numeroTombamento, catId, d.unidadeDonaId, d.localFisico, d.status, d.valorAquisicao],
+    [d.numeroTombamento, catId, d.unidadeDonaId, d.localFisico, d.status, d.valorAquisicao, d.cod2Aud, d.nomeResumo],
   );
   return r.rows[0];
 }
