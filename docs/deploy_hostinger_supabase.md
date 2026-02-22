@@ -60,6 +60,12 @@ Para rodar tudo por Docker na VPS (frontend + backend):
 1. Habilitar backup do banco Supabase.
 2. Monitorar logs do container backend.
 3. Registrar versao implantada em changelog interno.
+4. Garantir backup diario das fotos locais:
+   - Origem: `/opt/cjm-patrimonio/shared/data/fotos`
+   - Destino: `/opt/cjm-patrimonio/backups/fotos`
+   - Script: `/usr/local/bin/backup_fotos_cjm.sh`
+   - Cron recomendado: `30 2 * * * /usr/local/bin/backup_fotos_cjm.sh >/var/log/backup_fotos_cjm.log 2>&1`
+   - Retencao recomendada: 30 dias de arquivos `fotos_*.tar.gz`
 
 ## 7. Migrações SQL (quando não houver `psql` no host)
 

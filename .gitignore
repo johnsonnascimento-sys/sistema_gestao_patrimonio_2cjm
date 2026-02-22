@@ -6,6 +6,7 @@ dist
 # Artefatos temporarios / exportados
 tmp_n8n_export_*.json
 tmp_n8n_*.json
+tmp_n8n_*
 scripts/.tmp/
 
 # Dumps/arquivos grandes (nao versionar)
