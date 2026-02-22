@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
-import { listarForasteirosInventario, listarEventosInventario, regularizarForasteiro } from "../services/apiClient.js";
+import { getFotoUrl, listarForasteirosInventario, listarEventosInventario, regularizarForasteiro } from "../services/apiClient.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -117,6 +117,8 @@ export default function RegularizationPanel() {
   const [termoReferencia, setTermoReferencia] = useState("");
   const [filterEvento, setFilterEvento] = useState("");
   const [filterSala, setFilterSala] = useState("");
+  const [showItemPhoto, setShowItemPhoto] = useState(false);
+  const [showCatalogPhoto, setShowCatalogPhoto] = useState(false);
 
   const eventosAtivosQuery = useQuery({
     queryKey: ["inventarioEventos", "EM_ANDAMENTO"],
@@ -306,6 +308,26 @@ export default function RegularizationPanel() {
           </label>
         </div>
       </div>
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showItemPhoto}
+            onChange={(e) => setShowItemPhoto(e.target.checked)}
+            className="h-4 w-4 accent-cyan-300"
+          />
+          Foto do item
+        </label>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={showCatalogPhoto}
+            onChange={(e) => setShowCatalogPhoto(e.target.checked)}
+            className="h-4 w-4 accent-cyan-300"
+          />
+          Foto do catálogo
+        </label>
+      </div>
 
       {(forasteirosQuery.isLoading || eventosAtivosQuery.isLoading) && (
         <p className="mt-4 text-sm text-slate-300">Carregando dados...</p>
@@ -318,8 +340,8 @@ export default function RegularizationPanel() {
       )}
 
       {enrichedItems.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
-          <table className="w-full text-sm">
+        <div className="mt-4 overflow-x-hidden rounded-2xl border border-white/10">
+          <table className="w-full table-fixed text-sm">
             <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
               <tr>
                 <th className="px-3 py-3 text-left">Evento</th>
@@ -353,7 +375,7 @@ export default function RegularizationPanel() {
                   <td className="px-3 py-3 font-mono text-[11px] text-emerald-300">
                     {it.codigoCatalogo || "-"}
                   </td>
-                  <td className="px-3 py-3 min-w-[22rem]">
+                  <td className="px-3 py-3">
                     <div className="font-semibold text-slate-100 break-words">{it.descricaoResumo.titulo}</div>
                     {it.descricaoResumo.detalhe && (
                       <div className="mt-1 text-[11px] italic text-slate-300 break-words">
@@ -365,10 +387,17 @@ export default function RegularizationPanel() {
                         {it.observacoes}
                       </div>
                     )}
-                    {it.fotoUrl && (
+                    {showItemPhoto && getFotoUrl(it.fotoUrl || "") && (
                       <div className="mt-2">
-                        <a href={it.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
+                        <a href={getFotoUrl(it.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
                           📸 Ver Foto
+                        </a>
+                      </div>
+                    )}
+                    {showCatalogPhoto && getFotoUrl(it.fotoReferenciaUrl || "") && (
+                      <div className="mt-2">
+                        <a href={getFotoUrl(it.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-900/40 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-800/50">
+                          Foto catálogo
                         </a>
                       </div>
                     )}

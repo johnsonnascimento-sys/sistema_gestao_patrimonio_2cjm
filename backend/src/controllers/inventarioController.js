@@ -156,7 +156,9 @@ function createInventarioController(deps) {
           b.local_id AS "localEsperadoId",
           b.local_fisico AS "localEsperadoTexto",
           l.nome AS "localEsperadoNome",
-          cb.descricao AS "catalogoDescricao"
+          cb.codigo_catalogo AS "codigoCatalogo",
+          cb.descricao AS "catalogoDescricao",
+          cb.foto_referencia_url AS "fotoReferenciaUrl"
         FROM contagens c
         JOIN bens b ON b.id = c.bem_id
         JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
@@ -271,10 +273,12 @@ function createInventarioController(deps) {
          b.local_fisico AS "localEsperadoTexto",
          b.local_id AS "localEsperadoId",
          b.nome_resumo AS "nomeResumo",
-         b.descricao_complementar AS "descricaoComplementar",
-         l.nome AS "localEsperadoNome",
-         cb.codigo_catalogo AS "codigoCatalogo",
-         cb.descricao AS "catalogoDescricao"
+          b.descricao_complementar AS "descricaoComplementar",
+          b.foto_url AS "fotoUrl",
+          l.nome AS "localEsperadoNome",
+          cb.codigo_catalogo AS "codigoCatalogo",
+          cb.descricao AS "catalogoDescricao",
+          cb.foto_referencia_url AS "fotoReferenciaUrl"
        FROM contagens c
        JOIN bens b ON b.id = c.bem_id
        JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
@@ -317,6 +321,8 @@ function createInventarioController(deps) {
           catalogoDescricao: row.catalogoDescricao,
           nomeResumo: row.nomeResumo || null,
           descricaoComplementar: row.descricaoComplementar || null,
+          fotoUrl: row.fotoUrl || null,
+          fotoReferenciaUrl: row.fotoReferenciaUrl || null,
           unidadeDonaId: row.unidadeDonaId,
           unidadeEncontradaId: row.unidadeEncontradaId,
           localEsperado: esperado || null,
@@ -575,12 +581,13 @@ function createInventarioController(deps) {
           f.bem_id AS "bemId",
           f.numero_tombamento AS "numeroTombamento",
           f.identificador_externo AS "identificadorExterno",
-          f.foto_url AS "fotoUrl",
+          COALESCE(f.foto_url, b.foto_url) AS "fotoUrl",
           b.nome_resumo AS "nomeResumo",
           f.descricao AS "descricaoComplementar",
           b.catalogo_bem_id AS "catalogoBemId",
           cb.codigo_catalogo AS "codigoCatalogo",
           cb.descricao AS "catalogoDescricao",
+          cb.foto_referencia_url AS "fotoReferenciaUrl",
           f.unidade_dona_id AS "unidadeDonaId",
           f.unidade_encontrada_id AS "unidadeEncontradaId",
           f.sala_encontrada AS "salaEncontrada",

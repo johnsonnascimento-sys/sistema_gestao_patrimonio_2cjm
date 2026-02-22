@@ -147,3 +147,4 @@ Se a carga for alterada:
 
 - Coluna `Catalogo (SKU)`: exibe apenas o codigo do catalogo.
 - Coluna `Descricao / Resumo`: prioriza `nome_resumo`; a descricao complementar aparece como detalhe compacto.
+- A grade possui controles para exibir foto do item e foto do catalogo.

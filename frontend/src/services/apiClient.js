@@ -5,6 +5,16 @@
  */
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+const API_BASE_ORIGIN = (() => {
+  try {
+    const fallbackOrigin = typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "http://localhost:3001";
+    return new URL(API_BASE_URL, fallbackOrigin).origin;
+  } catch {
+    return API_BASE_URL;
+  }
+})();
 
 const AUTH_TOKEN_KEY = "cjm_auth_token_v1";
 
@@ -30,8 +40,31 @@ export function setAuthToken(token) {
 
 export function getFotoUrl(path) {
   if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  const raw = String(path).trim();
+  if (!raw) return "";
+  if (raw.startsWith("data:")) return raw;
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      const host = String(u.hostname || "").toLowerCase();
+      // Corrige URLs legadas salvas com host local/container.
+      if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "cjm_backend") {
+        return `${API_BASE_ORIGIN}${u.pathname || ""}${u.search || ""}${u.hash || ""}`;
+      }
+      return raw;
+    } catch {
+      return raw;
+    }
+  }
+
+  if (raw.startsWith("//")) {
+    const protocol = typeof window !== "undefined" && window.location?.protocol ? window.location.protocol : "https:";
+    return `${protocol}${raw}`;
+  }
+  if (raw.startsWith("/fotos/")) return `${API_BASE_ORIGIN}${raw}`;
+  if (raw.startsWith("fotos/")) return `${API_BASE_ORIGIN}/${raw}`;
+  return `${API_BASE_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
 }
 
 export function clearAuthToken() {

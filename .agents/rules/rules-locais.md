@@ -40,6 +40,8 @@ Padrao de dados:
 - Ao selecionar evento antigo no historico, o relatorio deve trocar para o evento selecionado.
 - Na grade de divergencias da Regularizacao, `Catalogo (SKU)` deve mostrar apenas o codigo.
 - Na grade de divergencias da Regularizacao, `Descricao / Resumo` deve priorizar `bens.nome_resumo` e usar descricao complementar como detalhe.
+- Em listagens de bens, oferecer opcao de exibir foto do item e foto do catalogo.
+- Links de foto devem passar por `getFotoUrl` para normalizar URLs legadas (localhost/container).
 
 ## 5) Publicacao
 

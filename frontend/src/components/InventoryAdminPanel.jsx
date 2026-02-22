@@ -5,6 +5,7 @@ import {
     atualizarStatusEventoInventario,
     baixarRelatorioEncerramentoInventarioCsv,
     criarEventoInventario,
+    getFotoUrl,
     getRelatorioEncerramentoInventario,
     listarEventosInventario,
     excluirEventoInventario,
@@ -47,6 +48,8 @@ export default function InventoryAdminPanel() {
     const [editingEventoId, setEditingEventoId] = useState(null);
     const [editForm, setEditForm] = useState({ codigoEvento: "", observacoes: "" });
     const [relatorioEventoId, setRelatorioEventoId] = useState("");
+    const [showItemPhotoRelatorio, setShowItemPhotoRelatorio] = useState(false);
+    const [showCatalogPhotoRelatorio, setShowCatalogPhotoRelatorio] = useState(false);
 
     useEffect(() => {
         if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
@@ -595,6 +598,26 @@ export default function InventoryAdminPanel() {
 
                             <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
                                 <p className="text-xs uppercase tracking-widest text-slate-400">Divergências registradas</p>
+                                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+                                    <label className="inline-flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={showItemPhotoRelatorio}
+                                            onChange={(e) => setShowItemPhotoRelatorio(e.target.checked)}
+                                            className="h-4 w-4 accent-cyan-300"
+                                        />
+                                        Foto do item
+                                    </label>
+                                    <label className="inline-flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={showCatalogPhotoRelatorio}
+                                            onChange={(e) => setShowCatalogPhotoRelatorio(e.target.checked)}
+                                            className="h-4 w-4 accent-cyan-300"
+                                        />
+                                        Foto do catálogo
+                                    </label>
+                                </div>
                                 {(relatorioEncerramentoQuery.data.divergencias || []).length === 0 ? (
                                     <p className="mt-2 text-sm text-slate-300">Nenhuma divergência registrada neste evento.</p>
                                 ) : (
@@ -625,6 +648,20 @@ export default function InventoryAdminPanel() {
                                                             {d.nomeResumo && d.descricaoComplementar && d.nomeResumo !== d.descricaoComplementar && (
                                                                 <div className="text-[10px] text-slate-400 italic">
                                                                     {d.descricaoComplementar}
+                                                                </div>
+                                                            )}
+                                                            {(showItemPhotoRelatorio || showCatalogPhotoRelatorio) && (
+                                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                                    {showItemPhotoRelatorio && getFotoUrl(d.fotoUrl || "") && (
+                                                                        <a href={getFotoUrl(d.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-cyan-300/30 bg-cyan-400/10 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/15">
+                                                                            Foto item
+                                                                        </a>
+                                                                    )}
+                                                                    {showCatalogPhotoRelatorio && getFotoUrl(d.fotoReferenciaUrl || "") && (
+                                                                        <a href={getFotoUrl(d.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-300/15">
+                                                                            Foto catálogo
+                                                                        </a>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </td>

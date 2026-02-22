@@ -1458,6 +1458,8 @@ function describeRowDivergence(row) {
 
 function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, eventoInventarioId }) {
   const salaKey = normalizeRoomKey(salaEncontrada);
+  const [showItemPhoto, setShowItemPhoto] = useState(false);
+  const [showCatalogPhoto, setShowCatalogPhoto] = useState(false);
 
   const bemByTomb = useMemo(() => {
     const m = new Map();
@@ -1478,9 +1480,11 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
         fonte: "SERVIDOR",
         numeroTombamento: c.numeroTombamento,
         identificadorExterno: c.identificadorExterno,
+        codigoCatalogo: c.codigoCatalogo,
         catalogoDescricao: c.catalogoDescricao,
         descricaoComplementar: c.descricaoComplementar,
         fotoUrl: c.fotoUrl,
+        fotoReferenciaUrl: c.fotoReferenciaUrl,
         observacoes: c.observacoes,
         unidadeDonaId: c.unidadeDonaId,
         unidadeEncontradaId: c.unidadeEncontradaId,
@@ -1512,6 +1516,10 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
       out.push({
         fonte: "PENDENTE",
         numeroTombamento: it.numeroTombamento,
+        codigoCatalogo: b?.codigoCatalogo || null,
+        catalogoDescricao: b?.catalogoDescricao || null,
+        fotoUrl: b?.fotoUrl || null,
+        fotoReferenciaUrl: b?.fotoReferenciaUrl || null,
         unidadeDonaId,
         unidadeEncontradaId,
         salaEncontrada: it.salaEncontrada,
@@ -1551,10 +1559,31 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
           Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
         </p>
 
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showItemPhoto}
+              onChange={(e) => setShowItemPhoto(e.target.checked)}
+              className="h-4 w-4 accent-cyan-300"
+            />
+            Foto do item
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showCatalogPhoto}
+              onChange={(e) => setShowCatalogPhoto(e.target.checked)}
+              className="h-4 w-4 accent-cyan-300"
+            />
+            Foto do catalogo
+          </label>
+        </div>
+
         {all.length === 0 ? (
           <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
         ) : (
-          <div className="mt-3 overflow-x-hidden rounded-xl border border-white/10 pb-2">
+          <div className="mt-3 overflow-x-auto rounded-xl border border-white/10 pb-2">
             <table className="w-full text-sm">
               <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
                 <tr>
@@ -1570,10 +1599,13 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
               <tbody className="divide-y divide-white/10 bg-slate-900/40">
                 {all.slice(0, 120).map((d) => {
                   const b = d.numeroTombamento ? bemByTomb.get(String(d.numeroTombamento)) : null;
+                  const fotoItem = getFotoUrl(d.fotoUrl || b?.fotoUrl || "");
+                  const fotoCatalogo = getFotoUrl(d.fotoReferenciaUrl || b?.fotoReferenciaUrl || "");
                   return (
                     <tr key={`${d.fonte}|${d.numeroTombamento || d.identificadorExterno}`}>
                       <td className="px-3 py-3 font-mono text-xs text-slate-100">{d.numeroTombamento || <span className="text-rose-400 font-bold">SEM PLACA<br /><span className="text-[10px] text-rose-300 font-normal">{d.identificadorExterno}</span></span>}</td>
                       <td className="px-3 py-3">
+                        <div className="font-mono text-[11px] text-emerald-300">{d.codigoCatalogo || b?.codigoCatalogo || "-"}</div>
                         <div className="font-semibold text-slate-200">{d.catalogoDescricao || b?.catalogoDescricao || "-"}</div>
                         {d.descricaoComplementar && (
                           <div className="mt-1 text-xs text-amber-100/90 font-medium whitespace-pre-line">
@@ -1585,10 +1617,17 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
                             {d.observacoes}
                           </div>
                         )}
-                        {d.fotoUrl && (
+                        {showItemPhoto && fotoItem && (
                           <div className="mt-2">
-                            <a href={d.fotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
+                            <a href={fotoItem} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
                               📸 Ver Foto
+                            </a>
+                          </div>
+                        )}
+                        {showCatalogPhoto && fotoCatalogo && (
+                          <div className="mt-2">
+                            <a href={fotoCatalogo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-900/40 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-800/50">
+                              Foto catalogo
                             </a>
                           </div>
                         )}
