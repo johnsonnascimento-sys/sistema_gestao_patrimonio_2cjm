@@ -8,10 +8,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   atualizarBem,
+  getBemAuditoria,
   getBemDetalhe,
   getStats,
   listarBens,
   listarLocais,
+  reverterBemAuditoria,
   uploadFoto,
   getFotoUrl,
   atualizarFotoCatalogo,
@@ -743,6 +745,72 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     },
   });
 
+  const auditoriaQuery = useQuery({
+    queryKey: ["bemAuditoria", imp?.id],
+    enabled: Boolean(imp?.id),
+    queryFn: async () => {
+      const data = await getBemAuditoria(imp.id, { limit: 120 });
+      return data.items || [];
+    },
+  });
+
+  const reverterMut = useMutation({
+    mutationFn: async ({ auditId }) => {
+      if (!imp?.id) throw new Error("BemId ausente.");
+      return reverterBemAuditoria(imp.id, auditId);
+    },
+    onSuccess: async () => {
+      setEditMsg("Alteracao revertida com sucesso.");
+      setEditErr(null);
+      await auditoriaQuery.refetch();
+      await onReload?.();
+    },
+    onError: (e) => {
+      setEditErr(String(e?.message || "Falha ao reverter alteracao."));
+      setEditMsg(null);
+    },
+  });
+
+  const formatFieldValue = (v) => {
+    if (v == null) return "-";
+    if (typeof v === "boolean") return v ? "true" : "false";
+    if (typeof v === "object") {
+      try {
+        return JSON.stringify(v);
+      } catch (_e) {
+        return String(v);
+      }
+    }
+    const s = String(v);
+    return s.trim() ? s : "-";
+  };
+  const fieldLabel = (field) => {
+    const map = {
+      local_fisico: "Sala / Local",
+      local_id: "LocalId",
+      unidade_dona_id: "Unidade dona",
+      nome_resumo: "Nome resumo",
+      descricao_complementar: "Descricao complementar",
+      foto_url: "Foto do item",
+      foto_referencia_url: "Foto do catalogo",
+      catalogo_bem_id: "Catalogo",
+      responsavel_perfil_id: "Responsavel",
+      status: "Status",
+      contrato_referencia: "Contrato",
+      data_aquisicao: "Data aquisicao",
+      valor_aquisicao: "Valor aquisicao",
+      descricao: "Descricao catalogo",
+      grupo: "Grupo catalogo",
+      material_permanente: "Material permanente",
+    };
+    return map[field] || field;
+  };
+  const actorLabel = (item) => {
+    if (item?.executorNome && item?.executorMatricula) return `${item.executorNome} (${item.executorMatricula})`;
+    if (item?.executorNome) return item.executorNome;
+    return item?.executadoPor || "-";
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/70 p-4 backdrop-blur">
       <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl">
@@ -1231,6 +1299,74 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
+                <p className="text-xs uppercase tracking-widest text-slate-400">Linha do tempo de alteraÃ§Ãµes</p>
+                {auditoriaQuery.isLoading ? (
+                  <p className="mt-2 text-sm text-slate-300">Carregando auditoria...</p>
+                ) : auditoriaQuery.error ? (
+                  <p className="mt-2 text-sm text-rose-300">Falha ao carregar auditoria.</p>
+                ) : !(auditoriaQuery.data || []).length ? (
+                  <p className="mt-2 text-sm text-slate-300">Nenhuma alteraÃ§Ã£o auditada encontrada.</p>
+                ) : (
+                  <div className="mt-2 space-y-3">
+                    {(auditoriaQuery.data || []).map((a) => (
+                      <details key={a.id} className="rounded-lg border border-white/10 bg-slate-950/40 p-3">
+                        <summary className="cursor-pointer list-none">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-100">
+                                {a.tabela} / {a.operacao}
+                              </p>
+                              <p className="text-xs text-slate-300">
+                                {new Date(a.executadoEm).toLocaleString()} - {actorLabel(a)}
+                              </p>
+                              <p className="mt-1 text-xs text-cyan-200">
+                                {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem diff estruturado"}
+                              </p>
+                            </div>
+                            {isAdmin && a.canRevert ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const ok = window.confirm(`Reverter a alteracao ${a.id} em ${a.tabela}?`);
+                                  if (!ok) return;
+                                  reverterMut.mutate({ auditId: a.id });
+                                }}
+                                disabled={reverterMut.isPending}
+                                className="rounded-lg border border-amber-300/40 bg-amber-200/10 px-3 py-1 text-xs font-semibold text-amber-100 hover:bg-amber-200/20 disabled:opacity-50"
+                              >
+                                {reverterMut.isPending ? "Revertendo..." : "Reverter esta alteraÃ§Ã£o"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </summary>
+                        <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+                          <table className="min-w-full text-left text-xs">
+                            <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                              <tr>
+                                <th className="px-2 py-2">Campo</th>
+                                <th className="px-2 py-2">Antes</th>
+                                <th className="px-2 py-2">Depois</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                              {(a.changes || []).map((c) => (
+                                <tr key={`${a.id}-${c.field}`}>
+                                  <td className="px-2 py-2 text-slate-200">{fieldLabel(c.field)}</td>
+                                  <td className="px-2 py-2 text-slate-300">{formatFieldValue(c.before)}</td>
+                                  <td className="px-2 py-2 text-slate-300">{formatFieldValue(c.after)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    ))}
                   </div>
                 )}
               </section>

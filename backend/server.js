@@ -129,6 +129,36 @@ function normalizeHuman(v) {
   return String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function stableJson(value) {
+  if (value === undefined) return "__undefined__";
+  if (value === null) return null;
+  if (typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((x) => stableJson(x));
+  const out = {};
+  for (const key of Object.keys(value).sort()) out[key] = stableJson(value[key]);
+  return out;
+}
+
+function areEqualForAudit(a, b) {
+  return JSON.stringify(stableJson(a)) === JSON.stringify(stableJson(b));
+}
+
+function diffAuditObjects(beforeObj, afterObj) {
+  const before = beforeObj && typeof beforeObj === "object" ? beforeObj : {};
+  const after = afterObj && typeof afterObj === "object" ? afterObj : {};
+  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).sort();
+  const out = [];
+  for (const key of keys) {
+    if (key === "updated_at") continue;
+    const oldVal = before[key];
+    const newVal = after[key];
+    if (!areEqualForAudit(oldVal, newVal)) {
+      out.push({ field: key, before: oldVal ?? null, after: newVal ?? null });
+    }
+  }
+  return out;
+}
+
 function extractBearerToken(req) {
   const raw = req.headers?.authorization ? String(req.headers.authorization) : "";
   if (!raw) return null;
@@ -753,6 +783,193 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+});
+
+app.get("/bens/:id/auditoria", mustAuth, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(400, "BEM_ID_INVALIDO", "id deve ser UUID valido.");
+    const limit = Math.max(1, Math.min(300, parseIntOrDefault(req.query?.limit, 120)));
+
+    const rBem = await pool.query(
+      `SELECT id, catalogo_bem_id AS "catalogoBemId"
+       FROM bens
+       WHERE id = $1
+       LIMIT 1;`,
+      [id],
+    );
+    const bem = rBem.rows[0] || null;
+    if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    const rAudit = await pool.query(
+      `SELECT
+         a.id,
+         a.tabela,
+         a.operacao,
+         a.registro_pk AS "registroPk",
+         a.dados_antes AS "dadosAntes",
+         a.dados_depois AS "dadosDepois",
+         a.executado_por AS "executadoPor",
+         a.executado_em AS "executadoEm",
+         p.id AS "executorPerfilId",
+         p.nome AS "executorNome",
+         p.matricula AS "executorMatricula"
+       FROM auditoria_log a
+       LEFT JOIN perfis p
+         ON (
+           a.executado_por ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+           AND p.id = a.executado_por::uuid
+         )
+       WHERE
+         (a.tabela = 'bens' AND a.registro_pk = $1)
+         OR
+         (a.tabela = 'catalogo_bens' AND a.registro_pk = $2)
+         OR
+         (a.tabela IN ('movimentacoes', 'contagens', 'historico_transferencias', 'documentos')
+          AND COALESCE(a.dados_depois ->> 'bem_id', a.dados_antes ->> 'bem_id') = $1)
+       ORDER BY a.executado_em DESC, a.id DESC
+       LIMIT $3;`,
+      [id, String(bem.catalogoBemId), limit],
+    );
+
+    const revertableByTable = new Set(["bens", "catalogo_bens"]);
+    const items = rAudit.rows.map((row) => {
+      const changes = row.operacao === "UPDATE"
+        ? diffAuditObjects(row.dadosAntes, row.dadosDepois)
+        : [];
+      return {
+        id: row.id,
+        tabela: row.tabela,
+        operacao: row.operacao,
+        registroPk: row.registroPk,
+        executadoEm: row.executadoEm,
+        executadoPor: row.executadoPor,
+        executorPerfilId: row.executorPerfilId || null,
+        executorNome: row.executorNome || null,
+        executorMatricula: row.executorMatricula || null,
+        changes,
+        dadosAntes: row.dadosAntes || null,
+        dadosDepois: row.dadosDepois || null,
+        canRevert: row.operacao === "UPDATE" && revertableByTable.has(String(row.tabela || "")),
+      };
+    });
+
+    res.json({ requestId: req.requestId, bemId: id, total: items.length, items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/bens/:id/auditoria/:auditId/reverter", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(400, "BEM_ID_INVALIDO", "id deve ser UUID valido.");
+    const auditId = Number(req.params?.auditId || 0);
+    if (!Number.isInteger(auditId) || auditId <= 0) throw new HttpError(422, "AUDITORIA_ID_INVALIDO", "auditId invalido.");
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+
+    const rBem = await client.query(
+      `SELECT id, catalogo_bem_id AS "catalogoBemId"
+       FROM bens
+       WHERE id = $1
+       LIMIT 1
+       FOR UPDATE;`,
+      [id],
+    );
+    const bem = rBem.rows[0] || null;
+    if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+    const rAudit = await client.query(
+      `SELECT id, tabela, operacao, registro_pk AS "registroPk", dados_antes AS "dadosAntes", dados_depois AS "dadosDepois"
+       FROM auditoria_log
+       WHERE id = $1
+       LIMIT 1;`,
+      [auditId],
+    );
+    const audit = rAudit.rows[0] || null;
+    if (!audit) throw new HttpError(404, "AUDITORIA_NAO_ENCONTRADA", "Registro de auditoria nao encontrado.");
+
+    const tabela = String(audit.tabela || "");
+    const registroPk = String(audit.registroPk || "");
+    if (audit.operacao !== "UPDATE") {
+      throw new HttpError(422, "REVERSAO_APENAS_UPDATE", "So e possivel reverter alteracoes do tipo UPDATE.");
+    }
+    if (!audit.dadosAntes || !audit.dadosDepois) {
+      throw new HttpError(422, "AUDITORIA_SEM_DADOS", "Registro de auditoria sem dados suficientes para reversao.");
+    }
+
+    const belongsToBem = (tabela === "bens" && registroPk === id)
+      || (tabela === "catalogo_bens" && registroPk === String(bem.catalogoBemId));
+    if (!belongsToBem) {
+      throw new HttpError(409, "AUDITORIA_NAO_PERTENCE_AO_BEM", "Registro de auditoria nao pertence ao bem informado.");
+    }
+
+    const allowedByTable = {
+      bens: new Set([
+        "nome_resumo",
+        "descricao_complementar",
+        "unidade_dona_id",
+        "responsavel_perfil_id",
+        "local_fisico",
+        "local_id",
+        "status",
+        "contrato_referencia",
+        "data_aquisicao",
+        "valor_aquisicao",
+        "foto_url",
+        "catalogo_bem_id",
+      ]),
+      catalogo_bens: new Set([
+        "descricao",
+        "grupo",
+        "material_permanente",
+        "foto_referencia_url",
+      ]),
+    };
+    const allowed = allowedByTable[tabela];
+    if (!allowed) {
+      throw new HttpError(422, "TABELA_NAO_REVERSIVEL", "Reversao nao suportada para esta tabela.");
+    }
+
+    const changes = diffAuditObjects(audit.dadosAntes, audit.dadosDepois);
+    const revertFields = changes
+      .map((c) => c.field)
+      .filter((f) => allowed.has(String(f)));
+    if (!revertFields.length) {
+      throw new HttpError(422, "SEM_CAMPOS_REVERSIVEIS", "Nao ha campos revertiveis nesta alteracao.");
+    }
+
+    const setParts = [];
+    const params = [];
+    for (const field of revertFields) {
+      params.push(Object.prototype.hasOwnProperty.call(audit.dadosAntes, field) ? audit.dadosAntes[field] : null);
+      setParts.push(`${field} = $${params.length}`);
+    }
+    setParts.push("updated_at = NOW()");
+    params.push(registroPk);
+    const sql = `UPDATE ${tabela} SET ${setParts.join(", ")} WHERE id = $${params.length} RETURNING id;`;
+    const upd = await client.query(sql, params);
+    if (!upd.rowCount) throw new HttpError(404, "REGISTRO_NAO_ENCONTRADO", "Registro alvo da reversao nao encontrado.");
+
+    await client.query("COMMIT");
+    res.json({
+      requestId: req.requestId,
+      ok: true,
+      bemId: id,
+      auditId,
+      tabela,
+      registroPk,
+      revertedFields: revertFields,
+    });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
   }
 });
 

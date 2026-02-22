@@ -264,6 +264,47 @@ export async function getBemDetalhe(id) {
 }
 
 /**
+ * Lista trilha de auditoria detalhada de um bem (inclui bens/catalogo/movimentacoes/contagens relacionadas).
+ * @param {string} id BemId (UUID).
+ * @param {{limit?: number}} params Parametros opcionais.
+ * @returns {Promise<object>} Lista de alteracoes auditadas.
+ */
+export async function getBemAuditoria(id, params = {}) {
+  const bemId = String(id || "").trim();
+  if (!bemId) throw new Error("BemId obrigatorio.");
+  const usp = new URLSearchParams();
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/bens/${encodeURIComponent(bemId)}/auditoria${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Reverte uma alteracao especifica da trilha de auditoria de um bem.
+ * @param {string} id BemId (UUID).
+ * @param {number|string} auditId ID da linha em auditoria_log.
+ * @returns {Promise<object>} Resultado da reversao.
+ */
+export async function reverterBemAuditoria(id, auditId) {
+  const bemId = String(id || "").trim();
+  const audit = String(auditId || "").trim();
+  if (!bemId) throw new Error("BemId obrigatorio.");
+  if (!audit) throw new Error("auditId obrigatorio.");
+  const response = await safeFetch(`${API_BASE_URL}/bens/${encodeURIComponent(bemId)}/auditoria/${encodeURIComponent(audit)}/reverter`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Atualiza dados do bem (ADMIN) exceto chaves.
  * @param {string} id UUID do bem.
  * @param {object} patch Campos parciais.

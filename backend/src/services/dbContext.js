@@ -22,7 +22,8 @@ async function setDbContext(client, ctx) {
   // Essas chaves sao lidas em triggers (ex.: fn_track_owner_change).
   await client.query("SELECT set_config('app.change_origin', $1, TRUE)", [origin]);
   await client.query("SELECT set_config('app.current_user_id', $1, TRUE)", [userId]);
+  // Compatibilidade com triggers antigas que leem app.current_user.
+  await client.query("SELECT set_config('app.current_user', $1, TRUE)", [userId]);
 }
 
 module.exports = { setDbContext };
-

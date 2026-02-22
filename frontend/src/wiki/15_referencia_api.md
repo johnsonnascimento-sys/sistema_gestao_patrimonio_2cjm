@@ -104,6 +104,33 @@ Campos adicionais de auditoria no retorno:
 - `movimentacoes[].autorizadaPorNome`, `movimentacoes[].autorizadaPorMatricula`
 - `movimentacoes[].regularizacaoSalaEncontrada` (quando houver regularizacao associada)
 - `historicoTransferencias[].usuarioNome`, `historicoTransferencias[].usuarioMatricula`
+
+### GET `/bens/{id}/auditoria`
+
+Uso: linha do tempo completa de alteracoes auditadas do bem (bens, catalogo, movimentacoes, contagens e documentos relacionados).
+
+Query opcional:
+
+- `limit` (padrao 120, max 300)
+
+Retorna por item:
+
+- `executadoEm`, `executadoPor`, `executorNome`, `executorMatricula`
+- `tabela`, `operacao`, `changes[]` com `field/before/after`
+- `canRevert` (se permite reversao item-a-item no modal)
+
+### POST `/bens/{id}/auditoria/{auditId}/reverter`
+
+Uso: reverter uma alteracao especifica da trilha de auditoria do bem (modo item-a-item).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer `ADMIN`.
+
+Observacao:
+
+- A reversao gera nova trilha em `auditoria_log` (nao apaga historico).
+
 ### PATCH `/bens/{id}`
 
 Uso: atualizar campos operacionais do bem (ADMIN).

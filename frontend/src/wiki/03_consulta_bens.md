@@ -89,6 +89,21 @@ Use isso quando precisar:
 - Entender se está em cautela e com quem.
 - Checar o que aconteceu em datas anteriores.
 
+## Linha do tempo de alteracoes e reversao (modal)
+
+No modal de detalhes, ha uma secao **Linha do tempo de alteracoes** com:
+
+- Quem alterou (`executorNome`/matricula quando disponivel)
+- Data e hora da alteracao
+- O que mudou (campo, valor antes, valor depois)
+- Origem da alteracao (tabela/operacao auditada)
+
+Modo de reversao item-a-item (ADMIN):
+
+- Cada registro elegivel exibe o botao **Reverter esta alteracao**
+- A reversao cria nova trilha de auditoria (nao apaga historico)
+- Recomenda-se reverter apenas alteracoes indevidas, validando antes no proprio diff
+
 ## Editar bem (ADMIN)
 
 No modal de detalhes, usuários `ADMIN` podem editar os campos operacionais do bem (exceto chaves), incluindo:
