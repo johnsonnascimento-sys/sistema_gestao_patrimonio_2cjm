@@ -151,6 +151,29 @@ export default function InventoryAdminPanel() {
         },
     });
 
+    const report = relatorioEncerramentoQuery.data || null;
+    const resumo = report?.resumo || {};
+    const totalDivergencias = Number(resumo.totalDivergencias || 0);
+    const totalContagens = Number(resumo.totalContagens || 0);
+    const conformidadePct = totalContagens > 0
+        ? Math.round(((Number(resumo.conformes || 0)) / totalContagens) * 100)
+        : 0;
+    const divergenciaTipoData = [
+        { k: "Unidade", v: Number(resumo.divergenciasUnidade || 0), color: "#f59e0b" },
+        { k: "Sala", v: Number(resumo.divergenciasSala || 0), color: "#06b6d4" },
+        { k: "Unidade + Sala", v: Number(resumo.divergenciasUnidadeESala || 0), color: "#fb7185" },
+    ];
+    const regularizacaoData = [
+        { k: "Pendentes", v: Number(resumo.regularizacoesPendentes || 0), color: "#f97316" },
+        { k: "Regularizadas", v: Math.max(0, totalDivergencias - Number(resumo.regularizacoesPendentes || 0)), color: "#22c55e" },
+    ];
+    const porSalaTop = useMemo(() => {
+        const rows = report?.porSala || [];
+        return [...rows]
+            .sort((a, b) => Number(b.divergencias || 0) - Number(a.divergencias || 0))
+            .slice(0, 10);
+    }, [report?.porSala]);
+
     const onCreateEvento = async (event) => {
         event.preventDefault();
         setUiError(null);
@@ -484,6 +507,22 @@ export default function InventoryAdminPanel() {
                                 <CardKpi k="Pend. RegularizaÃ§Ã£o" v={relatorioEncerramentoQuery.data.resumo?.regularizacoesPendentes} />
                             </div>
 
+                            <div className="grid gap-3 lg:grid-cols-3">
+                                <DonutCard
+                                    title="Bens fora da Sala/Unidade"
+                                    subtitle={`Conformidade geral: ${conformidadePct}%`}
+                                    total={totalDivergencias}
+                                    items={divergenciaTipoData}
+                                />
+                                <StackedBarCard
+                                    title="Regulariza????o p??s-invent??rio"
+                                    subtitle="Pendentes x regularizadas"
+                                    total={totalDivergencias}
+                                    items={regularizacaoData}
+                                />
+                                <TopRoomsCard rows={porSalaTop} />
+                            </div>
+
                             <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
                                 <p className="text-xs uppercase tracking-widest text-slate-400">DivergÃªncias por tipo</p>
                                 <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
@@ -558,6 +597,105 @@ function CardKpi({ k, v }) {
         <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
             <p className="text-[11px] uppercase tracking-widest text-slate-400">{k}</p>
             <p className="mt-1 text-2xl font-semibold text-slate-100">{Number(v || 0)}</p>
+        </div>
+    );
+}
+
+function DonutCard({ title, subtitle, total, items }) {
+    const t = Math.max(0, Number(total || 0));
+    const safeItems = (items || []).map((it) => ({ ...it, v: Math.max(0, Number(it.v || 0)) }));
+    const stops = [];
+    let acc = 0;
+    for (const it of safeItems) {
+        const frac = t > 0 ? (it.v / t) * 100 : 0;
+        const from = acc;
+        const to = acc + frac;
+        stops.push(`${it.color} ${from}% ${to}%`);
+        acc = to;
+    }
+    if (acc < 100) stops.push(`#1f2937 ${acc}% 100%`);
+    const bg = `conic-gradient(${stops.join(", ")})`;
+    return (
+        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-400">{title}</p>
+            <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
+            <div className="mt-3 flex items-center gap-3">
+                <div className="relative h-24 w-24 shrink-0 rounded-full" style={{ background: bg }}>
+                    <div className="absolute inset-4 grid place-items-center rounded-full bg-slate-950 text-center">
+                        <span className="text-sm font-semibold text-slate-100">{t}</span>
+                    </div>
+                </div>
+                <div className="space-y-1 text-xs">
+                    {safeItems.map((it) => (
+                        <div key={it.k} className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: it.color }} />
+                            <span className="text-slate-300">{it.k}</span>
+                            <span className="font-semibold text-slate-100">{it.v}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function StackedBarCard({ title, subtitle, total, items }) {
+    const t = Math.max(0, Number(total || 0));
+    const safeItems = (items || []).map((it) => ({ ...it, v: Math.max(0, Number(it.v || 0)) }));
+    return (
+        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-400">{title}</p>
+            <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
+            <div className="mt-3 h-4 w-full overflow-hidden rounded-full bg-slate-800">
+                <div className="flex h-full w-full">
+                    {safeItems.map((it) => {
+                        const pct = t > 0 ? (it.v / t) * 100 : 0;
+                        return <div key={it.k} style={{ width: `${pct}%`, backgroundColor: it.color }} />;
+                    })}
+                </div>
+            </div>
+            <div className="mt-2 space-y-1 text-xs">
+                {safeItems.map((it) => (
+                    <div key={it.k} className="flex items-center justify-between rounded border border-white/10 bg-slate-900/40 px-2 py-1">
+                        <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: it.color }} />
+                            <span className="text-slate-300">{it.k}</span>
+                        </div>
+                        <span className="font-semibold text-slate-100">{it.v}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function TopRoomsCard({ rows }) {
+    const list = rows || [];
+    const maxDiv = Math.max(1, ...list.map((r) => Number(r?.divergencias || 0)));
+    return (
+        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Top salas com divergencias</p>
+            {!list.length ? (
+                <p className="mt-3 text-sm text-slate-400">Sem divergencias por sala.</p>
+            ) : (
+                <div className="mt-3 space-y-2">
+                    {list.map((r) => {
+                        const dv = Number(r.divergencias || 0);
+                        const pct = Math.max(3, Math.round((dv / maxDiv) * 100));
+                        return (
+                            <div key={r.salaEncontrada}>
+                                <div className="mb-1 flex items-center justify-between text-xs">
+                                    <span className="truncate pr-2 text-slate-300">{r.salaEncontrada}</span>
+                                    <span className="font-semibold text-slate-100">{dv}</span>
+                                </div>
+                                <div className="h-2 rounded bg-slate-800">
+                                    <div className="h-2 rounded bg-cyan-400/90" style={{ width: `${pct}%` }} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

@@ -72,6 +72,12 @@ Quando o evento ?? encerrado, a tela de Administra????o apresenta um relat??rio 
 - pend??ncias de regulariza????o p??s-invent??rio
 - evid??ncias de ader??ncia aos Arts. 183/185/124/127
 
+Gr??ficos no painel:
+
+- pizza de diverg??ncias por tipo (Unidade, Sala, Unidade+Sala)
+- barra de regulariza????o (pendentes x regularizadas)
+- ranking de salas com mais diverg??ncias
+
 Exporta????o edit??vel:
 
 - endpoint `GET /api/inventario/eventos/{id}/relatorio-encerramento.csv`
