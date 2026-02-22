@@ -556,6 +556,40 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const hist = state?.data?.historicoTransferencias || [];
   const divergenciaPendente = imp?.divergenciaPendente || state?.data?.divergenciaPendente || null;
 
+  const formatDateTime = (raw) => {
+    if (!raw) return "-";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return String(raw);
+    return d.toLocaleString();
+  };
+  const extractSalaChange = (justificativa) => {
+    const s = String(justificativa || "");
+    const m = s.match(/Antes:\s*(.+?)\.\s*Depois:\s*(.+?)(?:\.|$)/i);
+    if (!m) return null;
+    return { antes: String(m[1] || "").trim(), depois: String(m[2] || "").trim() };
+  };
+  const movementChangeSummary = (m) => {
+    const out = [];
+    const origem = Number(m?.unidadeOrigemId);
+    const destino = Number(m?.unidadeDestinoId);
+    if (Number.isInteger(origem) && Number.isInteger(destino) && origem !== destino) {
+      out.push(`Unidade: ${formatUnidade(origem)} -> ${formatUnidade(destino)}`);
+    }
+    const sala = extractSalaChange(m?.justificativa);
+    if (sala) {
+      out.push(`Sala: ${sala.antes || "-"} -> ${sala.depois || "-"}`);
+    } else if (String(m?.tipoMovimentacao || "").toUpperCase() === "REGULARIZACAO_INVENTARIO" && m?.regularizacaoSalaEncontrada) {
+      out.push(`Sala regularizada: ${m.regularizacaoSalaEncontrada}`);
+    }
+    return out.length ? out.join(" | ") : "Sem detalhe de alteracao";
+  };
+  const profileLabel = (nome, matricula, id) => {
+    if (nome && matricula) return `${nome} (${matricula})`;
+    if (nome) return nome;
+    if (matricula) return `Matricula ${matricula}`;
+    return id || "-";
+  };
+
   const [edit, setEdit] = useState({
     catalogoBemId: imp?.catalogoBemId || "",
     unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
@@ -1146,15 +1180,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           <th className="px-2 py-2">Origem</th>
                           <th className="px-2 py-2">De</th>
                           <th className="px-2 py-2">Para</th>
+                          <th className="px-2 py-2">Usuario</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/10">
                         {hist.map((h) => (
                           <tr key={h.id}>
-                            <td className="px-2 py-2 text-slate-200">{h.data || "-"}</td>
+                            <td className="px-2 py-2 text-slate-200">{formatDateTime(h.data)}</td>
                             <td className="px-2 py-2 text-slate-300">{h.origem || "-"}</td>
-                            <td className="px-2 py-2 text-slate-300">{h.unidadeAntigaId}</td>
-                            <td className="px-2 py-2 text-slate-300">{h.unidadeNovaId}</td>
+                            <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(h.unidadeAntigaId))}</td>
+                            <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(h.unidadeNovaId))}</td>
+                            <td className="px-2 py-2 text-slate-300">{profileLabel(h.usuarioNome, h.usuarioMatricula, h.usuarioId)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1176,16 +1212,20 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           <th className="px-2 py-2">Tipo</th>
                           <th className="px-2 py-2">Origem</th>
                           <th className="px-2 py-2">Destino</th>
+                          <th className="px-2 py-2">Alteracao</th>
+                          <th className="px-2 py-2">Executado por</th>
                           <th className="px-2 py-2">Termo</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/10">
                         {movs.map((m) => (
                           <tr key={m.id}>
-                            <td className="px-2 py-2 text-slate-200">{m.executadaEm || m.createdAt || "-"}</td>
+                            <td className="px-2 py-2 text-slate-200">{formatDateTime(m.executadaEm || m.createdAt)}</td>
                             <td className="px-2 py-2 text-slate-300">{m.tipoMovimentacao}</td>
-                            <td className="px-2 py-2 text-slate-300">{m.unidadeOrigemId ?? "-"}</td>
-                            <td className="px-2 py-2 text-slate-300">{m.unidadeDestinoId ?? "-"}</td>
+                            <td className="px-2 py-2 text-slate-300">{m.unidadeOrigemId != null ? formatUnidade(Number(m.unidadeOrigemId)) : "-"}</td>
+                            <td className="px-2 py-2 text-slate-300">{m.unidadeDestinoId != null ? formatUnidade(Number(m.unidadeDestinoId)) : "-"}</td>
+                            <td className="px-2 py-2 text-slate-300">{movementChangeSummary(m)}</td>
+                            <td className="px-2 py-2 text-slate-300">{profileLabel(m.executadaPorNome, m.executadaPorMatricula, m.executadaPorPerfilId)}</td>
                             <td className="px-2 py-2 font-mono text-[11px] text-slate-300">{m.termoReferencia || "-"}</td>
                           </tr>
                         ))}

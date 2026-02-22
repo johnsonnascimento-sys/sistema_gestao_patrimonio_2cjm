@@ -98,6 +98,12 @@ Retorna:
 - `movimentacoesRecentes`
 - `historicoTransferencias`
 
+Campos adicionais de auditoria no retorno:
+
+- `movimentacoes[].executadaPorNome`, `movimentacoes[].executadaPorMatricula`
+- `movimentacoes[].autorizadaPorNome`, `movimentacoes[].autorizadaPorMatricula`
+- `movimentacoes[].regularizacaoSalaEncontrada` (quando houver regularizacao associada)
+- `historicoTransferencias[].usuarioNome`, `historicoTransferencias[].usuarioMatricula`
 ### PATCH `/bens/{id}`
 
 Uso: atualizar campos operacionais do bem (ADMIN).

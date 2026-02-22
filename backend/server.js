@@ -658,39 +658,52 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
 
     const movimentacoes = await pool.query(
       `SELECT
-         id,
-         tipo_movimentacao AS "tipoMovimentacao",
-         status::text AS "status",
-         unidade_origem_id AS "unidadeOrigemId",
-         unidade_destino_id AS "unidadeDestinoId",
-         detentor_temporario_perfil_id AS "detentorTemporarioPerfilId",
-         data_prevista_devolucao AS "dataPrevistaDevolucao",
-         data_efetiva_devolucao AS "dataEfetivaDevolucao",
-         termo_referencia AS "termoReferencia",
-         justificativa,
-         autorizada_por_perfil_id AS "autorizadaPorPerfilId",
-         autorizada_em AS "autorizadaEm",
-         executada_por_perfil_id AS "executadaPorPerfilId",
-         executada_em AS "executadaEm",
-         created_at AS "createdAt"
-       FROM movimentacoes
-       WHERE bem_id = $1
-       ORDER BY created_at DESC
+         m.id,
+         m.tipo_movimentacao AS "tipoMovimentacao",
+         m.status::text AS "status",
+         m.unidade_origem_id AS "unidadeOrigemId",
+         m.unidade_destino_id AS "unidadeDestinoId",
+         m.detentor_temporario_perfil_id AS "detentorTemporarioPerfilId",
+         m.data_prevista_devolucao AS "dataPrevistaDevolucao",
+         m.data_efetiva_devolucao AS "dataEfetivaDevolucao",
+         m.termo_referencia AS "termoReferencia",
+         m.justificativa,
+         m.autorizada_por_perfil_id AS "autorizadaPorPerfilId",
+         m.autorizada_em AS "autorizadaEm",
+         m.executada_por_perfil_id AS "executadaPorPerfilId",
+         m.executada_em AS "executadaEm",
+         m.created_at AS "createdAt",
+         pa.nome AS "autorizadaPorNome",
+         pa.matricula AS "autorizadaPorMatricula",
+         pe.nome AS "executadaPorNome",
+         pe.matricula AS "executadaPorMatricula",
+         c.id AS "regularizacaoContagemId",
+         c.unidade_encontrada_id AS "regularizacaoUnidadeEncontradaId",
+         c.sala_encontrada AS "regularizacaoSalaEncontrada"
+       FROM movimentacoes m
+       LEFT JOIN perfis pa ON pa.id = m.autorizada_por_perfil_id
+       LEFT JOIN perfis pe ON pe.id = m.executada_por_perfil_id
+       LEFT JOIN contagens c ON c.regularizacao_movimentacao_id = m.id
+       WHERE m.bem_id = $1
+       ORDER BY m.created_at DESC
        LIMIT 20;`,
       [id],
     );
 
     const historicoTransferencias = await pool.query(
       `SELECT
-         id,
-         unidade_antiga_id AS "unidadeAntigaId",
-         unidade_nova_id AS "unidadeNovaId",
-         usuario_id AS "usuarioId",
-         data,
-         origem::text AS "origem"
-       FROM historico_transferencias
-       WHERE bem_id = $1
-       ORDER BY data DESC
+         h.id,
+         h.unidade_antiga_id AS "unidadeAntigaId",
+         h.unidade_nova_id AS "unidadeNovaId",
+         h.usuario_id AS "usuarioId",
+         h.data,
+         h.origem::text AS "origem",
+         p.nome AS "usuarioNome",
+         p.matricula AS "usuarioMatricula"
+       FROM historico_transferencias h
+       LEFT JOIN perfis p ON p.id = h.usuario_id
+       WHERE h.bem_id = $1
+       ORDER BY h.data DESC
        LIMIT 20;`,
       [id],
     );
