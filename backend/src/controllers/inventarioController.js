@@ -231,7 +231,7 @@ function createInventarioController(deps) {
     }
   }
 
-  async function buildRelatorioEncerramento(eventoId) {
+  async function buildRelatorioInventario(eventoId) {
     const ev = await pool.query(
       `SELECT
          e.id,
@@ -254,15 +254,6 @@ function createInventarioController(deps) {
     );
     if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
     const evento = ev.rows[0];
-    if (evento.status !== "ENCERRADO") {
-      throw new HttpError(
-        409,
-        "EVENTO_NAO_ENCERRADO",
-        "Relatorio detalhado de encerramento so pode ser emitido para evento ENCERRADO.",
-        { baseLegal: "Art. 185 (AN303_Art185)" },
-      );
-    }
-
     const c = await pool.query(
       `SELECT
          c.id AS "contagemId",
@@ -279,6 +270,8 @@ function createInventarioController(deps) {
          b.unidade_dona_id AS "unidadeDonaId",
          b.local_fisico AS "localEsperadoTexto",
          b.local_id AS "localEsperadoId",
+         b.nome_resumo AS "nomeResumo",
+         b.descricao_complementar AS "descricaoComplementar",
          l.nome AS "localEsperadoNome",
          cb.codigo_catalogo AS "codigoCatalogo",
          cb.descricao AS "catalogoDescricao"
@@ -322,6 +315,8 @@ function createInventarioController(deps) {
           identificadorExterno: row.identificadorExterno,
           codigoCatalogo: row.codigoCatalogo,
           catalogoDescricao: row.catalogoDescricao,
+          nomeResumo: row.nomeResumo || null,
+          descricaoComplementar: row.descricaoComplementar || null,
           unidadeDonaId: row.unidadeDonaId,
           unidadeEncontradaId: row.unidadeEncontradaId,
           localEsperado: esperado || null,
@@ -377,6 +372,7 @@ function createInventarioController(deps) {
         artigo: "Art. 185 (AN303_Art185)",
         regra: "Divergencias registradas e tratadas por fluxo de regularizacao pos-inventario.",
         evidencias: [
+          `Status do evento: ${evento.status}.`,
           `Divergencias totais: ${totalDivergencias}.`,
           `Pendencias de regularizacao: ${regularizacoesPendentes}.`,
         ],
@@ -401,7 +397,7 @@ function createInventarioController(deps) {
   }
 
   /**
-   * Relatorio detalhado do encerramento do inventario (compliance ATN 303/2008).
+   * Relatorio detalhado do inventario (em andamento ou encerrado).
    * Foco operacional:
    * - consolidar tudo o que foi registrado no evento encerrado;
    * - destacar divergencias de unidade/sala (Art. 185);
@@ -415,7 +411,7 @@ function createInventarioController(deps) {
     try {
       const eventoId = String(req.params?.id || "").trim();
       if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
-      const report = await buildRelatorioEncerramento(eventoId);
+      const report = await buildRelatorioInventario(eventoId);
       res.json({ requestId: req.requestId, ...report });
     } catch (error) {
       next(error);
@@ -432,7 +428,7 @@ function createInventarioController(deps) {
     try {
       const eventoId = String(req.params?.id || "").trim();
       if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
-      const report = await buildRelatorioEncerramento(eventoId);
+      const report = await buildRelatorioInventario(eventoId);
 
       const lines = [];
       lines.push(["secao", "chave", "valor"].map(csvEsc).join(","));
@@ -450,7 +446,9 @@ function createInventarioController(deps) {
           "contagemId",
           "tombamento",
           "catalogo",
+          "nomeResumo",
           "descricao",
+          "descricaoComplementar",
           "tipoDivergencia",
           "unidadeDona",
           "unidadeEncontrada",
@@ -469,7 +467,9 @@ function createInventarioController(deps) {
             d.contagemId,
             d.numeroTombamento || d.identificadorExterno || "",
             d.codigoCatalogo || "",
+            d.nomeResumo || "",
             d.catalogoDescricao || "",
+            d.descricaoComplementar || "",
             d.tipoDivergencia || "",
             d.unidadeDonaId,
             d.unidadeEncontradaId,

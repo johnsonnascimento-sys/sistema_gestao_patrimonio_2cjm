@@ -126,7 +126,7 @@ export default function InventoryAdminPanel() {
                 setRelatorioEventoId(String(vars.id));
                 setUiInfo("Inventario encerrado. Relatorio detalhado gerado abaixo.");
             } else if (nextStatus === "EM_ANDAMENTO" && vars?.id) {
-                setRelatorioEventoId("");
+                setRelatorioEventoId(String(vars.id));
                 setSelectedEventoId(String(vars.id));
                 setUiInfo("Inventário reaberto com sucesso.");
             }
@@ -159,16 +159,23 @@ export default function InventoryAdminPanel() {
         },
     });
 
+    const relatorioEventoIdFinal = useMemo(() => {
+        if (relatorioEventoId) return relatorioEventoId;
+        if (selectedEventoIdFinal) return selectedEventoIdFinal;
+        const all = todosEventosQuery.data || [];
+        return all[0]?.id || "";
+    }, [relatorioEventoId, selectedEventoIdFinal, todosEventosQuery.data]);
+
     const relatorioEncerramentoQuery = useQuery({
-        queryKey: ["inventarioRelatorioEncerramento", relatorioEventoId],
-        enabled: Boolean(relatorioEventoId),
-        queryFn: async () => getRelatorioEncerramentoInventario(relatorioEventoId),
+        queryKey: ["inventarioRelatorioEncerramento", relatorioEventoIdFinal],
+        enabled: Boolean(relatorioEventoIdFinal),
+        queryFn: async () => getRelatorioEncerramentoInventario(relatorioEventoIdFinal),
     });
 
     const baixarCsvMut = useMutation({
         mutationFn: async () => {
-            if (!relatorioEventoId) throw new Error("Selecione um evento encerrado para exportar.");
-            return baixarRelatorioEncerramentoInventarioCsv(relatorioEventoId);
+            if (!relatorioEventoIdFinal) throw new Error("Selecione um evento para exportar.");
+            return baixarRelatorioEncerramentoInventarioCsv(relatorioEventoIdFinal);
         },
         onSuccess: ({ blob, filename }) => {
             const url = URL.createObjectURL(blob);
@@ -346,7 +353,10 @@ export default function InventoryAdminPanel() {
                                         <span className="text-xs text-slate-300">Selecionar evento em andamento</span>
                                         <select
                                             value={selectedEventoIdFinal}
-                                            onChange={(e) => setSelectedEventoId(e.target.value)}
+                                            onChange={(e) => {
+                                                setSelectedEventoId(e.target.value);
+                                                setRelatorioEventoId(e.target.value);
+                                            }}
                                             className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
                                         >
                                             {(eventosQuery.data || []).map((ev) => (
@@ -477,17 +487,16 @@ export default function InventoryAdminPanel() {
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    {ev.status === "ENCERRADO" && (
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setRelatorioEventoId(ev.id);
-                                                                                setUiInfo(`Relatorio carregado para o evento ${ev.codigoEvento}.`);
-                                                                            }}
-                                                                            className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 px-2 py-1 rounded transition-colors text-xs font-medium"
-                                                                        >
-                                                                            Relatorio
-                                                                        </button>
-                                                                    )}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedEventoId(ev.id);
+                                                                            setRelatorioEventoId(ev.id);
+                                                                            setUiInfo(`Relatório carregado para o evento ${ev.codigoEvento}.`);
+                                                                        }}
+                                                                        className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 px-2 py-1 rounded transition-colors text-xs font-medium"
+                                                                    >
+                                                                        Relatório
+                                                                    </button>
                                                                     {ev.status !== "EM_ANDAMENTO" && (
                                                                         <button
                                                                             onClick={() => onUpdateStatus("EM_ANDAMENTO", ev.id)}
@@ -514,13 +523,16 @@ export default function InventoryAdminPanel() {
                 </div>
             </section>
 
-            {relatorioEventoId && (
+            {relatorioEventoIdFinal && (
                 <section className="rounded-2xl border border-cyan-300/20 bg-slate-900/55 p-3 md:p-5">
                     <header className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">Relatório de Encerramento (AN303/2008)</h3>
+                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">Relatório do Inventário (AN303/2008)</h3>
                             <p className="mt-1 text-xs text-slate-300">
-                                Consolidação do evento encerrado com destaque para divergências de unidade/sala e pendências de regularização.
+                                Consolidado do evento selecionado (em andamento ou encerrado), com divergências de unidade/sala e pendências de regularização.
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-400">
+                                Evento: {relatorioEncerramentoQuery.data?.evento?.codigoEvento || "-"} | Status: {relatorioEncerramentoQuery.data?.evento?.status || "-"}
                             </p>
                         </div>
                         <div className="flex gap-2">
@@ -592,6 +604,8 @@ export default function InventoryAdminPanel() {
                                                 <tr>
                                                     <th className="px-2 py-2">Tombo</th>
                                                     <th className="px-2 py-2">Catálogo</th>
+                                                    <th className="px-2 py-2">Nome Resumido</th>
+                                                    <th className="px-2 py-2">Descrição</th>
                                                     <th className="px-2 py-2">Tipo</th>
                                                     <th className="px-2 py-2">Unid. Dona</th>
                                                     <th className="px-2 py-2">Unid. Encontrada</th>
@@ -605,6 +619,8 @@ export default function InventoryAdminPanel() {
                                                     <tr key={d.contagemId}>
                                                         <td className="px-2 py-2 text-slate-200 font-mono">{d.numeroTombamento || d.identificadorExterno || "-"}</td>
                                                         <td className="px-2 py-2 text-slate-300">{d.codigoCatalogo} - {d.catalogoDescricao}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.nomeResumo || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.descricaoComplementar || d.catalogoDescricao || "-"}</td>
                                                         <td className="px-2 py-2 text-slate-300">{d.tipoDivergencia}</td>
                                                         <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeDonaId))}</td>
                                                         <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
