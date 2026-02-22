@@ -86,6 +86,17 @@ Exporta????o edit??vel:
 Observa????o de compliance:
 
 - o endpoint exige evento `ENCERRADO`, evitando relat??rio final em invent??rio ainda ativo.
+
+## Linha do tempo de alteracoes do bem
+
+Na tela de detalhes do bem (Consulta de Bens), a trilha de auditoria segue estes padroes:
+
+- IDs de local, perfil, catalogo e bem nao aparecem crus na grade principal.
+- Para `UPDATE`, o diff mostra antes/depois por campo.
+- Para `INSERT` e `DELETE`, a timeline mostra um marcador de operacao para evitar item vazio.
+- O responsavel da alteracao e resolvido por nome/matricula sempre que houver `perfil_id` relacionado.
+- Quando existir UUID de referencia, ele fica disponivel por tooltip (hover/foco), sem poluir a leitura principal.
+
 ## 4) Bens de terceiros (controle segregado)
 
 “Bem de terceiro” é ocorrência segregada, sem tombamento GEAFIN:
@@ -132,4 +143,3 @@ Pré-requisitos dos workflows PDF via API:
 - Guarde sempre o CSV original importado (fora do repositório).
 - Registre quem executa operações críticas (perfil).
 - Não use “transferência” para “consertar inventário” durante o congelamento: registre divergência e regularize depois.
-

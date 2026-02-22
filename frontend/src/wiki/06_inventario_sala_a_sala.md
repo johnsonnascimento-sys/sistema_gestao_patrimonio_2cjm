@@ -217,3 +217,11 @@ Regra legal: Art. 175, IX (AN303_Art175_IX)
 ### Instrução operacional
 
 Assim como nos intrusos, **não mova o bem** até o encerramento do inventário. A regularização ocorre após o encerramento, via fila de forasteiros/disparidades.
+
+## Administracao: relatorio por evento selecionado
+
+Na tela "Inventario - Administracao":
+
+- o painel de relatorio fica visivel tambem para evento `EM_ANDAMENTO` (nao apenas encerrado);
+- ao clicar em "Relatorio" no historico, o sistema troca o painel para o inventario escolhido;
+- na grade de divergencias, os campos principais incluem `Nome Resumo` (`bens.nome_resumo`) e `Descricao` (`bens.descricao_complementar`).

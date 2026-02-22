@@ -784,37 +784,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     const s = String(v);
     return s.trim() ? s : "-";
   };
-  const copyIdValue = async (e, idValue) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!idValue) return;
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(String(idValue));
-      } else {
-        window.prompt("Copie o ID:", String(idValue));
-      }
-      setEditMsg("ID copiado.");
-      setEditErr(null);
-    } catch (_err) {
-      window.prompt("Copie o ID:", String(idValue));
-    }
-  };
   const renderAuditValue = (rawValue, resolvedLabel, resolvedId) => {
     const display = resolvedLabel || formatFieldValue(rawValue);
     if (!resolvedId) return <span>{display}</span>;
     return (
-      <div className="flex items-center gap-2">
-        <span className="truncate">{display}</span>
-        <button
-          type="button"
-          onClick={(e) => copyIdValue(e, resolvedId)}
-          className="rounded border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-white/10"
-          title="Copiar ID"
-        >
-          ID
-        </button>
-      </div>
+      <span
+        className="inline-flex max-w-full cursor-help items-center"
+        title={`ID: ${resolvedId}`}
+        tabIndex={0}
+      >
+        <span className="truncate border-b border-dotted border-slate-500/80">{display}</span>
+      </span>
     );
   };
   const fieldLabel = (field) => {
@@ -1365,17 +1345,18 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                                 {a.tabela} / {a.operacao}
                               </p>
                               <p className="text-xs text-slate-300">
-                                {new Date(a.executadoEm).toLocaleString()} - {actorLabel(a)}
+                                {new Date(a.executadoEm).toLocaleString()} -{" "}
                                 {a.actorPerfilId ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => copyIdValue(e, a.actorPerfilId)}
-                                    className="ml-2 rounded border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-white/10"
-                                    title="Copiar ID do responsável"
+                                  <span
+                                    className="cursor-help border-b border-dotted border-slate-500/80"
+                                    title={`ID do responsavel: ${a.actorPerfilId}`}
+                                    tabIndex={0}
                                   >
-                                    ID
-                                  </button>
-                                ) : null}
+                                    {actorLabel(a)}
+                                  </span>
+                                ) : (
+                                  actorLabel(a)
+                                )}
                               </p>
                               <p className="mt-1 text-xs text-cyan-200">
                                 {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem mudanças estruturadas"}

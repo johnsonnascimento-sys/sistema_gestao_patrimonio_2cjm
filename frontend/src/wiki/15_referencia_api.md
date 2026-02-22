@@ -116,7 +116,10 @@ Query opcional:
 Retorna por item:
 
 - `executadoEm`, `executadoPor`, `executorNome`, `executorMatricula`
-- `tabela`, `operacao`, `changes[]` com `field/before/after`
+- `actorPerfilId`, `actorNome`, `actorMatricula` (ator responsavel resolvido para exibicao)
+- `tabela`, `operacao`
+- `changes[]` com `field`, `before`, `after`, `beforeId`, `beforeLabel`, `afterId`, `afterLabel`
+- em `INSERT` e `DELETE`, `changes[]` inclui o marcador `__operacao` para nao ficar vazio
 - `canRevert` (se permite reversao item-a-item no modal)
 
 ### POST `/bens/{id}/auditoria/{auditId}/reverter`
