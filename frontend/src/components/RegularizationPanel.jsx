@@ -344,8 +344,8 @@ export default function RegularizationPanel() {
           <table className="w-full table-fixed text-sm">
             <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
               <tr>
-                <th className="px-3 py-3 text-left">Evento</th>
-                <th className="px-3 py-3 text-left">Tombo</th>
+                <th className="w-[11rem] px-3 py-3 text-left">Evento</th>
+                <th className="w-[8rem] px-3 py-3 text-left">Tombo</th>
                 <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
                 <th className="px-3 py-3 text-left">Descricao / Resumo</th>
                 <th className="px-3 py-3 text-left">Unid. dona</th>
@@ -359,15 +359,15 @@ export default function RegularizationPanel() {
             <tbody className="divide-y divide-white/10 bg-slate-900/40">
               {enrichedItems.map((it) => (
                 <tr key={it.contagemId} className="align-top hover:bg-white/5 transition-colors">
-                  <td className="px-3 py-3">
-                    <div className="font-semibold text-slate-100">{it.codigoEvento || "-"}</div>
+                  <td className="w-[11rem] px-3 py-3">
+                    <div className="break-all font-semibold leading-tight text-slate-100">{it.codigoEvento || "-"}</div>
                     <div className="mt-1 text-[10px] text-slate-400 uppercase tracking-tighter">
                       {String(it.statusInventario || "-")}
                     </div>
                   </td>
-                  <td className="px-3 py-3 font-mono text-xs">
+                  <td className="w-[8rem] px-3 py-3 font-mono text-xs">
                     {it.numeroTombamento ? (
-                      <span className="text-slate-100">{it.numeroTombamento}</span>
+                      <span className="whitespace-nowrap text-slate-100">{it.numeroTombamento}</span>
                     ) : (
                       <span className="text-rose-400 font-bold bg-rose-400/10 px-1 rounded">SEM PLACA</span>
                     )}
