@@ -229,6 +229,21 @@ Regras:
 
 ## Inventário
 
+### GET `/inventario/eventos/{id}/relatorio-encerramento`
+
+Uso: gerar resumo detalhado do encerramento (somente para evento `ENCERRADO`) com divergencias de unidade/sala, por-sala e bloco de compliance AN303.
+
+Retorna:
+
+- `evento` (metadados do evento)
+- `resumo` (totais e pendencias)
+- `porSala` (lidos/conformes/divergencias por sala)
+- `divergencias` (detalhe item-a-item)
+- `compliance` (Arts. 183/185/124/127)
+
+### GET `/inventario/eventos/{id}/relatorio-encerramento.csv`
+
+Uso: exportar o mesmo relatorio em **CSV editavel** (Excel/LibreOffice/Google Sheets).
 ### GET `/inventario/eventos?status=EM_ANDAMENTO`
 
 Uso: status do inventário na barra do topo.

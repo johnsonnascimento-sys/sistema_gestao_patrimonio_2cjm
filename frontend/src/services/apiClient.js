@@ -759,6 +759,36 @@ export async function atualizarStatusEventoInventario(id, payload) {
 }
 
 /**
+ * Obtem relatorio detalhado de encerramento do inventario (evento ENCERRADO).
+ * @param {string} id UUID do evento.
+ * @returns {Promise<object>} Relatorio consolidado.
+ */
+export async function getRelatorioEncerramentoInventario(id) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${encodeURIComponent(id)}/relatorio-encerramento`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Faz download do CSV editavel do relatorio de encerramento do inventario.
+ * @param {string} id UUID do evento.
+ * @returns {Promise<{blob: Blob, filename: string}>} Arquivo CSV.
+ */
+export async function baixarRelatorioEncerramentoInventarioCsv(id) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${encodeURIComponent(id)}/relatorio-encerramento.csv`, {
+    method: "GET",
+    headers: { Accept: "text/csv,application/octet-stream,*/*" },
+  });
+  if (!response.ok) throw await createHttpError(response);
+  const blob = await response.blob();
+  const cd = response.headers.get("content-disposition") || "";
+  const match = cd.match(/filename=\"?([^\";]+)\"?/i);
+  return { blob, filename: match ? String(match[1]) : "relatorio_encerramento.csv" };
+}
+
+/**
  * Atualiza dados gerais do evento de inventario (codigo, unidade, observacoes).
  * @param {string} id UUID do evento.
  * @param {{codigoEvento?: string, unidadeInventariadaId?: number|null, observacoes?: string}} payload Payload.

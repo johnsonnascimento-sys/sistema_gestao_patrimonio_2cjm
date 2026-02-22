@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, getBensTerceiros: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -31,6 +31,9 @@ function createInventarioController(deps) {
     safeRollback,
     dbError,
   } = deps;
+
+  const normalizeRoomLabel = (raw) => String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const csvEsc = (raw) => `"${String(raw == null ? "" : raw).replace(/"/g, "\"\"")}"`;
 
   /**
    * Lista eventos de inventario, com filtro opcional por status.
@@ -223,6 +226,277 @@ function createInventarioController(deps) {
 
       const r = await pool.query(sql, [eventoInventarioId]);
       res.json({ requestId: req.requestId, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function buildRelatorioEncerramento(eventoId) {
+    const ev = await pool.query(
+      `SELECT
+         e.id,
+         e.codigo_evento AS "codigoEvento",
+         e.status::text AS "status",
+         e.unidade_inventariada_id AS "unidadeInventariadaId",
+         e.iniciado_em AS "iniciadoEm",
+         e.encerrado_em AS "encerradoEm",
+         e.aberto_por_perfil_id AS "abertoPorPerfilId",
+         pa.nome AS "abertoPorNome",
+         e.encerrado_por_perfil_id AS "encerradoPorPerfilId",
+         pe.nome AS "encerradoPorNome",
+         e.observacoes
+       FROM eventos_inventario e
+       LEFT JOIN perfis pa ON pa.id = e.aberto_por_perfil_id
+       LEFT JOIN perfis pe ON pe.id = e.encerrado_por_perfil_id
+       WHERE e.id = $1
+       LIMIT 1;`,
+      [eventoId],
+    );
+    if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+    const evento = ev.rows[0];
+    if (evento.status !== "ENCERRADO") {
+      throw new HttpError(
+        409,
+        "EVENTO_NAO_ENCERRADO",
+        "Relatorio detalhado de encerramento so pode ser emitido para evento ENCERRADO.",
+        { baseLegal: "Art. 185 (AN303_Art185)" },
+      );
+    }
+
+    const c = await pool.query(
+      `SELECT
+         c.id AS "contagemId",
+         c.sala_encontrada AS "salaEncontrada",
+         c.unidade_encontrada_id AS "unidadeEncontradaId",
+         c.tipo_ocorrencia::text AS "tipoOcorrencia",
+         c.regularizacao_pendente AS "regularizacaoPendente",
+         c.regularizacao_acao AS "regularizacaoAcao",
+         c.encontrado_em AS "encontradoEm",
+         c.regularizado_em AS "regularizadoEm",
+         b.id AS "bemId",
+         b.numero_tombamento AS "numeroTombamento",
+         b.identificador_externo AS "identificadorExterno",
+         b.unidade_dona_id AS "unidadeDonaId",
+         b.local_fisico AS "localEsperadoTexto",
+         b.local_id AS "localEsperadoId",
+         l.nome AS "localEsperadoNome",
+         cb.codigo_catalogo AS "codigoCatalogo",
+         cb.descricao AS "catalogoDescricao"
+       FROM contagens c
+       JOIN bens b ON b.id = c.bem_id
+       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+       LEFT JOIN locais l ON l.id = b.local_id
+       WHERE c.evento_inventario_id = $1
+       ORDER BY c.encontrado_em ASC;`,
+      [eventoId],
+    );
+
+    const contagens = c.rows;
+    let divergenciasUnidade = 0;
+    let divergenciasSala = 0;
+    let divergenciasUnidadeESala = 0;
+    let conformes = 0;
+    const porSala = new Map();
+    const divergenciasDetalhe = [];
+
+    for (const row of contagens) {
+      const sala = String(row.salaEncontrada || "").trim() || "(sem sala)";
+      const salaMeta = porSala.get(sala) || { salaEncontrada: sala, totalLidos: 0, divergencias: 0, conformes: 0 };
+      salaMeta.totalLidos += 1;
+
+      const unidadeDivergente = Number(row.unidadeDonaId) !== Number(row.unidadeEncontradaId);
+      const esperado = String(row.localEsperadoNome || row.localEsperadoTexto || "").trim();
+      const encontrada = String(row.salaEncontrada || "").trim();
+      const salaDivergente = esperado && encontrada ? normalizeRoomLabel(esperado) !== normalizeRoomLabel(encontrada) : false;
+
+      if (unidadeDivergente || salaDivergente) {
+        salaMeta.divergencias += 1;
+        if (unidadeDivergente && salaDivergente) divergenciasUnidadeESala += 1;
+        else if (unidadeDivergente) divergenciasUnidade += 1;
+        else if (salaDivergente) divergenciasSala += 1;
+
+        divergenciasDetalhe.push({
+          contagemId: row.contagemId,
+          bemId: row.bemId,
+          numeroTombamento: row.numeroTombamento,
+          identificadorExterno: row.identificadorExterno,
+          codigoCatalogo: row.codigoCatalogo,
+          catalogoDescricao: row.catalogoDescricao,
+          unidadeDonaId: row.unidadeDonaId,
+          unidadeEncontradaId: row.unidadeEncontradaId,
+          localEsperado: esperado || null,
+          salaEncontrada: encontrada || null,
+          tipoDivergencia: unidadeDivergente && salaDivergente ? "UNIDADE_E_SALA" : unidadeDivergente ? "UNIDADE" : "SALA",
+          regularizacaoPendente: Boolean(row.regularizacaoPendente),
+          regularizacaoAcao: row.regularizacaoAcao || null,
+          encontradoEm: row.encontradoEm,
+          regularizadoEm: row.regularizadoEm || null,
+        });
+      } else {
+        conformes += 1;
+        salaMeta.conformes += 1;
+      }
+
+      porSala.set(sala, salaMeta);
+    }
+
+    const terceiros = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM contagens c
+       JOIN bens b ON b.id = c.bem_id
+       WHERE c.evento_inventario_id = $1
+         AND b.eh_bem_terceiro = TRUE;`,
+      [eventoId],
+    );
+
+    const regularizacoesPendentes = divergenciasDetalhe.filter((d) => d.regularizacaoPendente).length;
+    const totalContagens = contagens.length;
+    const totalDivergencias = divergenciasUnidade + divergenciasSala + divergenciasUnidadeESala;
+
+    const resumo = {
+      totalContagens,
+      conformes,
+      totalDivergencias,
+      divergenciasUnidade,
+      divergenciasSala,
+      divergenciasUnidadeESala,
+      regularizacoesPendentes,
+      totalBensTerceiros: Number(terceiros.rows[0]?.total || 0),
+    };
+
+    const compliance = [
+      {
+        artigo: "Art. 183 (AN303_Art183)",
+        regra: "Bloqueio de mudanca de carga durante inventario em andamento.",
+        evidencias: [
+          "Evento encerrado e com trilha de contagens consolidada.",
+          "Transferencias nao sao automaticas no ato da leitura.",
+        ],
+      },
+      {
+        artigo: "Art. 185 (AN303_Art185)",
+        regra: "Divergencias registradas e tratadas por fluxo de regularizacao pos-inventario.",
+        evidencias: [
+          `Divergencias totais: ${totalDivergencias}.`,
+          `Pendencias de regularizacao: ${regularizacoesPendentes}.`,
+        ],
+      },
+      {
+        artigo: "Art. 124/127 (AN303_Art124/AN303_Art127)",
+        regra: "Transferencias formais com termo e rastreabilidade.",
+        evidencias: [
+          "Regularizacoes com transferencia ficam em movimentacoes e historico.",
+          "Correcoes de sala/local sao auditadas sem trocar dono automaticamente.",
+        ],
+      },
+    ];
+
+    return {
+      evento,
+      resumo,
+      porSala: Array.from(porSala.values()).sort((a, b) => a.salaEncontrada.localeCompare(b.salaEncontrada)),
+      divergencias: divergenciasDetalhe,
+      compliance,
+    };
+  }
+
+  /**
+   * Relatorio detalhado do encerramento do inventario (compliance ATN 303/2008).
+   * Foco operacional:
+   * - consolidar tudo o que foi registrado no evento encerrado;
+   * - destacar divergencias de unidade/sala (Art. 185);
+   * - manter rastreabilidade de regularizacao sem transferencias automaticas de carga.
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getRelatorioEncerramento(req, res, next) {
+    try {
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+      const report = await buildRelatorioEncerramento(eventoId);
+      res.json({ requestId: req.requestId, ...report });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Exporta o relatorio de encerramento em CSV editavel.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function exportRelatorioEncerramentoCsv(req, res, next) {
+    try {
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+      const report = await buildRelatorioEncerramento(eventoId);
+
+      const lines = [];
+      lines.push(["secao", "chave", "valor"].map(csvEsc).join(","));
+      lines.push(["RESUMO", "codigoEvento", report.evento?.codigoEvento || ""].map(csvEsc).join(","));
+      lines.push(["RESUMO", "status", report.evento?.status || ""].map(csvEsc).join(","));
+      lines.push(["RESUMO", "iniciadoEm", report.evento?.iniciadoEm || ""].map(csvEsc).join(","));
+      lines.push(["RESUMO", "encerradoEm", report.evento?.encerradoEm || ""].map(csvEsc).join(","));
+      for (const [k, v] of Object.entries(report.resumo || {})) {
+        lines.push(["RESUMO", k, v].map(csvEsc).join(","));
+      }
+      lines.push("");
+      lines.push(
+        [
+          "secao",
+          "contagemId",
+          "tombamento",
+          "catalogo",
+          "descricao",
+          "tipoDivergencia",
+          "unidadeDona",
+          "unidadeEncontrada",
+          "localEsperado",
+          "salaEncontrada",
+          "regularizacaoPendente",
+          "regularizacaoAcao",
+          "encontradoEm",
+          "regularizadoEm",
+        ].map(csvEsc).join(","),
+      );
+      for (const d of report.divergencias || []) {
+        lines.push(
+          [
+            "DIVERGENCIA",
+            d.contagemId,
+            d.numeroTombamento || d.identificadorExterno || "",
+            d.codigoCatalogo || "",
+            d.catalogoDescricao || "",
+            d.tipoDivergencia || "",
+            d.unidadeDonaId,
+            d.unidadeEncontradaId,
+            d.localEsperado || "",
+            d.salaEncontrada || "",
+            d.regularizacaoPendente ? "SIM" : "NAO",
+            d.regularizacaoAcao || "",
+            d.encontradoEm || "",
+            d.regularizadoEm || "",
+          ].map(csvEsc).join(","),
+        );
+      }
+      lines.push("");
+      lines.push(["secao", "sala", "totalLidos", "conformes", "divergencias"].map(csvEsc).join(","));
+      for (const s of report.porSala || []) {
+        lines.push(["POR_SALA", s.salaEncontrada, s.totalLidos, s.conformes, s.divergencias].map(csvEsc).join(","));
+      }
+      lines.push("");
+      lines.push(["secao", "artigo", "regra", "evidencias"].map(csvEsc).join(","));
+      for (const c of report.compliance || []) {
+        lines.push(["COMPLIANCE", c.artigo || "", c.regra || "", (c.evidencias || []).join(" | ")].map(csvEsc).join(","));
+      }
+
+      const filename = `relatorio_encerramento_${String(report.evento?.codigoEvento || "evento").replace(/[^a-z0-9_-]/gi, "_")}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.status(200).send(`\uFEFF${lines.join("\n")}`);
     } catch (error) {
       next(error);
     }
@@ -1262,6 +1536,8 @@ function createInventarioController(deps) {
     getEventos,
     getContagens,
     getProgresso,
+    getRelatorioEncerramento,
+    exportRelatorioEncerramentoCsv,
     getForasteiros,
     getBensTerceiros,
     postEvento,

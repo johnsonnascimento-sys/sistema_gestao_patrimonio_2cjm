@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
     atualizarStatusEventoInventario,
+    baixarRelatorioEncerramentoInventarioCsv,
     criarEventoInventario,
+    getRelatorioEncerramentoInventario,
     listarEventosInventario,
     excluirEventoInventario,
     atualizarEventoInventario
@@ -41,8 +43,10 @@ export default function InventoryAdminPanel() {
     const [unidadeInventariadaId, setUnidadeInventariadaId] = useState("");
     const [encerramentoObs, setEncerramentoObs] = useState("");
     const [uiError, setUiError] = useState(null);
+    const [uiInfo, setUiInfo] = useState(null);
     const [editingEventoId, setEditingEventoId] = useState(null);
     const [editForm, setEditForm] = useState({ codigoEvento: "", observacoes: "" });
+    const [relatorioEventoId, setRelatorioEventoId] = useState("");
 
     useEffect(() => {
         if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
@@ -86,8 +90,12 @@ export default function InventoryAdminPanel() {
 
     const atualizarStatusMut = useMutation({
         mutationFn: ({ id, payload }) => atualizarStatusEventoInventario(id, payload),
-        onSuccess: async () => {
+        onSuccess: async (_data, vars) => {
             setEncerramentoObs("");
+            if (String(vars?.payload?.status || "") === "ENCERRADO" && vars?.id) {
+                setRelatorioEventoId(String(vars.id));
+                setUiInfo("Inventario encerrado. Relatorio detalhado gerado abaixo.");
+            }
             await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
         },
         onError: (error) => {
@@ -117,6 +125,32 @@ export default function InventoryAdminPanel() {
         },
     });
 
+    const relatorioEncerramentoQuery = useQuery({
+        queryKey: ["inventarioRelatorioEncerramento", relatorioEventoId],
+        enabled: Boolean(relatorioEventoId),
+        queryFn: async () => getRelatorioEncerramentoInventario(relatorioEventoId),
+    });
+
+    const baixarCsvMut = useMutation({
+        mutationFn: async () => {
+            if (!relatorioEventoId) throw new Error("Selecione um evento encerrado para exportar.");
+            return baixarRelatorioEncerramentoInventarioCsv(relatorioEventoId);
+        },
+        onSuccess: ({ blob, filename }) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename || "relatorio_encerramento.csv";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        },
+        onError: (error) => {
+            setUiError(String(error?.message || "Falha ao baixar CSV do relatorio."));
+        },
+    });
+
     const onCreateEvento = async (event) => {
         event.preventDefault();
         setUiError(null);
@@ -139,6 +173,7 @@ export default function InventoryAdminPanel() {
 
     const onUpdateStatus = async (status) => {
         setUiError(null);
+        setUiInfo(null);
         const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
         if (!perfilIdFinal) {
             setUiError("Informe um perfilId (UUID) para encerrar/cancelar o evento.");
@@ -202,6 +237,11 @@ export default function InventoryAdminPanel() {
                 {uiError && (
                     <p className="mt-4 mb-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
                         {uiError}
+                    </p>
+                )}
+                {uiInfo && (
+                    <p className="mt-4 mb-4 rounded-xl border border-emerald-300/30 bg-emerald-200/10 p-3 text-sm text-emerald-200">
+                        {uiInfo}
                     </p>
                 )}
 
@@ -374,6 +414,17 @@ export default function InventoryAdminPanel() {
                                                                 </>
                                                             ) : (
                                                                 <>
+                                                                    {ev.status === "ENCERRADO" && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setRelatorioEventoId(ev.id);
+                                                                                setUiInfo(`Relatorio carregado para o evento ${ev.codigoEvento}.`);
+                                                                            }}
+                                                                            className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 px-2 py-1 rounded transition-colors text-xs font-medium"
+                                                                        >
+                                                                            Relatorio
+                                                                        </button>
+                                                                    )}
                                                                     <button onClick={() => handleEditEvento(ev)} className="bg-slate-700/50 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded transition-colors text-xs font-medium">Editar</button>
                                                                     <button onClick={() => handleDeleteEvento(ev)} disabled={excluirEventoMut.isPending} className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 px-2 py-1 rounded transition-colors text-xs font-medium">Excluir</button>
                                                                 </>
@@ -391,7 +442,122 @@ export default function InventoryAdminPanel() {
                 </div>
             </section>
 
+            {relatorioEventoId && (
+                <section className="rounded-2xl border border-cyan-300/20 bg-slate-900/55 p-3 md:p-5">
+                    <header className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">RelatÃ³rio de Encerramento (AN303/2008)</h3>
+                            <p className="mt-1 text-xs text-slate-300">
+                                ConsolidaÃ§Ã£o do evento encerrado com destaque para divergÃªncias de unidade/sala e pendÃªncias de regularizaÃ§Ã£o.
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => relatorioEncerramentoQuery.refetch()}
+                                className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-2 text-xs font-semibold hover:bg-white/10"
+                            >
+                                Atualizar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => baixarCsvMut.mutate()}
+                                disabled={baixarCsvMut.isPending}
+                                className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
+                            >
+                                {baixarCsvMut.isPending ? "Exportando..." : "Exportar CSV editÃ¡vel"}
+                            </button>
+                        </div>
+                    </header>
+
+                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-300">Gerando relatÃ³rio...</p>}
+                    {relatorioEncerramentoQuery.error && (
+                        <p className="mt-4 text-sm text-rose-300">Falha ao gerar relatÃ³rio detalhado.</p>
+                    )}
+
+                    {!relatorioEncerramentoQuery.isLoading && !relatorioEncerramentoQuery.error && relatorioEncerramentoQuery.data && (
+                        <div className="mt-4 space-y-4">
+                            <div className="grid gap-3 md:grid-cols-4">
+                                <CardKpi k="Contagens" v={relatorioEncerramentoQuery.data.resumo?.totalContagens} />
+                                <CardKpi k="Conformes" v={relatorioEncerramentoQuery.data.resumo?.conformes} />
+                                <CardKpi k="DivergÃªncias" v={relatorioEncerramentoQuery.data.resumo?.totalDivergencias} />
+                                <CardKpi k="Pend. RegularizaÃ§Ã£o" v={relatorioEncerramentoQuery.data.resumo?.regularizacoesPendentes} />
+                            </div>
+
+                            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+                                <p className="text-xs uppercase tracking-widest text-slate-400">DivergÃªncias por tipo</p>
+                                <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
+                                    <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Unidade: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidade || 0}</strong></p>
+                                    <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasSala || 0}</strong></p>
+                                    <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Unidade + Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidadeESala || 0}</strong></p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+                                <p className="text-xs uppercase tracking-widest text-slate-400">DivergÃªncias registradas</p>
+                                {(relatorioEncerramentoQuery.data.divergencias || []).length === 0 ? (
+                                    <p className="mt-2 text-sm text-slate-300">Nenhuma divergÃªncia registrada neste evento.</p>
+                                ) : (
+                                    <div className="mt-2 overflow-auto rounded-lg border border-white/10">
+                                        <table className="min-w-full text-left text-xs">
+                                            <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                                                <tr>
+                                                    <th className="px-2 py-2">Tombo</th>
+                                                    <th className="px-2 py-2">CatÃ¡logo</th>
+                                                    <th className="px-2 py-2">Tipo</th>
+                                                    <th className="px-2 py-2">Unid. Dona</th>
+                                                    <th className="px-2 py-2">Unid. Encontrada</th>
+                                                    <th className="px-2 py-2">Esperado</th>
+                                                    <th className="px-2 py-2">Encontrado</th>
+                                                    <th className="px-2 py-2">RegularizaÃ§Ã£o</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/10">
+                                                {(relatorioEncerramentoQuery.data.divergencias || []).slice(0, 400).map((d) => (
+                                                    <tr key={d.contagemId}>
+                                                        <td className="px-2 py-2 text-slate-200 font-mono">{d.numeroTombamento || d.identificadorExterno || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.codigoCatalogo} - {d.catalogoDescricao}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.tipoDivergencia}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeDonaId))}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.localEsperado || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.salaEncontrada || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-300">{d.regularizacaoPendente ? "PENDENTE" : (d.regularizacaoAcao || "REGULARIZADO")}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
+                                <p className="text-xs uppercase tracking-widest text-slate-400">Conformidade legal (AN303)</p>
+                                <ul className="mt-2 space-y-2 text-sm text-slate-200">
+                                    {(relatorioEncerramentoQuery.data.compliance || []).map((c) => (
+                                        <li key={c.artigo} className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2">
+                                            <p className="font-semibold">{c.artigo}</p>
+                                            <p className="text-slate-300">{c.regra}</p>
+                                            <p className="mt-1 text-xs text-slate-400">{(c.evidencias || []).join(" | ")}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+                </section>
+            )}
+
             <RegularizationPanel />
+        </div>
+    );
+}
+
+function CardKpi({ k, v }) {
+    return (
+        <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+            <p className="text-[11px] uppercase tracking-widest text-slate-400">{k}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-100">{Number(v || 0)}</p>
         </div>
     );
 }

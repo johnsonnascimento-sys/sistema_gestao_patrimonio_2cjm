@@ -1382,6 +1382,8 @@ app.get("/inventario/contagens", mustAuth, inventario.getContagens);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.get("/inventario/eventos/:id/progresso", mustAuth, inventario.getProgresso);
+app.get("/inventario/eventos/:id/relatorio-encerramento", mustAuth, inventario.getRelatorioEncerramento);
+app.get("/inventario/eventos/:id/relatorio-encerramento.csv", mustAuth, inventario.exportRelatorioEncerramentoCsv);
 app.post("/inventario/eventos", mustAuth, inventario.postEvento);
 app.patch("/inventario/eventos/:id", mustAdmin, inventario.patchEvento);
 app.delete("/inventario/eventos/:id", mustAdmin, inventario.deleteEvento);

@@ -63,6 +63,23 @@ Base legal:
 
 - Art. 185 (AN303_Art185).
 
+## Relat??rio de encerramento do invent??rio (detalhado)
+
+Quando o evento ?? encerrado, a tela de Administra????o apresenta um relat??rio consolidado com:
+
+- contagens totais e conformidades
+- diverg??ncias de unidade/sala (incluindo `UNIDADE_E_SALA`)
+- pend??ncias de regulariza????o p??s-invent??rio
+- evid??ncias de ader??ncia aos Arts. 183/185/124/127
+
+Exporta????o edit??vel:
+
+- endpoint `GET /api/inventario/eventos/{id}/relatorio-encerramento.csv`
+- arquivo CSV edit??vel para planilhas e edi????es da comiss??o.
+
+Observa????o de compliance:
+
+- o endpoint exige evento `ENCERRADO`, evitando relat??rio final em invent??rio ainda ativo.
 ## 4) Bens de terceiros (controle segregado)
 
 “Bem de terceiro” é ocorrência segregada, sem tombamento GEAFIN:
