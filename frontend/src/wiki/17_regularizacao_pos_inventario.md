@@ -142,3 +142,8 @@ Regra legal:
 Se a carga for alterada:
 
 - O histórico de transferências (`historico_transferencias`) também é alimentado automaticamente.
+
+## 7) Padrao da grade de regularizacao
+
+- Coluna `Catalogo (SKU)`: exibe apenas o codigo do catalogo.
+- Coluna `Descricao / Resumo`: prioriza `nome_resumo`; a descricao complementar aparece como detalhe compacto.

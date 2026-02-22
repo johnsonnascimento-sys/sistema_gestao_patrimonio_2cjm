@@ -38,7 +38,8 @@ Padrao de dados:
 
 - O painel de relatorio deve funcionar para eventos `EM_ANDAMENTO` e `ENCERRADO`.
 - Ao selecionar evento antigo no historico, o relatorio deve trocar para o evento selecionado.
-- Na grade de divergencias, manter `Nome resumo` e `Descricao` vindos de `bens`.
+- Na grade de divergencias da Regularizacao, `Catalogo (SKU)` deve mostrar apenas o codigo.
+- Na grade de divergencias da Regularizacao, `Descricao / Resumo` deve priorizar `bens.nome_resumo` e usar descricao complementar como detalhe.
 
 ## 5) Publicacao
 

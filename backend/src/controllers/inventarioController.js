@@ -576,6 +576,7 @@ function createInventarioController(deps) {
           f.numero_tombamento AS "numeroTombamento",
           f.identificador_externo AS "identificadorExterno",
           f.foto_url AS "fotoUrl",
+          b.nome_resumo AS "nomeResumo",
           f.descricao AS "descricaoComplementar",
           b.catalogo_bem_id AS "catalogoBemId",
           cb.codigo_catalogo AS "codigoCatalogo",

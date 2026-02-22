@@ -14,6 +14,38 @@ function normalizeLabel(raw) {
   return String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function compactText(raw, maxLen = 320) {
+  const text = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, Math.max(1, maxLen - 3)).trimEnd()}...`;
+}
+
+function resolveDescricaoResumo(item) {
+  const nomeResumoRaw = String(item?.nomeResumo || "").trim();
+  const descricaoComplementarRaw = String(item?.descricaoComplementar || "").trim();
+  const catalogoDescricaoRaw = String(item?.catalogoDescricao || "").trim();
+
+  const nomeResumo = compactText(nomeResumoRaw, 160);
+  const descricaoComplementar = compactText(descricaoComplementarRaw, 360);
+  const catalogoDescricao = compactText(catalogoDescricaoRaw, 360);
+
+  const titulo = nomeResumo || descricaoComplementar || catalogoDescricao || "-";
+  let detalhe = "";
+
+  if (nomeResumoRaw) {
+    if (descricaoComplementarRaw && normalizeLabel(descricaoComplementarRaw) !== normalizeLabel(nomeResumoRaw)) {
+      detalhe = descricaoComplementar;
+    } else if (catalogoDescricaoRaw && normalizeLabel(catalogoDescricaoRaw) !== normalizeLabel(nomeResumoRaw)) {
+      detalhe = catalogoDescricao;
+    }
+  } else if (descricaoComplementarRaw && catalogoDescricaoRaw && normalizeLabel(descricaoComplementarRaw) !== normalizeLabel(catalogoDescricaoRaw)) {
+    detalhe = catalogoDescricao;
+  }
+
+  return { titulo, detalhe };
+}
+
 function describeDivergence(item) {
   const unidadeDona = Number(item?.unidadeDonaId);
   const unidadeEncontrada = Number(item?.unidadeEncontradaId);
@@ -115,7 +147,7 @@ export default function RegularizationPanel() {
   }, [forasteirosQuery.data, filterEvento, filterSala]);
 
   const enrichedItems = useMemo(
-    () => filteredItems.map((it) => ({ ...it, divergence: describeDivergence(it) })),
+    () => filteredItems.map((it) => ({ ...it, divergence: describeDivergence(it), descricaoResumo: resolveDescricaoResumo(it) })),
     [filteredItems],
   );
 
@@ -286,13 +318,14 @@ export default function RegularizationPanel() {
       )}
 
       {enrichedItems.length > 0 && (
-        <div className="mt-4 overflow-x-hidden rounded-2xl border border-white/10">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
           <table className="w-full text-sm">
             <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
               <tr>
                 <th className="px-3 py-3 text-left">Evento</th>
                 <th className="px-3 py-3 text-left">Tombo</th>
                 <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
+                <th className="px-3 py-3 text-left">Descricao / Resumo</th>
                 <th className="px-3 py-3 text-left">Unid. dona</th>
                 <th className="px-3 py-3 text-left">Unid. encontrada</th>
                 <th className="px-3 py-3 text-left">Sala</th>
@@ -317,15 +350,18 @@ export default function RegularizationPanel() {
                       <span className="text-rose-400 font-bold bg-rose-400/10 px-1 rounded">SEM PLACA</span>
                     )}
                   </td>
-                  <td className="px-3 py-3">
-                    <div className="font-semibold text-slate-100">{it.catalogoDescricao}</div>
-                    {it.descricaoComplementar && (
-                      <div className="mt-1 text-xs text-amber-100/90 font-medium whitespace-pre-line">
-                        {it.descricaoComplementar}
+                  <td className="px-3 py-3 font-mono text-[11px] text-emerald-300">
+                    {it.codigoCatalogo || "-"}
+                  </td>
+                  <td className="px-3 py-3 min-w-[22rem]">
+                    <div className="font-semibold text-slate-100 break-words">{it.descricaoResumo.titulo}</div>
+                    {it.descricaoResumo.detalhe && (
+                      <div className="mt-1 text-[11px] italic text-slate-300 break-words">
+                        {it.descricaoResumo.detalhe}
                       </div>
                     )}
                     {it.observacoes && (
-                      <div className="mt-1 text-[11px] text-slate-400 italic">
+                      <div className="mt-1 text-[11px] text-slate-400 italic break-words">
                         {it.observacoes}
                       </div>
                     )}
@@ -336,9 +372,6 @@ export default function RegularizationPanel() {
                         </a>
                       </div>
                     )}
-                    <div className="mt-2 text-[11px] text-slate-500">
-                      SKU: <span className="font-mono">{it.codigoCatalogo}</span>
-                    </div>
                   </td>
                   <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(it.unidadeDonaId))}</td>
                   <td className="px-3 py-3 text-amber-100 font-medium">{formatUnidade(Number(it.unidadeEncontradaId))}</td>
