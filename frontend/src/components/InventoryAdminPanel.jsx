@@ -92,9 +92,14 @@ export default function InventoryAdminPanel() {
         mutationFn: ({ id, payload }) => atualizarStatusEventoInventario(id, payload),
         onSuccess: async (_data, vars) => {
             setEncerramentoObs("");
-            if (String(vars?.payload?.status || "") === "ENCERRADO" && vars?.id) {
+            const nextStatus = String(vars?.payload?.status || "");
+            if (nextStatus === "ENCERRADO" && vars?.id) {
                 setRelatorioEventoId(String(vars.id));
                 setUiInfo("Inventario encerrado. Relatorio detalhado gerado abaixo.");
+            } else if (nextStatus === "EM_ANDAMENTO" && vars?.id) {
+                setRelatorioEventoId("");
+                setSelectedEventoId(String(vars.id));
+                setUiInfo("Inventário reaberto com sucesso.");
             }
             await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
         },
@@ -194,15 +199,15 @@ export default function InventoryAdminPanel() {
         });
     };
 
-    const onUpdateStatus = async (status) => {
+    const onUpdateStatus = async (status, eventoId = selectedEventoIdFinal) => {
         setUiError(null);
         setUiInfo(null);
         const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
         if (!perfilIdFinal) {
-            setUiError("Informe um perfilId (UUID) para encerrar/cancelar o evento.");
+            setUiError("Informe um perfilId (UUID) para atualizar o status do evento.");
             return;
         }
-        if (!selectedEventoIdFinal) return;
+        if (!eventoId) return;
 
         if (status === "ENCERRADO") {
             const proceed = window.confirm(
@@ -210,9 +215,15 @@ export default function InventoryAdminPanel() {
             );
             if (!proceed) return;
         }
+        if (status === "EM_ANDAMENTO") {
+            const proceed = window.confirm(
+                "Tem certeza que deseja reabrir este inventário?\nAs contagens e registros voltarão a ser aceitos."
+            );
+            if (!proceed) return;
+        }
 
         atualizarStatusMut.mutate({
-            id: selectedEventoIdFinal,
+            id: eventoId,
             payload: {
                 status,
                 encerradoPorPerfilId: perfilIdFinal,
@@ -448,6 +459,15 @@ export default function InventoryAdminPanel() {
                                                                             Relatorio
                                                                         </button>
                                                                     )}
+                                                                    {ev.status !== "EM_ANDAMENTO" && (
+                                                                        <button
+                                                                            onClick={() => onUpdateStatus("EM_ANDAMENTO", ev.id)}
+                                                                            disabled={atualizarStatusMut.isPending}
+                                                                            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-2 py-1 rounded transition-colors text-xs font-medium disabled:opacity-50"
+                                                                        >
+                                                                            Reabrir
+                                                                        </button>
+                                                                    )}
                                                                     <button onClick={() => handleEditEvento(ev)} className="bg-slate-700/50 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded transition-colors text-xs font-medium">Editar</button>
                                                                     <button onClick={() => handleDeleteEvento(ev)} disabled={excluirEventoMut.isPending} className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 px-2 py-1 rounded transition-colors text-xs font-medium">Excluir</button>
                                                                 </>
@@ -469,9 +489,9 @@ export default function InventoryAdminPanel() {
                 <section className="rounded-2xl border border-cyan-300/20 bg-slate-900/55 p-3 md:p-5">
                     <header className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">RelatÃ³rio de Encerramento (AN303/2008)</h3>
+                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">Relatório de Encerramento (AN303/2008)</h3>
                             <p className="mt-1 text-xs text-slate-300">
-                                ConsolidaÃ§Ã£o do evento encerrado com destaque para divergÃªncias de unidade/sala e pendÃªncias de regularizaÃ§Ã£o.
+                                Consolidação do evento encerrado com destaque para divergências de unidade/sala e pendências de regularização.
                             </p>
                         </div>
                         <div className="flex gap-2">
@@ -488,14 +508,14 @@ export default function InventoryAdminPanel() {
                                 disabled={baixarCsvMut.isPending}
                                 className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
                             >
-                                {baixarCsvMut.isPending ? "Exportando..." : "Exportar CSV editÃ¡vel"}
+                                {baixarCsvMut.isPending ? "Exportando..." : "Exportar CSV editável"}
                             </button>
                         </div>
                     </header>
 
-                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-300">Gerando relatÃ³rio...</p>}
+                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-300">Gerando relatório...</p>}
                     {relatorioEncerramentoQuery.error && (
-                        <p className="mt-4 text-sm text-rose-300">Falha ao gerar relatÃ³rio detalhado.</p>
+                        <p className="mt-4 text-sm text-rose-300">Falha ao gerar relatório detalhado.</p>
                     )}
 
                     {!relatorioEncerramentoQuery.isLoading && !relatorioEncerramentoQuery.error && relatorioEncerramentoQuery.data && (
@@ -503,8 +523,8 @@ export default function InventoryAdminPanel() {
                             <div className="grid gap-3 md:grid-cols-4">
                                 <CardKpi k="Contagens" v={relatorioEncerramentoQuery.data.resumo?.totalContagens} />
                                 <CardKpi k="Conformes" v={relatorioEncerramentoQuery.data.resumo?.conformes} />
-                                <CardKpi k="DivergÃªncias" v={relatorioEncerramentoQuery.data.resumo?.totalDivergencias} />
-                                <CardKpi k="Pend. RegularizaÃ§Ã£o" v={relatorioEncerramentoQuery.data.resumo?.regularizacoesPendentes} />
+                                <CardKpi k="Divergências" v={relatorioEncerramentoQuery.data.resumo?.totalDivergencias} />
+                                <CardKpi k="Pend. Regularização" v={relatorioEncerramentoQuery.data.resumo?.regularizacoesPendentes} />
                             </div>
 
                             <div className="grid gap-3 lg:grid-cols-3">
@@ -515,7 +535,7 @@ export default function InventoryAdminPanel() {
                                     items={divergenciaTipoData}
                                 />
                                 <StackedBarCard
-                                    title="Regulariza????o p??s-invent??rio"
+                                    title="Regularização pós-inventário"
                                     subtitle="Pendentes x regularizadas"
                                     total={totalDivergencias}
                                     items={regularizacaoData}
@@ -524,7 +544,7 @@ export default function InventoryAdminPanel() {
                             </div>
 
                             <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-400">DivergÃªncias por tipo</p>
+                                <p className="text-xs uppercase tracking-widest text-slate-400">Divergências por tipo</p>
                                 <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
                                     <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Unidade: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidade || 0}</strong></p>
                                     <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasSala || 0}</strong></p>
@@ -533,22 +553,22 @@ export default function InventoryAdminPanel() {
                             </div>
 
                             <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-400">DivergÃªncias registradas</p>
+                                <p className="text-xs uppercase tracking-widest text-slate-400">Divergências registradas</p>
                                 {(relatorioEncerramentoQuery.data.divergencias || []).length === 0 ? (
-                                    <p className="mt-2 text-sm text-slate-300">Nenhuma divergÃªncia registrada neste evento.</p>
+                                    <p className="mt-2 text-sm text-slate-300">Nenhuma divergência registrada neste evento.</p>
                                 ) : (
                                     <div className="mt-2 overflow-auto rounded-lg border border-white/10">
                                         <table className="min-w-full text-left text-xs">
                                             <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
                                                 <tr>
                                                     <th className="px-2 py-2">Tombo</th>
-                                                    <th className="px-2 py-2">CatÃ¡logo</th>
+                                                    <th className="px-2 py-2">Catálogo</th>
                                                     <th className="px-2 py-2">Tipo</th>
                                                     <th className="px-2 py-2">Unid. Dona</th>
                                                     <th className="px-2 py-2">Unid. Encontrada</th>
                                                     <th className="px-2 py-2">Esperado</th>
                                                     <th className="px-2 py-2">Encontrado</th>
-                                                    <th className="px-2 py-2">RegularizaÃ§Ã£o</th>
+                                                    <th className="px-2 py-2">Regularização</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/10">

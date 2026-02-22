@@ -737,7 +737,7 @@ function createInventarioController(deps) {
   }
 
   /**
-   * Atualiza status do evento (ENCERRADO/CANCELADO) e seta encerrado_em.
+   * Atualiza status do evento (EM_ANDAMENTO/ENCERRADO/CANCELADO).
    * @param {import("express").Request} req Request.
    * @param {import("express").Response} res Response.
    * @param {Function} next Next.
@@ -749,8 +749,8 @@ function createInventarioController(deps) {
 
       const body = req.body || {};
       const status = String(body.status || "").trim().toUpperCase();
-      if (status !== "ENCERRADO" && status !== "CANCELADO") {
-        throw new HttpError(422, "STATUS_INVALIDO", "status deve ser ENCERRADO ou CANCELADO.");
+      if (status !== "EM_ANDAMENTO" && status !== "ENCERRADO" && status !== "CANCELADO") {
+        throw new HttpError(422, "STATUS_INVALIDO", "status deve ser EM_ANDAMENTO, ENCERRADO ou CANCELADO.");
       }
 
       const encerradoPorPerfilId = req.user?.id
@@ -763,11 +763,25 @@ function createInventarioController(deps) {
       const observacoesRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
       const observacoes = observacoesRaw ? observacoesRaw.slice(0, 2000) : null;
 
+      if (status === "EM_ANDAMENTO") {
+        const conflito = await pool.query(
+          `SELECT id
+           FROM eventos_inventario
+           WHERE status = 'EM_ANDAMENTO'
+             AND id <> $1
+           LIMIT 1;`,
+          [eventoId],
+        );
+        if (conflito.rowCount) {
+          throw new HttpError(409, "EVENTO_ATIVO_EXISTENTE", "Ja existe outro evento EM_ANDAMENTO.");
+        }
+      }
+
       const r = await pool.query(
         `UPDATE eventos_inventario
          SET status = $1::public.status_inventario,
-             encerrado_em = NOW(),
-             encerrado_por_perfil_id = $2,
+             encerrado_em = CASE WHEN $1 = 'EM_ANDAMENTO' THEN NULL ELSE NOW() END,
+             encerrado_por_perfil_id = CASE WHEN $1 = 'EM_ANDAMENTO' THEN NULL ELSE $2 END,
              observacoes = COALESCE($3, observacoes),
              updated_at = NOW()
          WHERE id = $4

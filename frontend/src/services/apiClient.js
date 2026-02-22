@@ -741,9 +741,9 @@ export async function criarEventoInventario(payload) {
 }
 
 /**
- * Atualiza status do evento de inventario (ENCERRADO/CANCELADO).
+ * Atualiza status do evento de inventario (EM_ANDAMENTO/ENCERRADO/CANCELADO).
  * @param {string} id UUID do evento.
- * @param {{status: "ENCERRADO"|"CANCELADO", encerradoPorPerfilId: string, observacoes?: string}} payload Payload.
+ * @param {{status: "EM_ANDAMENTO"|"ENCERRADO"|"CANCELADO", encerradoPorPerfilId: string, observacoes?: string}} payload Payload.
  * @returns {Promise<object>} Evento atualizado.
  */
 export async function atualizarStatusEventoInventario(id, payload) {

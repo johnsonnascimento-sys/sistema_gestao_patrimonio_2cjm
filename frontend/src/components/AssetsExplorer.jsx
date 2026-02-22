@@ -1304,13 +1304,13 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
               </section>
 
               <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Linha do tempo de alteraÃ§Ãµes</p>
+                <p className="text-xs uppercase tracking-widest text-slate-400">Linha do tempo de alterações</p>
                 {auditoriaQuery.isLoading ? (
                   <p className="mt-2 text-sm text-slate-300">Carregando auditoria...</p>
                 ) : auditoriaQuery.error ? (
                   <p className="mt-2 text-sm text-rose-300">Falha ao carregar auditoria.</p>
                 ) : !(auditoriaQuery.data || []).length ? (
-                  <p className="mt-2 text-sm text-slate-300">Nenhuma alteraÃ§Ã£o auditada encontrada.</p>
+                  <p className="mt-2 text-sm text-slate-300">Nenhuma alteração auditada encontrada.</p>
                 ) : (
                   <div className="mt-2 space-y-3">
                     {(auditoriaQuery.data || []).map((a) => (
@@ -1340,7 +1340,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                                 disabled={reverterMut.isPending}
                                 className="rounded-lg border border-amber-300/40 bg-amber-200/10 px-3 py-1 text-xs font-semibold text-amber-100 hover:bg-amber-200/20 disabled:opacity-50"
                               >
-                                {reverterMut.isPending ? "Revertendo..." : "Reverter esta alteraÃ§Ã£o"}
+                                {reverterMut.isPending ? "Revertendo..." : "Reverter esta alteração"}
                               </button>
                             ) : null}
                           </div>

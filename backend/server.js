@@ -3316,7 +3316,7 @@ function openapi() {
         post: { summary: "Criar evento de inventario (EM_ANDAMENTO)", responses: { 201: { description: "Criado" } } },
       },
       "/inventario/eventos/{id}/status": {
-        patch: { summary: "Encerrar/cancelar evento de inventario", responses: { 200: { description: "OK" } } },
+        patch: { summary: "Atualizar status do evento de inventario (reabrir/encerrar/cancelar)", responses: { 200: { description: "OK" } } },
       },
       "/inventario/contagens": {
         get: { summary: "Listar contagens de inventario (por evento/sala)", responses: { 200: { description: "OK" } } },
