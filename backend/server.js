@@ -159,6 +159,10 @@ function diffAuditObjects(beforeObj, afterObj) {
   return out;
 }
 
+function isUuidLike(raw) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw || "").trim());
+}
+
 function extractBearerToken(req) {
   const raw = req.headers?.authorization ? String(req.headers.authorization) : "";
   if (!raw) return null;
@@ -833,11 +837,168 @@ app.get("/bens/:id/auditoria", mustAuth, async (req, res, next) => {
       [id, String(bem.catalogoBemId), limit],
     );
 
+    const PROFILE_ID_FIELDS = new Set([
+      "responsavel_perfil_id",
+      "encontrado_por_perfil_id",
+      "regularizado_por_perfil_id",
+      "executada_por_perfil_id",
+      "autorizada_por_perfil_id",
+      "aberto_por_perfil_id",
+      "encerrado_por_perfil_id",
+    ]);
+    const ID_FIELD_KIND = {
+      local_id: "local",
+      catalogo_bem_id: "catalogo",
+      bem_id: "bem",
+    };
+    const pushUuid = (set, v) => {
+      if (isUuidLike(v)) set.add(String(v).trim());
+    };
+    const resolveFallbackActorPerfilId = (dadosAntes, dadosDepois) => {
+      for (const k of PROFILE_ID_FIELDS) {
+        const v = dadosDepois?.[k] ?? dadosAntes?.[k] ?? null;
+        if (isUuidLike(v)) return String(v).trim();
+      }
+      return null;
+    };
+
+    const preItems = rAudit.rows.map((row) => {
+      const baseChanges = diffAuditObjects(row.dadosAntes, row.dadosDepois);
+      const changes = baseChanges.length
+        ? baseChanges
+        : row.operacao === "INSERT"
+          ? [{ field: "__operacao", before: null, after: "Registro criado" }]
+          : row.operacao === "DELETE"
+            ? [{ field: "__operacao", before: "Registro removido", after: null }]
+            : [];
+      return {
+        ...row,
+        changes,
+        actorFallbackPerfilId: resolveFallbackActorPerfilId(row.dadosAntes, row.dadosDepois),
+      };
+    });
+
+    const profileIds = new Set();
+    const localIds = new Set();
+    const catalogoIds = new Set();
+    const bemIds = new Set();
+
+    for (const row of preItems) {
+      pushUuid(profileIds, row.executorPerfilId);
+      pushUuid(profileIds, row.executadoPor);
+      pushUuid(profileIds, row.actorFallbackPerfilId);
+      for (const ch of row.changes || []) {
+        if (PROFILE_ID_FIELDS.has(ch.field)) {
+          pushUuid(profileIds, ch.before);
+          pushUuid(profileIds, ch.after);
+        } else if (ID_FIELD_KIND[ch.field] === "local") {
+          pushUuid(localIds, ch.before);
+          pushUuid(localIds, ch.after);
+        } else if (ID_FIELD_KIND[ch.field] === "catalogo") {
+          pushUuid(catalogoIds, ch.before);
+          pushUuid(catalogoIds, ch.after);
+        } else if (ID_FIELD_KIND[ch.field] === "bem") {
+          pushUuid(bemIds, ch.before);
+          pushUuid(bemIds, ch.after);
+        }
+      }
+    }
+
+    const perfisById = new Map();
+    if (profileIds.size) {
+      const rPerfis = await pool.query(
+        `SELECT id, nome, matricula
+         FROM perfis
+         WHERE id = ANY($1::uuid[]);`,
+        [Array.from(profileIds)],
+      );
+      for (const p of rPerfis.rows) perfisById.set(String(p.id), p);
+    }
+
+    const locaisById = new Map();
+    if (localIds.size) {
+      const rLocais = await pool.query(
+        `SELECT id, nome
+         FROM locais
+         WHERE id = ANY($1::uuid[]);`,
+        [Array.from(localIds)],
+      );
+      for (const l of rLocais.rows) locaisById.set(String(l.id), l);
+    }
+
+    const catalogosById = new Map();
+    if (catalogoIds.size) {
+      const rCatalogos = await pool.query(
+        `SELECT id, codigo_catalogo AS "codigoCatalogo", descricao
+         FROM catalogo_bens
+         WHERE id = ANY($1::uuid[]);`,
+        [Array.from(catalogoIds)],
+      );
+      for (const c of rCatalogos.rows) catalogosById.set(String(c.id), c);
+    }
+
+    const bensById = new Map();
+    if (bemIds.size) {
+      const rBens = await pool.query(
+        `SELECT id, numero_tombamento AS "numeroTombamento", nome_resumo AS "nomeResumo", descricao_complementar AS "descricaoComplementar"
+         FROM bens
+         WHERE id = ANY($1::uuid[]);`,
+        [Array.from(bemIds)],
+      );
+      for (const b of rBens.rows) bensById.set(String(b.id), b);
+    }
+
+    const decorateValue = (field, value) => {
+      if (!isUuidLike(value)) return { id: null, label: null };
+      const idValue = String(value).trim();
+
+      if (PROFILE_ID_FIELDS.has(field)) {
+        const p = perfisById.get(idValue);
+        if (!p) return { id: idValue, label: "Perfil (não encontrado)" };
+        return {
+          id: idValue,
+          label: p.matricula ? `${p.nome} (${p.matricula})` : p.nome,
+        };
+      }
+      if (ID_FIELD_KIND[field] === "local") {
+        const l = locaisById.get(idValue);
+        return { id: idValue, label: l?.nome || "Local (não encontrado)" };
+      }
+      if (ID_FIELD_KIND[field] === "catalogo") {
+        const c = catalogosById.get(idValue);
+        return { id: idValue, label: c ? `${c.codigoCatalogo || "-"} - ${c.descricao || ""}`.trim() : "Catálogo (não encontrado)" };
+      }
+      if (ID_FIELD_KIND[field] === "bem") {
+        const b = bensById.get(idValue);
+        const resumo = b?.nomeResumo || b?.descricaoComplementar || "";
+        return {
+          id: idValue,
+          label: b ? `${b.numeroTombamento || "-"}${resumo ? ` - ${resumo}` : ""}` : "Bem (não encontrado)",
+        };
+      }
+
+      return { id: idValue, label: null };
+    };
+
     const revertableByTable = new Set(["bens", "catalogo_bens"]);
-    const items = rAudit.rows.map((row) => {
-      const changes = row.operacao === "UPDATE"
-        ? diffAuditObjects(row.dadosAntes, row.dadosDepois)
-        : [];
+    const items = preItems.map((row) => {
+      const actorResolved = (
+        (row.executorPerfilId ? perfisById.get(String(row.executorPerfilId)) : null)
+        || (isUuidLike(row.executadoPor) ? perfisById.get(String(row.executadoPor).trim()) : null)
+        || (row.actorFallbackPerfilId ? perfisById.get(String(row.actorFallbackPerfilId)) : null)
+        || null
+      );
+      const changes = (row.changes || []).map((ch) => {
+        const beforeRef = decorateValue(ch.field, ch.before);
+        const afterRef = decorateValue(ch.field, ch.after);
+        return {
+          ...ch,
+          beforeId: beforeRef.id || null,
+          beforeLabel: beforeRef.label || null,
+          afterId: afterRef.id || null,
+          afterLabel: afterRef.label || null,
+        };
+      });
       return {
         id: row.id,
         tabela: row.tabela,
@@ -848,6 +1009,9 @@ app.get("/bens/:id/auditoria", mustAuth, async (req, res, next) => {
         executorPerfilId: row.executorPerfilId || null,
         executorNome: row.executorNome || null,
         executorMatricula: row.executorMatricula || null,
+        actorPerfilId: actorResolved?.id || null,
+        actorNome: actorResolved?.nome || row.executorNome || null,
+        actorMatricula: actorResolved?.matricula || row.executorMatricula || null,
         changes,
         dadosAntes: row.dadosAntes || null,
         dadosDepois: row.dadosDepois || null,

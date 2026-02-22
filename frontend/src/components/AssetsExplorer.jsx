@@ -784,10 +784,44 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     const s = String(v);
     return s.trim() ? s : "-";
   };
+  const copyIdValue = async (e, idValue) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!idValue) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(String(idValue));
+      } else {
+        window.prompt("Copie o ID:", String(idValue));
+      }
+      setEditMsg("ID copiado.");
+      setEditErr(null);
+    } catch (_err) {
+      window.prompt("Copie o ID:", String(idValue));
+    }
+  };
+  const renderAuditValue = (rawValue, resolvedLabel, resolvedId) => {
+    const display = resolvedLabel || formatFieldValue(rawValue);
+    if (!resolvedId) return <span>{display}</span>;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="truncate">{display}</span>
+        <button
+          type="button"
+          onClick={(e) => copyIdValue(e, resolvedId)}
+          className="rounded border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-white/10"
+          title="Copiar ID"
+        >
+          ID
+        </button>
+      </div>
+    );
+  };
   const fieldLabel = (field) => {
     const map = {
+      __operacao: "Operacao",
       local_fisico: "Sala / Local",
-      local_id: "LocalId",
+      local_id: "Local",
       unidade_dona_id: "Unidade dona",
       nome_resumo: "Nome resumo",
       descricao_complementar: "Descricao complementar",
@@ -795,6 +829,13 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       foto_referencia_url: "Foto do catalogo",
       catalogo_bem_id: "Catalogo",
       responsavel_perfil_id: "Responsavel",
+      encontrado_por_perfil_id: "Encontrado por",
+      regularizado_por_perfil_id: "Regularizado por",
+      executada_por_perfil_id: "Executado por",
+      autorizada_por_perfil_id: "Autorizado por",
+      aberto_por_perfil_id: "Aberto por",
+      encerrado_por_perfil_id: "Encerrado por",
+      bem_id: "Bem",
       status: "Status",
       contrato_referencia: "Contrato",
       data_aquisicao: "Data aquisicao",
@@ -806,6 +847,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     return map[field] || field;
   };
   const actorLabel = (item) => {
+    if (item?.actorNome && item?.actorMatricula) return `${item.actorNome} (${item.actorMatricula})`;
+    if (item?.actorNome) return item.actorNome;
     if (item?.executorNome && item?.executorMatricula) return `${item.executorNome} (${item.executorMatricula})`;
     if (item?.executorNome) return item.executorNome;
     return item?.executadoPor || "-";
@@ -1323,9 +1366,19 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                               </p>
                               <p className="text-xs text-slate-300">
                                 {new Date(a.executadoEm).toLocaleString()} - {actorLabel(a)}
+                                {a.actorPerfilId ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => copyIdValue(e, a.actorPerfilId)}
+                                    className="ml-2 rounded border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-white/10"
+                                    title="Copiar ID do responsável"
+                                  >
+                                    ID
+                                  </button>
+                                ) : null}
                               </p>
                               <p className="mt-1 text-xs text-cyan-200">
-                                {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem diff estruturado"}
+                                {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem mudanças estruturadas"}
                               </p>
                             </div>
                             {isAdmin && a.canRevert ? (
@@ -1358,8 +1411,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                               {(a.changes || []).map((c) => (
                                 <tr key={`${a.id}-${c.field}`}>
                                   <td className="px-2 py-2 text-slate-200">{fieldLabel(c.field)}</td>
-                                  <td className="px-2 py-2 text-slate-300">{formatFieldValue(c.before)}</td>
-                                  <td className="px-2 py-2 text-slate-300">{formatFieldValue(c.after)}</td>
+                                  <td className="px-2 py-2 text-slate-300">{renderAuditValue(c.before, c.beforeLabel, c.beforeId)}</td>
+                                  <td className="px-2 py-2 text-slate-300">{renderAuditValue(c.after, c.afterLabel, c.afterId)}</td>
                                 </tr>
                               ))}
                             </tbody>
