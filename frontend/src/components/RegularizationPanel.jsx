@@ -286,8 +286,8 @@ export default function RegularizationPanel() {
       )}
 
       {enrichedItems.length > 0 && (
-        <div className="mt-4 overflow-auto rounded-2xl border border-white/10">
-          <table className="min-w-[1280px] w-full text-sm">
+        <div className="mt-4 overflow-x-hidden rounded-2xl border border-white/10">
+          <table className="w-full text-sm">
             <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
               <tr>
                 <th className="px-3 py-3 text-left">Evento</th>

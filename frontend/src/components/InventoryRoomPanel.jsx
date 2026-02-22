@@ -1554,8 +1554,8 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
         {all.length === 0 ? (
           <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
         ) : (
-          <div className="mt-3 overflow-auto rounded-xl border border-white/10 pb-2">
-            <table className="min-w-[1120px] w-full text-sm">
+          <div className="mt-3 overflow-x-hidden rounded-xl border border-white/10 pb-2">
+            <table className="w-full text-sm">
               <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
                 <tr>
                   <th className="px-3 py-3 text-left">Tombo</th>
