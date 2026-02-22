@@ -604,8 +604,7 @@ export default function InventoryAdminPanel() {
                                                 <tr>
                                                     <th className="px-2 py-2">Tombo</th>
                                                     <th className="px-2 py-2">Catálogo</th>
-                                                    <th className="px-2 py-2">Nome Resumido</th>
-                                                    <th className="px-2 py-2">Descrição</th>
+                                                    <th className="px-2 py-2">Descrição / Resumo</th>
                                                     <th className="px-2 py-2">Tipo</th>
                                                     <th className="px-2 py-2">Unid. Dona</th>
                                                     <th className="px-2 py-2">Unid. Encontrada</th>
@@ -618,9 +617,17 @@ export default function InventoryAdminPanel() {
                                                 {(relatorioEncerramentoQuery.data.divergencias || []).slice(0, 400).map((d) => (
                                                     <tr key={d.contagemId}>
                                                         <td className="px-2 py-2 text-slate-200 font-mono">{d.numeroTombamento || d.identificadorExterno || "-"}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.codigoCatalogo} - {d.catalogoDescricao}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.nomeResumo || "-"}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.descricaoComplementar || d.catalogoDescricao || "-"}</td>
+                                                        <td className="px-2 py-2 font-mono text-[11px] text-emerald-300">{d.codigoCatalogo || "-"}</td>
+                                                        <td className="px-2 py-2">
+                                                            <div className="font-medium text-slate-100">
+                                                                {d.nomeResumo || d.descricaoComplementar || "-"}
+                                                            </div>
+                                                            {d.nomeResumo && d.descricaoComplementar && d.nomeResumo !== d.descricaoComplementar && (
+                                                                <div className="text-[10px] text-slate-400 italic">
+                                                                    {d.descricaoComplementar}
+                                                                </div>
+                                                            )}
+                                                        </td>
                                                         <td className="px-2 py-2 text-slate-300">{d.tipoDivergencia}</td>
                                                         <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeDonaId))}</td>
                                                         <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
