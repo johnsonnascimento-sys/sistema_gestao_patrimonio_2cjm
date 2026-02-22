@@ -1048,17 +1048,46 @@ function createInventarioController(deps) {
               vinculado: false,
             };
 
+        const termoLocal = `REG_LOCAL_${String(row.codigo_evento || "INVENTARIO").slice(0, 60)}`;
+        const justLocal = `Regularizacao pos-inventario (correcao de sala/local). Antes: ${String(row.local_fisico || "-")}. Depois: ${salaEncontrada}. Contagem=${contagemId}, evento=${row.codigo_evento}.`;
+        const movLocal = await client.query(
+          `INSERT INTO movimentacoes (
+             bem_id, tipo_movimentacao, status,
+             unidade_origem_id, unidade_destino_id,
+             termo_referencia, justificativa,
+             autorizada_por_perfil_id, autorizada_em,
+             executada_por_perfil_id, executada_em
+           ) VALUES (
+             $1,'REGULARIZACAO_INVENTARIO','EXECUTADA',
+             $2,$3,
+             $4,$5,
+             $6,NOW(),
+             $7,NOW()
+           )
+           RETURNING id, bem_id AS "bemId", tipo_movimentacao::text AS "tipoMovimentacao", status::text AS status, termo_referencia AS "termoReferencia";`,
+          [
+            row.bem_id,
+            unidadeDonaId,
+            unidadeDonaId,
+            termoLocal,
+            justLocal,
+            regularizadoPorPerfilId,
+            regularizadoPorPerfilId,
+          ],
+        );
+        movimentacao = movLocal.rows[0];
+
         await client.query(
           `UPDATE contagens
            SET regularizacao_pendente = FALSE,
                regularizado_em = NOW(),
                regularizado_por_perfil_id = $2,
                regularizacao_acao = $3,
-               regularizacao_movimentacao_id = NULL,
-               regularizacao_observacoes = $4,
+               regularizacao_movimentacao_id = $4,
+               regularizacao_observacoes = $5,
                updated_at = NOW()
            WHERE id = $1;`,
-          [contagemId, regularizadoPorPerfilId, acao, observacoes],
+          [contagemId, regularizadoPorPerfilId, acao, movimentacao.id, observacoes],
         );
       } else {
         await client.query(
