@@ -32,6 +32,9 @@ function describeDivergence(item) {
       badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-200",
       title: "Carga em unidade diferente e sala divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
+      unidadeDivergente,
+      salaDivergente,
+      salaMesmaUnidade: false,
     };
   }
   if (unidadeDivergente) {
@@ -40,6 +43,9 @@ function describeDivergence(item) {
       badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-200",
       title: "Carga em unidade diferente.",
       detail: "",
+      unidadeDivergente,
+      salaDivergente,
+      salaMesmaUnidade: false,
     };
   }
   if (salaDivergente) {
@@ -48,6 +54,9 @@ function describeDivergence(item) {
       badgeClass: "border-cyan-300/40 bg-cyan-200/10 text-cyan-200",
       title: "Mesma unidade, mas sala divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
+      unidadeDivergente,
+      salaDivergente,
+      salaMesmaUnidade: true,
     };
   }
   return {
@@ -55,6 +64,9 @@ function describeDivergence(item) {
     badgeClass: "border-white/25 bg-white/10 text-slate-200",
     title: "Divergencia registrada (sem detalhe de local esperado).",
     detail: salaEsperada ? `Sala de referencia: ${salaEsperada}.` : "",
+    unidadeDivergente,
+    salaDivergente,
+    salaMesmaUnidade: false,
   };
 }
 
@@ -140,9 +152,16 @@ export default function RegularizationPanel() {
 
     const label = it.numeroTombamento || "BEM SEM PLACA";
     const divergence = describeDivergence(it);
+    if (acao === "ATUALIZAR_LOCAL" && !divergence.salaMesmaUnidade) {
+      regularizarMut.setError(new Error("ATUALIZAR_LOCAL so pode ser usado em divergencia de sala na mesma unidade."));
+      return;
+    }
+
     const msg = acao === "TRANSFERIR_CARGA"
       ? `Confirmar TRANSFERIR carga do bem ${label} para unidade ${formatUnidade(Number(it.unidadeEncontradaId))}?\n\nDivergencia identificada: ${divergence.title}${divergence.detail ? `\n${divergence.detail}` : ""}\n\nRegra legal: Art. 185 (AN303_Art185) e Arts. 124/127 (AN303_Art124/AN303_Art127).`
-      : `Confirmar encerrar pendencia (MANTER_CARGA) do bem ${label} sem alterar a carga?\n\nDivergencia identificada: ${divergence.title}${divergence.detail ? `\n${divergence.detail}` : ""}\n\nRegra legal: Art. 185 (AN303_Art185).`;
+      : acao === "ATUALIZAR_LOCAL"
+        ? `Confirmar CORRIGIR sala/local do bem ${label} para ${it.salaEncontrada || "-"}, sem transferir carga de unidade?\n\nDivergencia identificada: ${divergence.title}${divergence.detail ? `\n${divergence.detail}` : ""}\n\nRegra legal: Art. 185 (AN303_Art185).`
+        : `Confirmar encerrar pendencia (MANTER_CARGA) do bem ${label} sem alterar a carga?\n\nDivergencia identificada: ${divergence.title}${divergence.detail ? `\n${divergence.detail}` : ""}\n\nRegra legal: Art. 185 (AN303_Art185).`;
 
     if (!window.confirm(msg)) return;
 
@@ -345,6 +364,15 @@ export default function RegularizationPanel() {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onRegularizar(it, "ATUALIZAR_LOCAL")}
+                        disabled={!canAdmin || !canUsePerfil || !it.divergence.salaMesmaUnidade || regularizarMut.isPending}
+                        title={it.divergence.salaMesmaUnidade ? "Atualiza sala/local do bem sem transferir unidade" : "Disponivel apenas para divergencia de sala na mesma unidade"}
+                        className="rounded-lg border border-cyan-300/40 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/15 disabled:opacity-40"
+                      >
+                        Corrigir sala
+                      </button>
                       <button
                         type="button"
                         onClick={() => onRegularizar(it, "MANTER_CARGA")}

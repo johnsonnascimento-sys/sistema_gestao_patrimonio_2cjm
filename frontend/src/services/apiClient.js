@@ -809,7 +809,7 @@ export async function listarForasteirosInventario(params = {}) {
 
 /**
  * Regulariza uma divergencia ("forasteiro") apos ENCERRAR o inventario.
- * @param {{contagemId: string, acao: "TRANSFERIR_CARGA"|"MANTER_CARGA", regularizadoPorPerfilId: string, termoReferencia?: string, observacoes?: string}} payload Payload.
+ * @param {{contagemId: string, acao: "TRANSFERIR_CARGA"|"MANTER_CARGA"|"ATUALIZAR_LOCAL", regularizadoPorPerfilId: string, termoReferencia?: string, localDestinoId?: string, observacoes?: string}} payload Payload.
  * @returns {Promise<object>} Resultado da regularizacao.
  */
 export async function regularizarForasteiro(payload) {

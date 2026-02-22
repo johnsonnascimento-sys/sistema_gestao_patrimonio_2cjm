@@ -786,9 +786,10 @@ function createInventarioController(deps) {
    *
    * Body:
    * - contagemId: UUID (obrigatorio)
-   * - acao: "TRANSFERIR_CARGA" | "MANTER_CARGA"
+   * - acao: "TRANSFERIR_CARGA" | "MANTER_CARGA" | "ATUALIZAR_LOCAL"
    * - regularizadoPorPerfilId: UUID (obrigatorio)
    * - termoReferencia: string (obrigatorio quando acao=TRANSFERIR_CARGA)
+   * - localDestinoId: UUID (opcional; usado quando acao=ATUALIZAR_LOCAL)
    * - observacoes: string (opcional)
    *
    * @param {import("express").Request} req Request.
@@ -816,9 +817,11 @@ function createInventarioController(deps) {
         ? "TRANSFERIR_CARGA"
         : acaoRaw === "MANTER" || acaoRaw === "MANTER_CARGA" || acaoRaw === "SEM_TRANSFERENCIA"
           ? "MANTER_CARGA"
+          : acaoRaw === "ATUALIZAR_LOCAL" || acaoRaw === "ATUALIZAR_LOCALIZACAO" || acaoRaw === "CORRIGIR_SALA"
+            ? "ATUALIZAR_LOCAL"
           : null;
       if (!acao) {
-        throw new HttpError(422, "ACAO_INVALIDA", "acao deve ser TRANSFERIR_CARGA ou MANTER_CARGA.");
+        throw new HttpError(422, "ACAO_INVALIDA", "acao deve ser TRANSFERIR_CARGA, MANTER_CARGA ou ATUALIZAR_LOCAL.");
       }
 
       const termoReferenciaRaw = body.termoReferencia != null ? String(body.termoReferencia).trim() : "";
@@ -829,6 +832,13 @@ function createInventarioController(deps) {
 
       const obsRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
       const observacoes = obsRaw ? obsRaw.slice(0, 2000) : null;
+      const localDestinoIdRaw = body.localDestinoId != null ? String(body.localDestinoId).trim() : "";
+      const localDestinoId = localDestinoIdRaw
+        ? (UUID_RE.test(localDestinoIdRaw) ? localDestinoIdRaw : null)
+        : null;
+      if (localDestinoIdRaw && !localDestinoId) {
+        throw new HttpError(422, "LOCAL_DESTINO_INVALIDO", "localDestinoId deve ser UUID quando informado.");
+      }
 
       await client.query("BEGIN");
 
@@ -847,6 +857,7 @@ function createInventarioController(deps) {
            b.id AS bem_id,
            b.numero_tombamento,
            b.unidade_dona_id,
+           b.local_fisico,
            b.eh_bem_terceiro
          FROM contagens c
          JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
@@ -877,6 +888,7 @@ function createInventarioController(deps) {
 
       let movimentacao = null;
       let bem = null;
+      let local = null;
 
       if (acao === "TRANSFERIR_CARGA") {
         if (row.eh_bem_terceiro) {
@@ -944,6 +956,110 @@ function createInventarioController(deps) {
            WHERE id = $1;`,
           [contagemId, regularizadoPorPerfilId, acao, movimentacao.id, observacoes],
         );
+      } else if (acao === "ATUALIZAR_LOCAL") {
+        const unidadeDonaId = Number(row.unidade_dona_id);
+        const unidadeEncontradaId = Number(row.unidade_encontrada_id);
+        if (unidadeDonaId !== unidadeEncontradaId) {
+          throw new HttpError(
+            409,
+            "ATUALIZACAO_LOCAL_EXIGE_MESMA_UNIDADE",
+            "Atualizacao de sala/local so e permitida quando unidade dona e unidade encontrada sao iguais. Use TRANSFERIR_CARGA quando houver unidade divergente.",
+          );
+        }
+
+        const salaEncontrada = String(row.sala_encontrada || "").trim();
+        if (!salaEncontrada) {
+          throw new HttpError(422, "SALA_ENCONTRADA_INVALIDA", "salaEncontrada da contagem esta vazia.");
+        }
+
+        const normalizeRoomLabel = (raw) => String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
+        const salaNorm = normalizeRoomLabel(salaEncontrada);
+        const unidadeLocal = unidadeEncontradaId;
+        let localDestino = null;
+
+        if (localDestinoId) {
+          const l = await client.query(
+            `SELECT id, nome, unidade_id
+             FROM locais
+             WHERE id = $1
+               AND ativo = TRUE
+             LIMIT 1;`,
+            [localDestinoId],
+          );
+          if (!l.rowCount) {
+            throw new HttpError(404, "LOCAL_DESTINO_NAO_ENCONTRADO", "localDestinoId nao encontrado ou inativo.");
+          }
+          const rowLocal = l.rows[0];
+          if (Number(rowLocal.unidade_id) !== unidadeLocal) {
+            throw new HttpError(422, "LOCAL_DESTINO_UNIDADE_INVALIDA", "localDestinoId informado pertence a outra unidade.");
+          }
+          localDestino = rowLocal;
+        } else {
+          const l = await client.query(
+            `SELECT id, nome, unidade_id
+             FROM locais
+             WHERE unidade_id = $1
+               AND ativo = TRUE
+               AND lower(regexp_replace(trim(nome), '\\s+', ' ', 'g')) = $2
+             ORDER BY updated_at DESC, created_at DESC
+             LIMIT 2;`,
+            [unidadeLocal, salaNorm],
+          );
+          if (l.rowCount > 1) {
+            throw new HttpError(
+              409,
+              "LOCAL_DESTINO_AMBIGUO",
+              "Foi encontrado mais de um local ativo para a sala informada. Informe localDestinoId para concluir a regularizacao.",
+            );
+          }
+          if (l.rowCount === 1) {
+            localDestino = l.rows[0];
+          }
+        }
+
+        const upBem = await client.query(
+          `UPDATE bens
+           SET local_id = $1,
+               local_fisico = $2,
+               status = 'OK',
+               updated_at = NOW()
+           WHERE id = $3
+           RETURNING
+             id,
+             numero_tombamento AS "numeroTombamento",
+             unidade_dona_id AS "unidadeDonaId",
+             local_id AS "localId",
+             local_fisico AS "localFisico",
+             status::text AS status;`,
+          [localDestino ? localDestino.id : null, salaEncontrada, row.bem_id],
+        );
+        bem = upBem.rows[0];
+        local = localDestino
+          ? {
+              id: localDestino.id,
+              nome: localDestino.nome,
+              unidadeId: Number(localDestino.unidade_id),
+              vinculado: true,
+            }
+          : {
+              id: null,
+              nome: salaEncontrada,
+              unidadeId: unidadeLocal,
+              vinculado: false,
+            };
+
+        await client.query(
+          `UPDATE contagens
+           SET regularizacao_pendente = FALSE,
+               regularizado_em = NOW(),
+               regularizado_por_perfil_id = $2,
+               regularizacao_acao = $3,
+               regularizacao_movimentacao_id = NULL,
+               regularizacao_observacoes = $4,
+               updated_at = NOW()
+           WHERE id = $1;`,
+          [contagemId, regularizadoPorPerfilId, acao, observacoes],
+        );
       } else {
         await client.query(
           `UPDATE contagens
@@ -960,7 +1076,7 @@ function createInventarioController(deps) {
       }
 
       await client.query("COMMIT");
-      res.status(201).json({ requestId: req.requestId, contagemId, acao, movimentacao, bem });
+      res.status(201).json({ requestId: req.requestId, contagemId, acao, movimentacao, bem, local });
     } catch (error) {
       await safeRollback(client);
       if (error?.code === "P0001") {

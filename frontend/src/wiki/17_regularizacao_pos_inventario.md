@@ -102,6 +102,23 @@ Requisito operacional:
 
 - `termoReferencia` é obrigatório para **Transferir carga** (rastreabilidade do termo/PDF).
 
+### 4.3) Corrigir sala/local (sem transferir carga)
+
+Use quando:
+
+- A unidade dona e a unidade encontrada sao as mesmas.
+- O bem foi lido em sala diferente da sala esperada e voce quer atualizar a localizacao correta no cadastro.
+
+O que o sistema faz:
+
+- Atualiza `bens.local_fisico` para a sala encontrada no inventario.
+- Quando existir local ativo correspondente, vincula tambem `bens.local_id`.
+- Encerra a pendencia na contagem (`regularizacao_pendente=false`) sem gerar transferencia de carga.
+
+Regra legal:
+
+- Art. 185 (AN303_Art185).
+
 ## 5) Passo a passo (operacional)
 
 1. No inventário, encerre o evento (status `ENCERRADO`).

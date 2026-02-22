@@ -241,6 +241,16 @@ Regras:
 
 - O evento precisa estar `ENCERRADO` (Art. 185 - AN303_Art185).
 - Para `TRANSFERIR_CARGA`, `termoReferencia` é obrigatório (Arts. 124/127 - AN303_Art124 / AN303_Art127).
+- Para `ATUALIZAR_LOCAL`, o bem deve estar na mesma unidade e a API atualiza `bens.local_fisico` para a sala encontrada (podendo vincular `bens.local_id` quando houver local ativo correspondente).
+
+Body JSON (campos principais):
+
+- `contagemId` (UUID)
+- `acao`: `MANTER_CARGA` | `TRANSFERIR_CARGA` | `ATUALIZAR_LOCAL`
+- `regularizadoPorPerfilId` (UUID)
+- `termoReferencia` (obrigatorio apenas em `TRANSFERIR_CARGA`)
+- `localDestinoId` (UUID opcional em `ATUALIZAR_LOCAL`)
+- `observacoes` (opcional)
 
 Quando `AUTH_ENABLED=true`:
 
