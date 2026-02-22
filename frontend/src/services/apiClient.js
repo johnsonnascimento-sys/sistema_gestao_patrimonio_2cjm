@@ -50,7 +50,7 @@ export function getFotoUrl(path) {
       const host = String(u.hostname || "").toLowerCase();
       // Corrige URLs legadas salvas com host local/container.
       if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "cjm_backend") {
-        return `${API_BASE_ORIGIN}${u.pathname || ""}${u.search || ""}${u.hash || ""}`;
+        return `${API_BASE_URL}${(u.pathname || "").startsWith("/") ? "" : "/"}${u.pathname || ""}${u.search || ""}${u.hash || ""}`;
       }
       return raw;
     } catch {
@@ -62,8 +62,9 @@ export function getFotoUrl(path) {
     const protocol = typeof window !== "undefined" && window.location?.protocol ? window.location.protocol : "https:";
     return `${protocol}${raw}`;
   }
-  if (raw.startsWith("/fotos/")) return `${API_BASE_ORIGIN}${raw}`;
-  if (raw.startsWith("fotos/")) return `${API_BASE_ORIGIN}/${raw}`;
+  // Em producao, o frontend expoe backend via /api/* (proxy nginx).
+  if (raw.startsWith("/fotos/")) return `${API_BASE_URL}${raw}`;
+  if (raw.startsWith("fotos/")) return `${API_BASE_URL}/${raw}`;
   return `${API_BASE_URL}${raw.startsWith("/") ? "" : "/"}${raw}`;
 }
 
