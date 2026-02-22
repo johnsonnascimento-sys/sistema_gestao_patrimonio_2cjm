@@ -69,11 +69,21 @@ export default function InventoryAdminPanel() {
     });
 
     const eventoAtivo = useMemo(() => {
-        const items = eventosQuery.data || [];
-        if (!items.length) return null;
-        if (selectedEventoId) return items.find((e) => e.id === selectedEventoId) || items[0];
-        return items[0];
-    }, [eventosQuery.data, selectedEventoId]);
+        const ativos = eventosQuery.data || [];
+        if (ativos.length > 0) {
+            if (selectedEventoId) return ativos.find((e) => e.id === selectedEventoId) || ativos[0];
+            return ativos[0];
+        }
+
+        // Fallback: quando o cache de ativos ainda nao refletiu a reabertura,
+        // tenta resolver pelo evento selecionado no cache completo.
+        if (selectedEventoId) {
+            const all = todosEventosQuery.data || [];
+            const selected = all.find((e) => e.id === selectedEventoId && e.status === "EM_ANDAMENTO");
+            if (selected) return selected;
+        }
+        return null;
+    }, [eventosQuery.data, todosEventosQuery.data, selectedEventoId]);
 
     const selectedEventoIdFinal = eventoAtivo?.id || "";
 
@@ -90,9 +100,28 @@ export default function InventoryAdminPanel() {
 
     const atualizarStatusMut = useMutation({
         mutationFn: ({ id, payload }) => atualizarStatusEventoInventario(id, payload),
-        onSuccess: async (_data, vars) => {
+        onSuccess: async (data, vars) => {
             setEncerramentoObs("");
             const nextStatus = String(vars?.payload?.status || "");
+            const evento = data?.evento || null;
+
+            if (evento?.id) {
+                qc.setQueryData(["inventarioEventos", "TODOS"], (prev) => {
+                    const list = Array.isArray(prev) ? [...prev] : [];
+                    const idx = list.findIndex((it) => it.id === evento.id);
+                    if (idx >= 0) list[idx] = evento;
+                    else list.unshift(evento);
+                    return list;
+                });
+
+                qc.setQueryData(["inventarioEventos", "EM_ANDAMENTO"], (prev) => {
+                    const list = Array.isArray(prev) ? [...prev] : [];
+                    const withoutCurrent = list.filter((it) => it.id !== evento.id);
+                    if (nextStatus === "EM_ANDAMENTO") return [evento, ...withoutCurrent];
+                    return withoutCurrent;
+                });
+            }
+
             if (nextStatus === "ENCERRADO" && vars?.id) {
                 setRelatorioEventoId(String(vars.id));
                 setUiInfo("Inventario encerrado. Relatorio detalhado gerado abaixo.");
