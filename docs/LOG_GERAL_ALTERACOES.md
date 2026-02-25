@@ -27,3 +27,4 @@
 | 20260225-223802-sidebar-icons-svg | 2026-02-25 22:38:02 UTC | Johnson Teixeira do Nascimento \<johnsontn@redejmu.local\> | UX | `main` | `44d0017` | Substituicao dos placeholders de icone da sidebar por SVGs estaveis. | `git revert 44d0017` |
 | 20260225-215018-agents-versionado | 2026-02-25 21:50:18 UTC | Johnson Teixeira do Nascimento \<johnsontn@redejmu.local\> | DOC | `main` | `b2dd693` | Versionamento de `AGENTS.md` para uso multiambiente. | `git revert b2dd693` |
 | 20260225-214805-governanca-status | 2026-02-25 21:48:05 UTC | Johnson Teixeira do Nascimento \<johnsontn@redejmu.local\> | DOC | `main` | `84f014b` | Alinhamento documental de governanca e status ao runtime atual. | `git revert 84f014b` |
+| 20260225-225911 | 2026-02-25 22:59:11 UTC | Johnson Teixeira do Nascimento \<johnsontn@redejmu.local\> | UX | `main` | `22b6a85` | Painel visual no sistema para Log Geral de Alteracoes e comando de rollback na Administracao do Painel. | `git revert 22b6a85` |
