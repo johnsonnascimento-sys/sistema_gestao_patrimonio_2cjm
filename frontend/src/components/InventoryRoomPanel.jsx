@@ -750,22 +750,22 @@ export default function InventoryRoomPanel() {
   };
 
   return (
-    <section className="rounded-2xl border border-white/15 bg-slate-900/55 p-3 md:p-5">
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo Inventário (offline-first)</h2>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-slate-600">
             Contagens sao persistidas no navegador e sincronizadas com a API quando houver conexao.
           </p>
         </div>
-        <div className="text-xs text-slate-300">
+        <div className="text-xs text-slate-600">
           <p>
             Pendentes offline:{" "}
-            <span className="font-semibold text-cyan-200">{offline.pendingCount}</span>
+            <span className="font-semibold text-violet-700">{offline.pendingCount}</span>
           </p>
           <p className="mt-1">
             Conexao:{" "}
-            <span className={navigator.onLine ? "text-emerald-300" : "text-amber-300"}>
+            <span className={navigator.onLine ? "text-emerald-700" : "text-amber-800"}>
               {navigator.onLine ? "ONLINE" : "OFFLINE"}
             </span>
           </p>
@@ -773,7 +773,7 @@ export default function InventoryRoomPanel() {
       </header>
 
       {(uiError || offline.lastError) && (
-        <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
+        <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-700">
           {uiError || offline.lastError}
         </p>
       )}
@@ -782,8 +782,8 @@ export default function InventoryRoomPanel() {
         <p
           className={`mt-4 rounded-xl border p-3 text-sm ${
             scanFeedback.kind === "success"
-              ? "border-emerald-300/30 bg-emerald-200/10 text-emerald-200"
-              : "border-amber-300/30 bg-amber-200/10 text-amber-100"
+              ? "border-emerald-300/30 bg-emerald-200/10 text-emerald-700"
+              : "border-amber-300/30 bg-amber-200/10 text-amber-800"
           }`}
         >
           {scanFeedback.message}
@@ -791,19 +791,19 @@ export default function InventoryRoomPanel() {
       )}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <article className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 lg:col-span-1">
+        <article className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1">
           <h3 className="font-semibold">Sala e scanner</h3>
-          <p className="mt-1 text-xs text-slate-300">
+          <p className="mt-1 text-xs text-slate-600">
             Selecione a sala e registre tombamentos. Divergencias tocam alerta e viram ocorrencia (Art. 185).
           </p>
 
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Unidade encontrada (1..4)</span>
+              <span className="text-xs text-slate-600">Unidade encontrada (1..4)</span>
               <select
                 value={unidadeEncontradaId}
                 onChange={(e) => setUnidadeEncontradaId(e.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               >
                 <option value="">Selecione</option>
                 <option value="1">{formatUnidade(1)}</option>
@@ -813,7 +813,7 @@ export default function InventoryRoomPanel() {
               </select>
             </label>
             <label className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-300">Local cadastrado (Admin)</span>
+              <span className="text-xs text-slate-600">Local cadastrado (Admin)</span>
               <select
                 value={selectedLocalId}
                 onChange={(e) => {
@@ -823,7 +823,7 @@ export default function InventoryRoomPanel() {
                   if (local?.nome) setSalaEncontrada(String(local.nome));
                 }}
                 disabled={!unidadeEncontradaId || locaisQuery.isFetching}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm disabled:opacity-50"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:opacity-50"
               >
                 <option value="">
                   {!unidadeEncontradaId
@@ -838,7 +838,7 @@ export default function InventoryRoomPanel() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-[11px] text-slate-400">
+              <p className="mt-1 text-[11px] text-slate-500">
                 Este campo nao e texto livre. O Admin cadastra os locais em "Operacoes API" (secao Locais).
               </p>
             </label>
@@ -846,7 +846,7 @@ export default function InventoryRoomPanel() {
 
           <form onSubmit={registerScan} className="mt-4">
             <label className="block space-y-1 mb-2">
-              <span className="text-xs text-slate-300">Bipar tombamento (10 dígitos)</span>
+              <span className="text-xs text-slate-600">Bipar tombamento (10 dígitos)</span>
               <div className="grid gap-2 grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto]">
                 <input
                   value={scannerValue}
@@ -854,7 +854,7 @@ export default function InventoryRoomPanel() {
                   placeholder="Ex: 1290001788"
                   inputMode="numeric"
                   maxLength={10}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm col-span-1"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm col-span-1"
                 />
 
                 <div className="flex gap-2">
@@ -862,7 +862,7 @@ export default function InventoryRoomPanel() {
                     type="button"
                     onClick={() => { setScannerMode("single"); setShowScanner(true); }}
                     title="Câmera (Uma leitura)"
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-slate-200 hover:bg-slate-600 focus:ring-2 focus:ring-cyan-500"
+                    className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800 hover:bg-slate-200 focus:ring-2 focus:ring-violet-500"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                   </button>
@@ -870,7 +870,7 @@ export default function InventoryRoomPanel() {
                     type="button"
                     onClick={() => { setScannerMode("continuous"); setShowScanner(true); }}
                     title="Câmera (Contínuo)"
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-slate-200 hover:bg-slate-600 focus:ring-2 focus:ring-cyan-500"
+                    className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800 hover:bg-slate-200 focus:ring-2 focus:ring-violet-500"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                   </button>
@@ -879,7 +879,7 @@ export default function InventoryRoomPanel() {
                 <button
                   type="submit"
                   disabled={!canRegister}
-                  className="col-span-2 md:col-span-1 w-full rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                  className="col-span-2 md:col-span-1 w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   Registrar
                 </button>
@@ -913,21 +913,21 @@ export default function InventoryRoomPanel() {
 
           {lastScans.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-xs uppercase tracking-widest text-slate-400">Últimos registros</p>
+              <p className="text-xs uppercase tracking-widest text-slate-500">Últimos registros</p>
               {lastScans.map((s) => (
-                <div key={s.id} className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs">
+                <div key={s.id} className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono text-slate-100">{s.numeroTombamento}</span>
-                    <span className="text-slate-300">{s.when}</span>
+                    <span className="font-mono text-slate-900">{s.numeroTombamento}</span>
+                    <span className="text-slate-600">{s.when}</span>
                   </div>
-                  <div className="mt-1 text-slate-300">
+                  <div className="mt-1 text-slate-600">
                     {s.divergente ? (
-                      <span className="text-amber-200">
+                      <span className="text-amber-800">
                         {s.statusLabel || "Divergente"}: dono={formatUnidade(Number(s.unidadeDonaId))} encontrado={formatUnidade(Number(s.unidadeEncontradaId))}
                         {s.divergenciaSala && s.salaEsperada ? ` | sala esperada=${s.salaEsperada}` : ""}
                       </span>
                     ) : (
-                      <span className="text-emerald-200">{s.statusLabel || "Conforme"}</span>
+                      <span className="text-emerald-700">{s.statusLabel || "Conforme"}</span>
                     )}
                   </div>
                 </div>
@@ -941,42 +941,42 @@ export default function InventoryRoomPanel() {
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <details className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 lg:col-span-1 group">
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
           <summary className="font-semibold cursor-pointer select-none">Registrar Bem de Terceiro (Segregado)</summary>
           <div className="mt-3 group-open:block">
-            <form onSubmit={onRegistrarBemTerceiro} className="mt-4 rounded-xl border border-white/10 bg-slate-950/25 p-3">
+            <form onSubmit={onRegistrarBemTerceiro} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-500">
                   Sem tombamento GEAFIN. Regra: Art. 99/110 VI/175 IX (AN303_Art99 / AN303_Art110_VI / AN303_Art175_IX).
                 </p>
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-300">Descrição</span>
+                  <span className="text-xs text-slate-600">Descrição</span>
                   <input
                     value={terceiroDescricao}
                     onChange={(e) => setTerceiroDescricao(e.target.value)}
                     placeholder="Ex.: Notebook do prestador de TI, impressora da empresa X..."
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-300">Proprietário externo</span>
+                  <span className="text-xs text-slate-600">Proprietário externo</span>
                   <input
                     value={terceiroProprietario}
                     onChange={(e) => setTerceiroProprietario(e.target.value)}
                     placeholder="Ex.: Empresa Contratada XYZ"
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-300">Identificador externo (opcional)</span>
+                  <span className="text-xs text-slate-600">Identificador externo (opcional)</span>
                   <input
                     value={terceiroIdentificador}
                     onChange={(e) => setTerceiroIdentificador(e.target.value)}
                     placeholder="Ex.: ETIQ-000123 (ou deixe em branco)"
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                 </label>
               </div>
@@ -985,18 +985,18 @@ export default function InventoryRoomPanel() {
                 <button
                   type="submit"
                   disabled={!canRegisterTerceiro || registrarBemTerceiroMut.isPending}
-                  className="rounded-lg border border-white/25 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+                  className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-50"
                 >
                   {registrarBemTerceiroMut.isPending ? "Registrando..." : "Registrar bem de terceiro"}
                 </button>
 
                 {terceiroStatus?.kind === "ok" ? (
-                  <span className="text-xs text-emerald-200">Registrado.</span>
+                  <span className="text-xs text-emerald-700">Registrado.</span>
                 ) : null}
               </div>
 
               {registrarBemTerceiroMut.error ? (
-                <p className="mt-2 text-sm text-rose-200">
+                <p className="mt-2 text-sm text-rose-700">
                   Falha ao registrar bem de terceiro: {String(registrarBemTerceiroMut.error?.message || "erro")}
                 </p>
               ) : null}
@@ -1004,52 +1004,52 @@ export default function InventoryRoomPanel() {
           </div>
         </details>
 
-        <details className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none text-rose-300">Registrar bem sem identificação (Divergência)</summary>
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
+          <summary className="font-semibold cursor-pointer select-none text-rose-700">Registrar bem sem identificação (Divergência)</summary>
           <div className="mt-3 group-open:block">
-            <form onSubmit={onRegistrarNaoIdentificado} className="mt-4 rounded-xl border border-white/10 border-l-rose-500 bg-slate-950/25 p-3">
+            <form onSubmit={onRegistrarNaoIdentificado} className="mt-4 rounded-xl border border-slate-200 border-l-rose-500 bg-slate-50 p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-500">
                   Obrigatório foto e descrição. Fica onde está. Art. 175.
                 </p>
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-300">Descrição detalhada do bem</span>
+                  <span className="text-xs text-slate-600">Descrição detalhada do bem</span>
                   <input
                     value={naoIdDescricao}
                     onChange={(e) => setNaoIdDescricao(e.target.value)}
                     placeholder="Ex.: Cadeira giratória azul, marca Frisokar, sem braços..."
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-300">Localização exata</span>
+                  <span className="text-xs text-slate-600">Localização exata</span>
                   <input
                     value={naoIdLocalizacao}
                     onChange={(e) => setNaoIdLocalizacao(e.target.value)}
                     placeholder="Ex.: Perto da janela, mesa 3..."
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-300">Fotografia (Obrigatória)</span>
+                  <span className="text-xs text-slate-600">Fotografia (Obrigatória)</span>
                   <input
                     type="file"
                     accept="image/*"
                     capture="environment"
                     onChange={handleFotoNaoId}
-                    className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-1.5 text-xs file:mr-3 file:rounded-lg file:bg-slate-700 file:border-0 file:px-3 file:py-1 file:text-slate-200"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs file:mr-3 file:rounded-lg file:bg-slate-100 file:border-0 file:px-3 file:py-1 file:text-slate-800"
                   />
                 </label>
                 {naoIdFotoBase64 && (
                   <div className="md:col-span-2 mt-2">
-                    <p className="text-xs text-emerald-300 mb-1 flex items-center gap-1">
+                    <p className="text-xs text-emerald-700 mb-1 flex items-center gap-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                       Foto anexada
                     </p>
-                    <img src={naoIdFotoBase64} alt="Previa" className="h-16 w-16 object-cover rounded-md border border-white/20" />
+                    <img src={naoIdFotoBase64} alt="Previa" className="h-16 w-16 object-cover rounded-md border border-slate-300" />
                   </div>
                 )}
               </div>
@@ -1058,18 +1058,18 @@ export default function InventoryRoomPanel() {
                 <button
                   type="submit"
                   disabled={!canRegisterNaoIdentificado || registrarNaoIdentificadoMut.isPending}
-                  className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/20 disabled:opacity-50"
+                  className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                 >
                   {registrarNaoIdentificadoMut.isPending ? "Registrando..." : "Registrar Bem"}
                 </button>
 
                 {naoIdStatus?.kind === "ok" ? (
-                  <span className="text-xs text-emerald-200">Adicionado às disparidades da sala.</span>
+                  <span className="text-xs text-emerald-700">Adicionado às disparidades da sala.</span>
                 ) : null}
               </div>
 
               {registrarNaoIdentificadoMut.error ? (
-                <p className="mt-2 text-sm text-rose-200">
+                <p className="mt-2 text-sm text-rose-700">
                   Falha: {String(registrarNaoIdentificadoMut.error?.message || "erro interno")}
                 </p>
               ) : null}
@@ -1077,30 +1077,30 @@ export default function InventoryRoomPanel() {
           </div>
         </details>
 
-        <details className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 lg:col-span-1 group">
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
           <summary className="font-semibold cursor-pointer select-none">Bens de terceiros registrados (esta sala)</summary>
           <div className="mt-3 group-open:block">
-            <section className="mt-4 rounded-xl border border-white/10 bg-slate-950/25 p-3">
+            <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-500">
                   Fonte: `vw_bens_terceiros_inventario` (derivado de contagens). Controle segregado.
                 </p>
               </div>
 
               {!selectedEventoIdFinal || !salaEncontrada.trim() ? (
-                <p className="mt-2 text-sm text-slate-300">Selecione evento e sala para listar os registros.</p>
+                <p className="mt-2 text-sm text-slate-600">Selecione evento e sala para listar os registros.</p>
               ) : !navigator.onLine ? (
-                <p className="mt-2 text-sm text-slate-300">
+                <p className="mt-2 text-sm text-slate-600">
                   Offline: a lista de bens de terceiros depende da API (os registros feitos offline ainda ficam na fila de sincronização).
                 </p>
               ) : terceirosSalaQuery.isFetching ? (
-                <p className="mt-2 text-sm text-slate-300">Carregando...</p>
+                <p className="mt-2 text-sm text-slate-600">Carregando...</p>
               ) : (terceirosSalaQuery.data || []).length === 0 ? (
-                <p className="mt-2 text-sm text-slate-300">Nenhum bem de terceiro registrado para esta sala.</p>
+                <p className="mt-2 text-sm text-slate-600">Nenhum bem de terceiro registrado para esta sala.</p>
               ) : (
-                <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+                <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
                   <table className="min-w-full text-left text-xs">
-                    <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                    <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                       <tr>
                         <th className="px-3 py-2">Identificador</th>
                         <th className="px-3 py-2">Descrição</th>
@@ -1108,15 +1108,15 @@ export default function InventoryRoomPanel() {
                         <th className="px-3 py-2">Quando</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/10">
+                    <tbody className="divide-y divide-slate-200">
                       {(terceirosSalaQuery.data || []).slice(0, 30).map((t) => (
-                        <tr key={t.contagemId} className="hover:bg-white/5">
-                          <td className="px-3 py-2 font-mono text-[11px] text-slate-200">
+                        <tr key={t.contagemId} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-800">
                             {t.identificadorExterno || "-"}
                           </td>
-                          <td className="px-3 py-2 text-slate-200">{t.descricao || "-"}</td>
-                          <td className="px-3 py-2 text-slate-300">{t.proprietarioExterno || "-"}</td>
-                          <td className="px-3 py-2 text-slate-300">
+                          <td className="px-3 py-2 text-slate-800">{t.descricao || "-"}</td>
+                          <td className="px-3 py-2 text-slate-600">{t.proprietarioExterno || "-"}</td>
+                          <td className="px-3 py-2 text-slate-600">
                             {t.encontradoEm ? new Date(t.encontradoEm).toLocaleString("pt-BR") : "-"}
                           </td>
                         </tr>
@@ -1138,23 +1138,23 @@ export default function InventoryRoomPanel() {
         eventoInventarioId={selectedEventoIdFinal}
       />
 
-      <details className="mt-5 rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 group">
+      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
         <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
           <span>Bens da sala (agrupado por catálogo)</span>
-          {bensSalaQuery.isFetching && <span className="text-xs text-slate-400">Carregando...</span>}
+          {bensSalaQuery.isFetching && <span className="text-xs text-slate-500">Carregando...</span>}
         </summary>
         <div className="mt-3 group-open:block">
           <div className="mt-2">
-            <p className="text-xs text-slate-300">
-              Itens carregados: <span className="font-semibold text-slate-100">{(bensSalaQuery.data || []).length}</span>
+            <p className="text-xs text-slate-600">
+              Itens carregados: <span className="font-semibold text-slate-900">{(bensSalaQuery.data || []).length}</span>
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
               <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={showItemPhotoList}
                   onChange={(e) => setShowItemPhotoList(e.target.checked)}
-                  className="h-4 w-4 accent-cyan-300"
+                  className="h-4 w-4 accent-violet-600"
                 />
                 Mostrar foto do item
               </label>
@@ -1163,7 +1163,7 @@ export default function InventoryRoomPanel() {
                   type="checkbox"
                   checked={showCatalogPhotoList}
                   onChange={(e) => setShowCatalogPhotoList(e.target.checked)}
-                  className="h-4 w-4 accent-cyan-300"
+                  className="h-4 w-4 accent-violet-600"
                 />
                 Mostrar foto do catálogo
               </label>
@@ -1171,21 +1171,21 @@ export default function InventoryRoomPanel() {
           </div>
 
           {!navigator.onLine && (
-            <p className="mt-2 text-[11px] text-slate-400">
-              fonte: <span className="font-semibold text-slate-200">CACHE (offline)</span>
+            <p className="mt-2 text-[11px] text-slate-500">
+              fonte: <span className="font-semibold text-slate-800">CACHE (offline)</span>
             </p>
           )}
 
           {bensSalaQuery.error && (
-            <p className="mt-3 text-sm text-rose-300">Falha ao carregar bens para este local.</p>
+            <p className="mt-3 text-sm text-rose-700">Falha ao carregar bens para este local.</p>
           )}
 
           {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && (
-            <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-slate-950/20 p-3">
-              <p className="text-sm text-slate-200">
-                Nenhum bem vinculado ao local <span className="font-semibold text-slate-100">"{salaEncontrada.trim()}"</span>.
+            <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm text-slate-800">
+                Nenhum bem vinculado ao local <span className="font-semibold text-slate-900">"{salaEncontrada.trim()}"</span>.
               </p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
                 Para aparecerem itens, um Admin deve vincular os bens a este local.
               </p>
@@ -1194,7 +1194,7 @@ export default function InventoryRoomPanel() {
 
           <div className="mt-3 space-y-2">
             {grouped.map((g) => (
-              <details key={g.catalogoBemId} className="rounded-xl border border-white/10 bg-slate-900/55 p-3">
+              <details key={g.catalogoBemId} className="rounded-xl border border-slate-200 bg-white p-3">
                 {(() => {
                   const total = g.items.length;
                   const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
@@ -1205,32 +1205,32 @@ export default function InventoryRoomPanel() {
                   }, 0);
                   return (
                     <summary className="cursor-pointer select-none">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-100">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-900">
                         <div className="flex flex-col">
                           <span>{g.items[0]?.nomeResumo || g.catalogoDescricao}</span>
                           {g.items[0]?.nomeResumo && g.items[0]?.nomeResumo !== g.catalogoDescricao && (
-                            <span className="text-[10px] text-slate-400 font-normal italic">{g.catalogoDescricao}</span>
+                            <span className="text-[10px] text-slate-500 font-normal italic">{g.catalogoDescricao}</span>
                           )}
                         </div>
-                        <span className="text-xs font-normal text-slate-300 ml-auto">
-                          Total: <span className="font-semibold text-slate-100">{total}</span>{" "}
-                          | Encontrados: <span className="font-semibold text-emerald-200">{encontrados}</span>{" "}
-                          | Divergentes: <span className="font-semibold text-rose-200">{divergentes}</span>{" "}
-                          | Faltantes: <span className="font-semibold text-amber-200">{faltantes}</span>
+                        <span className="text-xs font-normal text-slate-600 ml-auto">
+                          Total: <span className="font-semibold text-slate-900">{total}</span>{" "}
+                          | Encontrados: <span className="font-semibold text-emerald-700">{encontrados}</span>{" "}
+                          | Divergentes: <span className="font-semibold text-rose-700">{divergentes}</span>{" "}
+                          | Faltantes: <span className="font-semibold text-amber-800">{faltantes}</span>
                         </span>
                       </div>
                     </summary>
                   );
                 })()}
-                <div className="mt-3 overflow-auto rounded-lg border border-white/10">
-                  <ul className="divide-y divide-white/10 bg-slate-950/20">
+                <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
+                  <ul className="divide-y divide-slate-200 bg-slate-50">
                     {g.items.slice(0, 200).map((b) => {
                       const meta = getConferenciaMeta(b);
                       const badge = meta.encontrado
                         ? meta.divergente
-                          ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-200 bg-rose-200/10" }
-                          : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-200 bg-emerald-200/10" }
-                        : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-200 bg-amber-200/10" };
+                          ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-700 bg-rose-200/10" }
+                          : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-700 bg-emerald-200/10" }
+                        : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-800 bg-amber-200/10" };
 
                       return (
                         <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2">
@@ -1239,19 +1239,19 @@ export default function InventoryRoomPanel() {
                               type="checkbox"
                               checked={meta.encontrado}
                               readOnly
-                              className="h-4 w-4 accent-cyan-300"
+                              className="h-4 w-4 accent-violet-600"
                               title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
                             />
                             <div className="flex flex-col items-start gap-0.5">
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs text-slate-100">{b.numeroTombamento || "-"}</span>
+                                <span className="font-mono text-xs text-slate-900">{b.numeroTombamento || "-"}</span>
                                 {b.cod2Aud && (
-                                  <span className="rounded bg-cyan-500/20 px-1 py-0.5 text-[9px] font-bold text-cyan-300 border border-cyan-500/30" title={`Etiqueta Azul: ${b.cod2Aud}`}>
+                                  <span className="rounded bg-violet-100 px-1 py-0.5 text-[9px] font-bold text-violet-700 border border-violet-300/40" title={`Etiqueta Azul: ${b.cod2Aud}`}>
                                     {b.cod2Aud}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[10px] text-slate-400 leading-tight">
+                              <span className="text-[10px] text-slate-500 leading-tight">
                                 {formatUnidade(Number(b.unidadeDonaId))} • {b.nomeResumo || "Sem resumo"}
                               </span>
                               {(showItemPhotoList || showCatalogPhotoList) && (
@@ -1262,7 +1262,7 @@ export default function InventoryRoomPanel() {
                                         <img
                                           src={getFotoUrl(b.fotoUrl)}
                                           alt={`Foto item ${b.numeroTombamento || ""}`}
-                                          className="h-10 w-10 rounded border border-white/20 object-cover"
+                                          className="h-10 w-10 rounded border border-slate-300 object-cover"
                                         />
                                       </a>
                                     ) : (
@@ -1275,7 +1275,7 @@ export default function InventoryRoomPanel() {
                                         <img
                                           src={getFotoUrl(b.fotoReferenciaUrl)}
                                           alt={`Foto catalogo ${b.codigoCatalogo || ""}`}
-                                          className="h-10 w-10 rounded border border-white/20 object-cover"
+                                          className="h-10 w-10 rounded border border-slate-300 object-cover"
                                         />
                                       </a>
                                     ) : (
@@ -1303,10 +1303,10 @@ export default function InventoryRoomPanel() {
       {/* Modal Identificação Etiqueta 4 Dígitos */}
       {tagIdModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900 p-6 shadow-2xl">
-            <h3 className="font-[Space_Grotesk] text-xl font-bold text-white">Identificar Etiqueta</h3>
-            <p className="mt-4 text-slate-300">
-              O código <span className="font-mono font-bold text-cyan-400">"{tagIdModal.value}"</span> possui apenas 4 dígitos. Como deseja identificá-lo?
+          <div className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl">
+            <h3 className="font-[Space_Grotesk] text-xl font-bold text-slate-900">Identificar Etiqueta</h3>
+            <p className="mt-4 text-slate-600">
+              O código <span className="font-mono font-bold text-violet-700">"{tagIdModal.value}"</span> possui apenas 4 dígitos. Como deseja identificá-lo?
             </p>
 
             <div className="mt-8 flex flex-col gap-3">
@@ -1316,11 +1316,11 @@ export default function InventoryRoomPanel() {
                   processScan(tagIdModal.value, "antigo");
                   setTagIdModal({ isOpen: false, value: "", type: null });
                 }}
-                className="flex items-center justify-between rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-left hover:bg-blue-500/20 transition-all"
+                className="flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
               >
                 <div>
-                  <div className="font-bold text-blue-300">Etiqueta Antiga (Azul)</div>
-                  <div className="text-xs text-blue-400/80">Código legado da 2ª Auditoria</div>
+                  <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
+                  <div className="text-xs text-slate-500">Código legado da 2ª Auditoria</div>
                 </div>
                 <div className="text-blue-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1335,11 +1335,11 @@ export default function InventoryRoomPanel() {
                   processScan(tagIdModal.value, "novo");
                   setTagIdModal({ isOpen: false, value: "", type: null });
                 }}
-                className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left hover:bg-emerald-500/20 transition-all"
+                className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
               >
                 <div>
-                  <div className="font-bold text-emerald-300">Etiqueta Nova (Erro)</div>
-                  <div className="text-xs text-emerald-400/80">Etiqueta GEAFIN impressa com erro (apenas sufixo)</div>
+                  <div className="font-bold text-emerald-700">Etiqueta Nova (Erro)</div>
+                  <div className="text-xs text-slate-500">Etiqueta GEAFIN impressa com erro (apenas sufixo)</div>
                 </div>
                 <div className="text-emerald-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1355,7 +1355,7 @@ export default function InventoryRoomPanel() {
                 setTagIdModal({ isOpen: false, value: "", type: null });
                 setScannerValue("");
               }}
-              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-400 hover:text-white transition-colors"
+              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
             >
               Cancelar
             </button>
@@ -1367,16 +1367,16 @@ export default function InventoryRoomPanel() {
       {
         divergenteAlertItem && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl border border-rose-500/50 bg-slate-900 p-6 shadow-2xl shadow-rose-900/20">
-              <div className="mb-4 flex items-center gap-3 text-rose-400">
+            <div className="w-full max-w-lg rounded-2xl border border-rose-300 bg-white p-6 shadow-2xl">
+              <div className="mb-4 flex items-center gap-3 text-rose-700">
                 <svg className="h-10 w-10 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <h2 className="text-xl font-bold uppercase tracking-wide">Atenção: Bem Divergente!</h2>
               </div>
 
-              <p className="mb-4 text-base text-slate-200">
-                O item <strong className="font-mono text-white">{divergenteAlertItem.numeroTombamento}</strong> foi registrado em <strong>{divergenteAlertItem.salaEncontrada}</strong>.
+              <p className="mb-4 text-base text-slate-800">
+                O item <strong className="font-mono text-slate-900">{divergenteAlertItem.numeroTombamento}</strong> foi registrado em <strong>{divergenteAlertItem.salaEncontrada}</strong>.
                 {divergenteAlertItem.divergenciaUnidade ? (
                   <>
                     {" "}Unidade de carga: <strong>{formatUnidade(Number(divergenteAlertItem.unidadeDonaId))}</strong>. Unidade encontrada:{" "}
@@ -1390,9 +1390,9 @@ export default function InventoryRoomPanel() {
                 ) : null}
               </p>
 
-              <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-                <p className="font-bold text-amber-300 uppercase">Não leve este item para outro local!</p>
-                <p className="mt-2 text-sm text-amber-200/80 leading-relaxed">
+              <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4">
+                <p className="font-bold text-amber-800 uppercase">Não leve este item para outro local!</p>
+                <p className="mt-2 text-sm text-amber-800/80 leading-relaxed">
                   Segundo o <strong>Art. 185 (ATN 303)</strong>, divergências constatadas in-loco de fato compõem o rol de Ocorrências (Disparidades).
                   O bem deverá permanecer obrigatoriamente neste local até o fim dos trabalhos, momento em que a fila de forasteiros possibilitará sua regularização por transferência.
                 </p>
@@ -1400,7 +1400,7 @@ export default function InventoryRoomPanel() {
 
               <button
                 onClick={() => setDivergenteAlertItem(null)}
-                className="w-full rounded-xl bg-rose-600 py-3 font-semibold text-white transition-colors hover:bg-rose-500 active:bg-rose-700 hover:shadow-lg hover:shadow-rose-900/50"
+                className="w-full rounded-xl bg-rose-600 py-3 font-semibold text-white transition-colors hover:bg-rose-500 active:bg-rose-700"
               >
                 Ciente. Vou manter este bem aqui.
               </button>
@@ -1427,7 +1427,7 @@ function describeRowDivergence(row) {
   if (unidadeDivergente && salaDivergente) {
     return {
       badge: "UNIDADE + SALA",
-      badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-200",
+      badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-700",
       title: "Carga em unidade diferente e sala divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
     };
@@ -1435,7 +1435,7 @@ function describeRowDivergence(row) {
   if (unidadeDivergente) {
     return {
       badge: "UNIDADE",
-      badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-200",
+      badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-800",
       title: "Carga em unidade diferente.",
       detail: "",
     };
@@ -1443,14 +1443,14 @@ function describeRowDivergence(row) {
   if (salaDivergente) {
     return {
       badge: "SALA",
-      badgeClass: "border-cyan-300/40 bg-cyan-200/10 text-cyan-200",
+      badgeClass: "border-violet-300 bg-violet-100/10 text-violet-700",
       title: "Mesma unidade, mas sala divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
     };
   }
   return {
     badge: "REGISTRO",
-    badgeClass: "border-white/25 bg-white/10 text-slate-200",
+    badgeClass: "border-slate-300 bg-slate-100 text-slate-800",
     title: "Divergencia registrada (sem detalhe de local esperado).",
     detail: salaEsperada ? `Sala de referencia: ${salaEsperada}.` : "",
   };
@@ -1547,25 +1547,25 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
   if (!salaEncontrada.trim()) return null;
 
   return (
-    <details className="mt-5 rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 group">
+    <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
       <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
         <span>Divergências na sala (Art. 185)</span>
-        <span className="text-xs font-normal text-slate-300">
-          Pendentes: <span className="font-semibold text-rose-200">{all.length}</span>
+        <span className="text-xs font-normal text-slate-600">
+          Pendentes: <span className="font-semibold text-rose-700">{all.length}</span>
         </span>
       </summary>
       <div className="mt-3 group-open:block">
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-slate-500">
           Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
         </p>
 
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
           <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"
               checked={showItemPhoto}
               onChange={(e) => setShowItemPhoto(e.target.checked)}
-              className="h-4 w-4 accent-cyan-300"
+              className="h-4 w-4 accent-violet-600"
             />
             Foto do item
           </label>
@@ -1574,18 +1574,18 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
               type="checkbox"
               checked={showCatalogPhoto}
               onChange={(e) => setShowCatalogPhoto(e.target.checked)}
-              className="h-4 w-4 accent-cyan-300"
+              className="h-4 w-4 accent-violet-600"
             />
             Foto do catalogo
           </label>
         </div>
 
         {all.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-300">Nenhuma divergência pendente nesta sala.</p>
+          <p className="mt-3 text-sm text-slate-600">Nenhuma divergência pendente nesta sala.</p>
         ) : (
-          <div className="mt-3 overflow-x-auto rounded-xl border border-white/10 pb-2">
+          <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 pb-2">
             <table className="w-full text-sm">
-              <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
+              <thead className="bg-white text-xs uppercase tracking-widest text-slate-600">
                 <tr>
                   <th className="px-3 py-3 text-left">Tombo</th>
                   <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
@@ -1596,44 +1596,44 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
                   <th className="px-3 py-3 text-left">Quando</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10 bg-slate-900/40">
+              <tbody className="divide-y divide-slate-200 bg-slate-50">
                 {all.slice(0, 120).map((d) => {
                   const b = d.numeroTombamento ? bemByTomb.get(String(d.numeroTombamento)) : null;
                   const fotoItem = getFotoUrl(d.fotoUrl || b?.fotoUrl || "");
                   const fotoCatalogo = getFotoUrl(d.fotoReferenciaUrl || b?.fotoReferenciaUrl || "");
                   return (
                     <tr key={`${d.fonte}|${d.numeroTombamento || d.identificadorExterno}`}>
-                      <td className="px-3 py-3 font-mono text-xs text-slate-100">{d.numeroTombamento || <span className="text-rose-400 font-bold">SEM PLACA<br /><span className="text-[10px] text-rose-300 font-normal">{d.identificadorExterno}</span></span>}</td>
+                      <td className="px-3 py-3 font-mono text-xs text-slate-900">{d.numeroTombamento || <span className="text-rose-700 font-bold">SEM PLACA<br /><span className="text-[10px] text-rose-600 font-normal">{d.identificadorExterno}</span></span>}</td>
                       <td className="px-3 py-3">
-                        <div className="font-mono text-[11px] text-emerald-300">{d.codigoCatalogo || b?.codigoCatalogo || "-"}</div>
-                        <div className="font-semibold text-slate-200">{d.catalogoDescricao || b?.catalogoDescricao || "-"}</div>
+                        <div className="font-mono text-[11px] text-emerald-700">{d.codigoCatalogo || b?.codigoCatalogo || "-"}</div>
+                        <div className="font-semibold text-slate-800">{d.catalogoDescricao || b?.catalogoDescricao || "-"}</div>
                         {d.descricaoComplementar && (
-                          <div className="mt-1 text-xs text-amber-100/90 font-medium whitespace-pre-line">
+                          <div className="mt-1 text-xs text-amber-800/90 font-medium whitespace-pre-line">
                             {d.descricaoComplementar}
                           </div>
                         )}
                         {d.observacoes && (
-                          <div className="mt-1 text-[11px] text-slate-400 italic">
+                          <div className="mt-1 text-[11px] text-slate-500 italic">
                             {d.observacoes}
                           </div>
                         )}
                         {showItemPhoto && fotoItem && (
                           <div className="mt-2">
-                            <a href={fotoItem} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
+                            <a href={fotoItem} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-slate-100">
                               📸 Ver Foto
                             </a>
                           </div>
                         )}
                         {showCatalogPhoto && fotoCatalogo && (
                           <div className="mt-2">
-                            <a href={fotoCatalogo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-900/40 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-800/50">
+                            <a href={fotoCatalogo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
                               Foto catalogo
                             </a>
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(d.unidadeDonaId))}</td>
-                      <td className="px-3 py-3 text-amber-100">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
+                      <td className="px-3 py-3 text-slate-800">{formatUnidade(Number(d.unidadeDonaId))}</td>
+                      <td className="px-3 py-3 text-amber-800">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
                       {(() => {
                         const divergence = describeRowDivergence(d);
                         return (
@@ -1641,19 +1641,19 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
                             <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${divergence.badgeClass}`}>
                               {divergence.badge}
                             </span>
-                            <div className="mt-1 text-xs text-slate-200">{divergence.title}</div>
+                            <div className="mt-1 text-xs text-slate-800">{divergence.title}</div>
                             {divergence.detail && (
-                              <div className="mt-1 text-[11px] text-slate-400">{divergence.detail}</div>
+                              <div className="mt-1 text-[11px] text-slate-500">{divergence.detail}</div>
                             )}
                           </td>
                         );
                       })()}
                       <td className="px-3 py-3">
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${d.fonte === "SERVIDOR" ? "border-emerald-300/40 bg-emerald-200/10 text-emerald-200" : "border-amber-300/40 bg-amber-200/10 text-amber-200"}`}>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${d.fonte === "SERVIDOR" ? "border-emerald-300/40 bg-emerald-200/10 text-emerald-700" : "border-amber-300/40 bg-amber-200/10 text-amber-800"}`}>
                           {d.fonte}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-slate-300">{d.encontradoEm ? new Date(d.encontradoEm).toLocaleString() : "-"}</td>
+                      <td className="px-3 py-3 text-slate-600">{d.encontradoEm ? new Date(d.encontradoEm).toLocaleString() : "-"}</td>
                     </tr>
                   );
                 })}
@@ -1665,3 +1665,6 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
+
+
+

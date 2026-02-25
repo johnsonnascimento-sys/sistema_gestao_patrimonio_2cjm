@@ -494,55 +494,55 @@ export default function OperationsPanel() {
     }));
 
   return (
-    <section className="mt-6 space-y-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
+    <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Administração do Painel</h2>
-        <p className="mt-2 text-sm text-slate-300">
+        <p className="mt-2 text-sm text-slate-600">
           Integracao direta com backend em{" "}
-          <code className="rounded bg-slate-950/70 px-1 py-0.5 text-cyan-200">
+          <code className="rounded bg-slate-100 px-1 py-0.5 text-violet-700">
             {API_BASE_URL}
           </code>
           .
         </p>
       </header>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Conectividade backend</h3>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onHealth}
-            className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-200"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
           >
             Testar /health
           </button>
-          {healthState.loading && <span className="text-sm text-slate-300">Consultando...</span>}
+          {healthState.loading && <span className="text-sm text-slate-600">Consultando...</span>}
           {healthState.error && (
-            <span className="text-sm text-rose-300">{healthState.error}</span>
+            <span className="text-sm text-rose-700">{healthState.error}</span>
           )}
           {healthState.data && (
-            <span className="text-sm text-emerald-300">
+            <span className="text-sm text-emerald-700">
               OK ({healthState.data.status}) requestId={healthState.data.requestId}
             </span>
           )}
         </div>
       </article>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold">Locais (salas) cadastrados</h3>
-            <p className="mt-1 text-xs text-slate-300">
+            <p className="mt-1 text-xs text-slate-600">
               Fonte de verdade para o campo "Local cadastrado" no Modo Inventário. O Admin gerencia aqui.
             </p>
           </div>
           <div className="flex items-end gap-3">
             <label className="space-y-1">
-              <span className="block text-[11px] text-slate-300">Filtrar por unidade</span>
+              <span className="block text-[11px] text-slate-600">Filtrar por unidade</span>
               <select
                 value={locaisFilterUnidadeId}
                 onChange={(e) => setLocaisFilterUnidadeId(e.target.value)}
-                className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={!canAdmin}
               >
                 <option value="">Todas</option>
@@ -552,7 +552,7 @@ export default function OperationsPanel() {
                 <option value="4">4 (Almox)</option>
               </select>
             </label>
-            <label className="flex items-center gap-2 pb-1 text-xs text-slate-300">
+            <label className="flex items-center gap-2 pb-1 text-xs text-slate-600">
               <input
                 type="checkbox"
                 checked={locaisIncludeInativos}
@@ -564,7 +564,7 @@ export default function OperationsPanel() {
             <button
               type="button"
               onClick={loadLocais}
-              className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-50"
               disabled={!canAdmin || locaisState.loading}
               title={!canAdmin ? "Somente ADMIN." : "Recarregar lista."}
             >
@@ -574,35 +574,35 @@ export default function OperationsPanel() {
         </div>
 
         {!canAdmin && auth.authEnabled ? (
-          <p className="mt-3 text-xs text-rose-200">
+          <p className="mt-3 text-xs text-rose-700">
             Operação restrita ao perfil <strong>ADMIN</strong>.
           </p>
         ) : null}
-        {locaisState.error ? <p className="mt-3 text-sm text-rose-300">{locaisState.error}</p> : null}
+        {locaisState.error ? <p className="mt-3 text-sm text-rose-700">{locaisState.error}</p> : null}
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <form onSubmit={onCreateLocal} className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-            <h4 className="text-sm font-semibold text-slate-100">Criar/atualizar local</h4>
-            <p className="mt-1 text-[11px] text-slate-400">
+          <form onSubmit={onCreateLocal} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="text-sm font-semibold text-slate-900">Criar/atualizar local</h4>
+            <p className="mt-1 text-[11px] text-slate-500">
               Upsert por <code className="px-1">nome</code>. Use nomes padronizados: "Sala 101", "Hall 6º Andar", "Plenário 2ª Auditoria".
             </p>
             <div className="mt-3 grid gap-2">
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Nome</span>
+                <span className="text-xs text-slate-600">Nome</span>
                 <input
                   value={localForm.nome}
                   onChange={(e) => setLocalField("nome", e.target.value)}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   placeholder="Ex.: Sala 101"
                   disabled={!canAdmin && auth.authEnabled}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Unidade (opcional)</span>
+                <span className="text-xs text-slate-600">Unidade (opcional)</span>
                 <select
                   value={localForm.unidadeId}
                   onChange={(e) => setLocalField("unidadeId", e.target.value)}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={!canAdmin && auth.authEnabled}
                 >
                   <option value="">(geral)</option>
@@ -613,21 +613,21 @@ export default function OperationsPanel() {
                 </select>
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Tipo (opcional)</span>
+                <span className="text-xs text-slate-600">Tipo (opcional)</span>
                 <input
                   value={localForm.tipo}
                   onChange={(e) => setLocalField("tipo", e.target.value)}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   placeholder="Ex.: SALA, HALL, PLENARIO"
                   disabled={!canAdmin && auth.authEnabled}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Observações (opcional)</span>
+                <span className="text-xs text-slate-600">Observações (opcional)</span>
                 <textarea
                   value={localForm.observacoes}
                   onChange={(e) => setLocalField("observacoes", e.target.value)}
-                  className="min-h-20 w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   placeholder="Ex.: Sala de reunião principal do 6º andar."
                   disabled={!canAdmin && auth.authEnabled}
                 />
@@ -635,7 +635,7 @@ export default function OperationsPanel() {
               <button
                 type="submit"
                 disabled={localFormState.loading || (!canAdmin && auth.authEnabled)}
-                className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {localFormState.loading ? "Salvando..." : localEditId ? "Atualizar local" : "Salvar local"}
               </button>
@@ -643,27 +643,27 @@ export default function OperationsPanel() {
                 <button
                   type="button"
                   onClick={cancelEditLocal}
-                  className="rounded-lg border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
                   disabled={localFormState.loading}
                 >
                   Cancelar edição
                 </button>
               ) : null}
-              {localFormState.error ? <p className="text-sm text-rose-300">{localFormState.error}</p> : null}
+              {localFormState.error ? <p className="text-sm text-rose-700">{localFormState.error}</p> : null}
               {localFormState.response?.local?.id ? (
-                <p className="text-xs text-emerald-200">
+                <p className="text-xs text-emerald-700">
                   Salvo: {localFormState.response.local.nome} (id={localFormState.response.local.id})
                 </p>
               ) : null}
             </div>
           </form>
 
-          <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
-            <h4 className="text-sm font-semibold text-slate-100">Lista</h4>
-            <p className="mt-1 text-[11px] text-slate-400">Dica: mantenha nomes curtos e padronizados para facilitar a seleção.</p>
-            <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-white/10">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="text-sm font-semibold text-slate-900">Lista</h4>
+            <p className="mt-1 text-[11px] text-slate-500">Dica: mantenha nomes curtos e padronizados para facilitar a seleção.</p>
+            <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-left text-xs">
-                <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                   <tr>
                     <th className="px-3 py-2">Nome</th>
                     <th className="px-3 py-2">Unidade</th>
@@ -673,19 +673,19 @@ export default function OperationsPanel() {
                     <th className="px-3 py-2">Id</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-slate-200">
                   {(locaisState.data?.items || []).slice(0, 500).map((l) => (
-                    <tr key={l.id} className="hover:bg-white/5">
-                      <td className="px-3 py-2 text-slate-100">{l.nome}</td>
-                      <td className="px-3 py-2 text-slate-300">{l.unidadeId ? String(l.unidadeId) : "-"}</td>
-                      <td className="px-3 py-2 text-slate-300">{l.tipo || "-"}</td>
-                      <td className="px-3 py-2 text-slate-300">{l.ativo === false ? "NÃO" : "SIM"}</td>
+                    <tr key={l.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 text-slate-900">{l.nome}</td>
+                      <td className="px-3 py-2 text-slate-600">{l.unidadeId ? String(l.unidadeId) : "-"}</td>
+                      <td className="px-3 py-2 text-slate-600">{l.tipo || "-"}</td>
+                      <td className="px-3 py-2 text-slate-600">{l.ativo === false ? "NÃO" : "SIM"}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => beginEditLocal(l)}
-                            className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                            className="rounded-md border border-slate-300 px-3 py-1.5 text-[11px] font-semibold hover:bg-slate-100"
                             disabled={!canAdmin || localFormState.loading}
                           >
                             Editar
@@ -693,7 +693,7 @@ export default function OperationsPanel() {
                           <button
                             type="button"
                             onClick={() => toggleLocalAtivo(l)}
-                            className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                            className="rounded-md border border-slate-300 px-3 py-1.5 text-[11px] font-semibold hover:bg-slate-100"
                             disabled={!canAdmin || localFormState.loading}
                             title="Desativar/ativar local (soft delete)."
                           >
@@ -701,12 +701,12 @@ export default function OperationsPanel() {
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-2 font-mono text-[11px] text-slate-300">{l.id}</td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-slate-600">{l.id}</td>
                     </tr>
                   ))}
                   {(locaisState.data?.items || []).length === 0 && !locaisState.loading ? (
                     <tr>
-                      <td className="px-3 py-3 text-slate-300" colSpan={6}>
+                      <td className="px-3 py-3 text-slate-600" colSpan={6}>
                         Nenhum local cadastrado ainda.
                       </td>
                     </tr>
@@ -717,19 +717,19 @@ export default function OperationsPanel() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
-          <h4 className="text-sm font-semibold text-slate-100">Vincular bens ao local (em lote)</h4>
-          <p className="mt-1 text-[11px] text-slate-400">
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h4 className="text-sm font-semibold text-slate-900">Vincular bens ao local (em lote)</h4>
+          <p className="mt-1 text-[11px] text-slate-500">
             Operação operacional para popular <code className="px-1">bens.local_id</code> a partir do texto do GEAFIN
             (<code className="px-1">local_fisico</code>). Isso é o que faz o inventário por sala funcionar.
           </p>
           <form onSubmit={onMapBensLocal} className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-300">Local (destino)</span>
+              <span className="text-xs text-slate-600">Local (destino)</span>
               <select
                 value={mapLocalForm.localId}
                 onChange={(e) => setMapLocalField("localId", e.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={!canAdmin && auth.authEnabled}
               >
                 <option value="">Selecione um local</option>
@@ -741,21 +741,21 @@ export default function OperationsPanel() {
               </select>
             </label>
             <label className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-300">termoLocalFisico (texto do GEAFIN)</span>
+              <span className="text-xs text-slate-600">termoLocalFisico (texto do GEAFIN)</span>
               <input
                 value={mapLocalForm.termoLocalFisico}
                 onChange={(e) => setMapLocalField("termoLocalFisico", e.target.value)}
                 placeholder='Ex.: "Sala 101" ou "Hall 6"'
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={!canAdmin && auth.authEnabled}
               />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Unidade dona (opcional)</span>
+              <span className="text-xs text-slate-600">Unidade dona (opcional)</span>
               <select
                 value={mapLocalForm.unidadeDonaId}
                 onChange={(e) => setMapLocalField("unidadeDonaId", e.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={!canAdmin && auth.authEnabled}
               >
                 <option value="">(todas)</option>
@@ -766,21 +766,21 @@ export default function OperationsPanel() {
               </select>
             </label>
             <div className="flex flex-wrap items-end gap-3">
-              <label className="flex items-center gap-2 text-sm text-slate-300">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input
                   type="checkbox"
                   checked={Boolean(mapLocalForm.somenteSemLocalId)}
                   onChange={(e) => setMapLocalField("somenteSemLocalId", e.target.checked)}
-                  className="h-4 w-4 accent-cyan-300"
+                  className="h-4 w-4 accent-violet-600"
                 />
                 Somente sem localId
               </label>
-              <label className="flex items-center gap-2 text-sm text-slate-300">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input
                   type="checkbox"
                   checked={Boolean(mapLocalForm.dryRun)}
                   onChange={(e) => setMapLocalField("dryRun", e.target.checked)}
-                  className="h-4 w-4 accent-cyan-300"
+                  className="h-4 w-4 accent-violet-600"
                 />
                 Dry-run (não aplica)
               </label>
@@ -789,13 +789,13 @@ export default function OperationsPanel() {
               <button
                 type="submit"
                 disabled={mapLocalState.loading || (!canAdmin && auth.authEnabled)}
-                className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {mapLocalState.loading ? "Executando..." : mapLocalForm.dryRun ? "Simular" : "Aplicar vinculação"}
               </button>
-              {mapLocalState.error ? <p className="mt-2 text-sm text-rose-300">{mapLocalState.error}</p> : null}
+              {mapLocalState.error ? <p className="mt-2 text-sm text-rose-700">{mapLocalState.error}</p> : null}
               {mapLocalState.response ? (
-                <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
+                <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
                   {JSON.stringify(mapLocalState.response, null, 2)}
                 </pre>
               ) : null}
@@ -804,10 +804,10 @@ export default function OperationsPanel() {
         </div>
       </article>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Importação GEAFIN (CSV Latin1)</h3>
         {!canAdmin && auth.authEnabled && (
-          <p className="mt-2 text-xs text-rose-200">
+          <p className="mt-2 text-xs text-rose-700">
             Operação restrita ao perfil <strong>ADMIN</strong>.
           </p>
         )}
@@ -817,7 +817,7 @@ export default function OperationsPanel() {
             accept=".csv,text/csv"
             onChange={(event) => setCsvFile(event.target.files?.[0] || null)}
             disabled={!canAdmin && auth.authEnabled}
-            className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
           <input
             type="number"
@@ -827,37 +827,37 @@ export default function OperationsPanel() {
             onChange={(event) => setUnidadePadraoId(event.target.value)}
             placeholder="Unidade (1-4)"
             disabled={!canAdmin && auth.authEnabled}
-            className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
           <button
             type="submit"
             disabled={importState.loading || (!canAdmin && auth.authEnabled)}
-            className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
           >
             {importState.loading ? "Importando..." : "Importar"}
           </button>
         </form>
         <ImportProgressBar progressState={importProgress} onCancel={onCancelImport} />
-        {importState.error && <p className="mt-2 text-sm text-rose-300">{importState.error}</p>}
+        {importState.error && <p className="mt-2 text-sm text-rose-700">{importState.error}</p>}
         {importState.response && (
-          <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
+          <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
             {JSON.stringify(importState.response, null, 2)}
           </pre>
         )}
       </article>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold">Perfis (usuários)</h3>
-            <p className="mt-1 text-xs text-slate-300">
+            <p className="mt-1 text-xs text-slate-600">
               Admin cadastra perfis aqui. O usuário define a própria senha em <strong>Primeiro acesso</strong> na tela de login.
             </p>
           </div>
           <button
             type="button"
             onClick={loadPerfis}
-            className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-50"
             disabled={!canAdmin || perfisState.loading}
             title={!canAdmin ? "Somente ADMIN." : "Recarregar lista de perfis."}
           >
@@ -865,36 +865,36 @@ export default function OperationsPanel() {
           </button>
         </div>
         {!canAdmin && auth.authEnabled && (
-          <p className="mt-2 text-xs text-rose-200">
+          <p className="mt-2 text-xs text-rose-700">
             Operação restrita ao perfil <strong>ADMIN</strong>.
           </p>
         )}
 
-        {perfisState.error ? <p className="mt-3 text-sm text-rose-300">{perfisState.error}</p> : null}
+        {perfisState.error ? <p className="mt-3 text-sm text-rose-700">{perfisState.error}</p> : null}
 
         <form onSubmit={onCreatePerfil} className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Matricula</span>
+            <span className="text-xs text-slate-600">Matricula</span>
             <input
               value={perfilForm.matricula}
               onChange={(event) => setPerfilField("matricula", event.target.value)}
               placeholder="Ex.: 123456"
               disabled={!canAdmin && auth.authEnabled}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Nome</span>
+            <span className="text-xs text-slate-600">Nome</span>
             <input
               value={perfilForm.nome}
               onChange={(event) => setPerfilField("nome", event.target.value)}
               placeholder="Ex.: Fulano de Tal"
               disabled={!canAdmin && auth.authEnabled}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Unidade (1-4)</span>
+            <span className="text-xs text-slate-600">Unidade (1-4)</span>
             <input
               type="number"
               min="1"
@@ -902,56 +902,56 @@ export default function OperationsPanel() {
               value={perfilForm.unidadeId}
               onChange={(event) => setPerfilField("unidadeId", event.target.value)}
               disabled={!canAdmin && auth.authEnabled}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Email (opcional)</span>
+            <span className="text-xs text-slate-600">Email (opcional)</span>
             <input
               value={perfilForm.email}
               onChange={(event) => setPerfilField("email", event.target.value)}
               disabled={!canAdmin && auth.authEnabled}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-300">Cargo (opcional)</span>
+            <span className="text-xs text-slate-600">Cargo (opcional)</span>
             <input
               value={perfilForm.cargo}
               onChange={(event) => setPerfilField("cargo", event.target.value)}
               disabled={!canAdmin && auth.authEnabled}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <div className="md:col-span-2">
             <button
               type="submit"
               disabled={perfilState.loading || (!canAdmin && auth.authEnabled)}
-              className="rounded-lg bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {perfilState.loading ? "Criando..." : "Criar perfil"}
             </button>
           </div>
         </form>
-        {perfilState.error && <p className="mt-2 text-sm text-rose-300">{perfilState.error}</p>}
+        {perfilState.error && <p className="mt-2 text-sm text-rose-700">{perfilState.error}</p>}
         {perfilState.response && (
-          <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
+          <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
             {JSON.stringify(perfilState.response, null, 2)}
           </pre>
         )}
 
         {perfilEditId ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-slate-100">Editar perfil</p>
-                <p className="mt-1 text-[11px] text-slate-400">perfilId: <span className="font-mono">{perfilEditId}</span></p>
+                <p className="text-sm font-semibold text-slate-900">Editar perfil</p>
+                <p className="mt-1 text-[11px] text-slate-500">perfilId: <span className="font-mono">{perfilEditId}</span></p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={cancelEditPerfil}
-                  className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-100"
                   disabled={perfilEditState.loading}
                 >
                   Cancelar
@@ -959,7 +959,7 @@ export default function OperationsPanel() {
                 <button
                   type="button"
                   onClick={savePerfilEdit}
-                  className="rounded-md bg-cyan-300 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-50"
+                  className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
                   disabled={perfilEditState.loading}
                 >
                   {perfilEditState.loading ? "Salvando..." : "Salvar"}
@@ -967,66 +967,66 @@ export default function OperationsPanel() {
               </div>
             </div>
 
-            {perfilEditState.error ? <p className="mt-2 text-sm text-rose-300">{perfilEditState.error}</p> : null}
+            {perfilEditState.error ? <p className="mt-2 text-sm text-rose-700">{perfilEditState.error}</p> : null}
 
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Nome</span>
+                <span className="text-xs text-slate-600">Nome</span>
                 <input
                   value={perfilEditForm.nome}
                   onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, nome: e.target.value }))}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={perfilEditState.loading}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Email</span>
+                <span className="text-xs text-slate-600">Email</span>
                 <input
                   value={perfilEditForm.email}
                   onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={perfilEditState.loading}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Unidade (1-4)</span>
+                <span className="text-xs text-slate-600">Unidade (1-4)</span>
                 <input
                   type="number"
                   min="1"
                   max="4"
                   value={perfilEditForm.unidadeId}
                   onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, unidadeId: e.target.value }))}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={perfilEditState.loading}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Cargo</span>
+                <span className="text-xs text-slate-600">Cargo</span>
                 <input
                   value={perfilEditForm.cargo}
                   onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, cargo: e.target.value }))}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={perfilEditState.loading}
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Role</span>
+                <span className="text-xs text-slate-600">Role</span>
                 <select
                   value={perfilEditForm.role}
                   onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, role: e.target.value }))}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={perfilEditState.loading}
                 >
                   <option value="OPERADOR">OPERADOR</option>
                   <option value="ADMIN">ADMIN</option>
                 </select>
               </label>
-              <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/30 px-3 py-2 text-sm text-slate-200">
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
                 <input
                   type="checkbox"
                   checked={Boolean(perfilEditForm.ativo)}
                   onChange={(e) => setPerfilEditForm((prev) => ({ ...prev, ativo: e.target.checked }))}
-                  className="h-4 w-4 accent-cyan-300"
+                  className="h-4 w-4 accent-violet-600"
                   disabled={perfilEditState.loading}
                 />
                 Ativo
@@ -1035,15 +1035,15 @@ export default function OperationsPanel() {
           </div>
         ) : null}
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
-          <h4 className="text-sm font-semibold text-slate-100">Lista de perfis</h4>
-          <p className="mt-1 text-[11px] text-slate-400">Ações: editar, ativar/desativar, resetar senha.</p>
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h4 className="text-sm font-semibold text-slate-900">Lista de perfis</h4>
+          <p className="mt-1 text-[11px] text-slate-500">Ações: editar, ativar/desativar, resetar senha.</p>
 
-          {perfilEditState.error ? <p className="mt-2 text-sm text-rose-300">{perfilEditState.error}</p> : null}
+          {perfilEditState.error ? <p className="mt-2 text-sm text-rose-700">{perfilEditState.error}</p> : null}
 
-          <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-white/10">
+          <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-200">
             <table className="min-w-full text-left text-xs">
-              <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+              <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                 <tr>
                   <th className="px-3 py-2">Matrícula</th>
                   <th className="px-3 py-2">Nome</th>
@@ -1054,21 +1054,21 @@ export default function OperationsPanel() {
                   <th className="px-3 py-2">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-slate-200">
                 {(perfisState.data?.items || []).map((p) => (
-                  <tr key={p.id} className="hover:bg-white/5">
-                    <td className="px-3 py-2 font-mono text-[11px] text-slate-200">{p.matricula}</td>
-                    <td className="px-3 py-2 text-slate-100">{p.nome}</td>
-                    <td className="px-3 py-2 text-slate-300">{p.unidadeId}</td>
-                    <td className="px-3 py-2 text-slate-300">{p.role}</td>
-                    <td className="px-3 py-2 text-slate-300">{p.ativo ? "SIM" : "NÃO"}</td>
-                    <td className="px-3 py-2 text-slate-300">{p.senhaDefinidaEm ? "DEFINIDA" : "NÃO"}</td>
+                  <tr key={p.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-mono text-[11px] text-slate-800">{p.matricula}</td>
+                    <td className="px-3 py-2 text-slate-900">{p.nome}</td>
+                    <td className="px-3 py-2 text-slate-600">{p.unidadeId}</td>
+                    <td className="px-3 py-2 text-slate-600">{p.role}</td>
+                    <td className="px-3 py-2 text-slate-600">{p.ativo ? "SIM" : "NÃO"}</td>
+                    <td className="px-3 py-2 text-slate-600">{p.senhaDefinidaEm ? "DEFINIDA" : "NÃO"}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => beginEditPerfil(p)}
-                          className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-[11px] font-semibold hover:bg-slate-100"
                           disabled={!canAdmin || perfilEditState.loading}
                         >
                           Editar
@@ -1076,7 +1076,7 @@ export default function OperationsPanel() {
                         <button
                           type="button"
                           onClick={() => togglePerfilAtivo(p)}
-                          className="rounded-md border border-white/20 px-3 py-1.5 text-[11px] font-semibold hover:bg-white/10"
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-[11px] font-semibold hover:bg-slate-100"
                           disabled={!canAdmin || perfilEditState.loading}
                           title="Ativa/desativa o perfil (soft-disable)."
                         >
@@ -1085,7 +1085,7 @@ export default function OperationsPanel() {
                         <button
                           type="button"
                           onClick={() => onResetSenhaPerfil(p)}
-                          className="rounded-md border border-amber-300/30 bg-amber-200/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 hover:bg-amber-200/20"
+                          className="rounded-md border border-amber-300/30 bg-amber-200/10 px-3 py-1.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-200/20"
                           disabled={!canAdmin || perfilEditState.loading}
                           title="Remove hash de senha para permitir 'Primeiro acesso' novamente."
                         >
@@ -1097,7 +1097,7 @@ export default function OperationsPanel() {
                 ))}
                 {(perfisState.data?.items || []).length === 0 && !perfisState.loading ? (
                   <tr>
-                    <td className="px-3 py-3 text-slate-300" colSpan={7}>
+                    <td className="px-3 py-3 text-slate-600" colSpan={7}>
                       Nenhum perfil cadastrado ainda.
                     </td>
                   </tr>
@@ -1162,19 +1162,19 @@ function ImportProgressBar({ progressState, onCancel }) {
   const showCancel = Boolean(typeof onCancel === "function" && imp?.status === "EM_ANDAMENTO");
 
   return (
-    <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/50 p-3">
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-widest text-slate-400">
+          <p className="text-xs uppercase tracking-widest text-slate-500">
             Progresso da importação (GEAFIN)
           </p>
-          <p className="mt-1 text-sm text-slate-200">
+          <p className="mt-1 text-sm text-slate-800">
             {imp?.originalFilename ? (
               <span className="font-medium">{imp.originalFilename}</span>
             ) : (
               <span className="font-medium">Arquivo</span>
             )}
-            {imp?.status ? <span className="text-slate-400"> {" "}({imp.status})</span> : null}
+            {imp?.status ? <span className="text-slate-500"> {" "}({imp.status})</span> : null}
           </p>
           {startedEm ? (
             <p className="mt-1 text-[11px] text-slate-500">início: {fmt(startedEm)}</p>
@@ -1189,15 +1189,15 @@ function ImportProgressBar({ progressState, onCancel }) {
             <p className="mt-1 text-[11px] text-slate-500">tempo decorrido: {elapsedTotal}s</p>
           ) : null}
           {idle != null && imp?.status === "EM_ANDAMENTO" ? (
-            <p className={`mt-1 text-[11px] ${idle > 60 ? "text-amber-200" : "text-slate-500"}`}>
+            <p className={`mt-1 text-[11px] ${idle > 60 ? "text-amber-800" : "text-slate-500"}`}>
               sem atualização: {idle}s
             </p>
           ) : null}
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-cyan-200">{label}</p>
+          <p className="text-sm font-semibold text-violet-700">{label}</p>
           {imp ? (
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-500">
               ok={imp.persistenciaOk} falha_persist={imp.falhaPersistencia} falha_norm={imp.falhaNormalizacao}
             </p>
           ) : null}
@@ -1205,7 +1205,7 @@ function ImportProgressBar({ progressState, onCancel }) {
             <button
               type="button"
               onClick={onCancel}
-              className="mt-2 rounded-md border border-rose-300/30 bg-rose-200/10 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-200/20"
+              className="mt-2 rounded-md border border-rose-300/30 bg-rose-200/10 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-200/20"
               title="Cancelar importação (marca como ERRO para destravar a UI)."
             >
               Cancelar
@@ -1214,10 +1214,10 @@ function ImportProgressBar({ progressState, onCancel }) {
         </div>
       </div>
 
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white">
         <div
           className={[
-            "h-full rounded-full bg-cyan-300 transition-[width] duration-300",
+            "h-full rounded-full bg-violet-600 transition-[width] duration-300",
             indeterminate || percent == null ? "w-2/3 animate-pulse" : "",
           ].join(" ").trim()}
           style={!indeterminate && percent != null ? { width: `${Math.max(0, Math.min(100, percent))}%` } : undefined}
@@ -1225,15 +1225,15 @@ function ImportProgressBar({ progressState, onCancel }) {
       </div>
 
       {progressState?.error ? (
-        <p className="mt-2 text-xs text-rose-300">{progressState.error}</p>
+        <p className="mt-2 text-xs text-rose-700">{progressState.error}</p>
       ) : null}
       {imp?.erroResumo ? (
         <p
           className={`mt-2 text-xs ${
             String(imp.status || "").toUpperCase() === "ERRO" &&
             String(imp.erroResumo || "").toLowerCase().includes("cancelad")
-              ? "text-amber-100"
-              : "text-rose-200"
+              ? "text-amber-800"
+              : "text-rose-700"
           }`}
         >
           {String(imp.status || "").toUpperCase() === "ERRO" &&
@@ -1251,3 +1251,5 @@ function ImportProgressBar({ progressState, onCancel }) {
     </div>
   );
 }
+
+

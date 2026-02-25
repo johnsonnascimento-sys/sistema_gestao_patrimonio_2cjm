@@ -85,25 +85,25 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
   const back = () => setStep((v) => Math.max(v - 1, 0));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur">
-      <div className="w-full max-w-2xl rounded-3xl border border-white/20 bg-slate-900 p-6 shadow-2xl">
-        <p className="text-xs uppercase tracking-widest text-cyan-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur">
+      <div className="w-full max-w-2xl rounded-3xl border border-slate-300 bg-white p-6 shadow-2xl">
+        <p className="text-xs uppercase tracking-widest text-violet-700">
           Art. 141 (AN303_Art141_Cap, I, II, III, IV)
         </p>
         <h3 className="mt-2 font-[Space_Grotesk] text-2xl font-bold">{current.titulo}</h3>
-        <p className="mt-1 text-sm text-slate-300">{current.hint}</p>
+        <p className="mt-1 text-sm text-slate-600">{current.hint}</p>
 
-        <div className="mt-5 rounded-2xl border border-white/15 bg-slate-950/40 p-4">
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
           {current.id === "descricao" ? (
             <label className="space-y-2">
-              <span className="text-sm text-slate-200">Descrição do bem</span>
+              <span className="text-sm text-slate-800">Descrição do bem</span>
               <input
                 value={answers.descricao}
                 onChange={(e) =>
                   setAnswers((prev) => ({ ...prev, descricao: e.target.value }))
                 }
                 placeholder="Ex.: Monitor LCD 24 polegadas"
-                className="w-full rounded-xl border border-white/25 bg-slate-800 px-3 py-2 text-sm outline-none ring-cyan-200/40 focus:ring"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-violet-200/40 focus:ring"
               />
             </label>
           ) : (
@@ -113,8 +113,8 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
                 onClick={() => setAnswers((prev) => ({ ...prev, [current.id]: "sim" }))}
                 className={`rounded-xl border px-4 py-3 text-left transition ${
                   answers[current.id] === "sim"
-                    ? "border-cyan-200 bg-cyan-200 text-slate-900"
-                    : "border-white/20 bg-slate-800 hover:border-cyan-300/70"
+                    ? "border-violet-200 bg-violet-100 text-slate-900"
+                    : "border-slate-300 bg-white hover:border-violet-300"
                 }`}
               >
                 Sim
@@ -125,7 +125,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
                 className={`rounded-xl border px-4 py-3 text-left transition ${
                   answers[current.id] === "nao"
                     ? "border-amber-200 bg-amber-200 text-slate-900"
-                    : "border-white/20 bg-slate-800 hover:border-amber-300/70"
+                    : "border-slate-300 bg-white hover:border-amber-300/70"
                 }`}
               >
                 Não
@@ -138,7 +138,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-white/25 px-3 py-2 text-sm hover:bg-white/10"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
           >
             Cancelar
           </button>
@@ -147,7 +147,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
               type="button"
               disabled={step === 0}
               onClick={back}
-              className="rounded-lg border border-white/25 px-3 py-2 text-sm disabled:opacity-40"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-40"
             >
               Voltar
             </button>
@@ -155,7 +155,7 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
               type="button"
               disabled={!canAdvance}
               onClick={next}
-              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-45"
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-45"
             >
               {step === STEPS.length - 1 ? "Salvar classificacao" : "Avancar"}
             </button>
@@ -165,3 +165,6 @@ export default function ClassificationWizard({ isOpen, onClose, onSave }) {
     </div>
   );
 }
+
+
+

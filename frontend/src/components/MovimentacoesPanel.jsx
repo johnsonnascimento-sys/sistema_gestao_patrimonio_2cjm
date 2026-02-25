@@ -96,26 +96,26 @@ export default function MovimentacoesPanel() {
   };
 
   return (
-    <section className="mt-6 space-y-4 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
+    <section className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Movimentacoes</h2>
-        <p className="mt-2 text-sm text-slate-300">{helperText}</p>
+        <p className="mt-2 text-sm text-slate-600">{helperText}</p>
       </header>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Movimentar bem</h3>
-        <p className="mt-1 text-xs text-slate-300">
+        <p className="mt-1 text-xs text-slate-600">
           Dica: informe <code className="px-1">numeroTombamento</code> (10 digitos) ou <code className="px-1">bemId</code>.
           Durante inventario ativo, transferencias continuam bloqueadas (Art. 183).
         </p>
 
         <form onSubmit={onSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Tipo</span>
+            <span className="text-xs text-slate-600">Tipo</span>
             <select
               value={movPayload.tipoMovimentacao}
               onChange={(event) => setField("tipoMovimentacao", event.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               disabled={movState.loading}
             >
               {MOV_TYPES.map((type) => (
@@ -127,48 +127,48 @@ export default function MovimentacoesPanel() {
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Numero do tombamento</span>
+            <span className="text-xs text-slate-600">Numero do tombamento</span>
             <input
               value={movPayload.numeroTombamento}
               onChange={(event) => setField("numeroTombamento", normalizeTombamentoInput(event.target.value))}
               placeholder="Ex.: 1290001788"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               disabled={movState.loading}
             />
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">bemId (opcional)</span>
+            <span className="text-xs text-slate-600">bemId (opcional)</span>
             <input
               value={movPayload.bemId}
               onChange={(event) => setField("bemId", event.target.value)}
               placeholder="UUID do bem (se preferir)"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               disabled={movState.loading}
             />
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Termo referencia</span>
+            <span className="text-xs text-slate-600">Termo referencia</span>
             <input
               value={movPayload.termoReferencia}
               onChange={(event) => setField("termoReferencia", event.target.value)}
               placeholder="Ex.: TRF-2026-0001"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               disabled={movState.loading}
             />
           </label>
 
           {movPayload.tipoMovimentacao === "TRANSFERENCIA" ? (
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Unidade destino (1-4)</span>
+              <span className="text-xs text-slate-600">Unidade destino (1-4)</span>
               <input
                 type="number"
                 min="1"
                 max="4"
                 value={movPayload.unidadeDestinoId}
                 onChange={(event) => setField("unidadeDestinoId", event.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={movState.loading}
               />
             </label>
@@ -176,12 +176,12 @@ export default function MovimentacoesPanel() {
 
           {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Detentor temporario (perfilId UUID)</span>
+              <span className="text-xs text-slate-600">Detentor temporario (perfilId UUID)</span>
               <input
                 value={movPayload.detentorTemporarioPerfilId}
                 onChange={(event) => setField("detentorTemporarioPerfilId", event.target.value)}
                 placeholder="UUID do perfil (detentor)"
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={movState.loading}
               />
             </label>
@@ -189,12 +189,12 @@ export default function MovimentacoesPanel() {
 
           {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Data prevista devolucao</span>
+              <span className="text-xs text-slate-600">Data prevista devolucao</span>
               <input
                 type="date"
                 value={movPayload.dataPrevistaDevolucao}
                 onChange={(event) => setField("dataPrevistaDevolucao", event.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={movState.loading}
               />
             </label>
@@ -202,23 +202,23 @@ export default function MovimentacoesPanel() {
 
           {movPayload.tipoMovimentacao === "CAUTELA_RETORNO" ? (
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Data efetiva devolucao (opcional)</span>
+              <span className="text-xs text-slate-600">Data efetiva devolucao (opcional)</span>
               <input
                 type="datetime-local"
                 value={movPayload.dataEfetivaDevolucao}
                 onChange={(event) => setField("dataEfetivaDevolucao", event.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={movState.loading}
               />
             </label>
           ) : null}
 
           <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-300">Justificativa (opcional)</span>
+            <span className="text-xs text-slate-600">Justificativa (opcional)</span>
             <textarea
               value={movPayload.justificativa}
               onChange={(event) => setField("justificativa", event.target.value)}
-              className="min-h-20 w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               disabled={movState.loading}
             />
           </label>
@@ -227,13 +227,13 @@ export default function MovimentacoesPanel() {
             <button
               type="submit"
               disabled={movState.loading}
-              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {movState.loading ? "Enviando..." : "Executar /movimentar"}
             </button>
-            {movState.error ? <p className="mt-2 text-sm text-rose-300">{movState.error}</p> : null}
+            {movState.error ? <p className="mt-2 text-sm text-rose-700">{movState.error}</p> : null}
             {movState.response ? (
-              <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-white/10 bg-slate-900 p-3 text-xs">
+              <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
                 {JSON.stringify(movState.response, null, 2)}
               </pre>
             ) : null}
@@ -243,4 +243,6 @@ export default function MovimentacoesPanel() {
     </section>
   );
 }
+
+
 

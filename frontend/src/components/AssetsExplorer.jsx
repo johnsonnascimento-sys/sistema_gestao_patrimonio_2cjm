@@ -189,43 +189,43 @@ export default function AssetsExplorer() {
   const closeDetail = () => setDetail((prev) => ({ ...prev, open: false }));
 
   return (
-    <section className="mt-6 space-y-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
+    <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header className="space-y-2">
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens (dados reais)</h2>
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-slate-600">
           Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo), codigo de catalogo ou texto da descricao.
         </p>
       </header>
 
       <article className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Total bens</p>
-          {stats.loading && <p className="mt-2 text-sm text-slate-300">Carregando...</p>}
-          {stats.error && <p className="mt-2 text-sm text-rose-300">{stats.error}</p>}
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Total bens</p>
+          {stats.loading && <p className="mt-2 text-sm text-slate-600">Carregando...</p>}
+          {stats.error && <p className="mt-2 text-sm text-rose-700">{stats.error}</p>}
           {stats.data && (
-            <p className="mt-2 font-[Space_Grotesk] text-3xl font-bold text-cyan-200">
+            <p className="mt-2 font-[Space_Grotesk] text-3xl font-bold text-violet-700">
               {stats.data.bens.total}
             </p>
           )}
         </div>
-        <div className="rounded-xl border border-white/15 bg-slate-950/45 p-4 md:col-span-2">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Bens por unidade</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 md:col-span-2">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Bens por unidade</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {unitSummary.map((row) => (
-              <div key={row.unidade} className="rounded-lg border border-white/10 bg-slate-900/70 px-3 py-2">
-                <p className="text-xs text-slate-300">{formatUnidade(row.unidade)}</p>
-                <p className="mt-1 text-lg font-semibold text-slate-100">{row.total}</p>
+              <div key={row.unidade} className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">
+                <p className="text-xs text-slate-600">{formatUnidade(row.unidade)}</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">{row.total}</p>
               </div>
             ))}
           </div>
         </div>
       </article>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Filtros</h3>
         <form onSubmit={onSubmit} className="mt-3 grid gap-3 md:grid-cols-4">
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Tombamento (10) ou Etiqueta (4)</span>
+            <span className="text-xs text-slate-600">Tombamento (10) ou Etiqueta (4)</span>
             <input
               value={filters.numeroTombamento}
               onChange={(e) => {
@@ -241,10 +241,10 @@ export default function AssetsExplorer() {
               placeholder="Ex.: 1290001788 ou 2657"
               inputMode="numeric"
               maxLength={10}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
             {filters.numeroTombamento.length === 4 && (
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-500">
                 {tipoBusca4Digitos
                   ? `Busca de 4 digitos selecionada: ${tipoBusca4Digitos === "antigo" ? "Etiqueta azul antiga" : "Etiqueta nova impressa errada"}.`
                   : "Ao consultar, o sistema vai perguntar se este codigo e etiqueta azul antiga ou etiqueta nova impressa errada."}
@@ -252,38 +252,38 @@ export default function AssetsExplorer() {
             )}
           </label>
           <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-300">Texto na descricao</span>
+            <span className="text-xs text-slate-600">Texto na descricao</span>
             <input
               value={filters.q}
               onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
               placeholder="Ex.: ARMARIO, PROJETOR, NOTEBOOK"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Numero do catalogo</span>
+            <span className="text-xs text-slate-600">Numero do catalogo</span>
             <input
               value={filters.codigoCatalogo}
               onChange={(e) => setFilters((prev) => ({ ...prev, codigoCatalogo: e.target.value }))}
               placeholder="Ex.: 101004470"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-300">Local (texto do GEAFIN / local_fisico)</span>
+            <span className="text-xs text-slate-600">Local (texto do GEAFIN / local_fisico)</span>
             <input
               value={filters.localFisico}
               onChange={(e) => setFilters((prev) => ({ ...prev, localFisico: e.target.value }))}
               placeholder="Ex.: Sala 101, Hall 6º Andar, Almox..."
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Unidade</span>
+            <span className="text-xs text-slate-600">Unidade</span>
             <select
               value={filters.unidadeDonaId}
               onChange={(e) => setFilters((prev) => ({ ...prev, unidadeDonaId: e.target.value }))}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
               {UNIT_OPTIONS.map((u) => (
                 <option key={u || "all"} value={u}>
@@ -293,11 +293,11 @@ export default function AssetsExplorer() {
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-300">Status</span>
+            <span className="text-xs text-slate-600">Status</span>
             <select
               value={filters.status}
               onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s || "all"} value={s}>
@@ -310,33 +310,33 @@ export default function AssetsExplorer() {
             <button
               type="submit"
               disabled={list.loading}
-              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {list.loading ? "Consultando..." : "Consultar"}
             </button>
             <button
               type="button"
               onClick={onClear}
-              className="rounded-lg border border-white/25 px-4 py-2 text-sm hover:bg-white/10"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
             >
               Limpar
             </button>
           </div>
         </form>
-        {formError && <p className="mt-3 text-sm text-rose-300">{formError}</p>}
-        {list.error && <p className="mt-3 text-sm text-rose-300">{list.error}</p>}
+        {formError && <p className="mt-3 text-sm text-rose-700">{formError}</p>}
+        {list.error && <p className="mt-3 text-sm text-rose-700">{list.error}</p>}
       </article>
 
-      <article className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-semibold">Resultados</h3>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
             <label className="inline-flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={listView.showItemPhoto}
                 onChange={(e) => setListView((prev) => ({ ...prev, showItemPhoto: e.target.checked }))}
-                className="h-4 w-4 accent-cyan-300"
+                className="h-4 w-4 accent-violet-600"
               />
               Foto do item
             </label>
@@ -345,12 +345,12 @@ export default function AssetsExplorer() {
                 type="checkbox"
                 checked={listView.showCatalogPhoto}
                 onChange={(e) => setListView((prev) => ({ ...prev, showCatalogPhoto: e.target.checked }))}
-                className="h-4 w-4 accent-cyan-300"
+                className="h-4 w-4 accent-violet-600"
               />
               Foto do catálogo
             </label>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2 text-xs text-slate-600">
             <span>
               {paging.total ? `${paging.offset + 1}-${Math.min(paging.offset + paging.limit, paging.total)}` : "0"} de{" "}
               {paging.total}
@@ -359,7 +359,7 @@ export default function AssetsExplorer() {
               type="button"
               disabled={!canPrev || list.loading}
               onClick={() => loadList(Math.max(0, paging.offset - paging.limit))}
-              className="rounded-md border border-white/20 px-2 py-1 disabled:opacity-40"
+              className="rounded-md border border-slate-300 px-2 py-1 disabled:opacity-40"
             >
               Anterior
             </button>
@@ -367,16 +367,16 @@ export default function AssetsExplorer() {
               type="button"
               disabled={!canNext || list.loading}
               onClick={() => loadList(paging.offset + paging.limit)}
-              className="rounded-md border border-white/20 px-2 py-1 disabled:opacity-40"
+              className="rounded-md border border-slate-300 px-2 py-1 disabled:opacity-40"
             >
               Proxima
             </button>
           </div>
         </div>
 
-        <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+        <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-900/70 text-xs uppercase tracking-wider text-slate-300">
+            <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-600">
               <tr>
                 <th className="px-3 py-2">Tombo</th>
                 <th className="px-3 py-2">Antigo (Azul)</th>
@@ -391,38 +391,38 @@ export default function AssetsExplorer() {
                 <th className="px-3 py-2 text-right">Acoes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10 bg-slate-950/30">
+            <tbody className="divide-y divide-slate-200 bg-slate-50">
               {items.length === 0 && !list.loading && (
                 <tr>
-                  <td colSpan={9 + (listView.showItemPhoto ? 1 : 0) + (listView.showCatalogPhoto ? 1 : 0)} className="px-3 py-8 text-center text-sm text-slate-300">
+                  <td colSpan={9 + (listView.showItemPhoto ? 1 : 0) + (listView.showCatalogPhoto ? 1 : 0)} className="px-3 py-8 text-center text-sm text-slate-600">
                     Nenhum bem encontrado para os filtros informados.
                   </td>
                 </tr>
               )}
               {items.map((item) => (
-                <tr key={item.id} className="hover:bg-white/5">
+                <tr key={item.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2 font-mono text-xs">
                     <button
                       type="button"
                       onClick={() => copyTombamento(item.numeroTombamento)}
-                      className="rounded-md border border-white/15 bg-slate-900/60 px-2 py-1 hover:bg-slate-900"
+                      className="rounded-md border border-slate-200 bg-slate-100 px-2 py-1 hover:bg-slate-200"
                       title="Clique para copiar o tombamento"
                     >
                       {item.numeroTombamento || "-"}
                     </button>
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-cyan-300">
+                  <td className="px-3 py-2 font-mono text-[11px] text-violet-700">
                     {item.cod2Aud || "-"}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-emerald-300">
+                  <td className="px-3 py-2 font-mono text-[11px] text-emerald-700">
                     {item.codigoCatalogo || "-"}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="font-medium text-slate-100">
+                    <div className="font-medium text-slate-900">
                       {item.nomeResumo || item.descricao}
                     </div>
                     {item.nomeResumo && item.nomeResumo !== item.catalogoDescricao && (
-                      <div className="text-[10px] text-slate-400 italic">
+                      <div className="text-[10px] text-slate-500 italic">
                         {item.catalogoDescricao}
                       </div>
                     )}
@@ -434,7 +434,7 @@ export default function AssetsExplorer() {
                           <img
                             src={getFotoUrl(item.fotoUrl)}
                             alt={`Foto item ${item.numeroTombamento || ""}`}
-                            className="h-10 w-10 rounded border border-white/20 object-cover"
+                            className="h-10 w-10 rounded border border-slate-300 object-cover"
                           />
                         </a>
                       ) : (
@@ -449,7 +449,7 @@ export default function AssetsExplorer() {
                           <img
                             src={getFotoUrl(item.fotoReferenciaUrl)}
                             alt={`Foto catálogo ${item.codigoCatalogo || ""}`}
-                            className="h-10 w-10 rounded border border-white/20 object-cover"
+                            className="h-10 w-10 rounded border border-slate-300 object-cover"
                           />
                         </a>
                       ) : (
@@ -457,18 +457,18 @@ export default function AssetsExplorer() {
                       )}
                     </td>
                   )}
-                  <td className="px-3 py-2 text-xs text-slate-200">
+                  <td className="px-3 py-2 text-xs text-slate-800">
                     {formatUnidade(Number(item.unidadeDonaId))}
                   </td>
-                  <td className="px-3 py-2 text-xs text-slate-300">{item.localFisico || "-"}</td>
+                  <td className="px-3 py-2 text-xs text-slate-600">{item.localFisico || "-"}</td>
                   <td className="px-3 py-2">
-                    <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs">
+                    <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs">
                       {item.status}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-center">
                     {item.temDivergenciaPendente && (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-lg shadow-rose-900/40" title="Divergência Pendente!">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white" title="Divergência Pendente!">
                         !
                       </span>
                     )}
@@ -479,7 +479,7 @@ export default function AssetsExplorer() {
                         type="button"
                         onClick={() => aplicarMesmoCatalogo(item.codigoCatalogo)}
                         disabled={!item.codigoCatalogo}
-                        className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-md border border-violet-300 bg-violet-50 px-2 py-1 text-xs text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
                         title="Filtrar itens do mesmo catalogo"
                       >
                         Mesmo catalogo
@@ -487,7 +487,7 @@ export default function AssetsExplorer() {
                       <button
                         type="button"
                         onClick={() => openDetail(item.id)}
-                        className="rounded-md border border-white/20 bg-slate-900/60 px-2 py-1 text-xs hover:bg-slate-900"
+                        className="rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
                       >
                         Detalhes
                       </button>
@@ -502,35 +502,35 @@ export default function AssetsExplorer() {
 
       {tagIdModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-slate-900 p-6 shadow-2xl">
-            <h3 className="font-[Space_Grotesk] text-xl font-bold text-white">Identificar Etiqueta</h3>
-            <p className="mt-4 text-slate-300">
-              O codigo <span className="font-mono font-bold text-cyan-400">"{tagIdModal.value}"</span> possui 4 digitos. Como deseja consultar?
+          <div className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl">
+            <h3 className="font-[Space_Grotesk] text-xl font-bold text-slate-900">Identificar Etiqueta</h3>
+            <p className="mt-4 text-slate-600">
+              O codigo <span className="font-mono font-bold text-violet-700">"{tagIdModal.value}"</span> possui 4 digitos. Como deseja consultar?
             </p>
 
             <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={() => onSelectTipoBusca("antigo")}
-                className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-left hover:bg-blue-500/20"
+                className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
               >
-                <div className="font-bold text-blue-300">Etiqueta Antiga (Azul)</div>
-                <div className="text-xs text-blue-400/80">Busca por Cod2Aud da 2ª Auditoria</div>
+                <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
+                <div className="text-xs text-slate-500">Busca por Cod2Aud da 2ª Auditoria</div>
               </button>
               <button
                 type="button"
                 onClick={() => onSelectTipoBusca("novo")}
-                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left hover:bg-emerald-500/20"
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
               >
-                <div className="font-bold text-emerald-300">Etiqueta Nova (Erro)</div>
-                <div className="text-xs text-emerald-400/80">Busca pelo sufixo de 4 digitos no tombamento GEAFIN</div>
+                <div className="font-bold text-emerald-700">Etiqueta Nova (Erro)</div>
+                <div className="text-xs text-slate-500">Busca pelo sufixo de 4 digitos no tombamento GEAFIN</div>
               </button>
             </div>
 
             <button
               type="button"
               onClick={() => setTagIdModal({ isOpen: false, value: "" })}
-              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-400 hover:text-white"
+              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900"
             >
               Cancelar
             </button>
@@ -835,44 +835,44 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/70 p-4 backdrop-blur">
-      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-slate-900/50 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-100 p-4 backdrop-blur">
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-widest text-slate-400">Detalhes do bem</p>
-            <p className="mt-1 truncate font-[Space_Grotesk] text-lg font-semibold text-slate-100">
+            <p className="text-xs uppercase tracking-widest text-slate-500">Detalhes do bem</p>
+            <p className="mt-1 truncate font-[Space_Grotesk] text-lg font-semibold text-slate-900">
               {imp?.numeroTombamento ? `Tombo ${imp.numeroTombamento}` : "Bem"}
-              {imp?.status ? <span className="text-slate-400"> {" "}({imp.status})</span> : null}
+              {imp?.status ? <span className="text-slate-500"> {" "}({imp.status})</span> : null}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
           >
             Fechar
           </button>
         </div>
 
         <div className="max-h-[75vh] overflow-auto p-4">
-          {state.loading && <p className="text-sm text-slate-300">Carregando detalhes...</p>}
-          {state.error && <p className="text-sm text-rose-300">{state.error}</p>}
+          {state.loading && <p className="text-sm text-slate-600">Carregando detalhes...</p>}
+          {state.error && <p className="text-sm text-rose-700">{state.error}</p>}
 
           {!state.loading && !state.error && imp && (
             <div className="space-y-4">
               {divergenciaPendente && (
-                <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 animate-pulse">
-                  <div className="flex items-center gap-3 text-rose-400">
+                <div className="rounded-xl border border-rose-300 bg-rose-50 p-4">
+                  <div className="flex items-center gap-3 text-rose-700">
                     <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <h3 className="font-bold uppercase tracking-wide">Divergência Pendente Detectada!</h3>
                   </div>
-                  <p className="mt-2 text-sm text-slate-200">
+                  <p className="mt-2 text-sm text-slate-800">
                     Este bem foi encontrado em local divergente em <strong>{new Date(divergenciaPendente.encontradoEm).toLocaleString()}</strong>.
                     Local encontrado: <strong>{divergenciaPendente.salaEncontrada}</strong> ({formatUnidade(divergenciaPendente.unidadeEncontradaId)}).
                   </p>
-                  <p className="mt-1 text-xs text-rose-300 font-medium">
+                  <p className="mt-1 text-xs text-rose-700 font-medium">
                     Art. 185 (ATN 303): Regularização pendente.
                   </p>
                 </div>
@@ -880,8 +880,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
               <section className="grid gap-3 md:grid-cols-2">
 
-                <div className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                  <p className="text-xs uppercase tracking-widest text-slate-400">Operacional</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Operacional</p>
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="BemId" v={imp.id} mono />
                     <Row k="Unidade (carga)" v={formatUnidade(Number(imp.unidadeDonaId))} />
@@ -898,8 +898,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <Row k="Atualizado em" v={imp.updatedAt} />
                   </dl>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                  <p className="text-xs uppercase tracking-widest text-slate-400">Catálogo (SKU)</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Catálogo (SKU)</p>
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="CatalogoBemId" v={catalogo?.id || imp.catalogoBemId} mono />
                     <Row k="Código catálogo" v={catalogo?.codigoCatalogo} />
@@ -912,34 +912,34 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
               </section>
 
               {isAdmin ? (
-                <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
+                <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-xs uppercase tracking-widest text-slate-400">Editar (ADMIN)</p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-xs uppercase tracking-widest text-slate-500">Editar (ADMIN)</p>
+                    <p className="text-[11px] text-slate-500">
                       Edite campos operacionais (exceto chaves). Sala/Local vem do cadastro de locais.
                     </p>
                   </div>
 
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-300">Catálogo (SKU) id (UUID)</span>
+                      <span className="text-xs text-slate-600">Catálogo (SKU) id (UUID)</span>
                       <input
                         value={edit.catalogoBemId}
                         onChange={(e) => setEdit((p) => ({ ...p, catalogoBemId: e.target.value }))}
                         placeholder={catalogo?.id || imp.catalogoBemId || "UUID do catálogo"}
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 font-mono text-xs"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs"
                       />
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         Use apenas para correção manual. Idealmente o SKU vem da normalização do GEAFIN.
                       </p>
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Unidade (carga)</span>
+                      <span className="text-xs text-slate-600">Unidade (carga)</span>
                       <select
                         value={edit.unidadeDonaId}
                         onChange={(e) => setEdit((p) => ({ ...p, unidadeDonaId: e.target.value }))}
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       >
                         <option value="">(não alterar)</option>
                         {["1", "2", "3", "4"].map((u) => (
@@ -948,17 +948,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           </option>
                         ))}
                       </select>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         Regra legal: transferências podem ser bloqueadas durante inventário (Art. 183 - AN303_Art183).
                       </p>
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Status do bem</span>
+                      <span className="text-xs text-slate-600">Status do bem</span>
                       <select
                         value={edit.status}
                         onChange={(e) => setEdit((p) => ({ ...p, status: e.target.value }))}
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       >
                         {STATUS_OPTIONS.filter(Boolean).map((s) => (
                           <option key={s} value={s}>
@@ -969,83 +969,83 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-300">Nome Resumo</span>
+                      <span className="text-xs text-slate-600">Nome Resumo</span>
                       <input
                         value={edit.nomeResumo}
                         onChange={(e) => setEdit((p) => ({ ...p, nomeResumo: e.target.value }))}
                         placeholder="Resumo curto para exibição em listas"
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       />
                     </label>
 
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-300">Descrição complementar (item)</span>
+                      <span className="text-xs text-slate-600">Descrição complementar (item)</span>
                       <input
                         value={edit.descricaoComplementar}
                         onChange={(e) => setEdit((p) => ({ ...p, descricaoComplementar: e.target.value }))}
                         placeholder="Ex.: Cadeira com avaria no braço direito..."
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Responsável (perfilId UUID)</span>
+                      <span className="text-xs text-slate-600">Responsável (perfilId UUID)</span>
                       <input
                         value={edit.responsavelPerfilId}
                         onChange={(e) => setEdit((p) => ({ ...p, responsavelPerfilId: e.target.value }))}
                         placeholder="UUID do perfil responsável"
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 font-mono text-xs"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Contrato referência</span>
+                      <span className="text-xs text-slate-600">Contrato referência</span>
                       <input
                         value={edit.contratoReferencia}
                         onChange={(e) => setEdit((p) => ({ ...p, contratoReferencia: e.target.value }))}
                         placeholder="Ex.: Contrato 12/2026"
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Data de aquisição</span>
+                      <span className="text-xs text-slate-600">Data de aquisição</span>
                       <input
                         value={edit.dataAquisicao}
                         onChange={(e) => setEdit((p) => ({ ...p, dataAquisicao: e.target.value }))}
                         type="date"
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Valor de aquisição</span>
+                      <span className="text-xs text-slate-600">Valor de aquisição</span>
                       <input
                         value={edit.valorAquisicao}
                         onChange={(e) => setEdit((p) => ({ ...p, valorAquisicao: e.target.value }))}
                         inputMode="decimal"
                         placeholder="Ex.: 3500.00"
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       />
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Local físico (texto do GEAFIN / legado)</span>
+                      <span className="text-xs text-slate-600">Local físico (texto do GEAFIN / legado)</span>
                       <input
                         value={edit.localFisico}
                         onChange={(e) => setEdit((p) => ({ ...p, localFisico: e.target.value }))}
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       />
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         Este campo é apenas texto e não equivale a “Sala/Local padronizado”.
                       </p>
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-300">Sala/Local (padronizado)</span>
+                      <span className="text-xs text-slate-600">Sala/Local (padronizado)</span>
                       <select
                         value={edit.localId || ""}
                         onChange={(e) => setEdit((p) => ({ ...p, localId: e.target.value }))}
-                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                       >
                         <option value="">(nenhum)</option>
                         {locaisOptions.map((l) => (
@@ -1056,14 +1056,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                         ))}
                       </select>
                       {locaisQuery.isLoading ? (
-                        <p className="text-[11px] text-slate-400">Carregando locais cadastrados...</p>
+                        <p className="text-[11px] text-slate-500">Carregando locais cadastrados...</p>
                       ) : null}
                     </label>
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
-                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto do item</p>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Foto do item</p>
                       {edit.fotoUrl ? (
                         <a href={getFotoUrl(edit.fotoUrl)} target="_blank" rel="noopener noreferrer" className="block mt-2">
                           <img
@@ -1073,14 +1073,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           />
                         </a>
                       ) : (
-                        <p className="mt-2 text-xs text-slate-500 italic text-center py-4 border border-dashed border-white/10 rounded">Sem foto</p>
+                        <p className="mt-2 text-xs text-slate-500 italic text-center py-4 border border-dashed border-slate-200 rounded">Sem foto</p>
                       )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => itemCameraRef.current?.click()}
                           disabled={uploadFotoMut.isPending}
-                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
                         >
                           Tirar foto
                         </button>
@@ -1088,7 +1088,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           type="button"
                           onClick={() => itemFileRef.current?.click()}
                           disabled={uploadFotoMut.isPending}
-                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
                         >
                           Enviar arquivo
                         </button>
@@ -1104,7 +1104,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                               }
                             }}
                             disabled={uploadFotoMut.isPending}
-                            className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                            className="rounded-lg border border-rose-300 px-3 py-2 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                           >
                             Remover foto
                           </button>
@@ -1147,8 +1147,8 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       />
                     </div>
 
-                    <div className="rounded-lg border border-white/10 bg-slate-950/30 p-3">
-                      <p className="text-xs uppercase tracking-widest text-slate-400">Foto de referência (SKU)</p>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Foto de referência (SKU)</p>
                       {edit.fotoReferenciaUrl ? (
                         <a href={getFotoUrl(edit.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer" className="block mt-2">
                           <img
@@ -1158,14 +1158,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           />
                         </a>
                       ) : (
-                        <p className="mt-2 text-xs text-slate-500 italic text-center py-4 border border-dashed border-white/10 rounded">Sem foto</p>
+                        <p className="mt-2 text-xs text-slate-500 italic text-center py-4 border border-dashed border-slate-200 rounded">Sem foto</p>
                       )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => catalogCameraRef.current?.click()}
                           disabled={uploadFotoMut.isPending}
-                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
                         >
                           Tirar foto
                         </button>
@@ -1173,7 +1173,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           type="button"
                           onClick={() => catalogFileRef.current?.click()}
                           disabled={uploadFotoMut.isPending}
-                          className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10 disabled:opacity-50"
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
                         >
                           Enviar arquivo
                         </button>
@@ -1189,7 +1189,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                               }
                             }}
                             disabled={uploadFotoMut.isPending}
-                            className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+                            className="rounded-lg border border-rose-300 px-3 py-2 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                           >
                             Remover foto
                           </button>
@@ -1238,19 +1238,19 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       type="button"
                       onClick={() => salvarBemMut.mutate()}
                       disabled={salvarBemMut.isPending}
-                      className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                     >
                       {salvarBemMut.isPending ? "Salvando..." : "Salvar alterações do bem"}
                     </button>
-                    {uploadFotoMut.isPending ? <span className="text-xs text-slate-300">Enviando foto...</span> : null}
-                    {editMsg ? <span className="text-xs text-emerald-200">{editMsg}</span> : null}
-                    {editErr ? <span className="text-xs text-rose-200">{editErr}</span> : null}
+                    {uploadFotoMut.isPending ? <span className="text-xs text-slate-600">Enviando foto...</span> : null}
+                    {editMsg ? <span className="text-xs text-emerald-700">{editMsg}</span> : null}
+                    {editErr ? <span className="text-xs text-rose-700">{editErr}</span> : null}
                   </div>
                 </section>
               ) : null}
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Responsável</p>
+              <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Responsável</p>
                 <dl className="mt-2 space-y-1 text-sm">
                   <Row k="PerfilId" v={responsavel?.id || imp.responsavelPerfilId} mono />
                   <Row k="Matrícula" v={responsavel?.matricula} />
@@ -1258,14 +1258,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                 </dl>
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Histórico de transferências</p>
+              <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Histórico de transferências</p>
                 {hist.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-300">Nenhuma transferência registrada.</p>
+                  <p className="mt-2 text-sm text-slate-600">Nenhuma transferência registrada.</p>
                 ) : (
-                  <div className="mt-2 overflow-auto rounded-lg border border-white/10">
+                  <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                     <table className="min-w-full text-left text-xs">
-                      <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                      <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                         <tr>
                           <th className="px-2 py-2">Data</th>
                           <th className="px-2 py-2">Origem</th>
@@ -1274,14 +1274,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           <th className="px-2 py-2">Usuario</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/10">
+                      <tbody className="divide-y divide-slate-200">
                         {hist.map((h) => (
                           <tr key={h.id}>
-                            <td className="px-2 py-2 text-slate-200">{formatDateTime(h.data)}</td>
-                            <td className="px-2 py-2 text-slate-300">{h.origem || "-"}</td>
-                            <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(h.unidadeAntigaId))}</td>
-                            <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(h.unidadeNovaId))}</td>
-                            <td className="px-2 py-2 text-slate-300">{profileLabel(h.usuarioNome, h.usuarioMatricula, h.usuarioId)}</td>
+                            <td className="px-2 py-2 text-slate-800">{formatDateTime(h.data)}</td>
+                            <td className="px-2 py-2 text-slate-600">{h.origem || "-"}</td>
+                            <td className="px-2 py-2 text-slate-600">{formatUnidade(Number(h.unidadeAntigaId))}</td>
+                            <td className="px-2 py-2 text-slate-600">{formatUnidade(Number(h.unidadeNovaId))}</td>
+                            <td className="px-2 py-2 text-slate-600">{profileLabel(h.usuarioNome, h.usuarioMatricula, h.usuarioId)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1290,14 +1290,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                 )}
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Movimentações</p>
+              <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Movimentações</p>
                 {movs.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-300">Nenhuma movimentacao registrada.</p>
+                  <p className="mt-2 text-sm text-slate-600">Nenhuma movimentacao registrada.</p>
                 ) : (
-                  <div className="mt-2 overflow-auto rounded-lg border border-white/10">
+                  <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                     <table className="min-w-full text-left text-xs">
-                      <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                      <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                         <tr>
                           <th className="px-2 py-2">Quando</th>
                           <th className="px-2 py-2">Tipo</th>
@@ -1308,16 +1308,16 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           <th className="px-2 py-2">Termo</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/10">
+                      <tbody className="divide-y divide-slate-200">
                         {movs.map((m) => (
                           <tr key={m.id}>
-                            <td className="px-2 py-2 text-slate-200">{formatDateTime(m.executadaEm || m.createdAt)}</td>
-                            <td className="px-2 py-2 text-slate-300">{m.tipoMovimentacao}</td>
-                            <td className="px-2 py-2 text-slate-300">{m.unidadeOrigemId != null ? formatUnidade(Number(m.unidadeOrigemId)) : "-"}</td>
-                            <td className="px-2 py-2 text-slate-300">{m.unidadeDestinoId != null ? formatUnidade(Number(m.unidadeDestinoId)) : "-"}</td>
-                            <td className="px-2 py-2 text-slate-300">{movementChangeSummary(m)}</td>
-                            <td className="px-2 py-2 text-slate-300">{profileLabel(m.executadaPorNome, m.executadaPorMatricula, m.executadaPorPerfilId)}</td>
-                            <td className="px-2 py-2 font-mono text-[11px] text-slate-300">{m.termoReferencia || "-"}</td>
+                            <td className="px-2 py-2 text-slate-800">{formatDateTime(m.executadaEm || m.createdAt)}</td>
+                            <td className="px-2 py-2 text-slate-600">{m.tipoMovimentacao}</td>
+                            <td className="px-2 py-2 text-slate-600">{m.unidadeOrigemId != null ? formatUnidade(Number(m.unidadeOrigemId)) : "-"}</td>
+                            <td className="px-2 py-2 text-slate-600">{m.unidadeDestinoId != null ? formatUnidade(Number(m.unidadeDestinoId)) : "-"}</td>
+                            <td className="px-2 py-2 text-slate-600">{movementChangeSummary(m)}</td>
+                            <td className="px-2 py-2 text-slate-600">{profileLabel(m.executadaPorNome, m.executadaPorMatricula, m.executadaPorPerfilId)}</td>
+                            <td className="px-2 py-2 font-mono text-[11px] text-slate-600">{m.termoReferencia || "-"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1326,25 +1326,25 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                 )}
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/30 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-400">Linha do tempo de alterações</p>
+              <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Linha do tempo de alterações</p>
                 {auditoriaQuery.isLoading ? (
-                  <p className="mt-2 text-sm text-slate-300">Carregando auditoria...</p>
+                  <p className="mt-2 text-sm text-slate-600">Carregando auditoria...</p>
                 ) : auditoriaQuery.error ? (
-                  <p className="mt-2 text-sm text-rose-300">Falha ao carregar auditoria.</p>
+                  <p className="mt-2 text-sm text-rose-700">Falha ao carregar auditoria.</p>
                 ) : !(auditoriaQuery.data || []).length ? (
-                  <p className="mt-2 text-sm text-slate-300">Nenhuma alteração auditada encontrada.</p>
+                  <p className="mt-2 text-sm text-slate-600">Nenhuma alteração auditada encontrada.</p>
                 ) : (
                   <div className="mt-2 space-y-3">
                     {(auditoriaQuery.data || []).map((a) => (
-                      <details key={a.id} className="rounded-lg border border-white/10 bg-slate-950/40 p-3">
+                      <details key={a.id} className="rounded-lg border border-slate-200 bg-white p-3">
                         <summary className="cursor-pointer list-none">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-slate-100">
+                              <p className="text-sm font-semibold text-slate-900">
                                 {a.tabela} / {a.operacao}
                               </p>
-                              <p className="text-xs text-slate-300">
+                              <p className="text-xs text-slate-600">
                                 {new Date(a.executadoEm).toLocaleString()} -{" "}
                                 {a.actorPerfilId ? (
                                   <span
@@ -1358,7 +1358,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                                   actorLabel(a)
                                 )}
                               </p>
-                              <p className="mt-1 text-xs text-cyan-200">
+                              <p className="mt-1 text-xs text-violet-700">
                                 {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem mudanças estruturadas"}
                               </p>
                             </div>
@@ -1372,28 +1372,28 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                                   reverterMut.mutate({ auditId: a.id });
                                 }}
                                 disabled={reverterMut.isPending}
-                                className="rounded-lg border border-amber-300/40 bg-amber-200/10 px-3 py-1 text-xs font-semibold text-amber-100 hover:bg-amber-200/20 disabled:opacity-50"
+                                className="rounded-lg border border-amber-300/40 bg-amber-200/10 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200/20 disabled:opacity-50"
                               >
                                 {reverterMut.isPending ? "Revertendo..." : "Reverter esta alteração"}
                               </button>
                             ) : null}
                           </div>
                         </summary>
-                        <div className="mt-3 overflow-auto rounded-lg border border-white/10">
+                        <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
                           <table className="min-w-full text-left text-xs">
-                            <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                            <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                               <tr>
                                 <th className="px-2 py-2">Campo</th>
                                 <th className="px-2 py-2">Antes</th>
                                 <th className="px-2 py-2">Depois</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/10">
+                            <tbody className="divide-y divide-slate-200">
                               {(a.changes || []).map((c) => (
                                 <tr key={`${a.id}-${c.field}`}>
-                                  <td className="px-2 py-2 text-slate-200">{fieldLabel(c.field)}</td>
-                                  <td className="px-2 py-2 text-slate-300">{renderAuditValue(c.before, c.beforeLabel, c.beforeId)}</td>
-                                  <td className="px-2 py-2 text-slate-300">{renderAuditValue(c.after, c.afterLabel, c.afterId)}</td>
+                                  <td className="px-2 py-2 text-slate-800">{fieldLabel(c.field)}</td>
+                                  <td className="px-2 py-2 text-slate-600">{renderAuditValue(c.before, c.beforeLabel, c.beforeId)}</td>
+                                  <td className="px-2 py-2 text-slate-600">{renderAuditValue(c.after, c.afterLabel, c.afterId)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1416,10 +1416,14 @@ function Row({ k, v, mono }) {
   const value = v == null || String(v).trim() === "" ? "-" : String(v);
   return (
     <div className="grid grid-cols-[140px_1fr] gap-2">
-      <dt className="text-xs text-slate-400">{k}</dt>
-      <dd className={mono ? "break-all font-mono text-xs text-slate-200" : "text-sm text-slate-200"}>
+      <dt className="text-xs text-slate-500">{k}</dt>
+      <dd className={mono ? "break-all font-mono text-xs text-slate-800" : "text-sm text-slate-800"}>
         {value}
       </dd>
     </div>
   );
 }
+
+
+
+

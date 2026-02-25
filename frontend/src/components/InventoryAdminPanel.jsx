@@ -297,70 +297,70 @@ export default function InventoryAdminPanel() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-white/15 bg-slate-900/55 p-3 md:p-5">
+            <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
                 <header className="flex flex-wrap items-start justify-between gap-3 mb-5">
                     <div>
                         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Inventário - Administração</h2>
-                        <p className="mt-2 text-sm text-slate-300">
+                        <p className="mt-2 text-sm text-slate-600">
                             Controle macro dos eventos, status do catálogo da CJM e central de regularizações.
                         </p>
                     </div>
                 </header>
 
                 {uiError && (
-                    <p className="mt-4 mb-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
+                    <p className="mt-4 mb-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-700">
                         {uiError}
                     </p>
                 )}
                 {uiInfo && (
-                    <p className="mt-4 mb-4 rounded-xl border border-emerald-300/30 bg-emerald-200/10 p-3 text-sm text-emerald-200">
+                    <p className="mt-4 mb-4 rounded-xl border border-emerald-300/30 bg-emerald-200/10 p-3 text-sm text-emerald-700">
                         {uiInfo}
                     </p>
                 )}
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-                    <div className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 flex flex-col group">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex flex-col group">
                         <h3 className="font-semibold select-none mb-3">Gestão do Evento</h3>
                         <div>
-                            <p className="mt-1 text-xs text-slate-300 flex-1">
+                            <p className="mt-1 text-xs text-slate-600 flex-1">
                                 Inventário ativo bloqueia mudança de carga (Art. 183).
                             </p>
 
                             {auth.perfil ? (
-                                <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/25 p-3 text-xs text-slate-300">
-                                    <p className="font-semibold text-slate-100">Encarregado</p>
+                                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                                    <p className="font-semibold text-slate-900">Encarregado</p>
                                     <p className="mt-1">
                                         {auth.perfil.nome} ({auth.perfil.matricula}) - perfilId {String(auth.perfil.id).slice(0, 8)}...
                                     </p>
                                 </div>
                             ) : (
                                 <label className="mt-3 block space-y-1">
-                                    <span className="text-xs text-slate-300">PerfilId (UUID) para abrir/encerrar</span>
+                                    <span className="text-xs text-slate-600">PerfilId (UUID) para abrir/encerrar</span>
                                     <input
                                         value={perfilId}
                                         onChange={(e) => setPerfilId(e.target.value)}
                                         placeholder="UUID do perfil"
-                                        className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                     />
                                 </label>
                             )}
 
-                            {eventosQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando eventos...</p>}
+                            {eventosQuery.isLoading && <p className="mt-3 text-sm text-slate-600">Carregando eventos...</p>}
                             {eventosQuery.error && (
-                                <p className="mt-3 text-sm text-rose-300">Falha ao listar eventos ativos.</p>
+                                <p className="mt-3 text-sm text-rose-700">Falha ao listar eventos ativos.</p>
                             )}
 
                             {(eventosQuery.data || []).length > 0 ? (
                                 <div className="mt-3 space-y-3">
                                     <label className="block space-y-1">
-                                        <span className="text-xs text-slate-300">Selecionar evento em andamento</span>
+                                        <span className="text-xs text-slate-600">Selecionar evento em andamento</span>
                                         <select
                                             value={selectedEventoIdFinal}
                                             onChange={(e) => {
                                                 setSelectedEventoId(e.target.value);
                                                 setRelatorioEventoId(e.target.value);
                                             }}
-                                            className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                         >
                                             {(eventosQuery.data || []).map((ev) => (
                                                 <option key={ev.id} value={ev.id}>
@@ -375,7 +375,7 @@ export default function InventoryAdminPanel() {
                                             type="button"
                                             onClick={() => onUpdateStatus("ENCERRADO")}
                                             disabled={atualizarStatusMut.isPending}
-                                            className="rounded-lg bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                                            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
                                         >
                                             Encerrar
                                         </button>
@@ -383,32 +383,32 @@ export default function InventoryAdminPanel() {
                                             type="button"
                                             onClick={() => onUpdateStatus("CANCELADO")}
                                             disabled={atualizarStatusMut.isPending}
-                                            className="rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                                            className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                                         >
                                             Cancelar
                                         </button>
                                     </div>
 
                                     <label className="block space-y-1">
-                                        <span className="text-xs text-slate-300">Observações de encerramento (opcional)</span>
+                                        <span className="text-xs text-slate-600">Observações de encerramento (opcional)</span>
                                         <textarea
                                             value={encerramentoObs}
                                             onChange={(e) => setEncerramentoObs(e.target.value)}
-                                            className="min-h-20 w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                                            className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                         />
                                     </label>
                                 </div>
                             ) : (
                                 <form onSubmit={onCreateEvento} className="mt-3 space-y-3">
-                                    <p className="text-sm text-slate-300">
+                                    <p className="text-sm text-slate-600">
                                         Nenhum evento ativo. Abra um evento para iniciar o inventario.
                                     </p>
                                     <label className="block space-y-1">
-                                        <span className="text-xs text-slate-300">Unidade inventariada (opcional)</span>
+                                        <span className="text-xs text-slate-600">Unidade inventariada (opcional)</span>
                                         <select
                                             value={unidadeInventariadaId}
                                             onChange={(e) => setUnidadeInventariadaId(e.target.value)}
-                                            className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                         >
                                             <option value="">(geral)</option>
                                             <option value="1">{formatUnidade(1)}</option>
@@ -418,20 +418,20 @@ export default function InventoryAdminPanel() {
                                         </select>
                                     </label>
                                     <label className="block space-y-1">
-                                        <span className="text-xs text-slate-300">Codigo do evento</span>
+                                        <span className="text-xs text-slate-600">Codigo do evento</span>
                                         <input
                                             disabled
                                             value={generateCodigoEvento(unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId))}
-                                            className="w-full rounded-lg border border-white/20 bg-slate-800/50 px-3 py-2 text-sm text-slate-400 cursor-not-allowed"
+                                            className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 cursor-not-allowed"
                                         />
-                                        <p className="text-[11px] text-slate-400">
+                                        <p className="text-[11px] text-slate-500">
                                             Gerado automaticamente.
                                         </p>
                                     </label>
                                     <button
                                         type="submit"
                                         disabled={criarEventoMut.isPending}
-                                        className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-50"
+                                        className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                                     >
                                         {criarEventoMut.isPending ? "Abrindo..." : "Abrir evento"}
                                     </button>
@@ -444,49 +444,49 @@ export default function InventoryAdminPanel() {
                         <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
 
                         {(todosEventosQuery.data || []).length > 0 && (
-                            <div className="rounded-2xl border border-white/15 bg-slate-950/35 p-3 md:p-4 flex-1">
+                            <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex-1">
                                 <h4 className="text-sm font-semibold mb-2">Histórico Resumido</h4>
-                                <div className="max-h-72 overflow-y-auto rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2">
+                                <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
                                     {(todosEventosQuery.data || []).slice(0, 15).map(ev => {
                                         const isEditing = editingEventoId === ev.id;
                                         return (
-                                            <div key={ev.id} className="text-[11px] p-2 rounded bg-slate-800 flex justify-between items-start gap-2 border border-slate-700">
+                                            <div key={ev.id} className="text-[11px] p-2 rounded bg-white flex justify-between items-start gap-2 border border-slate-200">
                                                 <div className="flex-1">
                                                     {isEditing ? (
                                                         <input
-                                                            className="w-full rounded bg-slate-900 border border-slate-600 px-2 py-1 text-xs mb-1 focus:outline-none"
+                                                            className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 mb-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
                                                             value={editForm.codigoEvento}
                                                             onChange={(e) => setEditForm({ ...editForm, codigoEvento: e.target.value })}
                                                         />
                                                     ) : (
-                                                        <p className="font-semibold text-slate-200">{ev.codigoEvento}</p>
+                                                        <p className="font-semibold text-slate-800">{ev.codigoEvento}</p>
                                                     )}
 
-                                                    <p className="text-slate-400">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
+                                                    <p className="text-slate-500">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
 
                                                     {isEditing ? (
                                                         <textarea
-                                                            className="w-full h-12 rounded bg-slate-900 border border-slate-600 px-2 py-1 text-xs mt-1 focus:outline-none"
+                                                            className="w-full h-12 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 mt-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
                                                             value={editForm.observacoes}
                                                             placeholder="Observações..."
                                                             onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
                                                         />
                                                     ) : (
-                                                        ev.observacoes && <p className="text-slate-400 mt-1 italic leading-tight">"{ev.observacoes}"</p>
+                                                        ev.observacoes && <p className="text-slate-500 mt-1 italic leading-tight">"{ev.observacoes}"</p>
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col items-end gap-1">
                                                     <div className="flex items-center gap-1.5 mb-1">
-                                                        <span className={`px-2 py-0.5 rounded font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-300' : 'bg-emerald-300/20 text-emerald-300'}`}>{ev.status}</span>
+                                                        <span className={`px-2 py-0.5 rounded font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-800' : 'bg-emerald-300/20 text-emerald-700'}`}>{ev.status}</span>
                                                     </div>
-                                                    <p className="text-slate-400 shrink-0">{ev.unidadeInventariadaId ? `Unid ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'}</p>
+                                                    <p className="text-slate-500 shrink-0">{ev.unidadeInventariadaId ? `Unid ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'}</p>
 
                                                     {isAdmin && (
                                                         <div className="flex gap-1.5 mt-2">
                                                             {isEditing ? (
                                                                 <>
-                                                                    <button onClick={saveEditEvento} disabled={atualizarEventoMut.isPending} className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 px-2 py-1 rounded transition-colors text-xs font-medium">Salvar</button>
-                                                                    <button onClick={() => setEditingEventoId(null)} className="bg-slate-600/30 hover:bg-slate-600/50 text-slate-300 px-2 py-1 rounded transition-colors text-xs font-medium">Cancelar</button>
+                                                                    <button onClick={saveEditEvento} disabled={atualizarEventoMut.isPending} className="border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded transition-colors text-xs font-medium">Salvar</button>
+                                                                    <button onClick={() => setEditingEventoId(null)} className="border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 px-2 py-1 rounded transition-colors text-xs font-medium">Cancelar</button>
                                                                 </>
                                                             ) : (
                                                                 <>
@@ -496,7 +496,7 @@ export default function InventoryAdminPanel() {
                                                                             setRelatorioEventoId(ev.id);
                                                                             setUiInfo(`Relatório carregado para o evento ${ev.codigoEvento}.`);
                                                                         }}
-                                                                        className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 px-2 py-1 rounded transition-colors text-xs font-medium"
+                                                                        className="bg-violet-100 hover:bg-violet-200 text-violet-700 px-2 py-1 rounded transition-colors text-xs font-medium"
                                                                     >
                                                                         Relatório
                                                                     </button>
@@ -504,13 +504,13 @@ export default function InventoryAdminPanel() {
                                                                         <button
                                                                             onClick={() => onUpdateStatus("EM_ANDAMENTO", ev.id)}
                                                                             disabled={atualizarStatusMut.isPending}
-                                                                            className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-2 py-1 rounded transition-colors text-xs font-medium disabled:opacity-50"
+                                                                            className="border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded transition-colors text-xs font-medium disabled:opacity-50"
                                                                         >
                                                                             Reabrir
                                                                         </button>
                                                                     )}
-                                                                    <button onClick={() => handleEditEvento(ev)} className="bg-slate-700/50 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded transition-colors text-xs font-medium">Editar</button>
-                                                                    <button onClick={() => handleDeleteEvento(ev)} disabled={excluirEventoMut.isPending} className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 px-2 py-1 rounded transition-colors text-xs font-medium">Excluir</button>
+                                                                    <button onClick={() => handleEditEvento(ev)} className="bg-slate-100/50 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded transition-colors text-xs font-medium">Editar</button>
+                                                                    <button onClick={() => handleDeleteEvento(ev)} disabled={excluirEventoMut.isPending} className="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2 py-1 rounded transition-colors text-xs font-medium">Excluir</button>
                                                                 </>
                                                             )}
                                                         </div>
@@ -527,14 +527,14 @@ export default function InventoryAdminPanel() {
             </section>
 
             {relatorioEventoIdFinal && (
-                <section className="rounded-2xl border border-cyan-300/20 bg-slate-900/55 p-3 md:p-5">
+                <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
                     <header className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 className="font-[Space_Grotesk] text-xl font-semibold">Relatório do Inventário (AN303/2008)</h3>
-                            <p className="mt-1 text-xs text-slate-300">
+                            <p className="mt-1 text-xs text-slate-600">
                                 Consolidado do evento selecionado (em andamento ou encerrado), com divergências de unidade/sala e pendências de regularização.
                             </p>
-                            <p className="mt-1 text-[11px] text-slate-400">
+                            <p className="mt-1 text-[11px] text-slate-500">
                                 Evento: {relatorioEncerramentoQuery.data?.evento?.codigoEvento || "-"} | Status: {relatorioEncerramentoQuery.data?.evento?.status || "-"}
                             </p>
                         </div>
@@ -542,7 +542,7 @@ export default function InventoryAdminPanel() {
                             <button
                                 type="button"
                                 onClick={() => relatorioEncerramentoQuery.refetch()}
-                                className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-2 text-xs font-semibold hover:bg-white/10"
+                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100"
                             >
                                 Atualizar
                             </button>
@@ -550,16 +550,16 @@ export default function InventoryAdminPanel() {
                                 type="button"
                                 onClick={() => baixarCsvMut.mutate()}
                                 disabled={baixarCsvMut.isPending}
-                                className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-semibold text-slate-900 disabled:opacity-50"
+                                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                             >
                                 {baixarCsvMut.isPending ? "Exportando..." : "Exportar CSV editável"}
                             </button>
                         </div>
                     </header>
 
-                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-300">Gerando relatório...</p>}
+                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-600">Gerando relatório...</p>}
                     {relatorioEncerramentoQuery.error && (
-                        <p className="mt-4 text-sm text-rose-300">Falha ao gerar relatório detalhado.</p>
+                        <p className="mt-4 text-sm text-rose-700">Falha ao gerar relatório detalhado.</p>
                     )}
 
                     {!relatorioEncerramentoQuery.isLoading && !relatorioEncerramentoQuery.error && relatorioEncerramentoQuery.data && (
@@ -587,24 +587,24 @@ export default function InventoryAdminPanel() {
                                 <TopRoomsCard rows={porSalaTop} />
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-400">Divergências por tipo</p>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-xs uppercase tracking-widest text-slate-500">Divergências por tipo</p>
                                 <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
-                                    <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Unidade: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidade || 0}</strong></p>
-                                    <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasSala || 0}</strong></p>
-                                    <p className="rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2">Unidade + Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidadeESala || 0}</strong></p>
+                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Unidade: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidade || 0}</strong></p>
+                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasSala || 0}</strong></p>
+                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Unidade + Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidadeESala || 0}</strong></p>
                                 </div>
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-400">Divergências registradas</p>
-                                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-xs uppercase tracking-widest text-slate-500">Divergências registradas</p>
+                                <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
                                     <label className="inline-flex items-center gap-2">
                                         <input
                                             type="checkbox"
                                             checked={showItemPhotoRelatorio}
                                             onChange={(e) => setShowItemPhotoRelatorio(e.target.checked)}
-                                            className="h-4 w-4 accent-cyan-300"
+                                            className="h-4 w-4 accent-violet-600"
                                         />
                                         Foto do item
                                     </label>
@@ -613,17 +613,17 @@ export default function InventoryAdminPanel() {
                                             type="checkbox"
                                             checked={showCatalogPhotoRelatorio}
                                             onChange={(e) => setShowCatalogPhotoRelatorio(e.target.checked)}
-                                            className="h-4 w-4 accent-cyan-300"
+                                            className="h-4 w-4 accent-violet-600"
                                         />
                                         Foto do catálogo
                                     </label>
                                 </div>
                                 {(relatorioEncerramentoQuery.data.divergencias || []).length === 0 ? (
-                                    <p className="mt-2 text-sm text-slate-300">Nenhuma divergência registrada neste evento.</p>
+                                    <p className="mt-2 text-sm text-slate-600">Nenhuma divergência registrada neste evento.</p>
                                 ) : (
-                                    <div className="mt-2 overflow-auto rounded-lg border border-white/10">
+                                    <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                                         <table className="min-w-full text-left text-xs">
-                                            <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wider text-slate-300">
+                                            <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                                                 <tr>
                                                     <th className="px-2 py-2">Tombo</th>
                                                     <th className="px-2 py-2">Catálogo</th>
@@ -636,41 +636,41 @@ export default function InventoryAdminPanel() {
                                                     <th className="px-2 py-2">Regularização</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-white/10">
+                                            <tbody className="divide-y divide-slate-200">
                                                 {(relatorioEncerramentoQuery.data.divergencias || []).slice(0, 400).map((d) => (
                                                     <tr key={d.contagemId}>
-                                                        <td className="px-2 py-2 text-slate-200 font-mono">{d.numeroTombamento || d.identificadorExterno || "-"}</td>
-                                                        <td className="px-2 py-2 font-mono text-[11px] text-emerald-300">{d.codigoCatalogo || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-800 font-mono">{d.numeroTombamento || d.identificadorExterno || "-"}</td>
+                                                        <td className="px-2 py-2 font-mono text-[11px] text-emerald-700">{d.codigoCatalogo || "-"}</td>
                                                         <td className="px-2 py-2">
-                                                            <div className="font-medium text-slate-100">
+                                                            <div className="font-medium text-slate-900">
                                                                 {d.nomeResumo || d.descricaoComplementar || "-"}
                                                             </div>
                                                             {d.nomeResumo && d.descricaoComplementar && d.nomeResumo !== d.descricaoComplementar && (
-                                                                <div className="text-[10px] text-slate-400 italic">
+                                                                <div className="text-[10px] text-slate-500 italic">
                                                                     {d.descricaoComplementar}
                                                                 </div>
                                                             )}
                                                             {(showItemPhotoRelatorio || showCatalogPhotoRelatorio) && (
                                                                 <div className="mt-2 flex flex-wrap gap-2">
                                                                     {showItemPhotoRelatorio && getFotoUrl(d.fotoUrl || "") && (
-                                                                        <a href={getFotoUrl(d.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-cyan-300/30 bg-cyan-400/10 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/15">
+                                                                        <a href={getFotoUrl(d.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-violet-300 bg-violet-100 px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-100/80">
                                                                             Foto item
                                                                         </a>
                                                                     )}
                                                                     {showCatalogPhotoRelatorio && getFotoUrl(d.fotoReferenciaUrl || "") && (
-                                                                        <a href={getFotoUrl(d.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-100 hover:bg-emerald-300/15">
+                                                                        <a href={getFotoUrl(d.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
                                                                             Foto catálogo
                                                                         </a>
                                                                     )}
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.tipoDivergencia}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeDonaId))}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.localEsperado || "-"}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.salaEncontrada || "-"}</td>
-                                                        <td className="px-2 py-2 text-slate-300">{d.regularizacaoPendente ? "PENDENTE" : (d.regularizacaoAcao || "REGULARIZADO")}</td>
+                                                        <td className="px-2 py-2 text-slate-600">{d.tipoDivergencia}</td>
+                                                        <td className="px-2 py-2 text-slate-600">{formatUnidade(Number(d.unidadeDonaId))}</td>
+                                                        <td className="px-2 py-2 text-slate-600">{formatUnidade(Number(d.unidadeEncontradaId))}</td>
+                                                        <td className="px-2 py-2 text-slate-600">{d.localEsperado || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-600">{d.salaEncontrada || "-"}</td>
+                                                        <td className="px-2 py-2 text-slate-600">{d.regularizacaoPendente ? "PENDENTE" : (d.regularizacaoAcao || "REGULARIZADO")}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -679,14 +679,14 @@ export default function InventoryAdminPanel() {
                                 )}
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-400">Conformidade legal (AN303)</p>
-                                <ul className="mt-2 space-y-2 text-sm text-slate-200">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-xs uppercase tracking-widest text-slate-500">Conformidade legal (AN303)</p>
+                                <ul className="mt-2 space-y-2 text-sm text-slate-800">
                                     {(relatorioEncerramentoQuery.data.compliance || []).map((c) => (
-                                        <li key={c.artigo} className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2">
+                                        <li key={c.artigo} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                                             <p className="font-semibold">{c.artigo}</p>
-                                            <p className="text-slate-300">{c.regra}</p>
-                                            <p className="mt-1 text-xs text-slate-400">{(c.evidencias || []).join(" | ")}</p>
+                                            <p className="text-slate-600">{c.regra}</p>
+                                            <p className="mt-1 text-xs text-slate-500">{(c.evidencias || []).join(" | ")}</p>
                                         </li>
                                     ))}
                                 </ul>
@@ -703,9 +703,9 @@ export default function InventoryAdminPanel() {
 
 function CardKpi({ k, v }) {
     return (
-        <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
-            <p className="text-[11px] uppercase tracking-widest text-slate-400">{k}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-100">{Number(v || 0)}</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <p className="text-[11px] uppercase tracking-widest text-slate-500">{k}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{Number(v || 0)}</p>
         </div>
     );
 }
@@ -725,21 +725,21 @@ function DonutCard({ title, subtitle, total, items }) {
     if (acc < 100) stops.push(`#1f2937 ${acc}% 100%`);
     const bg = `conic-gradient(${stops.join(", ")})`;
     return (
-        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-400">{title}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
+            <p className="mt-1 text-[11px] text-slate-500">{subtitle}</p>
             <div className="mt-3 flex items-center gap-3">
                 <div className="relative h-24 w-24 shrink-0 rounded-full" style={{ background: bg }}>
-                    <div className="absolute inset-4 grid place-items-center rounded-full bg-slate-950 text-center">
-                        <span className="text-sm font-semibold text-slate-100">{t}</span>
+                    <div className="absolute inset-4 grid place-items-center rounded-full border border-slate-200 bg-slate-50 text-center">
+                        <span className="text-sm font-semibold text-slate-700">{t}</span>
                     </div>
                 </div>
                 <div className="space-y-1 text-xs">
                     {safeItems.map((it) => (
                         <div key={it.k} className="flex items-center gap-2">
                             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: it.color }} />
-                            <span className="text-slate-300">{it.k}</span>
-                            <span className="font-semibold text-slate-100">{it.v}</span>
+                            <span className="text-slate-600">{it.k}</span>
+                            <span className="font-semibold text-slate-900">{it.v}</span>
                         </div>
                     ))}
                 </div>
@@ -752,10 +752,10 @@ function StackedBarCard({ title, subtitle, total, items }) {
     const t = Math.max(0, Number(total || 0));
     const safeItems = (items || []).map((it) => ({ ...it, v: Math.max(0, Number(it.v || 0)) }));
     return (
-        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-400">{title}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{subtitle}</p>
-            <div className="mt-3 h-4 w-full overflow-hidden rounded-full bg-slate-800">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
+            <p className="mt-1 text-[11px] text-slate-500">{subtitle}</p>
+            <div className="mt-3 h-4 w-full overflow-hidden rounded-full bg-white">
                 <div className="flex h-full w-full">
                     {safeItems.map((it) => {
                         const pct = t > 0 ? (it.v / t) * 100 : 0;
@@ -765,12 +765,12 @@ function StackedBarCard({ title, subtitle, total, items }) {
             </div>
             <div className="mt-2 space-y-1 text-xs">
                 {safeItems.map((it) => (
-                    <div key={it.k} className="flex items-center justify-between rounded border border-white/10 bg-slate-900/40 px-2 py-1">
+                    <div key={it.k} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-2 py-1">
                         <div className="flex items-center gap-2">
                             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: it.color }} />
-                            <span className="text-slate-300">{it.k}</span>
+                            <span className="text-slate-600">{it.k}</span>
                         </div>
-                        <span className="font-semibold text-slate-100">{it.v}</span>
+                        <span className="font-semibold text-slate-900">{it.v}</span>
                     </div>
                 ))}
             </div>
@@ -782,10 +782,10 @@ function TopRoomsCard({ rows }) {
     const list = rows || [];
     const maxDiv = Math.max(1, ...list.map((r) => Number(r?.divergencias || 0)));
     return (
-        <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-400">Top salas com divergencias</p>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-500">Top salas com divergencias</p>
             {!list.length ? (
-                <p className="mt-3 text-sm text-slate-400">Sem divergencias por sala.</p>
+                <p className="mt-3 text-sm text-slate-500">Sem divergencias por sala.</p>
             ) : (
                 <div className="mt-3 space-y-2">
                     {list.map((r) => {
@@ -794,11 +794,11 @@ function TopRoomsCard({ rows }) {
                         return (
                             <div key={r.salaEncontrada}>
                                 <div className="mb-1 flex items-center justify-between text-xs">
-                                    <span className="truncate pr-2 text-slate-300">{r.salaEncontrada}</span>
-                                    <span className="font-semibold text-slate-100">{dv}</span>
+                                    <span className="truncate pr-2 text-slate-600">{r.salaEncontrada}</span>
+                                    <span className="font-semibold text-slate-900">{dv}</span>
                                 </div>
-                                <div className="h-2 rounded bg-slate-800">
-                                    <div className="h-2 rounded bg-cyan-400/90" style={{ width: `${pct}%` }} />
+                                <div className="h-2 rounded bg-white">
+                                    <div className="h-2 rounded bg-violet-500" style={{ width: `${pct}%` }} />
                                 </div>
                             </div>
                         );
@@ -808,3 +808,6 @@ function TopRoomsCard({ rows }) {
         </div>
     );
 }
+
+
+

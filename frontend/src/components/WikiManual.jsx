@@ -143,21 +143,21 @@ export default function WikiManual() {
 
   return (
     <section className="mt-6 grid gap-4 lg:grid-cols-[320px_1fr]">
-      <aside className="rounded-2xl border border-white/15 bg-slate-900/55 p-4 backdrop-blur">
+      <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="font-[Space_Grotesk] text-xl font-semibold">Wiki do Sistema</h2>
-        <p className="mt-2 text-sm text-slate-300">
+        <p className="mt-2 text-sm text-slate-600">
           Manual completo (usuários e admin). Conteúdo versionado e publicado junto do site.
         </p>
 
         <div className="mt-4">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-300" htmlFor="wikiSearch">
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-600" htmlFor="wikiSearch">
             Buscar página
           </label>
           <input
             id="wikiSearch"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-white/15 bg-slate-950/40 px-3 py-2 text-sm outline-none focus:border-cyan-300/80"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             placeholder="Ex.: inventário, GEAFIN, cautela..."
           />
         </div>
@@ -169,19 +169,19 @@ export default function WikiManual() {
                 <button
                   type="button"
                   onClick={() => setActiveId(p.id)}
-                  className={`w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-white/5 ${
-                    p.id === activePage.id ? "border border-cyan-300/60 bg-cyan-300/10" : "border border-transparent"
+                  className={`w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                    p.id === activePage.id ? "border border-violet-300 bg-violet-50" : "border border-transparent"
                   }`}
                 >
                   <span className="block font-medium">{p.title}</span>
-                  <span className="block text-xs text-slate-400">#{p.id}</span>
+                  <span className="block text-xs text-slate-500">#{p.id}</span>
                 </button>
               </li>
             ))}
           </ul>
         </nav>
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/35 p-3 text-xs text-slate-300">
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
           <p className="font-semibold">Regra de operação</p>
           <p className="mt-1">
             Se este Wiki estiver desatualizado, considere o sistema em{" "}
@@ -190,15 +190,15 @@ export default function WikiManual() {
         </div>
       </aside>
 
-      <article className="rounded-2xl border border-white/15 bg-slate-900/55 p-6 backdrop-blur">
+      <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <p className="text-xs uppercase tracking-widest text-cyan-200">Wiki</p>
+            <p className="text-xs uppercase tracking-widest text-violet-700">Wiki</p>
             <h2 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold">{activePage.title}</h2>
             {updatedText && (
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 text-xs text-slate-500">
                 Atualizado em:{" "}
-                <span className="font-semibold text-slate-200">{updatedText}</span>
+                <span className="font-semibold text-slate-800">{updatedText}</span>
                 {updated?.source ? (
                   <span className="text-slate-500"> (fonte: {updated.source})</span>
                 ) : null}
@@ -206,7 +206,7 @@ export default function WikiManual() {
             )}
           </div>
           <a
-            className="rounded-lg border border-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-white/5"
+            className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-slate-50"
             href={`#wiki=${encodeURIComponent(activePage.id)}`}
           >
             Link desta página
@@ -220,3 +220,5 @@ export default function WikiManual() {
     </section>
   );
 }
+
+

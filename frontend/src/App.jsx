@@ -23,6 +23,17 @@ import {
   listarEventosInventario,
 } from "./services/apiClient.js";
 
+const NAV_ITEMS = [
+  { id: "bens", label: "Consulta de Bens", short: "Bens", icon: "?" },
+  { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem", icon: "?" },
+  { id: "inventario-admin", label: "Inventario - Administracao", short: "Admin", icon: "?" },
+  { id: "movimentacoes", label: "Movimentacoes", short: "Mov.", icon: "?" },
+  { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141", icon: "?" },
+  { id: "normas", label: "Gestao de Normas", short: "Normas", icon: "�" },
+  { id: "operacoes", label: "Administracao do Painel", short: "Painel", icon: "?" },
+  { id: "wiki", label: "Wiki / Manual", short: "Wiki", icon: "?" },
+];
+
 class SectionErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -42,32 +53,30 @@ class SectionErrorBoundary extends Component {
 
   reset = () => {
     this.setState({ hasError: false, errorMessage: "" });
-  }
+  };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="rounded-2xl border border-rose-300/30 bg-rose-200/10 p-4 text-rose-200 space-y-3">
-          <p>Falha ao renderizar esta seção.</p>
+        <div className="space-y-3 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-rose-800">
+          <p>Falha ao renderizar esta secao.</p>
           {this.state.errorMessage ? (
-            <p className="text-xs text-rose-100/90 break-words">
-              Detalhe técnico: {this.state.errorMessage}
-            </p>
+            <p className="break-words text-xs text-rose-700">Detalhe tecnico: {this.state.errorMessage}</p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={this.reset}
-              className="rounded-lg border border-rose-200/50 px-3 py-1 text-xs font-semibold hover:bg-rose-100/10"
+              className="rounded-lg border border-rose-300 px-3 py-1 text-xs font-semibold hover:bg-rose-100"
             >
               Tentar novamente
             </button>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="rounded-lg border border-rose-200/50 px-3 py-1 text-xs font-semibold hover:bg-rose-100/10"
+              className="rounded-lg border border-rose-300 px-3 py-1 text-xs font-semibold hover:bg-rose-100"
             >
-              Recarregar página
+              Recarregar pagina
             </button>
           </div>
         </div>
@@ -107,13 +116,39 @@ function AppShell() {
 
   const bannerMessage = useMemo(() => {
     if (inventoryStatus === "EM_ANDAMENTO") {
-      return "Inventário ativo: movimentações de transferência ficam bloqueadas pelo Art. 183 (AN303_Art183).";
+      return "Inventario ativo: movimentacoes de transferencia ficam bloqueadas pelo Art. 183 (AN303_Art183).";
     }
     if (inventoryStatus === "CARREGANDO") {
-      return "Consultando status do inventário no banco...";
+      return "Consultando status do inventario no banco...";
     }
-    return "Sem evento ativo: transferências e regularizações podem ser executadas.";
+    return "Sem evento ativo: transferencias e regularizacoes podem ser executadas.";
   }, [inventoryStatus]);
+
+  
+
+  const bannerTone = useMemo(() => {
+    if (inventoryStatus === "EM_ANDAMENTO") {
+      return {
+        wrapper: "border-amber-300 bg-amber-50 text-amber-900",
+        meta: "text-amber-900/80",
+      };
+    }
+    if (inventoryStatus === "CARREGANDO") {
+      return {
+        wrapper: "border-slate-300 bg-slate-100 text-slate-700",
+        meta: "text-slate-600",
+      };
+    }
+    return {
+      wrapper: "border-emerald-300 bg-emerald-50 text-emerald-900",
+      meta: "text-emerald-900/80",
+    };
+  }, [inventoryStatus]);
+
+  const activeTabMeta = useMemo(
+    () => NAV_ITEMS.find((item) => item.id === tab) || NAV_ITEMS[0],
+    [tab],
+  );
 
   const wizardAvaliacoesQuery = useQuery({
     queryKey: ["inserviveisAvaliacoes", wizardBem?.id || null],
@@ -127,27 +162,27 @@ function AppShell() {
   const wizardDocumentoMut = useMutation({
     mutationFn: async () => {
       const avaliacaoId = wizardLastAvaliacao?.id ? String(wizardLastAvaliacao.id) : "";
-      if (!avaliacaoId) throw new Error("Nenhuma avaliação selecionada para anexar evidência.");
+      if (!avaliacaoId) throw new Error("Nenhuma avaliacao selecionada para anexar evidencia.");
       const driveUrl = String(wizardDocUrl || "").trim();
       if (!driveUrl) throw new Error("Informe a URL do Drive.");
 
-      // Regra legal: evidências do processo de inservíveis devem ser auditáveis.
+      // Regra legal: evidencias do processo de inserviveis devem ser auditaveis.
       // Art. 141 (AN303_Art141_Cap / AN303_Art141_I / AN303_Art141_II / AN303_Art141_III / AN303_Art141_IV).
       return criarDocumento({
         tipo: "OUTRO",
-        titulo: "Evidência - Avaliação de inservível (Art. 141)",
+        titulo: "Evidencia - Avaliacao de inservivel (Art. 141)",
         avaliacaoInservivelId: avaliacaoId,
         driveUrl,
         observacoes: `Wizard Art. 141: tipo=${wizardLastAvaliacao?.tipoInservivel || "?"}`,
       });
     },
     onSuccess: () => {
-      setWizardDocMsg("Evidência anexada (Drive).");
+      setWizardDocMsg("Evidencia anexada (Drive).");
       setWizardDocErr(null);
       setWizardDocUrl("");
     },
     onError: (e) => {
-      setWizardDocErr(String(e?.message || "Falha ao anexar evidência."));
+      setWizardDocErr(String(e?.message || "Falha ao anexar evidencia."));
       setWizardDocMsg(null);
     },
   });
@@ -163,7 +198,7 @@ function AppShell() {
 
     const tombo = String(wizardBemTombo || "").trim();
     if (!/^\d{10}$/.test(tombo)) {
-      setWizardPersistErr("Informe um tombamento GEAFIN com 10 dígitos.");
+      setWizardPersistErr("Informe um tombamento GEAFIN com 10 digitos.");
       return;
     }
 
@@ -171,7 +206,7 @@ function AppShell() {
       const data = await listarBens({ numeroTombamento: tombo, limit: 1, offset: 0 });
       const it = (data.items || [])[0] || null;
       if (!it) {
-        setWizardPersistErr("Bem não encontrado para este tombamento.");
+        setWizardPersistErr("Bem nao encontrado para este tombamento.");
         return;
       }
       setWizardBem(it);
@@ -181,263 +216,247 @@ function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-app text-slate-100">
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-        <header className="rounded-3xl border border-white/15 bg-slate-900/60 p-6 shadow-2xl backdrop-blur">
-          {auth.perfil && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-xs text-slate-200">
-              <div>
-                <p className="text-slate-300">Usuário autenticado</p>
-                <p className="mt-1 font-semibold text-slate-100">
-                  {auth.perfil.nome} ({auth.perfil.matricula})
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-cyan-300/40 bg-cyan-300/10 px-2 py-0.5 text-[11px] text-cyan-200">
+    <div className="min-h-screen bg-app text-slate-900">
+      <div className="flex min-h-screen">
+        <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
+          <div className="border-b border-slate-200 px-5 py-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">2a CJM</p>
+            <h1 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Patrimonio</h1>
+          </div>
+
+          <nav className="flex-1 space-y-1 px-3 py-4">
+            {NAV_ITEMS.map((item) => {
+              const active = tab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
+                    active
+                      ? "bg-violet-50 text-violet-700"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {auth.perfil ? (
+            <div className="border-t border-slate-200 px-4 py-4">
+              <p className="text-xs text-slate-500">Usuario autenticado</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{auth.perfil.nome}</p>
+              <p className="text-xs text-slate-500">{auth.perfil.matricula}</p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
                   {auth.role || "OPERADOR"}
                 </span>
                 <button
                   type="button"
                   onClick={auth.logout}
-                  className="rounded-full border border-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide hover:bg-white/5"
+                  className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                 >
                   Sair
                 </button>
               </div>
             </div>
-          )}
-          <p className="font-[Space_Grotesk] text-sm uppercase tracking-[0.28em] text-amber-300">
-            2a Circunscrição Judiciária Militar
-          </p>
-          <h1 className="mt-3 font-[Space_Grotesk] text-3xl font-bold md:text-5xl">
-            Painel de Patrimônio e Compliance
-          </h1>
-          <p className="mt-3 max-w-3xl text-slate-200/85">
-            Execução determinística para inventário, cautela e transferência com rastreabilidade legal ATN 303/2008.
-          </p>
+          ) : null}
+        </aside>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setTab("bens")}
-              className={`pill ${tab === "bens" ? "pill-active" : ""}`}
-            >
-              Consulta de Bens
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("inventario-contagem")}
-              className={`pill ${tab === "inventario-contagem" ? "pill-active" : ""}`}
-            >
-              Inventário - Contagem
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("inventario-admin")}
-              className={`pill ${tab === "inventario-admin" ? "pill-active" : ""}`}
-            >
-              Inventário - Administração
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("movimentacoes")}
-              className={`pill ${tab === "movimentacoes" ? "pill-active" : ""}`}
-            >
-              Movimentações
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("classificacao")}
-              className={`pill ${tab === "classificacao" ? "pill-active" : ""}`}
-            >
-              Wizard Art. 141
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("normas")}
-              className={`pill ${tab === "normas" ? "pill-active" : ""}`}
-            >
-              Gestão de Normas
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("operacoes")}
-              className={`pill ${tab === "operacoes" ? "pill-active" : ""}`}
-            >
-              Administração do Painel
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("wiki")}
-              className={`pill ${tab === "wiki" ? "pill-active" : ""}`}
-            >
-              Wiki / Manual
-            </button>
-          </div>
-        </header>
-
-        <section className="mt-6 rounded-2xl border border-amber-300/30 bg-amber-100/10 p-4 text-sm text-amber-100">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-semibold uppercase tracking-wide">Status inventário:</span>
-            <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
-              {inventoryStatus}
-            </span>
-            {activeEventCode && (
-              <span className="text-xs text-amber-100/80">
-                Evento: <span className="font-semibold">{activeEventCode}</span>
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => eventosQuery.refetch()}
-              className="rounded-lg border border-amber-200/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide hover:bg-amber-200/20"
-            >
-              Atualizar
-            </button>
-          </div>
-          <p className="mt-2 text-sm">{bannerMessage}</p>
-        </section>
-
-        {tab === "bens" && <AssetsExplorer />}
-
-        {tab === "inventario-contagem" && (
-          <div className="mt-6">
-            <SectionErrorBoundary>
-              <InventoryRoomPanel />
-            </SectionErrorBoundary>
-          </div>
-        )}
-
-        {tab === "inventario-admin" && (
-          <div className="mt-6">
-            <InventoryAdminPanel />
-          </div>
-        )}
-
-        {tab === "movimentacoes" && <MovimentacoesPanel />}
-
-        {tab === "classificacao" && (
-          <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Wizard de Classificacao de Danos</h2>
-                <p className="mt-2 text-sm text-slate-300">
-                  Fluxo guiado para classificar bens inserviveis: Ocioso, Recuperavel, Antieconomico ou Irrecuperavel.
-                </p>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 md:px-8">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Painel Institucional</p>
+                <h2 className="truncate font-[Space_Grotesk] text-xl font-semibold text-slate-900">{activeTabMeta.label}</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
+                  {inventoryStatus}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => eventosQuery.refetch()}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Atualizar
+                </button>
               </div>
             </div>
+          </header>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <div className="rounded-xl border border-white/10 bg-slate-950/25 p-4">
-                <p className="text-xs uppercase tracking-widest text-slate-300">Seleção do bem (obrigatório)</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <input
-                    value={wizardBemTombo}
-                    onChange={(e) => setWizardBemTombo(e.target.value.replace(/\\D+/g, "").slice(0, 10))}
-                    placeholder="Tombamento (10 dígitos)"
-                    inputMode="numeric"
-                    className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={loadBemByTombo}
-                    className="rounded-lg border border-white/25 px-4 py-2 text-sm font-semibold hover:bg-white/10"
-                  >
-                    Carregar bem
-                  </button>
+          <main className="flex-1 bg-slate-50">
+            <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
+              <section className={`mb-6 rounded-2xl border p-4 text-sm ${bannerTone.wrapper}`}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-semibold uppercase tracking-wide">Status inventario:</span>
+                  <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
+                    {inventoryStatus}
+                  </span>
+                  {activeEventCode && (
+                    <span className={`text-xs ${bannerTone.meta}`}>
+                      Evento: <span className="font-semibold">{activeEventCode}</span>
+                    </span>
+                  )}
                 </div>
+                <p className="mt-2 text-sm">{bannerMessage}</p>
+              </section>
 
-                {wizardBem ? (
-                  <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3 text-sm">
-                    <p className="font-semibold text-slate-100">{wizardBem.catalogoDescricao}</p>
-                    <p className="mt-1 text-xs text-slate-300">
-                      Tombo: <span className="font-mono">{wizardBem.numeroTombamento}</span> | Unidade: {wizardBem.unidadeDonaId} | Local: {wizardBem.localFisico}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setWizardOpen(true)}
-                      className="mt-3 rounded-xl bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-200"
-                    >
-                      Iniciar wizard para este bem
-                    </button>
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-300">
-                    Carregue um bem pelo tombamento para persistir a classificação no banco.
-                  </p>
-                )}
-
-                {wizardPersistErr && (
-                  <p className="mt-3 rounded-lg border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
-                    {wizardPersistErr}
-                  </p>
-                )}
-                {wizardPersistMsg && (
-                  <p className="mt-3 rounded-lg border border-emerald-300/30 bg-emerald-200/10 p-3 text-sm text-emerald-200">
-                    {wizardPersistMsg}
-                  </p>
-                )}
-
-                {wizardLastAvaliacao?.id ? (
-                  <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3">
-                    <p className="text-xs uppercase tracking-widest text-slate-300">Evidência (opcional)</p>
-                    <p className="mt-2 text-xs text-slate-300">
-                      Se existir laudo/foto/arquivo no Drive para esta avaliação, registre o link para auditoria.
-                    </p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                      <input
-                        value={wizardDocUrl}
-                        onChange={(e) => {
-                          setWizardDocUrl(e.target.value);
-                          setWizardDocMsg(null);
-                          setWizardDocErr(null);
-                        }}
-                        placeholder="URL do Google Drive"
-                        className="rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                      />
+              <section className="mb-6 md:hidden">
+                <div className="overflow-x-auto">
+                  <div className="flex min-w-max gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+                    {NAV_ITEMS.map((item) => (
                       <button
+                        key={item.id}
                         type="button"
-                        onClick={() => wizardDocumentoMut.mutate()}
-                        disabled={wizardDocumentoMut.isPending}
-                        className="rounded-lg border border-white/25 px-4 py-2 text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
+                        onClick={() => setTab(item.id)}
+                        className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                          tab === item.id
+                            ? "bg-violet-50 text-violet-700"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
                       >
-                        {wizardDocumentoMut.isPending ? "Anexando..." : "Anexar"}
+                        {item.short}
                       </button>
-                    </div>
-                    {wizardDocErr ? (
-                      <p className="mt-2 text-sm text-rose-200">{wizardDocErr}</p>
-                    ) : null}
-                    {wizardDocMsg ? (
-                      <p className="mt-2 text-sm text-emerald-200">{wizardDocMsg}</p>
-                    ) : null}
+                    ))}
                   </div>
-                ) : null}
-              </div>
+                </div>
+              </section>
 
-              <div className="rounded-xl border border-white/10 bg-slate-950/25 p-4">
-                <p className="text-xs uppercase tracking-widest text-slate-300">Histórico (Art. 141)</p>
-                {wizardAvaliacoesQuery.isLoading && <p className="mt-3 text-sm text-slate-300">Carregando...</p>}
-                {!wizardBem && (
-                  <p className="mt-3 text-sm text-slate-300">Selecione um bem para ver histórico.</p>
-                )}
-                {wizardBem && !wizardAvaliacoesQuery.isLoading && (wizardAvaliacoesQuery.data || []).length === 0 && (
-                  <p className="mt-3 text-sm text-slate-300">Nenhuma avaliação registrada para este bem.</p>
-                )}
-                {(wizardAvaliacoesQuery.data || []).slice(0, 8).map((it) => (
-                  <article key={it.id} className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-3 text-sm">
-                    <p className="text-xs uppercase tracking-widest text-cyan-200">{it.tipoInservivel}</p>
-                    <p className="mt-1 text-xs text-slate-300">{new Date(it.avaliadoEm).toLocaleString()}</p>
-                    {it.justificativa ? <p className="mt-2 text-xs text-slate-300">Justificativa: {it.justificativa}</p> : null}
-                  </article>
-                ))}
-              </div>
+              {tab === "bens" && <AssetsExplorer />}
+
+              {tab === "inventario-contagem" && (
+                <SectionErrorBoundary>
+                  <InventoryRoomPanel />
+                </SectionErrorBoundary>
+              )}
+
+              {tab === "inventario-admin" && <InventoryAdminPanel />}
+
+              {tab === "movimentacoes" && <MovimentacoesPanel />}
+
+              {tab === "classificacao" && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Wizard de Classificacao de Danos</h2>
+                      <p className="mt-2 text-sm text-slate-600">
+                        Fluxo guiado para classificar bens inserviveis: Ocioso, Recuperavel, Antieconomico ou Irrecuperavel.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Selecao do bem (obrigatorio)</p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input
+                          value={wizardBemTombo}
+                          onChange={(e) => setWizardBemTombo(e.target.value.replace(/\D+/g, "").slice(0, 10))}
+                          placeholder="Tombamento (10 digitos)"
+                          inputMode="numeric"
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={loadBemByTombo}
+                          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                        >
+                          Carregar bem
+                        </button>
+                      </div>
+
+                      {wizardBem ? (
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                          <p className="font-semibold text-slate-900">{wizardBem.catalogoDescricao}</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            Tombo: <span className="font-mono">{wizardBem.numeroTombamento}</span> | Unidade: {wizardBem.unidadeDonaId} | Local: {wizardBem.localFisico}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setWizardOpen(true)}
+                            className="mt-3 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                          >
+                            Iniciar wizard para este bem
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-sm text-slate-600">Carregue um bem pelo tombamento para persistir a classificacao no banco.</p>
+                      )}
+
+                      {wizardPersistErr && (
+                        <p className="mt-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
+                          {wizardPersistErr}
+                        </p>
+                      )}
+                      {wizardPersistMsg && (
+                        <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+                          {wizardPersistMsg}
+                        </p>
+                      )}
+
+                      {wizardLastAvaliacao?.id ? (
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                          <p className="text-xs uppercase tracking-widest text-slate-500">Evidencia (opcional)</p>
+                          <p className="mt-2 text-xs text-slate-600">
+                            Se existir laudo/foto/arquivo no Drive para esta avaliacao, registre o link para auditoria.
+                          </p>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                            <input
+                              value={wizardDocUrl}
+                              onChange={(e) => {
+                                setWizardDocUrl(e.target.value);
+                                setWizardDocMsg(null);
+                                setWizardDocErr(null);
+                              }}
+                              placeholder="URL do Google Drive"
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => wizardDocumentoMut.mutate()}
+                              disabled={wizardDocumentoMut.isPending}
+                              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                            >
+                              {wizardDocumentoMut.isPending ? "Anexando..." : "Anexar"}
+                            </button>
+                          </div>
+                          {wizardDocErr ? <p className="mt-2 text-sm text-rose-700">{wizardDocErr}</p> : null}
+                          {wizardDocMsg ? <p className="mt-2 text-sm text-emerald-700">{wizardDocMsg}</p> : null}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Historico (Art. 141)</p>
+                      {wizardAvaliacoesQuery.isLoading && <p className="mt-3 text-sm text-slate-600">Carregando...</p>}
+                      {!wizardBem && <p className="mt-3 text-sm text-slate-600">Selecione um bem para ver historico.</p>}
+                      {wizardBem && !wizardAvaliacoesQuery.isLoading && (wizardAvaliacoesQuery.data || []).length === 0 && (
+                        <p className="mt-3 text-sm text-slate-600">Nenhuma avaliacao registrada para este bem.</p>
+                      )}
+                      {(wizardAvaliacoesQuery.data || []).slice(0, 8).map((it) => (
+                        <article key={it.id} className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                          <p className="text-xs uppercase tracking-widest text-violet-700">{it.tipoInservivel}</p>
+                          <p className="mt-1 text-xs text-slate-600">{new Date(it.avaliadoEm).toLocaleString()}</p>
+                          {it.justificativa ? <p className="mt-2 text-xs text-slate-700">Justificativa: {it.justificativa}</p> : null}
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {tab === "normas" && <NormsPage />}
+              {tab === "operacoes" && <OperationsPanel />}
+              {tab === "wiki" && <WikiManual />}
             </div>
-          </section>
-        )}
-
-        {tab === "normas" && <NormsPage />}
-        {tab === "operacoes" && <OperationsPanel />}
-        {tab === "wiki" && <WikiManual />}
+          </main>
+        </div>
       </div>
 
       <ClassificationWizard
@@ -448,7 +467,7 @@ function AppShell() {
           setWizardPersistErr(null);
 
           if (!wizardBem?.id) {
-            setWizardPersistErr("Selecione um bem antes de salvar a classificação.");
+            setWizardPersistErr("Selecione um bem antes de salvar a classificacao.");
             return;
           }
 
@@ -465,10 +484,10 @@ function AppShell() {
             setWizardDocErr(null);
             setWizardDocUrl("");
             await wizardAvaliacoesQuery.refetch().catch(() => undefined);
-            setWizardPersistMsg(`Classificação salva: ${result.classificacao}.`);
+            setWizardPersistMsg(`Classificacao salva: ${result.classificacao}.`);
             setWizardOpen(false);
           } catch (e) {
-            setWizardPersistErr(String(e?.message || "Falha ao salvar classificação."));
+            setWizardPersistErr(String(e?.message || "Falha ao salvar classificacao."));
           }
         }}
       />
@@ -481,10 +500,10 @@ export default function App() {
 
   if (!auth.ready) {
     return (
-      <div className="min-h-screen bg-app text-slate-100">
+      <div className="min-h-screen bg-app">
         <div className="mx-auto max-w-3xl px-4 py-10">
-          <div className="rounded-2xl border border-white/15 bg-slate-900/55 p-6">
-            <p className="text-sm text-slate-300">Carregando configuração de acesso...</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <p className="text-sm text-slate-700">Carregando configuracao de acesso...</p>
           </div>
         </div>
       </div>
@@ -495,3 +514,4 @@ export default function App() {
 
   return <AppShell />;
 }
+

@@ -28,20 +28,20 @@ const LINKS = [
 
 export default function NormsPage() {
   return (
-    <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
+    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Gestão de Normas e Referências</h2>
-      <p className="mt-2 text-sm text-slate-300">
+      <p className="mt-2 text-sm text-slate-600">
         Central de consulta rapida para atos normativos e documentos de apoio da operacao patrimonial.
       </p>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {LINKS.map((item) => (
-          <article key={item.titulo} className="rounded-xl border border-white/15 bg-slate-950/45 p-4">
-            <h3 className="font-semibold text-cyan-100">{item.titulo}</h3>
-            <p className="mt-2 text-sm text-slate-300">{item.descricao}</p>
+          <article key={item.titulo} className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-white">
+            <h3 className="font-semibold text-violet-700">{item.titulo}</h3>
+            <p className="mt-2 text-sm text-slate-600">{item.descricao}</p>
             <a
               href={item.url}
-              className="mt-3 inline-flex items-center rounded-md border border-cyan-200/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-cyan-100 hover:bg-cyan-300/15"
+              className="mt-3 inline-flex items-center rounded-md border border-violet-200/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-violet-700 transition-colors hover:bg-violet-100"
             >
               Abrir referencia
             </a>
@@ -51,3 +51,6 @@ export default function NormsPage() {
     </section>
   );
 }
+
+
+

@@ -61,7 +61,7 @@ function describeDivergence(item) {
   if (unidadeDivergente && salaDivergente) {
     return {
       badge: "UNIDADE + SALA",
-      badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-200",
+      badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-700",
       title: "Carga em unidade diferente e sala divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
       unidadeDivergente,
@@ -72,7 +72,7 @@ function describeDivergence(item) {
   if (unidadeDivergente) {
     return {
       badge: "UNIDADE",
-      badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-200",
+      badgeClass: "border-amber-300/40 bg-amber-200/10 text-amber-800",
       title: "Carga em unidade diferente.",
       detail: "",
       unidadeDivergente,
@@ -83,7 +83,7 @@ function describeDivergence(item) {
   if (salaDivergente) {
     return {
       badge: "SALA",
-      badgeClass: "border-cyan-300/40 bg-cyan-200/10 text-cyan-200",
+      badgeClass: "border-violet-300 bg-violet-100/10 text-violet-700",
       title: "Mesma unidade, mas sala divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
       unidadeDivergente,
@@ -93,7 +93,7 @@ function describeDivergence(item) {
   }
   return {
     badge: "REGISTRO",
-    badgeClass: "border-white/25 bg-white/10 text-slate-200",
+    badgeClass: "border-slate-300 bg-slate-100 text-slate-800",
     title: "Divergencia registrada (sem detalhe de local esperado).",
     detail: salaEsperada ? `Sala de referencia: ${salaEsperada}.` : "",
     unidadeDivergente,
@@ -211,33 +211,33 @@ export default function RegularizationPanel() {
   const eventosAtivos = eventosAtivosQuery.data || [];
 
   return (
-    <section className="mt-6 rounded-2xl border border-white/15 bg-slate-900/55 p-6">
+    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Regularização pós-inventário (Divergências)</h2>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
+          <p className="mt-2 max-w-3xl text-sm text-slate-600">
             Divergências registradas no inventário (intrusos ou sem placa) não mudam a carga automaticamente.
             Esta tela serve para encerrar a pendência e, se necessário, efetuar a transferência formal.
           </p>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-slate-500">
             Regra legal: Art. 185 (AN303_Art185). Transferência: Arts. 124 e 127.
           </p>
         </div>
-        <div className="text-right text-xs text-slate-300">
+        <div className="text-right text-xs text-slate-600">
           <div className="flex flex-col items-end gap-2">
             <div>
-              Pendências: <span className="font-semibold text-amber-200">{enrichedItems.length}</span>
+              Pendências: <span className="font-semibold text-amber-800">{enrichedItems.length}</span>
             </div>
             <button
               type="button"
               onClick={() => forasteirosQuery.refetch()}
-              className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide hover:bg-white/10"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-wide hover:bg-slate-100"
             >
               Atualizar Lista
             </button>
             <p className="mt-1">
               Inventário ativo:{" "}
-              <span className={eventosAtivos.length ? "text-amber-200" : "text-emerald-300"}>
+              <span className={eventosAtivos.length ? "text-amber-800" : "text-emerald-700"}>
                 {eventosAtivos.length ? "SIM" : "NÃO"}
               </span>
             </p>
@@ -246,75 +246,75 @@ export default function RegularizationPanel() {
       </header>
 
       {eventosAtivos.length > 0 && (
-        <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-100/10 p-3 text-sm text-amber-100">
+        <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-100/10 p-3 text-sm text-amber-800">
           Há inventário em andamento no sistema. Regularizações só são aceitas para eventos já ENCERRADOS (Art. 185).
         </div>
       )}
 
       {!canAdmin && auth.authEnabled && (
-        <div className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
+        <div className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-700">
           Regularização é uma operação administrativa. Faça login com um perfil <strong>ADMIN</strong> para executar ações.
         </div>
       )}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_1fr]">
         {auth.perfil ? (
-          <div className="rounded-xl border border-white/10 bg-slate-950/25 p-3 text-xs text-slate-300">
-            <p className="font-semibold text-slate-100">Executor</p>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-900">Executor</p>
             <p className="mt-1">
               {auth.perfil.nome} ({auth.perfil.matricula})
             </p>
           </div>
         ) : (
           <label className="block space-y-1">
-            <span className="text-xs text-slate-300">perfilId (UUID)</span>
+            <span className="text-xs text-slate-600">perfilId (UUID)</span>
             <input
               value={perfilId}
               onChange={(e) => setPerfilId(e.target.value)}
               placeholder="UUID do perfil"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
         )}
 
         <label className="block space-y-1">
-          <span className="text-xs text-slate-300">termoReferencia (Termo de Transferência)</span>
+          <span className="text-xs text-slate-600">termoReferencia (Termo de Transferência)</span>
           <input
             value={termoReferencia}
             onChange={(e) => setTermoReferencia(e.target.value)}
             placeholder="Ex.: TT_2026_0001"
-            className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
           <label className="block space-y-1">
-            <span className="text-xs text-slate-300">Filtro: evento</span>
+            <span className="text-xs text-slate-600">Filtro: evento</span>
             <input
               value={filterEvento}
               onChange={(e) => setFilterEvento(e.target.value)}
               placeholder="Ex.: INV_2026..."
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-slate-300">Filtro: sala</span>
+            <span className="text-xs text-slate-600">Filtro: sala</span>
             <input
               value={filterSala}
               onChange={(e) => setFilterSala(e.target.value)}
               placeholder="Ex.: Sala 605"
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-600">
         <label className="inline-flex items-center gap-2">
           <input
             type="checkbox"
             checked={showItemPhoto}
             onChange={(e) => setShowItemPhoto(e.target.checked)}
-            className="h-4 w-4 accent-cyan-300"
+            className="h-4 w-4 accent-violet-600"
           />
           Foto do item
         </label>
@@ -323,26 +323,26 @@ export default function RegularizationPanel() {
             type="checkbox"
             checked={showCatalogPhoto}
             onChange={(e) => setShowCatalogPhoto(e.target.checked)}
-            className="h-4 w-4 accent-cyan-300"
+            className="h-4 w-4 accent-violet-600"
           />
           Foto do catálogo
         </label>
       </div>
 
       {(forasteirosQuery.isLoading || eventosAtivosQuery.isLoading) && (
-        <p className="mt-4 text-sm text-slate-300">Carregando dados...</p>
+        <p className="mt-4 text-sm text-slate-600">Carregando dados...</p>
       )}
 
       {!forasteirosQuery.isLoading && enrichedItems.length === 0 && (
-        <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-300">
+        <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
           Nenhuma divergência pendente de regularização encontrada.
         </p>
       )}
 
       {enrichedItems.length > 0 && (
-        <div className="mt-4 overflow-x-hidden rounded-2xl border border-white/10">
+        <div className="mt-4 overflow-x-hidden rounded-2xl border border-slate-200">
           <table className="w-full table-fixed text-sm">
-            <thead className="bg-slate-950/40 text-xs uppercase tracking-widest text-slate-300">
+            <thead className="bg-white text-xs uppercase tracking-widest text-slate-600">
               <tr>
                 <th className="w-[11rem] px-3 py-3 text-left">Evento</th>
                 <th className="w-[8rem] px-3 py-3 text-left">Tombo</th>
@@ -356,59 +356,59 @@ export default function RegularizationPanel() {
                 <th className="px-3 py-3 text-left">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10 bg-slate-900/40">
+            <tbody className="divide-y divide-slate-200 bg-slate-50">
               {enrichedItems.map((it) => (
-                <tr key={it.contagemId} className="align-top hover:bg-white/5 transition-colors">
+                <tr key={it.contagemId} className="align-top hover:bg-slate-50 transition-colors">
                   <td className="w-[11rem] px-3 py-3">
-                    <div className="break-all font-semibold leading-tight text-slate-100">{it.codigoEvento || "-"}</div>
-                    <div className="mt-1 text-[10px] text-slate-400 uppercase tracking-tighter">
+                    <div className="break-all font-semibold leading-tight text-slate-900">{it.codigoEvento || "-"}</div>
+                    <div className="mt-1 text-[10px] text-slate-500 uppercase tracking-tighter">
                       {String(it.statusInventario || "-")}
                     </div>
                   </td>
                   <td className="w-[8rem] px-3 py-3 font-mono text-xs">
                     {it.numeroTombamento ? (
-                      <span className="whitespace-nowrap text-slate-100">{it.numeroTombamento}</span>
+                      <span className="whitespace-nowrap text-slate-900">{it.numeroTombamento}</span>
                     ) : (
-                      <span className="text-rose-400 font-bold bg-rose-400/10 px-1 rounded">SEM PLACA</span>
+                      <span className="text-rose-700 font-bold bg-rose-100 px-1 rounded">SEM PLACA</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 font-mono text-[11px] text-emerald-300">
+                  <td className="px-3 py-3 font-mono text-[11px] text-emerald-700">
                     {it.codigoCatalogo || "-"}
                   </td>
                   <td className="px-3 py-3">
-                    <div className="font-semibold text-slate-100 break-words">{it.descricaoResumo.titulo}</div>
+                    <div className="font-semibold text-slate-900 break-words">{it.descricaoResumo.titulo}</div>
                     {it.descricaoResumo.detalhe && (
-                      <div className="mt-1 text-[11px] italic text-slate-300 break-words">
+                      <div className="mt-1 text-[11px] italic text-slate-600 break-words">
                         {it.descricaoResumo.detalhe}
                       </div>
                     )}
                     {it.observacoes && (
-                      <div className="mt-1 text-[11px] text-slate-400 italic break-words">
+                      <div className="mt-1 text-[11px] text-slate-500 italic break-words">
                         {it.observacoes}
                       </div>
                     )}
                     {showItemPhoto && getFotoUrl(it.fotoUrl || "") && (
                       <div className="mt-2">
-                        <a href={getFotoUrl(it.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-slate-700">
+                        <a href={getFotoUrl(it.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-slate-100">
                           📸 Ver Foto
                         </a>
                       </div>
                     )}
                     {showCatalogPhoto && getFotoUrl(it.fotoReferenciaUrl || "") && (
                       <div className="mt-2">
-                        <a href={getFotoUrl(it.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-900/40 px-2 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-800/50">
+                        <a href={getFotoUrl(it.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
                           Foto catálogo
                         </a>
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-slate-200">{formatUnidade(Number(it.unidadeDonaId))}</td>
-                  <td className="px-3 py-3 text-amber-100 font-medium">{formatUnidade(Number(it.unidadeEncontradaId))}</td>
-                  <td className="px-3 py-3 text-slate-200">
+                  <td className="px-3 py-3 text-slate-800">{formatUnidade(Number(it.unidadeDonaId))}</td>
+                  <td className="px-3 py-3 text-amber-800 font-medium">{formatUnidade(Number(it.unidadeEncontradaId))}</td>
+                  <td className="px-3 py-3 text-slate-800">
                     <div>{it.salaEncontrada || "-"}</div>
                     {(it.localEsperadoNome || it.localEsperadoTexto) && (
-                      <div className="mt-1 text-[11px] text-slate-400">
-                        Sala esperada: <span className="font-medium text-slate-300">{it.localEsperadoNome || it.localEsperadoTexto}</span>
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        Sala esperada: <span className="font-medium text-slate-600">{it.localEsperadoNome || it.localEsperadoTexto}</span>
                       </div>
                     )}
                   </td>
@@ -416,12 +416,12 @@ export default function RegularizationPanel() {
                     <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${it.divergence.badgeClass}`}>
                       {it.divergence.badge}
                     </span>
-                    <div className="mt-1 text-xs text-slate-200">{it.divergence.title}</div>
+                    <div className="mt-1 text-xs text-slate-800">{it.divergence.title}</div>
                     {it.divergence.detail && (
-                      <div className="mt-1 text-[11px] text-slate-400">{it.divergence.detail}</div>
+                      <div className="mt-1 text-[11px] text-slate-500">{it.divergence.detail}</div>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-slate-300 text-xs">
+                  <td className="px-3 py-3 text-slate-600 text-xs">
                     {it.encontradoEm ? new Date(it.encontradoEm).toLocaleString() : "-"}
                   </td>
                   <td className="px-3 py-3">
@@ -431,7 +431,7 @@ export default function RegularizationPanel() {
                         onClick={() => onRegularizar(it, "ATUALIZAR_LOCAL")}
                         disabled={!canAdmin || !canUsePerfil || !it.divergence.salaMesmaUnidade || regularizarMut.isPending}
                         title={it.divergence.salaMesmaUnidade ? "Atualiza sala/local do bem sem transferir unidade" : "Disponivel apenas para divergencia de sala na mesma unidade"}
-                        className="rounded-lg border border-cyan-300/40 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-300/15 disabled:opacity-40"
+                        className="rounded-lg border border-violet-300 bg-violet-100 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-600/15 disabled:opacity-40"
                       >
                         Corrigir sala
                       </button>
@@ -439,7 +439,7 @@ export default function RegularizationPanel() {
                         type="button"
                         onClick={() => onRegularizar(it, "MANTER_CARGA")}
                         disabled={!canAdmin || !canUsePerfil || regularizarMut.isPending}
-                        className="rounded-lg border border-white/20 bg-slate-950/40 px-3 py-2 text-xs font-semibold hover:bg-white/5 disabled:opacity-50"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
                       >
                         Manter carga
                       </button>
@@ -447,7 +447,7 @@ export default function RegularizationPanel() {
                         type="button"
                         onClick={() => onRegularizar(it, "TRANSFERIR_CARGA")}
                         disabled={!canAdmin || !canUsePerfil || !termoReferencia.trim() || regularizarMut.isPending}
-                        className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-cyan-200 disabled:opacity-50"
+                        className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
                       >
                         Transferir
                       </button>
@@ -462,3 +462,6 @@ export default function RegularizationPanel() {
     </section>
   );
 }
+
+
+

@@ -6,7 +6,7 @@
 |---|---|
 | Modulo | Governanca do Projeto |
 | Proposito | Constituicao tecnica, legal e de documentacao do Sistema de Gestao Patrimonial da 2a CJM |
-| Versao | v1.1.0 |
+| Versao | v1.2.0 |
 | Data | 2026-02-25 |
 | Status | Ativo |
 | Fonte de Verdade | Este arquivo (`PROJECT_RULES.md`) |
@@ -27,6 +27,7 @@ Escopo tecnologico permitido para este projeto:
 - Banco de Dados: Supabase Cloud (PostgreSQL) via conexao externa segura.
 - Backend: Node.js + Express em container Docker Compose, porta interna `3001`.
 - Frontend: React (Vite + Tailwind), publicado como site estatico no Nginx.
+- Frontend UI: TailwindCSS deve ser o sistema primario de estilo; CSS global complementar deve ser pequeno, justificado e sem substituir utilitarios Tailwind.
 - Automacao: n8n para geracao de PDF, relatorios, upload em Drive e integracoes operacionais por webhook/API.
 - Integracao legada: importacao de CSV do GEAFIN com codificacao Latin1 e tratamento robusto de variacoes de encoding.
 
@@ -165,6 +166,9 @@ Regras de mudanca:
 - Qualquer alteracao de regra legal exige atualizacao explicita deste arquivo.
 - Qualquer alteracao de stack fora do permitido exige revisao formal deste arquivo.
 - Mudancas de runtime (endpoint, contrato de payload/resposta, autorizacao, fluxo operacional) exigem atualizacao do Wiki/Manual e da documentacao tecnica relacionada no mesmo PR/commit.
+- Mudancas visuais devem preservar contratos de interface usados por JavaScript (`id`, `name`, classes referenciadas, `data-*` e atributos de formulario com impacto funcional).
+- Refatoracao visual deve ser incremental por fase, com checkpoint de regressao funcional ao final de cada fase.
+- Redesign guiado por imagem de referencia exige checklist de paridade visual e evidencia (antes/depois) no mesmo ciclo documental.
 - PR sem aderencia ao `PROJECT_RULES.md` deve ser reprovado.
 
 ## 10. Regra Wiki-First (Manual Operacional Obrigatorio)
@@ -185,3 +189,57 @@ Regras obrigatorias:
 - Os padroes de documentacao cobrem cabecalho de arquivo, JSDoc e citacao legal.
 - A politica de segredos proibe credenciais no repositorio e define rotacao.
 - O gate Wiki-First e a governanca de mudancas de runtime estao explicitos.
+- Existe diretriz explicita para refatoracao visual sem impacto funcional (Secao 12), incluindo paridade visual por referencia, processo por fases e gate de regressao.
+
+## 12. Diretriz de Refatoracao Visual Frontend (Sem Impacto Funcional)
+
+### 12.1 Objetivo
+Permitir modernizacao visual da aplicacao frontend preservando 100% do comportamento existente, com paridade de hierarquia e composicao em relacao a referencia visual aprovada.
+
+### 12.2 Escopo permitido
+- Ajustes de layout, hierarquia visual, espacamento, tipografia, cores, cards, tabelas e formularios.
+- Reorganizacao estrutural de JSX com wrappers/containers adicionais.
+- Inclusao de classes utilitarias Tailwind e pequenos estilos complementares quando estritamente necessario.
+
+### 12.3 Escopo proibido
+- Alterar logica de backend, contratos de API, schema de banco, autenticacao, regras de negocio ou compliance.
+- Alterar rotas funcionais da aplicacao.
+- Introduzir bibliotecas de UI fora da stack permitida sem revisao formal deste documento.
+
+### 12.4 Preservacao de contratos de UI
+- Nao remover ou renomear atributos usados por comportamento funcional (`id`, `name`, `data-*`, classes referenciadas por JS, atributos com impacto operacional como `accept` e `capture`).
+- Nao remover campos de formulario obrigatorios para payloads existentes.
+- Nao quebrar fluxo de scanner, upload de arquivo, sincronizacao offline e navegacao ja implementada.
+
+### 12.5 Diretriz de paridade visual por referencia
+- Redesign deve seguir estilo visual claro, institucional e de baixa poluicao visual.
+- Priorizar superficies claras, bordas sutis, sombra leve e acento roxo/lilas discreto.
+- Proibir resultados com predominancia dark, gradientes pesados, glassmorphism, neon ou excesso de animacao.
+- Em caso de conflito entre referencia visual e governanca funcional/compliance, prevalece este `PROJECT_RULES.md`.
+
+### 12.6 Blueprint minimo de layout (quando aplicavel)
+- Sidebar fixa a esquerda (largura aproximada 220-240px), com item ativo destacado.
+- Topbar simples no conteudo principal (altura aproximada 68-72px).
+- Conteudo principal com ritmo de espacamento 24-32px.
+- Dashboard com composicao de cards e tabela em grade organizada, mantendo densidade legivel.
+
+### 12.7 Processo obrigatorio para redesign
+- Etapa A: mapear telas/componentes/seletores e identificar riscos funcionais.
+- Etapa B: apresentar plano em fases (layout, design system, refinamento) com riscos e mitigacoes.
+- Etapa C: implementar incrementalmente, iniciando por Fase 1 e validando regressao antes de prosseguir.
+
+### 12.8 Gate de aceite por fase
+- Comportamento funcional inalterado.
+- Zero regressao em fluxos criticos.
+- Responsividade preservada (desktop e mobile).
+- Sem erro de runtime no frontend.
+- Consistencia visual da fase entregue.
+- Paridade visual com referencia validada por checklist.
+- Atualizacao de documentacao obrigatoria conforme regra Wiki-First.
+
+### 12.9 Evidencias minimas de validacao
+- Lista de arquivos alterados/criados.
+- Lista de contratos de UI preservados.
+- Resultado de smoke tests manuais dos fluxos criticos.
+- Capturas antes/depois e checklist de paridade visual.
+- Registro das atualizacoes de documentacao feitas no mesmo ciclo.

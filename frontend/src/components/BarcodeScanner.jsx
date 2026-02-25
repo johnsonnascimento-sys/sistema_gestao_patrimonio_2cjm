@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 
 /**
@@ -129,14 +129,14 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/20 bg-slate-900 p-4 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-4 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-100 uppercase tracking-wide">
+          <h3 className="font-semibold text-slate-900 uppercase tracking-wide">
             {continuous ? "Leitura Continua" : "Leitura Simples"}
           </h3>
           <button
             onClick={() => requestCloseRef.current()}
-            className="rounded-lg bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-lg bg-white p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -145,22 +145,22 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
         </div>
 
         {errorLabel ? (
-          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-700">
             {errorLabel}
           </div>
         ) : (
-          <div className="relative overflow-hidden rounded-xl border-2 border-dashed border-cyan-400/50 bg-black">
+          <div className="relative overflow-hidden rounded-xl border-2 border-dashed border-violet-300/50 bg-black">
             {isInitializing && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 text-sm text-cyan-300">
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 text-sm text-white">
                 Iniciando camera...
               </div>
             )}
             <div id={regionId} className="w-full" />
-            <div className="pointer-events-none absolute left-0 right-0 top-1/2 -mt-[1px] h-0.5 animate-pulse bg-rose-500/50 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+            <div className="pointer-events-none absolute left-0 right-0 top-1/2 -mt-[1px] h-0.5 animate-pulse bg-violet-500/60 shadow-[0_0_8px_rgba(109,76,240,0.45)]" />
           </div>
         )}
 
-        <div className="mt-4 text-center text-xs text-slate-400">
+        <div className="mt-4 text-center text-xs text-slate-500">
           {continuous
             ? "Aponte a camera para os codigos de barras. A camera continuara ligada apos cada leitura."
             : "Aponte a camera para o codigo de barras. A camera sera fechada automaticamente apos a leitura."}
@@ -168,7 +168,7 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
 
         <button
           onClick={() => requestCloseRef.current()}
-          className="mt-6 w-full rounded-xl border border-white/10 bg-slate-800 py-3 font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+          className="mt-6 w-full rounded-xl border border-slate-200 bg-white py-3 font-semibold text-slate-800 transition-colors hover:bg-slate-100"
         >
           {errorLabel ? "Voltar" : "Cancelar Camera"}
         </button>
@@ -176,3 +176,6 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
     </div>
   );
 }
+
+
+

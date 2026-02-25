@@ -60,16 +60,16 @@ export default function AuthLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-app text-slate-100">
+    <div className="min-h-screen bg-app text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-3xl items-center px-4 py-10">
-        <section className="w-full rounded-3xl border border-white/15 bg-slate-900/60 p-6 shadow-2xl backdrop-blur">
-          <p className="font-[Space_Grotesk] text-sm uppercase tracking-[0.28em] text-amber-300">
+        <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <p className="font-[Space_Grotesk] text-sm uppercase tracking-[0.28em] text-violet-600">
             2a Circunscricao Judiciaria Militar
           </p>
-          <h1 className="mt-3 font-[Space_Grotesk] text-3xl font-bold md:text-4xl">
+          <h1 className="mt-3 font-[Space_Grotesk] text-3xl font-bold text-slate-900 md:text-4xl">
             Patrimonio 2a CJM
           </h1>
-          <p className="mt-3 text-sm text-slate-200/85">
+          <p className="mt-3 text-sm text-slate-600">
             Autenticacao ativa na VPS. Entre com sua matricula para acessar o sistema.
           </p>
 
@@ -91,45 +91,45 @@ export default function AuthLogin() {
           </div>
 
           {errorText && (
-            <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-200">
+            <p className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
               {errorText}
             </p>
           )}
 
           <form onSubmit={submit} className="mt-5 grid gap-3">
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Matricula</span>
+              <span className="text-xs text-slate-600">Matricula</span>
               <input
                 value={matricula}
                 onChange={(e) => setMatricula(normalizeMatricula(e.target.value))}
                 placeholder="Ex.: 9156"
                 inputMode="numeric"
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               />
             </label>
 
             {mode === "primeiro" && (
               <label className="space-y-1">
-                <span className="text-xs text-slate-300">Nome completo (deve conferir)</span>
+                <span className="text-xs text-slate-600">Nome completo (deve conferir)</span>
                 <input
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Ex.: Johnson Teixeira do Nascimento"
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 />
               </label>
             )}
 
             <label className="space-y-1">
-              <span className="text-xs text-slate-300">Senha</span>
+              <span className="text-xs text-slate-600">Senha</span>
               <input
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 type="password"
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               />
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-500">
                 Minimo 8 caracteres. A senha e armazenada como hash (bcrypt) no banco.
               </span>
             </label>
@@ -137,14 +137,14 @@ export default function AuthLogin() {
             <button
               type="submit"
               disabled={pending || !auth.ready}
-              className="mt-2 rounded-xl bg-cyan-300 px-4 py-2 font-semibold text-slate-900 disabled:opacity-50"
+              className="mt-2 rounded-xl bg-violet-600 px-4 py-2 font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {pending ? "Processando..." : mode === "primeiro" ? "Definir senha e entrar" : "Entrar"}
             </button>
           </form>
 
-          <div className="mt-5 rounded-xl border border-white/10 bg-slate-950/35 p-3 text-xs text-slate-300">
-            <p className="font-semibold">Dica operacional</p>
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-800">Dica operacional</p>
             <p className="mt-1">
               Se voce ainda nao tem perfil cadastrado, um ADMIN deve criar primeiro em "Operacoes API". Depois use "Primeiro acesso"
               para definir sua senha.
