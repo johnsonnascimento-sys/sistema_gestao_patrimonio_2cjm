@@ -174,3 +174,14 @@ Filtros recomendados:
 - `tabela`
 - `operacao`
 - `q` (texto livre)
+
+### Log de erros runtime (novo)
+
+No painel **Administracao do Painel**, consulte a secao **Log de Erros Runtime (API)** para ver falhas recentes (4xx/5xx) com:
+
+- data/hora UTC
+- codigo do erro
+- rota/metodo
+- requestId
+
+Use o `requestId` para correlacionar com logs do backend na VPS.

@@ -338,6 +338,22 @@ export async function listarAuditoriaPatrimonio(params = {}) {
 }
 
 /**
+ * Lista erros runtime registrados pela API (ADMIN).
+ * @param {{limit?: number}} params Parametros.
+ * @returns {Promise<{requestId: string, total: number, items: any[]}>} Ultimos erros.
+ */
+export async function listarErrosRuntime(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/logs/erros-runtime${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Reverte uma alteracao especifica da trilha de auditoria de um bem.
  * @param {string} id BemId (UUID).
  * @param {number|string} auditId ID da linha em auditoria_log.

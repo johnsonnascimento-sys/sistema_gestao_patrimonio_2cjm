@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import ChangeLogPanel from "./ChangeLogPanel.jsx";
 import PatrimonioAuditPanel from "./PatrimonioAuditPanel.jsx";
+import RuntimeErrorLogPanel from "./RuntimeErrorLogPanel.jsx";
 import {
   API_BASE_URL,
   criarLocal,
@@ -510,6 +511,7 @@ export default function OperationsPanel() {
 
       <ChangeLogPanel />
       <PatrimonioAuditPanel canAdmin={canAdmin} />
+      <RuntimeErrorLogPanel canAdmin={canAdmin} />
 
       <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Conectividade backend</h3>

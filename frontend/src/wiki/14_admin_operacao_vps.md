@@ -192,3 +192,15 @@ No sistema web (Admin):
 
 - **Log Geral de Alteracoes**: trilha de projeto + comando de rollback.
 - **Auditoria Patrimonial (Global)**: trilha de alteracoes de dados do patrimonio.
+
+## Log de erros runtime (API)
+
+A API grava erros tratados em arquivo de runtime persistido na VPS:
+
+- caminho no container: `/app/data/fotos/logs/runtime_errors.ndjson`
+- endpoint (ADMIN): `GET /api/logs/erros-runtime?limit=100`
+
+Uso recomendado:
+
+- monitorar erros de validacao/formatacao sem depender apenas de `docker logs`
+- usar `requestId` para correlacao rapida de incidente

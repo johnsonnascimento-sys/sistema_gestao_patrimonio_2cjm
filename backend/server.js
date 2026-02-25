@@ -109,6 +109,9 @@ app.use(express.json({ limit: "12mb" }));
 const FOTOS_DIR = path.join(__dirname, "data", "fotos");
 fs.mkdirSync(path.join(FOTOS_DIR, "bem"), { recursive: true });
 fs.mkdirSync(path.join(FOTOS_DIR, "catalogo"), { recursive: true });
+const RUNTIME_LOG_DIR = path.join(FOTOS_DIR, "logs");
+const RUNTIME_ERROR_LOG_FILE = path.join(RUNTIME_LOG_DIR, "runtime_errors.ndjson");
+fs.mkdirSync(RUNTIME_LOG_DIR, { recursive: true });
 app.use("/fotos", express.static(FOTOS_DIR, { maxAge: "7d", immutable: true }));
 app.use((req, res, next) => {
   req.requestId = randomUUID();
@@ -157,6 +160,28 @@ function diffAuditObjects(beforeObj, afterObj) {
     }
   }
   return out;
+}
+
+function appendRuntimeErrorLog(entry) {
+  try {
+    fs.appendFileSync(RUNTIME_ERROR_LOG_FILE, `${JSON.stringify(entry)}\n`, "utf8");
+  } catch (_e) {
+    // Falha de log nao deve interromper fluxo da API.
+  }
+}
+
+function readRuntimeErrorLog(limit) {
+  if (!fs.existsSync(RUNTIME_ERROR_LOG_FILE)) return [];
+  const lines = fs.readFileSync(RUNTIME_ERROR_LOG_FILE, "utf8").split(/\r?\n/).filter(Boolean);
+  const items = [];
+  for (let i = lines.length - 1; i >= 0 && items.length < limit; i -= 1) {
+    try {
+      items.push(JSON.parse(lines[i]));
+    } catch (_e) {
+      // Ignora linha malformada.
+    }
+  }
+  return items;
 }
 
 const PATRIMONIO_AUDIT_TABLES = Object.freeze([
@@ -829,11 +854,16 @@ app.get("/bens/:id/auditoria", mustAuth, async (req, res, next) => {
          p.nome AS "executorNome",
          p.matricula AS "executorMatricula"
        FROM auditoria_log a
-       LEFT JOIN perfis p
-         ON (
-           a.executado_por ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-           AND p.id = a.executado_por::uuid
-         )
+      LEFT JOIN perfis p
+        ON (
+          p.id = (
+            CASE
+              WHEN a.executado_por ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+              THEN a.executado_por::uuid
+              ELSE NULL
+            END
+          )
+        )
        WHERE
          (a.tabela = 'bens' AND a.registro_pk = $1)
          OR
@@ -1122,8 +1152,13 @@ app.get("/auditoria/patrimonio", mustAdmin, async (req, res, next) => {
       FROM auditoria_log a
       LEFT JOIN perfis p
         ON (
-          a.executado_por ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-          AND p.id = a.executado_por::uuid
+          p.id = (
+            CASE
+              WHEN a.executado_por ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+              THEN a.executado_por::uuid
+              ELSE NULL
+            END
+          )
         )
       LEFT JOIN bens b_pk
         ON (a.tabela = 'bens' AND a.registro_pk = b_pk.id::text)
@@ -2874,12 +2909,36 @@ app.patch("/catalogo-bens/:id/foto", mustAdmin, async (req, res, next) => {
   }
 });
 
+app.get("/logs/erros-runtime", mustAdmin, async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(300, parseIntOrDefault(req.query?.limit, 100)));
+    const items = readRuntimeErrorLog(limit);
+    res.json({ requestId: req.requestId, total: items.length, items });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, req, res, _next) => {
+  const logHandledError = (status, code, message) => {
+    appendRuntimeErrorLog({
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId || null,
+      method: req.method || null,
+      path: req.originalUrl || req.url || null,
+      status,
+      code,
+      message,
+    });
+  };
+
   if (error instanceof multer.MulterError) {
+    logHandledError(400, "UPLOAD_INVALIDO", "Falha no upload do arquivo.");
     res.status(400).json({ error: { code: "UPLOAD_INVALIDO", message: "Falha no upload do arquivo." }, requestId: req.requestId });
     return;
   }
   if (error instanceof HttpError) {
+    logHandledError(error.status, error.code, error.message);
     res.status(error.status).json({ error: { code: error.code, message: error.message, details: error.details }, requestId: req.requestId });
     return;
   }
@@ -2887,6 +2946,7 @@ app.use((error, req, res, _next) => {
   if (error?.code === "42P01") {
     const msg = String(error?.message || "");
     if (msg.includes("relation \"locais\"") || msg.includes("relation \"public.locais\"")) {
+      logHandledError(500, "MIGRACAO_PENDENTE_LOCAIS", "Tabela locais nao existe no banco.");
       res.status(500).json({
         error: {
           code: "MIGRACAO_PENDENTE_LOCAIS",
@@ -2897,6 +2957,7 @@ app.use((error, req, res, _next) => {
       return;
     }
     if (msg.includes("relation \"geafin_import_arquivos\"") || msg.includes("relation \"public.geafin_import_arquivos\"")) {
+      logHandledError(500, "MIGRACAO_PENDENTE_GEAFIN", "Tabelas de importacao GEAFIN nao existem no banco.");
       res.status(500).json({
         error: {
           code: "MIGRACAO_PENDENTE_GEAFIN",
@@ -2910,6 +2971,7 @@ app.use((error, req, res, _next) => {
   if (error?.code === "42703") {
     const msg = String(error?.message || "");
     if (msg.includes("column \"ativo\"") && msg.includes("locais")) {
+      logHandledError(500, "MIGRACAO_PENDENTE_LOCAIS_ATIVO", "Coluna locais.ativo nao existe no banco.");
       res.status(500).json({
         error: {
           code: "MIGRACAO_PENDENTE_LOCAIS_ATIVO",
@@ -2921,13 +2983,16 @@ app.use((error, req, res, _next) => {
     }
   }
   if (error?.code === "23514") {
+    logHandledError(422, "VIOLACAO_REGRA_NEGOCIO", "Violacao de regra de negocio.");
     res.status(422).json({ error: { code: "VIOLACAO_REGRA_NEGOCIO", message: "Violacao de regra de negocio." }, requestId: req.requestId });
     return;
   }
   if (error?.code === "22P02") {
+    logHandledError(400, "FORMATO_INVALIDO", "Formato invalido em campo enviado.");
     res.status(400).json({ error: { code: "FORMATO_INVALIDO", message: "Formato invalido em campo enviado." }, requestId: req.requestId });
     return;
   }
+  logHandledError(500, "ERRO_INTERNO", "Erro interno no servidor.");
   console.error(`[${req.requestId}]`, error);
   res.status(500).json({ error: { code: "ERRO_INTERNO", message: "Erro interno no servidor." }, requestId: req.requestId });
 });
@@ -3632,6 +3697,9 @@ function openapi() {
       },
       "/auditoria/patrimonio": {
         get: { summary: "Listagem global da auditoria patrimonial (ADMIN)", responses: { 200: { description: "OK" } } },
+      },
+      "/logs/erros-runtime": {
+        get: { summary: "Listagem de erros runtime da API (ADMIN)", responses: { 200: { description: "OK" } } },
       },
       "/locais": {
         get: { summary: "Listar locais/salas padronizados (query: unidadeId, includeInativos)", responses: { 200: { description: "OK" } } },

@@ -128,3 +128,11 @@ Dica pratica:
 
 1. Se o objetivo e achar "quem alterou um tombo", comece pela **Auditoria Patrimonial (Global)** com filtro de tombamento.
 2. Se o objetivo e auditoria de entrega/deploy, use o **Log Geral de Alteracoes**.
+
+## Erro recorrente (FORMATO_INVALIDO)
+
+Se aparecer **"Formato invalido em campo enviado"**:
+
+1. Abra **Administracao do Painel** -> **Log de Erros Runtime (API)**.
+2. Copie o `requestId` da linha do erro.
+3. Correlacione com `docker logs -f cjm_backend` na VPS para diagnostico.
