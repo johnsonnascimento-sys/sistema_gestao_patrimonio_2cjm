@@ -24,15 +24,98 @@ import {
 } from "./services/apiClient.js";
 
 const NAV_ITEMS = [
-  { id: "bens", label: "Consulta de Bens", short: "Bens", icon: "?" },
-  { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem", icon: "?" },
-  { id: "inventario-admin", label: "Inventario - Administracao", short: "Admin", icon: "?" },
-  { id: "movimentacoes", label: "Movimentacoes", short: "Mov.", icon: "?" },
-  { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141", icon: "?" },
-  { id: "normas", label: "Gestao de Normas", short: "Normas", icon: "§" },
-  { id: "operacoes", label: "Administracao do Painel", short: "Painel", icon: "?" },
-  { id: "wiki", label: "Wiki / Manual", short: "Wiki", icon: "?" },
+  { id: "bens", label: "Consulta de Bens", short: "Bens" },
+  { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
+  { id: "inventario-admin", label: "Inventario - Administracao", short: "Admin" },
+  { id: "movimentacoes", label: "Movimentacoes", short: "Mov." },
+  { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
+  { id: "normas", label: "Gestao de Normas", short: "Normas" },
+  { id: "operacoes", label: "Administracao do Painel", short: "Painel" },
+  { id: "wiki", label: "Wiki / Manual", short: "Wiki" },
 ];
+
+function NavIcon({ id }) {
+  const cls = "h-4 w-4";
+
+  if (id === "bens") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18" />
+      </svg>
+    );
+  }
+
+  if (id === "inventario-contagem") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 6h10" />
+        <path d="M4 12h10" />
+        <path d="M4 18h10" />
+        <path d="M17 12l2 2 3-4" />
+      </svg>
+    );
+  }
+
+  if (id === "inventario-admin") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="12" cy="8" r="3" />
+        <path d="M5 20a7 7 0 0 1 14 0" />
+      </svg>
+    );
+  }
+
+  if (id === "movimentacoes") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 7h12" />
+        <path d="m13 4 3 3-3 3" />
+        <path d="M20 17H8" />
+        <path d="m11 14-3 3 3 3" />
+      </svg>
+    );
+  }
+
+  if (id === "classificacao") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 6h16" />
+        <path d="M8 12h8" />
+        <path d="M10 18h4" />
+      </svg>
+    );
+  }
+
+  if (id === "normas") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M6 4h9a3 3 0 0 1 3 3v13H9a3 3 0 0 0-3 3V4z" />
+        <path d="M6 4v16" />
+      </svg>
+    );
+  }
+
+  if (id === "operacoes") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 3v3" />
+        <path d="M12 18v3" />
+        <path d="M3 12h3" />
+        <path d="M18 12h3" />
+        <circle cx="12" cy="12" r="4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M5 5h14v14H5z" />
+      <path d="M9 9h6" />
+      <path d="M9 13h6" />
+    </svg>
+  );
+}
 
 class SectionErrorBoundary extends Component {
   constructor(props) {
@@ -239,7 +322,7 @@ function AppShell() {
                   }`}
                 >
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
-                    {item.icon}
+                    <NavIcon id={item.id} />
                   </span>
                   <span>{item.label}</span>
                 </button>
