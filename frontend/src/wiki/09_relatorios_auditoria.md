@@ -143,3 +143,34 @@ Pré-requisitos dos workflows PDF via API:
 - Guarde sempre o CSV original importado (fora do repositório).
 - Registre quem executa operações críticas (perfil).
 - Não use “transferência” para “consertar inventário” durante o congelamento: registre divergência e regularize depois.
+
+## 8) Logs consolidados (projeto x patrimonio)
+
+### Log Geral de Alteracoes (governanca)
+
+Onde consultar:
+
+- Aba **Administracao do Painel** -> bloco **Log Geral de Alteracoes**
+- Arquivo canonico: `docs/LOG_GERAL_ALTERACOES.md`
+
+Use este log para trilha de mudancas de sistema (deploy, UX, docs, scripts, runtime), com:
+
+- autor
+- data/hora UTC
+- commit
+- comando de reversao (`git revert <commit>`)
+
+### Auditoria Patrimonial (Global) (dados operacionais)
+
+Onde consultar:
+
+- Aba **Administracao do Painel** -> bloco **Auditoria Patrimonial (Global)**
+
+Use este log para alteracoes de patrimonio (bens/catalogo/movimentacoes/contagens), sem abrir tombo individual.
+
+Filtros recomendados:
+
+- `numeroTombamento`
+- `tabela`
+- `operacao`
+- `q` (texto livre)

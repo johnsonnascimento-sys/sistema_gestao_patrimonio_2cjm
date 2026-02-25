@@ -115,3 +115,16 @@ Veja a pagina:
 Resumo:
 
 - Bem de terceiro e item externo ao patrimonio, registrado segregado para controle.
+
+## Logs: onde cada alteracao aparece
+
+Se uma alteracao nao aparece onde voce esperava, valide o tipo de log:
+
+- **Log Geral de Alteracoes**: mudancas de sistema/projeto (commits, deploys, docs, UX).
+- **Auditoria Patrimonial (Global)**: mudancas de dados do patrimonio (contrato, local, status, unidade, etc.).
+- **Linha do tempo do bem (detalhe)**: visao completa daquele bem especifico.
+
+Dica pratica:
+
+1. Se o objetivo e achar "quem alterou um tombo", comece pela **Auditoria Patrimonial (Global)** com filtro de tombamento.
+2. Se o objetivo e auditoria de entrega/deploy, use o **Log Geral de Alteracoes**.

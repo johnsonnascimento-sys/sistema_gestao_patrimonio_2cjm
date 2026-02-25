@@ -1064,7 +1064,7 @@ app.get("/auditoria/patrimonio", mustAdmin, async (req, res, next) => {
     }
 
     if (numeroTombamento) {
-      where.push(`COALESCE(b_pk.numero_tombamento, b_ref.numero_tombamento, '') ILIKE $${idx}`);
+      where.push(`COALESCE(b_pk.numero_tombamento::text, b_ref.numero_tombamento::text, '') ILIKE $${idx}`);
       params.push(`%${numeroTombamento}%`);
       idx += 1;
     }
@@ -1074,7 +1074,7 @@ app.get("/auditoria/patrimonio", mustAdmin, async (req, res, next) => {
         a.executado_por ILIKE $${idx}
         OR a.tabela ILIKE $${idx}
         OR a.operacao ILIKE $${idx}
-        OR COALESCE(b_pk.numero_tombamento, b_ref.numero_tombamento, '') ILIKE $${idx}
+        OR COALESCE(b_pk.numero_tombamento::text, b_ref.numero_tombamento::text, '') ILIKE $${idx}
         OR COALESCE(cb_pk.codigo_catalogo, cb_ref.codigo_catalogo, '') ILIKE $${idx}
         OR COALESCE(b_pk.nome_resumo, b_ref.nome_resumo, '') ILIKE $${idx}
         OR COALESCE(b_pk.descricao_complementar, b_ref.descricao_complementar, '') ILIKE $${idx}

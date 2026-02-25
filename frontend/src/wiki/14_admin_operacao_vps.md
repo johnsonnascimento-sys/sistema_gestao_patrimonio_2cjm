@@ -176,3 +176,19 @@ Se "Failed to fetch" aparecer no site:
 2. Se falhar: backend caiu (ver logs).
 3. Se ok: conferir Nginx `/api` no host e no container frontend.
 4. Recarregar Nginx host: `nginx -t && systemctl reload nginx`.
+
+## Registro de alteracoes e rollback (operacao)
+
+Toda entrega relevante deve registrar trilha de governanca e modo de reversao.
+
+Arquivos e scripts oficiais:
+
+- Log geral: `docs/LOG_GERAL_ALTERACOES.md`
+- Registrar entrada: `./scripts/log_alteracao.sh "<TIPO>" "<DETALHE>"`
+- Reverter por commit: `./scripts/reverter_alteracao.sh --commit <hash>`
+- Reverter por ID do log: `./scripts/reverter_alteracao.sh --log-id <ID>`
+
+No sistema web (Admin):
+
+- **Log Geral de Alteracoes**: trilha de projeto + comando de rollback.
+- **Auditoria Patrimonial (Global)**: trilha de alteracoes de dados do patrimonio.
