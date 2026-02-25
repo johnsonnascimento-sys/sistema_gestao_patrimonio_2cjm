@@ -19,5 +19,4 @@
 
 | ID | DataHoraUTC | Ambiente | RequestId | Rota | Erro | Causa | Correcao | Commit |
 |---|---|---|---|---|---|---|---|---|
-| 20260225-232700-formato-invalido-auditoria-global | 2026-02-25 23:27:00 UTC | Producao | `8939f66b-c7d0-4cb2-bf57-67411fda9f74` | `GET /auditoria/patrimonio?numeroTombamento=...` | `FORMATO_INVALIDO` (400) | Cast inseguro de `executado_por::uuid` no `LEFT JOIN` da auditoria global, sujeito ao plano de execucao | Join ajustado com `CASE WHEN ... THEN ::uuid ELSE NULL END` e log runtime separado (`/logs/erros-runtime`) | `PENDENTE` |
-
+| 20260225-232700-formato-invalido-auditoria-global | 2026-02-25 23:27:00 UTC | Producao | `8939f66b-c7d0-4cb2-bf57-67411fda9f74` | `GET /auditoria/patrimonio?numeroTombamento=...` | `FORMATO_INVALIDO` (400) | Cast inseguro de `executado_por::uuid` no `LEFT JOIN` da auditoria global, sujeito ao plano de execucao | Join ajustado com `CASE WHEN ... THEN ::uuid ELSE NULL END` e log runtime separado (`/logs/erros-runtime`) | `55e10fb` |
