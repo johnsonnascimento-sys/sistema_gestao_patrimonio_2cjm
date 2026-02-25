@@ -9,6 +9,28 @@
 
 - Evitar scripts destrutivos sem confirmacao explicita.
 
+## Scripts de governanca (log + rollback)
+
+- `scripts/log_alteracao.sh`:
+  - Registra entrada no `docs/LOG_GERAL_ALTERACOES.md`.
+  - Captura automaticamente: usuario, data/hora UTC, branch, commit e reversao sugerida.
+  - Uso:
+    - `./scripts/log_alteracao.sh "UX" "Ajuste da sidebar com icones SVG."`
+  - Versao PowerShell (Windows):
+    - `./scripts/log_alteracao.ps1 -Tipo "UX" -Detalhe "Ajuste da sidebar com icones SVG."`
+
+- `scripts/reverter_alteracao.sh`:
+  - Reverte alteracao por commit (`--commit`) ou por ID do log (`--log-id`).
+  - Padrao seguro: cria branch `rollback/<commit>-<timestamp>` antes de executar `git revert`.
+  - Uso:
+    - `./scripts/reverter_alteracao.sh --commit 44d0017`
+    - `./scripts/reverter_alteracao.sh --log-id 20260225-223802-sidebar-icons-svg`
+    - `./scripts/reverter_alteracao.sh --commit 44d0017 --in-place`
+  - Versao PowerShell (Windows):
+    - `./scripts/reverter_alteracao.ps1 -Commit 44d0017`
+    - `./scripts/reverter_alteracao.ps1 -LogId 20260225-223802-sidebar-icons-svg`
+    - `./scripts/reverter_alteracao.ps1 -Commit 44d0017 -InPlace`
+
 ## Scripts de carga GEAFIN
 
 - `scripts/geafin_to_sql_batches.js`:

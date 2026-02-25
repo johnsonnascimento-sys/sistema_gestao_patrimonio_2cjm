@@ -17,3 +17,4 @@
 
 - `docs/STATUS_ATUAL.md`: o que ja esta implementado (Fase 2) e o que falta para fechar a UX do inventario.
 - `docs/GEAFIN_ESPELHO.md`: tabela espelho/auditavel do `relatorio.csv` (colunas 1:1) + como consultar no Supabase.
+- `docs/LOG_GERAL_ALTERACOES.md`: trilha geral de alteracoes com autor, data/hora UTC, detalhe e reversao sugerida.

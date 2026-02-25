@@ -8,8 +8,8 @@
 | Arquivo | `docs/STATUS_ATUAL.md` |
 | Funcao no sistema | Registro canonico do estado implementado do sistema, gaps e alinhamento de governanca |
 | Data | 2026-02-25 |
-| Versao | v1.2 |
-| Fonte de verdade (governanca) | `PROJECT_RULES.md` (v1.1.0) |
+| Versao | v1.3 |
+| Fonte de verdade (governanca) | `PROJECT_RULES.md` (v1.3.0) |
 
 ## 1. Resumo Executivo
 
@@ -20,11 +20,12 @@
 
 ## 2. Alinhamento de Governanca
 
-Sincronizado com `PROJECT_RULES.md` v1.1.0:
+Sincronizado com `PROJECT_RULES.md` v1.3.0:
 - API de runtime oficialmente reconhecida na governanca.
 - Gates historicos de "Tarefa 0/Tarefa 1" removidos.
 - Regra Wiki-First mantida: mudanca de runtime/UX/compliance exige atualizacao de documentacao no mesmo ciclo.
 - Regras de Ouro mantidas como inviolaveis (incluindo Regra 3.1).
+- Trilha obrigatoria de alteracoes e rollback formalizada (log geral + scripts operacionais).
 
 ## 3. Infra (VPS)
 

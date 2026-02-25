@@ -70,6 +70,8 @@ Uso:
 
 - Testar conectividade com backend (`/health`).
 - Importar GEAFIN (CSV Latin1) e acompanhar progresso.
+- Visualizar o **Log Geral de Alteracoes** no proprio sistema (autor, data/hora UTC, detalhe e commit).
+- Copiar rapidamente o comando de reversao (`git revert <commit>`) por item para rollback operacional.
 
 ## Regras de compliance que afetam o usuário (resumo)
 

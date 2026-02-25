@@ -6,7 +6,7 @@
 |---|---|
 | Modulo | Governanca do Projeto |
 | Proposito | Constituicao tecnica, legal e de documentacao do Sistema de Gestao Patrimonial da 2a CJM |
-| Versao | v1.2.0 |
+| Versao | v1.3.0 |
 | Data | 2026-02-25 |
 | Status | Ativo |
 | Fonte de Verdade | Este arquivo (`PROJECT_RULES.md`) |
@@ -166,6 +166,8 @@ Regras de mudanca:
 - Qualquer alteracao de regra legal exige atualizacao explicita deste arquivo.
 - Qualquer alteracao de stack fora do permitido exige revisao formal deste arquivo.
 - Mudancas de runtime (endpoint, contrato de payload/resposta, autorizacao, fluxo operacional) exigem atualizacao do Wiki/Manual e da documentacao tecnica relacionada no mesmo PR/commit.
+- Toda mudanca relevante (runtime, UX, infra, dados, docs de governanca) exige registro em `docs/LOG_GERAL_ALTERACOES.md` com usuario responsavel, data/hora UTC, detalhe da alteracao e referencia de reversao.
+- Toda entrega deve possuir modo de reversao definido e executavel (minimo: `git revert <commit>`), com orientacao registrada no mesmo ciclo documental.
 - Mudancas visuais devem preservar contratos de interface usados por JavaScript (`id`, `name`, classes referenciadas, `data-*` e atributos de formulario com impacto funcional).
 - Refatoracao visual deve ser incremental por fase, com checkpoint de regressao funcional ao final de cada fase.
 - Redesign guiado por imagem de referencia exige checklist de paridade visual e evidencia (antes/depois) no mesmo ciclo documental.
@@ -190,6 +192,7 @@ Regras obrigatorias:
 - A politica de segredos proibe credenciais no repositorio e define rotacao.
 - O gate Wiki-First e a governanca de mudancas de runtime estao explicitos.
 - Existe diretriz explicita para refatoracao visual sem impacto funcional (Secao 12), incluindo paridade visual por referencia, processo por fases e gate de regressao.
+- Existe log geral de alteracoes com modo de reversao (Secao 13), com autor, data/hora e detalhe minimo obrigatorios.
 
 ## 12. Diretriz de Refatoracao Visual Frontend (Sem Impacto Funcional)
 
@@ -243,3 +246,27 @@ Permitir modernizacao visual da aplicacao frontend preservando 100% do comportam
 - Resultado de smoke tests manuais dos fluxos criticos.
 - Capturas antes/depois e checklist de paridade visual.
 - Registro das atualizacoes de documentacao feitas no mesmo ciclo.
+
+## 13. Trilha Geral de Alteracoes e Modo de Reversao
+
+### 13.1 Log geral obrigatorio
+- Arquivo canonico: `docs/LOG_GERAL_ALTERACOES.md`.
+- Cada entrada deve conter no minimo: `ID`, `dataHoraUTC`, `usuario`, `tipo`, `branch`, `commit`, `detalhe` e `reversaoSugerida`.
+- Entrega sem entrada no log geral e considerada incompleta para fins de governanca.
+
+### 13.2 Identificacao de autoria
+- `usuario` deve identificar quem executou a alteracao (autor do commit ou operador responsavel).
+- Data/hora deve ser registrada em UTC para padronizacao de auditoria.
+- Alteracoes manuais em VPS sem commit devem registrar host, comando aplicado e operador.
+
+### 13.3 Modo de reversao
+- Reversao padrao de codigo versionado: `git revert <commit>`.
+- Reversao deve ocorrer preferencialmente em branch dedicada de rollback.
+- Scripts oficiais de apoio:
+  - `scripts/log_alteracao.sh` para registrar entrada no log geral.
+  - `scripts/reverter_alteracao.sh` para reverter por commit ou por `ID` do log.
+
+### 13.4 Gate de aceite para rollback
+- Toda mudanca deve possuir plano de reversao explicito.
+- O comando de reversao precisa ser reproduzivel por outro operador.
+- Deploy sem reversao definida entra em estado de nao-conformidade documental.
