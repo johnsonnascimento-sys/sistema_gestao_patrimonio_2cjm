@@ -1,4 +1,4 @@
-# PROJECT_RULES.md
+﻿# PROJECT_RULES.md
 
 ## Cabecalho do Documento
 
@@ -6,19 +6,19 @@
 |---|---|
 | Modulo | Governanca do Projeto |
 | Proposito | Constituicao tecnica, legal e de documentacao do Sistema de Gestao Patrimonial da 2a CJM |
-| Versao Inicial | v1.0.0 |
-| Data | 2026-02-16 |
+| Versao | v1.1.0 |
+| Data | 2026-02-25 |
 | Status | Ativo |
 | Fonte de Verdade | Este arquivo (`PROJECT_RULES.md`) |
 
 ## 1. Objetivo do Projeto
 
-Construir um sistema de gestao patrimonial para a 2a Circunscricao Judiciaria Militar (2a CJM) com execucao deterministica, alta auditabilidade e aderencia legal ao ATN 303/2008.
+Construir e evoluir um sistema de gestao patrimonial para a 2a Circunscricao Judiciaria Militar (2a CJM), com execucao deterministica, alta auditabilidade e aderencia legal ao ATN 303/2008.
 
 Diretrizes obrigatorias:
 - Nao usar IA para decidir regras de negocio em runtime.
 - Toda regra legal deve ser implementada de forma verificavel e rastreavel.
-- A Tarefa 1 (SQL) so pode iniciar apos aprovacao explicita da Tarefa 0.
+- Divergencias entre implementacao e documentacao devem ser tratadas atualizando a documentacao no mesmo ciclo de entrega.
 
 ## 2. Stack Tecnologica Permitida
 
@@ -27,19 +27,20 @@ Escopo tecnologico permitido para este projeto:
 - Banco de Dados: Supabase Cloud (PostgreSQL) via conexao externa segura.
 - Backend: Node.js + Express em container Docker Compose, porta interna `3001`.
 - Frontend: React (Vite + Tailwind), publicado como site estatico no Nginx.
-- Automacao: n8n apenas para geracao de PDF e upload no Drive.
-- Integracao legada: importacao de CSV do GEAFIN com codificacao Latin1.
+- Automacao: n8n para geracao de PDF, relatorios, upload em Drive e integracoes operacionais por webhook/API.
+- Integracao legada: importacao de CSV do GEAFIN com codificacao Latin1 e tratamento robusto de variacoes de encoding.
 
 Fora do escopo:
-- Qualquer stack nao listada acima.
+- Qualquer stack nao listada acima sem revisao formal deste documento.
 - Uso de IA para executar regras transacionais ou de compliance.
 
-## 3. Contrato Publico de Governanca (Sem API de Runtime)
+## 3. Contrato Publico de Governanca e Runtime
 
-Nao ha mudanca de API de runtime nesta etapa. Este documento define contratos publicos de governanca para as proximas tarefas:
+O sistema possui API de runtime ativa. Este documento define contratos publicos obrigatorios de governanca e de evolucao:
 - Interface documental obrigatoria de secoes do `PROJECT_RULES.md`.
 - Convencao obrigatoria de citacao legal no formato `Art. X (AN303_ArtX)`.
 - Contrato obrigatorio de estrutura de pastas e nomenclatura.
+- Mudancas de runtime (endpoints, payloads, fluxos) devem manter rastreabilidade no Wiki/Manual e em documentacao tecnica.
 
 ## 4. Regras de Ouro do ATN 303/2008 (Inviolaveis)
 
@@ -58,10 +59,10 @@ Nao ha mudanca de API de runtime nesta etapa. Este documento define contratos pu
 - Regra de negocio: responsabilidade por bens deve estar formalizada; retirada fisica de bem depende de autorizacao competente.
 - Implicacao tecnica minima: diferenciar transferencia definitiva de cautela temporaria e exigir registro formal de autorizacao.
 
-### Regra 3.1: Evidencia para Itens Não Identificados
+### Regra 3.1: Evidencia para Itens Nao Identificados
 - Base legal: `Art. 175 (AN303_Art175)`.
 - Regra de negocio: bens encontrados sem placa de identificacao (tombamento) devem ter sua presenca formalizada visual e descritivamente.
-- Implicacao tecnica minima: exibir obrigatoriamente a foto, descricao detalhada e localizacao exata nas telas de divergencia e regularizacao.
+- Implicacao tecnica minima: exigir foto, descricao detalhada e localizacao nas telas e fluxos de divergencia/regularizacao.
 
 ### Regra 4: Classificacao Obrigatoria de Inserviveis
 - Base legal: `Art. 141, Caput (AN303_Art141_Cap)`, `Art. 141, I (AN303_Art141_I)`, `Art. 141, II (AN303_Art141_II)`, `Art. 141, III (AN303_Art141_III)`, `Art. 141, IV (AN303_Art141_IV)`.
@@ -85,7 +86,7 @@ Nao ha mudanca de API de runtime nesta etapa. Este documento define contratos pu
 ```
 
 Responsabilidades:
-- `/backend`: API Node.js/Express, middlewares, validacoes, regras transacionais.
+- `/backend`: API Node.js/Express, middlewares, validacoes, regras transacionais e endpoints de runtime.
 - `/frontend`: aplicacao React, telas de operacao, PWA e fluxos de compliance.
 - `/database`: DDL, DML controlado, funcoes, triggers e seeds auditaveis.
 - `/automations`: especificacoes e artefatos de fluxo n8n (JSON e docs de operacao).
@@ -100,13 +101,17 @@ Responsabilidades:
 | Componentes React | `PascalCase` | `WizardClassificacaoModal` |
 | Funcoes/variaveis JS | `camelCase` | `registrarMovimentacao` |
 | Constantes | `UPPER_SNAKE_CASE` | `STATUS_EM_CAUTELA` |
-| Endpoints REST | `kebab-case` | `/importar-geafin`, `/movimentar-bem` |
+| Endpoints REST | recursos em minusculo; usar `kebab-case` em segmentos compostos; legado permitido se documentado | `/importar-geafin`, `/inventario/bens-terceiros`, `/auth/me` |
 | Arquivos Markdown de regra | `UPPER_SNAKE_CASE` ou nome fechado acordado | `PROJECT_RULES.md` |
 
 ## 7. Padroes de Documentacao Obrigatorios
 
-### 7.1 Cabecalho em todo arquivo
-Todo arquivo novo deve iniciar com cabecalho explicando funcao e modulo.
+### 7.1 Cabecalho em arquivos autorais
+Todo arquivo novo autoral deve iniciar com cabecalho explicando funcao e modulo.
+
+Excecoes:
+- arquivos auto-gerados (`generated`, `dist`, `build`);
+- artefatos de terceiros e arquivos estritamente externos/importados.
 
 Exemplo (JS/TS):
 ```js
@@ -159,9 +164,10 @@ Regras obrigatorias:
 Regras de mudanca:
 - Qualquer alteracao de regra legal exige atualizacao explicita deste arquivo.
 - Qualquer alteracao de stack fora do permitido exige revisao formal deste arquivo.
+- Mudancas de runtime (endpoint, contrato de payload/resposta, autorizacao, fluxo operacional) exigem atualizacao do Wiki/Manual e da documentacao tecnica relacionada no mesmo PR/commit.
 - PR sem aderencia ao `PROJECT_RULES.md` deve ser reprovado.
 
-## 10. Regra "Wiki-First" (Manual Operacional Obrigatorio)
+## 10. Regra Wiki-First (Manual Operacional Obrigatorio)
 
 O projeto deve manter um manual/wiki self-hosted publicado junto do sistema (aba "Wiki / Manual").
 
@@ -170,15 +176,12 @@ Regras obrigatorias:
 - O Wiki nao pode conter segredos (senhas, tokens, connection strings). Use placeholders.
 - Em divergencia entre o sistema e o Wiki, o sistema deve ser considerado em nao-conformidade ate a documentacao ser atualizada.
 
-Gate desta fase:
-- Tarefa 1 (banco de dados) so pode comecar apos aprovacao explicita da Tarefa 0 (`PROJECT_RULES.md`).
-
-## 11. Criterios de Aceite da Tarefa 0
+## 11. Criterios de Aceite da Governanca (Estado Atual)
 
 - Existe `PROJECT_RULES.md` na raiz do repositorio como fonte unica de governanca.
-- Existem exatamente 5 Regras de Ouro com base legal e implicacao tecnica minima.
+- Existem no minimo 5 Regras de Ouro com base legal e implicacao tecnica minima (incluindo sub-regras quando aplicavel, como a 3.1).
 - A estrutura de pastas obrigatoria esta definida com responsabilidades claras.
 - Os padroes de nomenclatura cobrem SQL, React, JS, constantes e endpoints.
 - Os padroes de documentacao cobrem cabecalho de arquivo, JSDoc e citacao legal.
 - A politica de segredos proibe credenciais no repositorio e define rotacao.
-- O gate de progresso para Tarefa 1 esta explicito.
+- O gate Wiki-First e a governanca de mudancas de runtime estao explicitos.

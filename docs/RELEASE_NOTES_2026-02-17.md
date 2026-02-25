@@ -107,3 +107,26 @@ Concluir a Fase 2 com foco em:
 Se a UI não atualizar após deploy:
 - Hard refresh (`Ctrl+F5`).
 - Se necessario: DevTools -> Application -> Service Workers -> Unregister e "Clear site data".
+
+## 5. Atualizacao de Governanca (2026-02-25)
+
+### 5.1 Alinhamento de documentos canonicos
+
+- `PROJECT_RULES.md` atualizado para `v1.1.0` (2026-02-25):
+  - Governanca passa a refletir explicitamente runtime ativo (API em operacao).
+  - Gates historicos de "Tarefa 0/Tarefa 1" removidos.
+  - Regra de automacao ampliada para PDF, relatorios, Drive e webhooks/API no n8n.
+  - Criterio de aceite ajustado para "no minimo 5 Regras de Ouro" (compatibilizando a Regra 3.1).
+  - Padrao de endpoint flexibilizado para legado documentado.
+  - Regra de cabecalho passa a prever excecoes para arquivos auto-gerados/terceiros.
+
+- `docs/STATUS_ATUAL.md` atualizado para `v1.2` (2026-02-25):
+  - Remove framing de fase/tarefa e consolida estado atual com runtime ativo.
+  - Inclui migracoes `007` a `014`.
+  - Inclui endpoints e automacoes adicionados apos 2026-02-17.
+  - Explicita sincronizacao com `PROJECT_RULES.md` v1.1.0.
+
+### 5.2 Impacto operacional
+
+- Sem alteracao de comportamento funcional de runtime nesta entrega.
+- Mudanca focada em conformidade documental (governanca, rastreabilidade e alinhamento com implementacao vigente).
