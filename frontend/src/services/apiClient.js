@@ -317,6 +317,27 @@ export async function getBemAuditoria(id, params = {}) {
 }
 
 /**
+ * Lista auditoria patrimonial global (ADMIN), sem precisar abrir o detalhe de um bem.
+ * @param {{limit?: number, offset?: number, q?: string, numeroTombamento?: string, tabela?: string, operacao?: string}} params Filtros/paginacao.
+ * @returns {Promise<{requestId: string, paging: {limit:number, offset:number, total:number}, items: any[]}>} Lista global.
+ */
+export async function listarAuditoriaPatrimonio(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  if (params.offset != null) usp.set("offset", String(params.offset));
+  if (params.q) usp.set("q", String(params.q));
+  if (params.numeroTombamento) usp.set("numeroTombamento", String(params.numeroTombamento));
+  if (params.tabela) usp.set("tabela", String(params.tabela));
+  if (params.operacao) usp.set("operacao", String(params.operacao));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/auditoria/patrimonio${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Reverte uma alteracao especifica da trilha de auditoria de um bem.
  * @param {string} id BemId (UUID).
  * @param {number|string} auditId ID da linha em auditoria_log.

@@ -330,25 +330,6 @@ function AppShell() {
             })}
           </nav>
 
-          {auth.perfil ? (
-            <div className="border-t border-slate-200 px-4 py-4">
-              <p className="text-xs text-slate-500">Usuario autenticado</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{auth.perfil.nome}</p>
-              <p className="text-xs text-slate-500">{auth.perfil.matricula}</p>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-                  {auth.role || "OPERADOR"}
-                </span>
-                <button
-                  type="button"
-                  onClick={auth.logout}
-                  className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Sair
-                </button>
-              </div>
-            </div>
-          ) : null}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -359,6 +340,33 @@ function AppShell() {
                 <h2 className="truncate font-[Space_Grotesk] text-xl font-semibold text-slate-900">{activeTabMeta.label}</h2>
               </div>
               <div className="flex items-center gap-2">
+                {auth.perfil ? (
+                  <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 md:flex">
+                    <div className="min-w-0 text-right">
+                      <p className="max-w-[220px] truncate text-xs font-semibold text-slate-900">{auth.perfil.nome}</p>
+                      <p className="text-[11px] text-slate-500">{auth.perfil.matricula}</p>
+                    </div>
+                    <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                      {auth.role || "OPERADOR"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={auth.logout}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Sair
+                    </button>
+                  </div>
+                ) : null}
+                {auth.perfil ? (
+                  <button
+                    type="button"
+                    onClick={auth.logout}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 md:hidden"
+                  >
+                    Sair
+                  </button>
+                ) : null}
                 <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
                   {inventoryStatus}
                 </span>

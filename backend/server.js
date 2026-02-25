@@ -159,6 +159,15 @@ function diffAuditObjects(beforeObj, afterObj) {
   return out;
 }
 
+const PATRIMONIO_AUDIT_TABLES = Object.freeze([
+  "bens",
+  "catalogo_bens",
+  "movimentacoes",
+  "contagens",
+  "historico_transferencias",
+  "documentos",
+]);
+
 function isUuidLike(raw) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(raw || "").trim());
 }
@@ -1020,6 +1029,164 @@ app.get("/bens/:id/auditoria", mustAuth, async (req, res, next) => {
     });
 
     res.json({ requestId: req.requestId, bemId: id, total: items.length, items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/auditoria/patrimonio", mustAdmin, async (req, res, next) => {
+  try {
+    const limit = Math.max(1, Math.min(200, parseIntOrDefault(req.query?.limit, 50)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+    const q = String(req.query?.q || "").trim().slice(0, 120);
+    const numeroTombamento = String(req.query?.numeroTombamento || "").trim().slice(0, 20);
+    const tabela = String(req.query?.tabela || "").trim();
+    const operacaoRaw = String(req.query?.operacao || "").trim().toUpperCase();
+    const operacao = operacaoRaw && ["INSERT", "UPDATE", "DELETE"].includes(operacaoRaw) ? operacaoRaw : "";
+
+    const where = ["a.tabela = ANY($1::text[])"];
+    const params = [PATRIMONIO_AUDIT_TABLES];
+    let idx = 2;
+
+    if (tabela) {
+      if (!PATRIMONIO_AUDIT_TABLES.includes(tabela)) {
+        throw new HttpError(422, "TABELA_AUDITORIA_INVALIDA", "Filtro de tabela invalido.");
+      }
+      where.push(`a.tabela = $${idx}`);
+      params.push(tabela);
+      idx += 1;
+    }
+
+    if (operacao) {
+      where.push(`a.operacao = $${idx}`);
+      params.push(operacao);
+      idx += 1;
+    }
+
+    if (numeroTombamento) {
+      where.push(`COALESCE(b_pk.numero_tombamento, b_ref.numero_tombamento, '') ILIKE $${idx}`);
+      params.push(`%${numeroTombamento}%`);
+      idx += 1;
+    }
+
+    if (q) {
+      where.push(`(
+        a.executado_por ILIKE $${idx}
+        OR a.tabela ILIKE $${idx}
+        OR a.operacao ILIKE $${idx}
+        OR COALESCE(b_pk.numero_tombamento, b_ref.numero_tombamento, '') ILIKE $${idx}
+        OR COALESCE(cb_pk.codigo_catalogo, cb_ref.codigo_catalogo, '') ILIKE $${idx}
+        OR COALESCE(b_pk.nome_resumo, b_ref.nome_resumo, '') ILIKE $${idx}
+        OR COALESCE(b_pk.descricao_complementar, b_ref.descricao_complementar, '') ILIKE $${idx}
+      )`);
+      params.push(`%${q}%`);
+      idx += 1;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const countSql = `
+      SELECT COUNT(*)::int AS total
+      FROM auditoria_log a
+      LEFT JOIN bens b_pk
+        ON (a.tabela = 'bens' AND a.registro_pk = b_pk.id::text)
+      LEFT JOIN bens b_ref
+        ON (
+          a.tabela IN ('movimentacoes', 'contagens', 'historico_transferencias', 'documentos')
+          AND COALESCE(a.dados_depois ->> 'bem_id', a.dados_antes ->> 'bem_id') = b_ref.id::text
+        )
+      LEFT JOIN catalogo_bens cb_pk
+        ON (a.tabela = 'catalogo_bens' AND a.registro_pk = cb_pk.id::text)
+      LEFT JOIN catalogo_bens cb_ref
+        ON cb_ref.id = COALESCE(b_pk.catalogo_bem_id, b_ref.catalogo_bem_id)
+      ${whereSql};`;
+
+    const dataSql = `
+      SELECT
+        a.id,
+        a.tabela,
+        a.operacao,
+        a.registro_pk AS "registroPk",
+        a.dados_antes AS "dadosAntes",
+        a.dados_depois AS "dadosDepois",
+        a.executado_por AS "executadoPor",
+        a.executado_em AS "executadoEm",
+        p.id AS "executorPerfilId",
+        p.nome AS "executorNome",
+        p.matricula AS "executorMatricula",
+        COALESCE(b_pk.id, b_ref.id) AS "bemId",
+        COALESCE(b_pk.numero_tombamento, b_ref.numero_tombamento) AS "numeroTombamento",
+        COALESCE(b_pk.nome_resumo, b_ref.nome_resumo) AS "nomeResumo",
+        COALESCE(b_pk.descricao_complementar, b_ref.descricao_complementar) AS "descricaoComplementar",
+        COALESCE(cb_pk.id, cb_ref.id) AS "catalogoBemId",
+        COALESCE(cb_pk.codigo_catalogo, cb_ref.codigo_catalogo) AS "codigoCatalogo"
+      FROM auditoria_log a
+      LEFT JOIN perfis p
+        ON (
+          a.executado_por ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          AND p.id = a.executado_por::uuid
+        )
+      LEFT JOIN bens b_pk
+        ON (a.tabela = 'bens' AND a.registro_pk = b_pk.id::text)
+      LEFT JOIN bens b_ref
+        ON (
+          a.tabela IN ('movimentacoes', 'contagens', 'historico_transferencias', 'documentos')
+          AND COALESCE(a.dados_depois ->> 'bem_id', a.dados_antes ->> 'bem_id') = b_ref.id::text
+        )
+      LEFT JOIN catalogo_bens cb_pk
+        ON (a.tabela = 'catalogo_bens' AND a.registro_pk = cb_pk.id::text)
+      LEFT JOIN catalogo_bens cb_ref
+        ON cb_ref.id = COALESCE(b_pk.catalogo_bem_id, b_ref.catalogo_bem_id)
+      ${whereSql}
+      ORDER BY a.executado_em DESC, a.id DESC
+      LIMIT $${idx} OFFSET $${idx + 1};`;
+
+    const countRes = await pool.query(countSql, params);
+    const total = countRes.rows[0]?.total != null ? Number(countRes.rows[0].total) : 0;
+    const dataRes = await pool.query(dataSql, [...params, limit, offset]);
+
+    const items = (dataRes.rows || []).map((row) => {
+      const baseChanges = diffAuditObjects(row.dadosAntes, row.dadosDepois);
+      const changes = baseChanges.length
+        ? baseChanges
+        : row.operacao === "INSERT"
+          ? [{ field: "__operacao", before: null, after: "Registro criado" }]
+          : row.operacao === "DELETE"
+            ? [{ field: "__operacao", before: "Registro removido", after: null }]
+            : [];
+      const camposAlterados = changes.map((c) => c.field);
+
+      return {
+        id: row.id,
+        tabela: row.tabela,
+        operacao: row.operacao,
+        registroPk: row.registroPk,
+        executadoEm: row.executadoEm,
+        executadoPor: row.executadoPor,
+        executorPerfilId: row.executorPerfilId || null,
+        executorNome: row.executorNome || null,
+        executorMatricula: row.executorMatricula || null,
+        bemId: row.bemId || null,
+        numeroTombamento: row.numeroTombamento || null,
+        nomeResumo: row.nomeResumo || null,
+        descricaoComplementar: row.descricaoComplementar || null,
+        catalogoBemId: row.catalogoBemId || null,
+        codigoCatalogo: row.codigoCatalogo || null,
+        camposAlterados,
+        totalCamposAlterados: camposAlterados.length,
+      };
+    });
+
+    res.json({
+      requestId: req.requestId,
+      paging: { limit, offset, total },
+      filters: {
+        q: q || null,
+        numeroTombamento: numeroTombamento || null,
+        tabela: tabela || null,
+        operacao: operacao || null,
+      },
+      items,
+    });
   } catch (error) {
     next(error);
   }
@@ -3462,6 +3629,9 @@ function openapi() {
       "/bens/{id}": {
         get: { summary: "Detalhes de um bem (join com catalogo + historicos)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } },
         patch: { summary: "Atualizar bem (ADMIN) exceto chaves", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } },
+      },
+      "/auditoria/patrimonio": {
+        get: { summary: "Listagem global da auditoria patrimonial (ADMIN)", responses: { 200: { description: "OK" } } },
       },
       "/locais": {
         get: { summary: "Listar locais/salas padronizados (query: unidadeId, includeInativos)", responses: { 200: { description: "OK" } } },

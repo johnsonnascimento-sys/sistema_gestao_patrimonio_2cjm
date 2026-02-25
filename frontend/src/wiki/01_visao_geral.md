@@ -72,6 +72,7 @@ Uso:
 - Importar GEAFIN (CSV Latin1) e acompanhar progresso.
 - Visualizar o **Log Geral de Alteracoes** no proprio sistema (autor, data/hora UTC, detalhe e commit).
 - Copiar rapidamente o comando de reversao (`git revert <commit>`) por item para rollback operacional.
+- Consultar a **Auditoria Patrimonial (Global)** com todas as alteracoes de bens/catalogo/movimentacoes, sem abrir um tombo especifico.
 
 ## Regras de compliance que afetam o usuário (resumo)
 
