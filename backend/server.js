@@ -1630,9 +1630,9 @@ app.post("/perfis", mustAdmin, async (req, res, next) => {
     const senhaHash = p.senha ? await bcrypt.hash(p.senha, 10) : null;
     const r = await pool.query(
       `INSERT INTO perfis (matricula, nome, email, unidade_id, cargo, ativo, role, senha_hash, senha_definida_em)
-       VALUES ($1,$2,$3,$4,$5,TRUE,$6,$7,CASE WHEN $7 IS NULL THEN NULL ELSE NOW() END)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $8 IS NULL THEN NULL ELSE NOW() END)
        RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo, created_at AS "createdAt";`,
-      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo, p.role, senhaHash],
+      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo, p.ativo, p.role, senhaHash],
     );
     res.status(201).json({ requestId: req.requestId, perfil: r.rows[0] });
   } catch (error) {
@@ -3567,7 +3567,7 @@ function validateBensQuery(query) {
 /**
  * Valida payload de criacao de perfil.
  * @param {object} body Body JSON da requisicao.
- * @returns {{matricula: string, nome: string, email: string|null, unidadeId: number, cargo: string|null, role: string, senha: (string|null)}} Perfil validado.
+ * @returns {{matricula: string, nome: string, email: string|null, unidadeId: number, cargo: string|null, role: string, ativo: boolean, senha: (string|null)}} Perfil validado.
  */
 function validatePerfil(body) {
   const matricula = String(body.matricula || "").trim();
@@ -3593,11 +3593,17 @@ function validatePerfil(body) {
   const role = VALID_ROLES.has(roleRaw) ? roleRaw : null;
   if (!role) throw new HttpError(422, "ROLE_INVALIDO", "role deve ser ADMIN ou OPERADOR.");
 
+  let ativo = true;
+  if (Object.prototype.hasOwnProperty.call(body, "ativo")) {
+    const rawAtivo = body.ativo;
+    ativo = typeof rawAtivo === "boolean" ? rawAtivo : parseBool(rawAtivo, true);
+  }
+
   const senhaRaw = body.senha != null ? String(body.senha) : "";
   const senha = senhaRaw ? senhaRaw : null;
   if (senha && senha.length < 8) throw new HttpError(422, "SENHA_FRACA", "Senha deve ter pelo menos 8 caracteres.");
 
-  return { matricula, nome, email, unidadeId, cargo, role, senha };
+  return { matricula, nome, email, unidadeId, cargo, role, ativo, senha };
 }
 
 /**

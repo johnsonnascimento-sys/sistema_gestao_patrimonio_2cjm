@@ -30,9 +30,23 @@ function statusLabel(status) {
   return s || "Outro";
 }
 
-function CjmBuildingMapIllustration() {
+function CjmBuildingMapIllustration({
+  selectedFloor,
+  hoveredFloor,
+  onSelectFloor,
+  onHoverFloor,
+  onLeaveFloor,
+}) {
   const floors = 8;
-  const floorStep = 17.3;
+  const leftTop = 62;
+  const leftBottom = 201;
+  const centerTop = 42;
+  const centerBottom = 180;
+  const rightTop = 64;
+  const rightBottom = 200;
+  const leftStep = (leftBottom - leftTop) / floors;
+  const centerStep = (centerBottom - centerTop) / floors;
+  const rightStep = (rightBottom - rightTop) / floors;
 
   return (
     <svg className="mt-2 h-52 w-full" viewBox="0 0 520 230" fill="none" aria-hidden="true">
@@ -67,9 +81,9 @@ function CjmBuildingMapIllustration() {
 
       {Array.from({ length: floors - 1 }).map((_, idx) => {
         const i = idx + 1;
-        const yLeft = 62 + (i * floorStep);
-        const yCorner = 42 + (i * floorStep);
-        const yRight = 64 + (i * floorStep);
+        const yLeft = leftTop + (i * leftStep);
+        const yCorner = centerTop + (i * centerStep);
+        const yRight = rightTop + (i * rightStep);
         return (
           <g key={`floor-line-${i}`}>
             <line x1="154" y1={yLeft} x2="284" y2={yCorner} stroke="#cbd5e1" />
@@ -80,9 +94,9 @@ function CjmBuildingMapIllustration() {
       })}
 
       {Array.from({ length: floors }).map((_, floor) => {
-        const yLeft = 66 + (floor * floorStep);
-        const yRight = 67 + (floor * floorStep);
-        const yTower = 49 + (floor * floorStep);
+        const yLeft = 66 + (floor * leftStep);
+        const yRight = 67 + (floor * rightStep);
+        const yTower = 49 + (floor * centerStep);
         return (
           <g key={`windows-${floor}`}>
             {[165, 191, 217, 243].map((x) => (
@@ -97,6 +111,45 @@ function CjmBuildingMapIllustration() {
         );
       })}
 
+      {Array.from({ length: floors }).map((_, idx) => {
+        const floor = floors - idx;
+        const yL1 = leftTop + (idx * leftStep);
+        const yL2 = leftTop + ((idx + 1) * leftStep);
+        const yC1 = centerTop + (idx * centerStep);
+        const yC2 = centerTop + ((idx + 1) * centerStep);
+        const yR1 = rightTop + (idx * rightStep);
+        const yR2 = rightTop + ((idx + 1) * rightStep);
+        const active = selectedFloor === floor;
+        const hover = hoveredFloor === floor;
+        const fill = active ? "rgba(124,58,237,0.24)" : hover ? "rgba(167,139,250,0.2)" : "transparent";
+        const stroke = active ? "#6d28d9" : hover ? "#8b5cf6" : "transparent";
+        return (
+          <g
+            key={`floor-hit-${floor}`}
+            onMouseEnter={() => onHoverFloor?.(floor)}
+            onMouseLeave={() => onLeaveFloor?.()}
+            onClick={() => onSelectFloor?.(floor)}
+            style={{ cursor: "pointer" }}
+          >
+            <polygon
+              points={`152,${yL1} 286,${yC1} 390,${yR1} 390,${yR2} 286,${yC2} 152,${yL2}`}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth="1.2"
+            />
+            <text
+              x="144"
+              y={(yL1 + yL2) / 2 + 4}
+              fontSize="10"
+              fill={active ? "#5b21b6" : "#64748b"}
+              textAnchor="end"
+            >
+              {floor}o
+            </text>
+          </g>
+        );
+      })}
+
       <rect x="258" y="184" width="60" height="22" rx="3" fill="#e2e8f0" stroke="#94a3b8" />
       <rect x="277" y="189" width="23" height="17" rx="2" fill="#475569" />
       <path d="M286 184 L286 172 M292 184 L292 171" stroke="#94a3b8" />
@@ -107,6 +160,9 @@ function CjmBuildingMapIllustration() {
       <text x="18" y="218" fill="#475569" fontSize="11">
         Av. Casper Libero, 88 - Centro Historico de Sao Paulo
       </text>
+      <text x="482" y="24" fill="#7c3aed" fontSize="11" fontWeight="600" textAnchor="end">
+        Clique no andar
+      </text>
     </svg>
   );
 }
@@ -115,6 +171,8 @@ export default function DashboardPanel({ onNavigate }) {
   const auth = useAuth();
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
   const [showMap, setShowMap] = useState(false);
+  const [selectedFloor, setSelectedFloor] = useState(8);
+  const [hoveredFloor, setHoveredFloor] = useState(null);
 
   const statsQuery = useQuery({
     queryKey: ["dashboardStats"],
@@ -171,6 +229,7 @@ export default function DashboardPanel({ onNavigate }) {
     { id: "inventario-contagem", label: "Inventario - Contagem" },
     { id: "importacoes-geafin", label: "Importacoes" },
   ];
+  const activeFloor = hoveredFloor || selectedFloor;
 
   return (
     <section className="mt-6 space-y-6">
@@ -228,7 +287,42 @@ export default function DashboardPanel({ onNavigate }) {
           {showMap ? (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-widest text-slate-500">Mapa ilustrativo</p>
-              <CjmBuildingMapIllustration />
+              <div className="mt-2 grid gap-3 lg:grid-cols-[1fr_200px]">
+                <CjmBuildingMapIllustration
+                  selectedFloor={selectedFloor}
+                  hoveredFloor={hoveredFloor}
+                  onSelectFloor={setSelectedFloor}
+                  onHoverFloor={setHoveredFloor}
+                  onLeaveFloor={() => setHoveredFloor(null)}
+                />
+                <aside className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-[11px] uppercase tracking-wider text-slate-500">Andar selecionado</p>
+                  <p className="mt-1 font-[Space_Grotesk] text-2xl font-semibold text-violet-700">{activeFloor}o</p>
+                  <p className="mt-2 text-xs text-slate-600">
+                    Mapa detalhado de salas/localizacao ainda sera cadastrado por andar.
+                  </p>
+                  <div className="mt-3 grid grid-cols-4 gap-1.5">
+                    {Array.from({ length: 8 }).map((_, idx) => {
+                      const floor = 8 - idx;
+                      const active = selectedFloor === floor;
+                      return (
+                        <button
+                          key={`floor-btn-${floor}`}
+                          type="button"
+                          onClick={() => setSelectedFloor(floor)}
+                          className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                            active
+                              ? "border-violet-300 bg-violet-50 text-violet-700"
+                              : "border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          {floor}o
+                        </button>
+                      );
+                    })}
+                  </div>
+                </aside>
+              </div>
             </div>
           ) : null}
         </article>

@@ -485,6 +485,8 @@ export async function atualizarFotoCatalogo(id, fotoReferenciaUrl) {
  * @param {string=} payload.email Email opcional.
  * @param {number} payload.unidadeId Unidade 1..4.
  * @param {string=} payload.cargo Cargo opcional.
+ * @param {"ADMIN"|"OPERADOR"=} payload.role Papel opcional (default: OPERADOR).
+ * @param {boolean=} payload.ativo Ativo/inativo no momento da criacao (default: true).
  * @returns {Promise<object>} Perfil criado.
  */
 export async function criarPerfil(payload) {

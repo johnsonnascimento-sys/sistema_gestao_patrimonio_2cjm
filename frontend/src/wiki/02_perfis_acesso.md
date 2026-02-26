@@ -95,6 +95,24 @@ Na seção de Perfis, o `ADMIN` também consegue:
 - desativar/ativar (soft-disable)
 - **resetar senha** (remove o hash) para permitir "Primeiro acesso" novamente
 
+## Cadastro de nao-usuario (detentor de carga, sem login)
+
+Quando a pessoa precisa aparecer em cautela/carga, mas nao deve entrar no sistema:
+
+1. Em **Perfis**, escolha o tipo **Nao-usuario do sistema (detentor/carga)**.
+2. Preencha: `matricula`, `nome`, `unidade`, `email` e `cargo`.
+3. Cargos padronizados:
+   - `Juiz Federal`
+   - `Juiz Federal Substituto`
+   - `Analista Judiciario`
+   - `Tecnico Judiciario`
+   - `Outro` (com descricao manual)
+4. O sistema cria o perfil sem acesso (`ativo=false`, `role=OPERADOR`), preservando rastreabilidade.
+
+Resultado pratico:
+- O perfil pode ser usado em campos como `detentorTemporarioPerfilId` (cautela).
+- O perfil nao autentica no login enquanto estiver inativo.
+
 Rotas relacionadas:
 
 - `GET /perfis`

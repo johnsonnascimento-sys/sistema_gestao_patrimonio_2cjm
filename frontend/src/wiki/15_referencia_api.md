@@ -148,12 +148,35 @@ Campos relevantes:
 
 ### POST `/perfis`
 
-Uso: criar operador (matrícula/nome/unidade).
+Uso: criar perfil (usuario ou nao-usuario/detentor), com matricula/nome/unidade.
+
+Payload:
+
+- `matricula` (obrigatorio)
+- `nome` (obrigatorio)
+- `unidadeId` (obrigatorio, 1..4)
+- `email` (opcional)
+- `cargo` (opcional)
+- `role` (opcional: `ADMIN` ou `OPERADOR`; default `OPERADOR`)
+- `ativo` (opcional: `true/false`; default `true`)
+
+Exemplo para nao-usuario (sem login):
+
+```json
+{
+  "matricula": "9156",
+  "nome": "Nome Completo",
+  "unidadeId": 2,
+  "email": "nome@jmu.br",
+  "cargo": "Juiz Federal",
+  "role": "OPERADOR",
+  "ativo": false
+}
+```
 
 Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
-
 ### GET `/perfis`
 
 Uso: listar perfis cadastrados (para suporte/admin).

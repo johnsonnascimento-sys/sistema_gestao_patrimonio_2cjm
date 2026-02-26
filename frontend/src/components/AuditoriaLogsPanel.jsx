@@ -29,9 +29,7 @@ export default function AuditoriaLogsPanel({ canAdmin, section = "auditoria-chan
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Auditoria e Logs</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          {meta.title}: {meta.description}
-        </p>
+        <p className="mt-2 text-sm text-slate-600">{meta.description}</p>
       </header>
 
       {section === "auditoria-patrimonio" ? (

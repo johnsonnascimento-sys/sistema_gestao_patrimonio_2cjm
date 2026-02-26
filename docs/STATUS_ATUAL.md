@@ -145,6 +145,8 @@ Principais entregas:
 - Menu proprio de Auditoria e Logs.
 - Administracao do Painel reduzida para Infra + Seguranca.
 - Gestao de Locais incorporada na aba Movimentacoes.
+- Perfis e Acessos com fluxo explicito para cadastro de nao-usuarios (detentor/carga), incluindo cargo padronizado e criacao sem login.
+- Topbar padronizada para exibir status de inventario (status + evento), removendo duplicidade de titulos de secao no topo.
 
 Impacto em runtime/API:
 

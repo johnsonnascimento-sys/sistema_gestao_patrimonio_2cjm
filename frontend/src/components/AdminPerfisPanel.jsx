@@ -25,6 +25,21 @@ function formatApiError(error) {
   return suffixParts.length ? `${msg} (${suffixParts.join(", ")})` : msg;
 }
 
+const CARGO_OPTIONS = [
+  { value: "Juiz Federal", label: "Juiz Federal" },
+  { value: "Juiz Federal Substituto", label: "Juiz Federal Substituto" },
+  { value: "Analista Judiciario", label: "Analista Judiciario" },
+  { value: "Tecnico Judiciario", label: "Tecnico Judiciario" },
+  { value: "OUTRO", label: "Outro" },
+];
+
+function buildCargoValue(form) {
+  const selected = String(form.cargo || "").trim();
+  if (!selected) return "";
+  if (selected !== "OUTRO") return selected;
+  return String(form.cargoOutro || "").trim();
+}
+
 export default function AdminPerfisPanel({ canAdmin }) {
   const auth = useAuth();
   const [perfilState, setPerfilState] = useState({
@@ -33,11 +48,13 @@ export default function AdminPerfisPanel({ canAdmin }) {
     error: null,
   });
   const [perfilForm, setPerfilForm] = useState({
+    tipoCadastro: "NAO_USUARIO",
     matricula: "",
     nome: "",
     email: "",
     unidadeId: "",
     cargo: "",
+    cargoOutro: "",
   });
   const [perfisState, setPerfisState] = useState({ loading: false, data: null, error: null });
   const [perfilEditId, setPerfilEditId] = useState("");
@@ -86,11 +103,14 @@ export default function AdminPerfisPanel({ canAdmin }) {
     }
 
     const payload = {
+      tipoCadastro: String(perfilForm.tipoCadastro || "NAO_USUARIO").trim().toUpperCase(),
       matricula: perfilForm.matricula.trim(),
       nome: perfilForm.nome.trim(),
       unidadeId: perfilForm.unidadeId ? Number(perfilForm.unidadeId) : null,
       email: perfilForm.email.trim() || undefined,
-      cargo: perfilForm.cargo.trim() || undefined,
+      cargo: buildCargoValue(perfilForm) || undefined,
+      role: "OPERADOR",
+      ativo: String(perfilForm.tipoCadastro || "").trim().toUpperCase() !== "NAO_USUARIO",
     };
 
     if (!payload.matricula || !payload.nome || !payload.unidadeId) {
@@ -101,12 +121,48 @@ export default function AdminPerfisPanel({ canAdmin }) {
       });
       return;
     }
+    if (!payload.cargo) {
+      setPerfilState({
+        loading: false,
+        response: null,
+        error: "Selecione o cargo (ou informe o cargo quando escolher 'Outro').",
+      });
+      return;
+    }
+    if (payload.tipoCadastro === "NAO_USUARIO" && !payload.email) {
+      setPerfilState({
+        loading: false,
+        response: null,
+        error: "Para nao-usuario, informe e-mail para contato institucional.",
+      });
+      return;
+    }
 
     setPerfilState({ loading: true, response: null, error: null });
     try {
-      const data = await criarPerfil(payload);
-      setPerfilState({ loading: false, response: data, error: null });
-      setPerfilForm({ matricula: "", nome: "", email: "", unidadeId: "", cargo: "" });
+      const responseData = await criarPerfil({
+        matricula: payload.matricula,
+        nome: payload.nome,
+        unidadeId: payload.unidadeId,
+        email: payload.email,
+        cargo: payload.cargo,
+        role: payload.role,
+        ativo: payload.ativo,
+      });
+      if (payload.tipoCadastro === "NAO_USUARIO") {
+        responseData.observacao = "Perfil criado como NAO_USUARIO (sem login).";
+      }
+
+      setPerfilState({ loading: false, response: responseData, error: null });
+      setPerfilForm({
+        tipoCadastro: "NAO_USUARIO",
+        matricula: "",
+        nome: "",
+        email: "",
+        unidadeId: "",
+        cargo: "",
+        cargoOutro: "",
+      });
       await loadPerfis();
     } catch (error) {
       setPerfilState({ loading: false, response: null, error: formatApiError(error) });
@@ -189,7 +245,8 @@ export default function AdminPerfisPanel({ canAdmin }) {
         <div>
           <h3 className="font-semibold">Perfis (usuarios)</h3>
           <p className="mt-1 text-xs text-slate-600">
-            Admin cadastra perfis aqui. O usuario define a propria senha em <strong>Primeiro acesso</strong> na tela de login.
+            Admin cadastra perfis de usuarios e nao-usuarios (detentores de carga). O usuario com acesso define a propria senha em{" "}
+            <strong>Primeiro acesso</strong> na tela de login.
           </p>
         </div>
         <button
@@ -211,6 +268,21 @@ export default function AdminPerfisPanel({ canAdmin }) {
       {perfisState.error ? <p className="mt-3 text-sm text-rose-700">{perfisState.error}</p> : null}
 
       <form onSubmit={onCreatePerfil} className="mt-3 grid gap-3 md:grid-cols-2">
+        <label className="space-y-1 md:col-span-2">
+          <span className="text-xs text-slate-600">Tipo de cadastro</span>
+          <select
+            value={perfilForm.tipoCadastro}
+            onChange={(event) => setPerfilField("tipoCadastro", event.target.value)}
+            disabled={!canAdmin && auth.authEnabled}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="NAO_USUARIO">Nao-usuario do sistema (detentor/carga)</option>
+            <option value="USUARIO">Usuario com acesso ao sistema</option>
+          </select>
+          <p className="text-[11px] text-slate-500">
+            Nao-usuario e criado automaticamente sem acesso (ativo=NAO, role=OPERADOR).
+          </p>
+        </label>
         <label className="space-y-1">
           <span className="text-xs text-slate-600">Matricula</span>
           <input
@@ -232,19 +304,9 @@ export default function AdminPerfisPanel({ canAdmin }) {
           />
         </label>
         <label className="space-y-1">
-          <span className="text-xs text-slate-600">Unidade (1-4)</span>
-          <input
-            type="number"
-            min="1"
-            max="4"
-            value={perfilForm.unidadeId}
-            onChange={(event) => setPerfilField("unidadeId", event.target.value)}
-            disabled={!canAdmin && auth.authEnabled}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="space-y-1">
-          <span className="text-xs text-slate-600">Email (opcional)</span>
+          <span className="text-xs text-slate-600">
+            Email {perfilForm.tipoCadastro === "NAO_USUARIO" ? "(obrigatorio)" : "(opcional)"}
+          </span>
           <input
             value={perfilForm.email}
             onChange={(event) => setPerfilField("email", event.target.value)}
@@ -253,13 +315,46 @@ export default function AdminPerfisPanel({ canAdmin }) {
           />
         </label>
         <label className="space-y-1 md:col-span-2">
-          <span className="text-xs text-slate-600">Cargo (opcional)</span>
-          <input
+          <span className="text-xs text-slate-600">Cargo</span>
+          <select
             value={perfilForm.cargo}
             onChange={(event) => setPerfilField("cargo", event.target.value)}
             disabled={!canAdmin && auth.authEnabled}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          />
+          >
+            <option value="">Selecione...</option>
+            {CARGO_OPTIONS.map((cargo) => (
+              <option key={cargo.value} value={cargo.value}>
+                {cargo.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {perfilForm.cargo === "OUTRO" ? (
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-xs text-slate-600">Descreva o cargo</span>
+            <input
+              value={perfilForm.cargoOutro}
+              onChange={(event) => setPerfilField("cargoOutro", event.target.value)}
+              disabled={!canAdmin && auth.authEnabled}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+          </label>
+        ) : null}
+        <label className="space-y-1">
+          <span className="text-xs text-slate-600">Unidade (1-4)</span>
+          <select
+            value={perfilForm.unidadeId}
+            onChange={(event) => setPerfilField("unidadeId", event.target.value)}
+            disabled={!canAdmin && auth.authEnabled}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="">Selecione...</option>
+            <option value="1">1 - 1a Aud</option>
+            <option value="2">2 - 2a Aud</option>
+            <option value="3">3 - Foro</option>
+            <option value="4">4 - Almox</option>
+          </select>
         </label>
         <div className="md:col-span-2">
           <button
@@ -385,6 +480,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
               <tr>
                 <th className="px-3 py-2">Matricula</th>
                 <th className="px-3 py-2">Nome</th>
+                <th className="px-3 py-2">Cargo</th>
                 <th className="px-3 py-2">Unid.</th>
                 <th className="px-3 py-2">Role</th>
                 <th className="px-3 py-2">Ativo</th>
@@ -397,6 +493,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
                 <tr key={p.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2 font-mono text-[11px] text-slate-800">{p.matricula}</td>
                   <td className="px-3 py-2 text-slate-900">{p.nome}</td>
+                  <td className="px-3 py-2 text-slate-600">{p.cargo || "-"}</td>
                   <td className="px-3 py-2 text-slate-600">{p.unidadeId}</td>
                   <td className="px-3 py-2 text-slate-600">{p.role}</td>
                   <td className="px-3 py-2 text-slate-600">{p.ativo ? "SIM" : "NAO"}</td>
@@ -435,7 +532,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
               ))}
               {(perfisState.data?.items || []).length === 0 && !perfisState.loading ? (
                 <tr>
-                  <td className="px-3 py-3 text-slate-600" colSpan={7}>
+                  <td className="px-3 py-3 text-slate-600" colSpan={8}>
                     Nenhum perfil cadastrado ainda.
                   </td>
                 </tr>

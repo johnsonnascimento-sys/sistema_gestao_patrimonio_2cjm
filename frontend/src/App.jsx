@@ -292,32 +292,6 @@ function AppShell() {
     return "Sem evento ativo: transferencias e regularizacoes podem ser executadas.";
   }, [inventoryStatus]);
 
-  
-
-  const bannerTone = useMemo(() => {
-    if (inventoryStatus === "EM_ANDAMENTO") {
-      return {
-        wrapper: "border-amber-300 bg-amber-50 text-amber-900",
-        meta: "text-amber-900/80",
-      };
-    }
-    if (inventoryStatus === "CARREGANDO") {
-      return {
-        wrapper: "border-slate-300 bg-slate-100 text-slate-700",
-        meta: "text-slate-600",
-      };
-    }
-    return {
-      wrapper: "border-emerald-300 bg-emerald-50 text-emerald-900",
-      meta: "text-emerald-900/80",
-    };
-  }, [inventoryStatus]);
-
-  const activeTabMeta = useMemo(
-    () => NAV_BY_ID[tab] || NAV_BY_ID.dashboard,
-    [tab],
-  );
-
   const toggleNavGroup = (groupId) =>
     setOpenNavGroups((prev) => ({
       ...prev,
@@ -471,8 +445,18 @@ function AppShell() {
           <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 md:px-8">
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Painel Institucional</p>
-                <h2 className="truncate font-[Space_Grotesk] text-xl font-semibold text-slate-900">{activeTabMeta.label}</h2>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Status Inventario</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
+                    {inventoryStatus}
+                  </span>
+                  {activeEventCode ? (
+                    <span className="truncate text-xs text-slate-600">
+                      Evento: <span className="font-semibold">{activeEventCode}</span>
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 hidden max-w-[620px] truncate text-xs text-slate-600 md:block">{bannerMessage}</p>
               </div>
               <div className="flex items-center gap-2">
                 {auth.perfil ? (
@@ -502,9 +486,6 @@ function AppShell() {
                     Sair
                   </button>
                 ) : null}
-                <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
-                  {inventoryStatus}
-                </span>
                 <button
                   type="button"
                   onClick={() => eventosQuery.refetch()}
@@ -518,21 +499,6 @@ function AppShell() {
 
           <main className="flex-1 bg-slate-50">
             <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
-              <section className={`mb-6 rounded-2xl border p-4 text-sm ${bannerTone.wrapper}`}>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="font-semibold uppercase tracking-wide">Status inventario:</span>
-                  <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
-                    {inventoryStatus}
-                  </span>
-                  {activeEventCode && (
-                    <span className={`text-xs ${bannerTone.meta}`}>
-                      Evento: <span className="font-semibold">{activeEventCode}</span>
-                    </span>
-                  )}
-                </div>
-                <p className="mt-2 text-sm">{bannerMessage}</p>
-              </section>
-
               <section className="mb-6 md:hidden">
                 <div className="rounded-2xl border border-slate-200 bg-white p-3">
                   <div className="space-y-2">

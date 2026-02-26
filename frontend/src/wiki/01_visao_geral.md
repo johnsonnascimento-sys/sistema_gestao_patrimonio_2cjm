@@ -94,3 +94,4 @@ Distribuicao de modulos:
 - Importacoes: GEAFIN em aba propria.
 - Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
 - Administracao do Painel: foco em Infra + Seguranca (backup, conectividade e perfis).
+- Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.
