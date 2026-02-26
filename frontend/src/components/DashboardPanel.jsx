@@ -30,6 +30,87 @@ function statusLabel(status) {
   return s || "Outro";
 }
 
+function CjmBuildingMapIllustration() {
+  const floors = 8;
+  const floorStep = 17.3;
+
+  return (
+    <svg className="mt-2 h-52 w-full" viewBox="0 0 520 230" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="bgSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#eef2ff" />
+          <stop offset="100%" stopColor="#f8fafc" />
+        </linearGradient>
+        <linearGradient id="facadeLeft" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f8fafc" />
+          <stop offset="100%" stopColor="#e2e8f0" />
+        </linearGradient>
+        <linearGradient id="facadeRight" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#f1f5f9" />
+          <stop offset="100%" stopColor="#dbe4f3" />
+        </linearGradient>
+      </defs>
+
+      <rect x="2" y="2" width="516" height="226" rx="14" fill="url(#bgSky)" stroke="#c4b5fd" />
+
+      <path d="M22 185 L138 165 L290 170 L490 150" stroke="#cbd5e1" strokeWidth="2" />
+      <path d="M18 198 L170 176 L292 183 L504 163" stroke="#e2e8f0" strokeWidth="2" />
+      <circle cx="314" cy="171" r="8" fill="#8b5cf6" fillOpacity="0.16" stroke="#7c3aed" />
+      <circle cx="314" cy="171" r="3.5" fill="#7c3aed" />
+
+      <polygon points="152,62 286,42 286,180 152,201" fill="url(#facadeLeft)" stroke="#94a3b8" />
+      <polygon points="286,42 390,64 390,200 286,180" fill="url(#facadeRight)" stroke="#94a3b8" />
+      <rect x="273" y="44" width="27" height="139" rx="12" fill="#ede9fe" stroke="#a78bfa" />
+
+      <path d="M150 60 Q218 24 286 42 Q336 56 392 62" stroke="#94a3b8" strokeWidth="3" fill="none" />
+      <path d="M150 205 L286 184 L390 202" stroke="#94a3b8" strokeWidth="3" />
+
+      {Array.from({ length: floors - 1 }).map((_, idx) => {
+        const i = idx + 1;
+        const yLeft = 62 + (i * floorStep);
+        const yCorner = 42 + (i * floorStep);
+        const yRight = 64 + (i * floorStep);
+        return (
+          <g key={`floor-line-${i}`}>
+            <line x1="154" y1={yLeft} x2="284" y2={yCorner} stroke="#cbd5e1" />
+            <line x1="288" y1={yCorner} x2="388" y2={yRight} stroke="#cbd5e1" />
+            <line x1="275" y1={yCorner + 1} x2="299" y2={yCorner + 1} stroke="#c4b5fd" />
+          </g>
+        );
+      })}
+
+      {Array.from({ length: floors }).map((_, floor) => {
+        const yLeft = 66 + (floor * floorStep);
+        const yRight = 67 + (floor * floorStep);
+        const yTower = 49 + (floor * floorStep);
+        return (
+          <g key={`windows-${floor}`}>
+            {[165, 191, 217, 243].map((x) => (
+              <rect key={`l-${floor}-${x}`} x={x} y={yLeft} width="18" height="9" rx="1.5" fill="#cbd5e1" />
+            ))}
+            {[300, 326, 352].map((x) => (
+              <rect key={`r-${floor}-${x}`} x={x} y={yRight} width="18" height="9" rx="1.5" fill="#c7d2fe" />
+            ))}
+            <rect x="279" y={yTower} width="6" height="10" rx="1.2" fill="#a78bfa" />
+            <rect x="288" y={yTower} width="6" height="10" rx="1.2" fill="#a78bfa" />
+          </g>
+        );
+      })}
+
+      <rect x="258" y="184" width="60" height="22" rx="3" fill="#e2e8f0" stroke="#94a3b8" />
+      <rect x="277" y="189" width="23" height="17" rx="2" fill="#475569" />
+      <path d="M286 184 L286 172 M292 184 L292 171" stroke="#94a3b8" />
+
+      <text x="18" y="24" fill="#64748b" fontSize="11" fontWeight="600" letterSpacing="1.2">
+        MAPA ILUSTRATIVO - PREDIO 2a CJM (8 ANDARES)
+      </text>
+      <text x="18" y="218" fill="#475569" fontSize="11">
+        Av. Casper Libero, 88 - Centro Historico de Sao Paulo
+      </text>
+    </svg>
+  );
+}
+
 export default function DashboardPanel({ onNavigate }) {
   const auth = useAuth();
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
@@ -147,14 +228,7 @@ export default function DashboardPanel({ onNavigate }) {
           {showMap ? (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-widest text-slate-500">Mapa ilustrativo</p>
-              <svg className="mt-2 h-40 w-full text-violet-400" viewBox="0 0 240 120" fill="none" aria-hidden="true">
-                <rect x="3" y="3" width="234" height="114" rx="10" stroke="currentColor" />
-                <path d="M20 70 L55 48 L88 56 L112 36 L150 52 L170 40 L208 58 L188 88 L140 82 L96 96 L58 84 Z" fill="currentColor" fillOpacity="0.18" stroke="currentColor" />
-                <circle cx="55" cy="48" r="3.2" fill="currentColor" />
-                <circle cx="112" cy="36" r="3.2" fill="currentColor" />
-                <circle cx="170" cy="40" r="3.2" fill="currentColor" />
-                <circle cx="96" cy="96" r="3.2" fill="currentColor" />
-              </svg>
+              <CjmBuildingMapIllustration />
             </div>
           ) : null}
         </article>
