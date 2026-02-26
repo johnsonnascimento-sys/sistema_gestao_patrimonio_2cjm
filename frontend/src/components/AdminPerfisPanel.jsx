@@ -30,6 +30,7 @@ const CARGO_OPTIONS = [
   { value: "Juiz Federal Substituto", label: "Juiz Federal Substituto" },
   { value: "Analista Judiciario", label: "Analista Judiciario" },
   { value: "Tecnico Judiciario", label: "Tecnico Judiciario" },
+  { value: "Militar", label: "Militar" },
   { value: "OUTRO", label: "Outro" },
 ];
 

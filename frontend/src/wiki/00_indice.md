@@ -44,8 +44,13 @@ Estrutura principal da sidebar:
 
 - Dashboard
 - Operacoes Patrimoniais
-- Importacoes
 - Gestao de Normas
 - Auditoria e Logs
 - Administracao do Painel
 - Wiki / Manual
+
+Submenus relevantes:
+
+- Operacoes Patrimoniais -> Cadastrar Bens por Sala
+- Administracao do Painel -> Importacao GEAFIN (CSV Latin1)
+- Administracao do Painel -> Locais (salas) cadastrados

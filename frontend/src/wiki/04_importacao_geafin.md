@@ -132,10 +132,10 @@ Se ocorrer incidente grave, use o restore do dump correspondente conforme `docs/
 
 ## Atualizacao 2026-02-26 - Local da funcionalidade
 
-A importacao GEAFIN deixou de ficar dentro da Administracao do Painel.
+A importacao GEAFIN voltou para a Administracao do Painel.
 
 Novo caminho de menu:
 
-- Importacoes -> Importacao GEAFIN (CSV Latin1)
+- Administracao do Painel -> Importacao GEAFIN (CSV Latin1)
 
 A API e o comportamento operacional permanecem os mesmos.

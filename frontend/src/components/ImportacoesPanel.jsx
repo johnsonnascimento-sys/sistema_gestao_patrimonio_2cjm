@@ -314,7 +314,7 @@ export default function ImportacoesPanel({ canAdmin }) {
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Importacoes</h2>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Importacao GEAFIN</h2>
         <p className="mt-2 text-sm text-slate-600">
           Importacao GEAFIN (CSV Latin1) com acompanhamento de progresso, cancelamento e trilha de status.
         </p>

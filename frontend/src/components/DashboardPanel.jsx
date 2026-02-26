@@ -226,8 +226,9 @@ export default function DashboardPanel({ onNavigate }) {
   const quickActions = [
     { id: "bens", label: "Consulta de Bens" },
     { id: "movimentacoes", label: "Movimentacoes" },
+    { id: "operacoes-cadastro-sala", label: "Cadastrar Bens por Sala" },
     { id: "inventario-contagem", label: "Inventario - Contagem" },
-    { id: "importacoes-geafin", label: "Importacoes" },
+    { id: "admin-importacoes-geafin", label: "Importacao GEAFIN" },
   ];
   const activeFloor = hoveredFloor || selectedFloor;
 

@@ -265,10 +265,12 @@ A secao tambem exibe:
 
 ## Atualizacao 2026-02-26 - Escopo da Administracao do Painel
 
-A Administracao do Painel foi enxugada para foco em Infra + Seguranca:
+A Administracao do Painel concentra operacoes administrativas e cadastros de suporte:
 
 - Backup e Restore (Drive)
 - Conectividade backend (/health)
 - Perfis e acessos
+- Importacao GEAFIN (CSV Latin1)
+- Locais (salas) cadastrados
 
-Importacoes e Auditoria foram movidas para menus proprios.
+Auditoria permanece em menu proprio (**Auditoria e Logs**).

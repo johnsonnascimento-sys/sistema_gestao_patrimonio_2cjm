@@ -3,7 +3,7 @@
  * Arquivo: App.jsx
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
  */
-import { Component, useEffect, useMemo, useState } from "react";
+import { Component, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuditoriaLogsPanel from "./components/AuditoriaLogsPanel.jsx";
@@ -12,7 +12,6 @@ import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import DashboardPanel from "./components/DashboardPanel.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
 import InventoryAdminPanel from "./components/InventoryAdminPanel.jsx";
-import ImportacoesPanel from "./components/ImportacoesPanel.jsx";
 import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
@@ -35,17 +34,10 @@ const NAV_STRUCTURE = [
     items: [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
       { id: "movimentacoes", label: "Movimentacoes", short: "Mov." },
+      { id: "operacoes-cadastro-sala", label: "Cadastrar Bens por Sala", short: "Sala" },
       { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
       { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
-    ],
-  },
-  {
-    type: "group",
-    id: "importacoes",
-    label: "Importacoes",
-    items: [
-      { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
   },
   { type: "item", item: { id: "normas", label: "Gestao de Normas", short: "Normas" } },
@@ -64,6 +56,8 @@ const NAV_STRUCTURE = [
     id: "admin",
     label: "Administracao do Painel",
     items: [
+      { id: "admin-importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
+      { id: "admin-locais", label: "Locais (salas) cadastrados", short: "Locais" },
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
       { id: "admin-perfis", label: "Perfis e Acessos", short: "Perfis" },
@@ -72,10 +66,6 @@ const NAV_STRUCTURE = [
   { type: "item", item: { id: "wiki", label: "Wiki / Manual", short: "Wiki" } },
 ];
 
-const NAV_ITEMS = NAV_STRUCTURE.flatMap((entry) =>
-  entry.type === "group" ? entry.items : [entry.item],
-);
-const NAV_BY_ID = NAV_ITEMS.reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
 const DEFAULT_OPEN_GROUPS = NAV_STRUCTURE.reduce((acc, entry) => {
   if (entry.type === "group") acc[entry.id] = true;
   return acc;
@@ -124,7 +114,7 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "movimentacoes") {
+  if (id === "movimentacoes" || id === "operacoes-cadastro-sala") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M4 7h12" />
@@ -154,7 +144,7 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "importacoes-geafin") {
+  if (id === "admin-importacoes-geafin") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 3v11" />
@@ -175,7 +165,13 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "admin-backup" || id === "admin-health" || id === "admin-perfis" || id === "operacoes") {
+  if (
+    id === "admin-backup" ||
+    id === "admin-health" ||
+    id === "admin-perfis" ||
+    id === "admin-locais" ||
+    id === "operacoes"
+  ) {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 3v3" />
@@ -277,10 +273,6 @@ function AppShell() {
       ? "EM_ANDAMENTO"
       : "SEM_EVENTO";
   const activeEventCode = (eventosQuery.data || [])[0]?.codigoEvento || null;
-
-  useEffect(() => {
-    if (tab === "operacoes") setTab("admin-backup");
-  }, [tab]);
 
   const bannerMessage = useMemo(() => {
     if (inventoryStatus === "EM_ANDAMENTO") {
@@ -579,6 +571,7 @@ function AppShell() {
               {tab === "inventario-admin" && <InventoryAdminPanel />}
 
               {tab === "movimentacoes" && <MovimentacoesPanel />}
+              {tab === "operacoes-cadastro-sala" && <MovimentacoesPanel section="cadastro-sala" />}
 
               {tab === "classificacao" && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -691,8 +684,6 @@ function AppShell() {
                 </section>
               )}
 
-              {tab === "importacoes-geafin" && <ImportacoesPanel canAdmin={canAdmin} />}
-
               {tab === "auditoria-changelog" && (
                 <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-changelog" />
               )}
@@ -703,6 +694,8 @@ function AppShell() {
                 <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-erros" />
               )}
 
+              {tab === "admin-importacoes-geafin" && <OperationsPanel section="admin-importacoes-geafin" />}
+              {tab === "admin-locais" && <OperationsPanel section="admin-locais" />}
               {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
               {tab === "admin-health" && <OperationsPanel section="admin-health" />}
               {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}

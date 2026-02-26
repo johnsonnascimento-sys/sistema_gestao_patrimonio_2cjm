@@ -6,7 +6,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import BarcodeScanner from "./BarcodeScanner.jsx";
-import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 import {
   atualizarBemOperacional,
   listarBens,
@@ -49,10 +48,12 @@ function buildMovPayload(payload) {
   return Object.fromEntries(Object.entries(clean).filter(([, value]) => value !== undefined));
 }
 
-export default function MovimentacoesPanel() {
+export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const auth = useAuth();
   const canUse = Boolean(auth.perfil) || !auth.authEnabled;
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+  const showMovimentacaoForm = section !== "cadastro-sala";
+  const showCadastroSala = section === "cadastro-sala";
 
   const [movState, setMovState] = useState({ loading: false, response: null, error: null });
   const [movPayload, setMovPayload] = useState({
@@ -106,12 +107,12 @@ export default function MovimentacoesPanel() {
         setLocaisState({ loading: false, data: [], error: formatApiError(error) });
       }
     };
-    if (!canUse) return undefined;
+    if (!canUse || !showCadastroSala) return undefined;
     loadLocais();
     return () => {
       cancelled = true;
     };
-  }, [canUse, unidadeSalaId]);
+  }, [canUse, showCadastroSala, unidadeSalaId]);
 
   const setMovField = (key, value) => setMovPayload((prev) => ({ ...prev, [key]: value }));
 
@@ -269,11 +270,18 @@ export default function MovimentacoesPanel() {
   return (
     <section className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Movimentacoes</h2>
-        <p className="mt-2 text-sm text-slate-600">{helperText}</p>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">
+          {showCadastroSala ? "Cadastrar bens por sala" : "Movimentacoes"}
+        </h2>
+        <p className="mt-2 text-sm text-slate-600">
+          {showCadastroSala
+            ? "Regularizacao em lote por sala, com leitura por scanner/camera e confirmacao de divergencias."
+            : helperText}
+        </p>
       </header>
 
-      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {showMovimentacaoForm ? (
+        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Movimentar bem</h3>
         <p className="mt-1 text-xs text-slate-600">
           Dica: informe <code className="px-1">numeroTombamento</code> (10 digitos) ou <code className="px-1">bemId</code>.
@@ -410,9 +418,11 @@ export default function MovimentacoesPanel() {
             ) : null}
           </div>
         </form>
-      </article>
+        </article>
+      ) : null}
 
-      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {showCadastroSala ? (
+        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">Cadastrar bens por sala (regularizacao em lote)</h3>
         <p className="mt-1 text-xs text-slate-600">
           Selecione unidade e sala de destino, bipa os itens encontrados (teclado/scanner/camera) e salve em lote.
@@ -581,11 +591,10 @@ export default function MovimentacoesPanel() {
             </div>
           </>
         )}
-      </article>
+        </article>
+      ) : null}
 
-      <LocaisAdminPanel canAdmin={canAdmin} />
-
-      {showScanner ? (
+      {showCadastroSala && showScanner ? (
         <BarcodeScanner
           continuous={scannerMode === "continuous"}
           onClose={() => setShowScanner(false)}

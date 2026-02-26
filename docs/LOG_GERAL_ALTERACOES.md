@@ -23,6 +23,8 @@
 
 | ID | DataHoraUTC | Usuario | Tipo | Branch | Commit | Detalhe | ReversaoSugerida |
 |---|---|---|---|---|---|---|---|
+| 20260226-222358-nav-admin-operacoes | 2026-02-26 22:23:58 UTC | johnsontn <-> | UX | `main` | `PENDENTE_COMMIT` | Reorganizacao de menu: Importacao GEAFIN e Locais movidos para Administracao do Painel; Cadastro por Sala virou submenu proprio de Operacoes Patrimoniais; atualizacao completa da wiki. | `git revert <commit_gerado_para_esta_entrega>` |
+| 20260226-221451-cargo-militar | 2026-02-26 22:14:51 UTC | johnsontn <-> | UX | `main` | `PENDENTE_COMMIT` | Padronizacao de cargos em Perfis atualizada para incluir `Militar` (formulario e wiki operacional). | `git revert <commit_gerado_para_esta_entrega>` |
 | 20260226-221009-topbar-status-inventario | 2026-02-26 22:10:09 UTC | johnsontn <-> | UX | `main` | `PENDENTE_COMMIT` | Padronizacao do cabecalho: status de inventario movido para o topo (status + evento), com remocao de duplicidade de titulos entre topbar e conteudo (ex.: Auditoria/Erros). | `git revert <commit_gerado_para_esta_entrega>` |
 | 20260226-220311-perfis-nao-usuarios | 2026-02-26 22:03:11 UTC | johnsontn <-> | UX | `main` | `PENDENTE_COMMIT` | Painel de Perfis atualizado para cadastro de nao-usuarios por matricula/nome/unidade/email/cargo padronizado, com criacao automatica sem acesso (ativo=NAO) para uso em cautela/carga. | `git revert <commit_gerado_para_esta_entrega>` |
 | 20260225-223502-ui-redesign-fases-1-3 | 2026-02-25 22:30:35 UTC | Johnson Teixeira do Nascimento \<johnsontn@redejmu.local\> | UX | `main` | `c9bd69b` | Redesign visual fases 1-3 com refatoracao UI-only segura e validacao de build. | `git revert c9bd69b` |

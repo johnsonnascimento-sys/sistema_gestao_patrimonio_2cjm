@@ -87,7 +87,8 @@ Regras legais:
 
 ## Cadastro de bens por sala (regularizacao em lote)
 
-A aba **Movimentacoes** agora possui uma secao para regularizar itens por sala, sem transferencia de carga.
+A funcionalidade fica no submenu **Operacoes Patrimoniais -> Cadastrar Bens por Sala**,
+sem transferencia de carga.
 
 Fluxo:
 
@@ -109,11 +110,13 @@ Permissao:
 
 - Operacao restrita ao perfil ADMIN.
 
-## Atualizacao 2026-02-26 - Gestao de locais na aba Movimentacoes
+## Atualizacao 2026-02-26 - Gestao de locais na Administracao do Painel
 
-A gestao de Locais (CRUD e vinculacao em lote de bens.local_id) foi movida para a aba Movimentacoes.
+A gestao de Locais (CRUD e vinculacao em lote de `bens.local_id`) fica em:
+
+- **Administracao do Painel -> Locais (salas) cadastrados**
 
 Motivo:
 
-- reduzir sobrecarga da Administracao do Painel
-- manter operacao de sala no mesmo contexto de movimentacao/regularizacao
+- manter governanca de cadastros estruturais no modulo administrativo
+- preservar Operacoes Patrimoniais focada em execucao operacional

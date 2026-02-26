@@ -106,6 +106,7 @@ Quando a pessoa precisa aparecer em cautela/carga, mas nao deve entrar no sistem
    - `Juiz Federal Substituto`
    - `Analista Judiciario`
    - `Tecnico Judiciario`
+   - `Militar`
    - `Outro` (com descricao manual)
 4. O sistema cria o perfil sem acesso (`ativo=false`, `role=OPERADOR`), preservando rastreabilidade.
 

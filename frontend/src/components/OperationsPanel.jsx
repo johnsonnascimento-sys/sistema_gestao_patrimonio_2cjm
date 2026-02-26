@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext.jsx";
 import AdminHealthPanel from "./AdminHealthPanel.jsx";
 import AdminPerfisPanel from "./AdminPerfisPanel.jsx";
 import BackupOpsPanel from "./BackupOpsPanel.jsx";
+import ImportacoesPanel from "./ImportacoesPanel.jsx";
+import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 
 const SECTION_META = {
   "admin-backup": {
@@ -21,6 +23,14 @@ const SECTION_META = {
     title: "Perfis e Acessos",
     description: "Gestao de perfis, papeis e reset de senha de primeiro acesso.",
   },
+  "admin-importacoes-geafin": {
+    title: "Importacao GEAFIN (CSV Latin1)",
+    description: "Carga operacional e auditavel do GEAFIN com barra de progresso e cancelamento.",
+  },
+  "admin-locais": {
+    title: "Locais (salas) cadastrados",
+    description: "CRUD de locais e vinculacao em lote de bens.local_id para governanca de sala.",
+  },
 };
 
 export default function OperationsPanel({ section = "admin-backup" }) {
@@ -33,14 +43,14 @@ export default function OperationsPanel({ section = "admin-backup" }) {
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Administracao do Painel</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          {meta.title}: {meta.description}
-        </p>
+        <p className="mt-2 text-sm text-slate-600">{meta.description}</p>
       </header>
 
       {normalizedSection === "admin-health" ? <AdminHealthPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-perfis" ? <AdminPerfisPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-backup" ? <BackupOpsPanel canAdmin={canAdmin} /> : null}
+      {normalizedSection === "admin-importacoes-geafin" ? <ImportacoesPanel canAdmin={canAdmin} /> : null}
+      {normalizedSection === "admin-locais" ? <LocaisAdminPanel canAdmin={canAdmin} /> : null}
     </section>
   );
 }
