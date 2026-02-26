@@ -557,6 +557,10 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const movs = state?.data?.movimentacoes || [];
   const hist = state?.data?.historicoTransferencias || [];
   const divergenciaPendente = imp?.divergenciaPendente || state?.data?.divergenciaPendente || null;
+  const cautelaAtual = useMemo(() => {
+    if (String(imp?.status || "").toUpperCase() !== "EM_CAUTELA") return null;
+    return movs.find((m) => String(m?.tipoMovimentacao || "").toUpperCase() === "CAUTELA_SAIDA") || null;
+  }, [imp?.status, movs]);
 
   const formatDateTime = (raw) => {
     if (!raw) return "-";
@@ -1256,6 +1260,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                   <Row k="Matrícula" v={responsavel?.matricula} />
                   <Row k="Nome" v={responsavel?.nome} />
                 </dl>
+                {String(imp?.status || "").toUpperCase() === "EM_CAUTELA" ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs uppercase tracking-widest text-amber-700">Cautela atual</p>
+                    <dl className="mt-2 space-y-1 text-sm">
+                      <Row k="Detentor PerfilId" v={cautelaAtual?.detentorTemporarioPerfilId} mono />
+                      <Row k="Detentor Matrícula" v={cautelaAtual?.detentorTemporarioMatricula} />
+                      <Row k="Detentor Nome" v={cautelaAtual?.detentorTemporarioNome} />
+                      <Row k="Data prevista devolução" v={cautelaAtual?.dataPrevistaDevolucao || "Sem data prevista"} />
+                    </dl>
+                  </div>
+                ) : null}
               </section>
 
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">

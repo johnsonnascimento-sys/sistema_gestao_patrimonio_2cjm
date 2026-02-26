@@ -1005,6 +1005,8 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          m.executada_por_perfil_id AS "executadaPorPerfilId",
          m.executada_em AS "executadaEm",
          m.created_at AS "createdAt",
+         pd.nome AS "detentorTemporarioNome",
+         pd.matricula AS "detentorTemporarioMatricula",
          pa.nome AS "autorizadaPorNome",
          pa.matricula AS "autorizadaPorMatricula",
          pe.nome AS "executadaPorNome",
@@ -1013,6 +1015,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          c.unidade_encontrada_id AS "regularizacaoUnidadeEncontradaId",
          c.sala_encontrada AS "regularizacaoSalaEncontrada"
        FROM movimentacoes m
+       LEFT JOIN perfis pd ON pd.id = m.detentor_temporario_perfil_id
        LEFT JOIN perfis pa ON pa.id = m.autorizada_por_perfil_id
        LEFT JOIN perfis pe ON pe.id = m.executada_por_perfil_id
        LEFT JOIN contagens c ON c.regularizacao_movimentacao_id = m.id

@@ -150,6 +150,7 @@ Principais entregas:
 - Correcao no backend de cadastro de nao-usuario para aceitar senha nula sem erro interno e retornar 409 amigavel em conflitos de matricula/email.
 - Movimentacoes com busca assistida de detentor por matricula/nome/perfilId UUID e selecao de sugestoes no formulario.
 - Cautela de saida permitindo data prevista de devolucao opcional (campo em branco ou opcao "sem data prevista").
+- Modal de detalhes do bem agora exibe detentor atual da cautela quando o bem esta com status `EM_CAUTELA`.
 - Topbar padronizada para exibir status de inventario (status + evento), removendo duplicidade de titulos de secao no topo.
 
 Impacto em runtime/API:

@@ -88,6 +88,11 @@ Use isso quando precisar:
 - Confirmar que um bem mudou de unidade (auditoria).
 - Entender se está em cautela e com quem.
 - Checar o que aconteceu em datas anteriores.
+Quando o status do bem for `EM_CAUTELA`, o modal mostra o bloco **Cautela atual** com:
+
+- `detentorTemporarioPerfilId`
+- matricula e nome do detentor
+- data prevista de devolucao (ou "Sem data prevista")
 
 ## Linha do tempo de alteracoes e reversao (modal)
 
@@ -136,3 +141,4 @@ OBS: O sistema armazena as fotos localmente no servidor para maior performance e
 
 - Se você estiver no inventário e não encontrou um item, use a Consulta para ver "onde deveria estar" e "onde está cadastrado".
 - Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda não foi localizado/recebido fisicamente.
+
