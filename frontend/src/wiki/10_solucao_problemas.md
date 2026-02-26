@@ -137,6 +137,24 @@ Se aparecer **"Formato invalido em campo enviado"**:
 2. Copie o `requestId` da linha do erro.
 3. Correlacione com `docker logs -f cjm_backend` na VPS para diagnostico.
 
+## Erro ao cadastrar nao-usuario (500 / ERRO_INTERNO)
+
+Se o cadastro de nao-usuario falhar com `500`:
+
+1. Abra **Auditoria e Logs** -> **Log de Erros Runtime (API)** e copie o `requestId`.
+2. Verifique se o backend ja esta na versao com correcao de `POST /perfis` (fix do erro `42P08`).
+3. Se ainda estiver em versao anterior, execute deploy:
+
+```bash
+cd /opt/cjm-patrimonio/current
+./scripts/vps_deploy.sh all
+```
+
+Comportamento esperado apos a correcao:
+
+- cadastro sem senha (nao-usuario) cria normalmente;
+- conflitos de matricula/email retornam `409` com mensagens explicitas (`MATRICULA_DUPLICADA` ou `EMAIL_DUPLICADO`).
+
 ## Erro durante Importacao GEAFIN: estrategia de recuperacao
 
 Se a importacao falhar e voce precisar voltar o banco para um ponto conhecido:

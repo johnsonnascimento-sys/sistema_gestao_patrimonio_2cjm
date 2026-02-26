@@ -1628,14 +1628,27 @@ app.post("/perfis", mustAdmin, async (req, res, next) => {
   try {
     const p = validatePerfil(req.body || {});
     const senhaHash = p.senha ? await bcrypt.hash(p.senha, 10) : null;
+    const senhaDefinidaEm = senhaHash ? new Date() : null;
     const r = await pool.query(
       `INSERT INTO perfis (matricula, nome, email, unidade_id, cargo, ativo, role, senha_hash, senha_definida_em)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $8 IS NULL THEN NULL ELSE NOW() END)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo, created_at AS "createdAt";`,
-      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo, p.ativo, p.role, senhaHash],
+      [p.matricula, p.nome, p.email, p.unidadeId, p.cargo, p.ativo, p.role, senhaHash, senhaDefinidaEm],
     );
     res.status(201).json({ requestId: req.requestId, perfil: r.rows[0] });
   } catch (error) {
+    if (error?.code === "23505") {
+      if (String(error?.constraint || "") === "perfis_matricula_key") {
+        next(new HttpError(409, "MATRICULA_DUPLICADA", "Ja existe perfil com esta matricula."));
+        return;
+      }
+      if (String(error?.constraint || "") === "perfis_email_key") {
+        next(new HttpError(409, "EMAIL_DUPLICADO", "Ja existe perfil com este e-mail."));
+        return;
+      }
+      next(new HttpError(409, "PERFIL_DUPLICADO", "Ja existe perfil com os dados informados."));
+      return;
+    }
     next(error);
   }
 });
@@ -1701,6 +1714,10 @@ app.patch("/perfis/:id", mustAdmin, async (req, res, next) => {
 
     res.json({ requestId: req.requestId, perfil: r.rows[0] });
   } catch (error) {
+    if (error?.code === "23505" && String(error?.constraint || "") === "perfis_email_key") {
+      next(new HttpError(409, "EMAIL_DUPLICADO", "Ja existe perfil com este e-mail."));
+      return;
+    }
     next(error);
   }
 });

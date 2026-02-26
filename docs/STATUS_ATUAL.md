@@ -146,6 +146,7 @@ Principais entregas:
 - Menu proprio de Auditoria e Logs.
 - Administracao do Painel com backup, conectividade, perfis e gestao de locais.
 - Perfis e Acessos com fluxo explicito para cadastro de nao-usuarios (detentor/carga), incluindo cargo padronizado e criacao sem login.
+- Correcao no backend de cadastro de nao-usuario para aceitar senha nula sem erro interno e retornar 409 amigavel em conflitos de matricula/email.
 - Topbar padronizada para exibir status de inventario (status + evento), removendo duplicidade de titulos de secao no topo.
 
 Impacto em runtime/API:

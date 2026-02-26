@@ -110,6 +110,11 @@ Quando a pessoa precisa aparecer em cautela/carga, mas nao deve entrar no sistem
    - `Outro` (com descricao manual)
 4. O sistema cria o perfil sem acesso (`ativo=false`, `role=OPERADOR`), preservando rastreabilidade.
 
+Erros de conflito esperados:
+
+- `MATRICULA_DUPLICADA` (HTTP 409): ja existe perfil com a mesma matricula.
+- `EMAIL_DUPLICADO` (HTTP 409): ja existe perfil com o mesmo e-mail.
+
 Resultado pratico:
 - O perfil pode ser usado em campos como `detentorTemporarioPerfilId` (cautela).
 - O perfil nao autentica no login enquanto estiver inativo.
