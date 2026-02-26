@@ -22,7 +22,7 @@ Quando voce importa o CSV do GEAFIN (relatorio), o sistema faz duas coisas:
 
 No site, abra:
 
-- Aba **Administração do Painel** (antiga "Operações API")
+- Grupo **Operacoes Patrimoniais**
 - Secao **Importacao GEAFIN (CSV Latin1)**
 
 Passos:
@@ -132,10 +132,10 @@ Se ocorrer incidente grave, use o restore do dump correspondente conforme `docs/
 
 ## Atualizacao 2026-02-26 - Local da funcionalidade
 
-A importacao GEAFIN voltou para a Administracao do Painel.
+A importacao GEAFIN foi posicionada como ultimo submenu operacional.
 
 Novo caminho de menu:
 
-- Administracao do Painel -> Importacao GEAFIN (CSV Latin1)
+- Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
 
 A API e o comportamento operacional permanecem os mesmos.

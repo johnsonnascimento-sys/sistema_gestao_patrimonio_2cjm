@@ -142,8 +142,9 @@ Principais entregas:
 - Nova arquitetura de navegacao com grupos e submenu.
 - Abertura padrao no Dashboard Executivo Operacional.
 - Cadastro por sala promovido para submenu proprio em Operacoes Patrimoniais.
+- Importacao GEAFIN posicionada como ultimo submenu em Operacoes Patrimoniais.
 - Menu proprio de Auditoria e Logs.
-- Administracao do Painel com backup, conectividade, perfis, importacao GEAFIN e gestao de locais.
+- Administracao do Painel com backup, conectividade, perfis e gestao de locais.
 - Perfis e Acessos com fluxo explicito para cadastro de nao-usuarios (detentor/carga), incluindo cargo padronizado e criacao sem login.
 - Topbar padronizada para exibir status de inventario (status + evento), removendo duplicidade de titulos de secao no topo.
 

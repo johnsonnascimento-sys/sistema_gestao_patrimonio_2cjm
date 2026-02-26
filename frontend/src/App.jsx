@@ -10,6 +10,7 @@ import AuditoriaLogsPanel from "./components/AuditoriaLogsPanel.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import DashboardPanel from "./components/DashboardPanel.jsx";
+import ImportacoesPanel from "./components/ImportacoesPanel.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
 import InventoryAdminPanel from "./components/InventoryAdminPanel.jsx";
 import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
@@ -38,6 +39,7 @@ const NAV_STRUCTURE = [
       { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
       { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
+      { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
   },
   { type: "item", item: { id: "normas", label: "Gestao de Normas", short: "Normas" } },
@@ -56,7 +58,6 @@ const NAV_STRUCTURE = [
     id: "admin",
     label: "Administracao do Painel",
     items: [
-      { id: "admin-importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
       { id: "admin-locais", label: "Locais (salas) cadastrados", short: "Locais" },
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
@@ -144,7 +145,7 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "admin-importacoes-geafin") {
+  if (id === "importacoes-geafin") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 3v11" />
@@ -572,6 +573,7 @@ function AppShell() {
 
               {tab === "movimentacoes" && <MovimentacoesPanel />}
               {tab === "operacoes-cadastro-sala" && <MovimentacoesPanel section="cadastro-sala" />}
+              {tab === "importacoes-geafin" && <ImportacoesPanel canAdmin={canAdmin} />}
 
               {tab === "classificacao" && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -694,12 +696,10 @@ function AppShell() {
                 <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-erros" />
               )}
 
-              {tab === "admin-importacoes-geafin" && <OperationsPanel section="admin-importacoes-geafin" />}
               {tab === "admin-locais" && <OperationsPanel section="admin-locais" />}
               {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
               {tab === "admin-health" && <OperationsPanel section="admin-health" />}
               {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}
-              {tab === "operacoes" && <OperationsPanel section="admin-backup" />}
               {tab === "normas" && <NormsPage />}
               {tab === "wiki" && <WikiManual />}
             </div>

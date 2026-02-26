@@ -150,7 +150,7 @@ Pré-requisitos dos workflows PDF via API:
 
 Onde consultar:
 
-- Aba **Administracao do Painel** -> bloco **Log Geral de Alteracoes**
+- Menu **Auditoria e Logs** -> **Log Geral de Alteracoes**
 - Arquivo canonico: `docs/LOG_GERAL_ALTERACOES.md`
 
 Use este log para trilha de mudancas de sistema (deploy, UX, docs, scripts, runtime), com:
@@ -164,7 +164,7 @@ Use este log para trilha de mudancas de sistema (deploy, UX, docs, scripts, runt
 
 Onde consultar:
 
-- Aba **Administracao do Painel** -> bloco **Auditoria Patrimonial (Global)**
+- Menu **Auditoria e Logs** -> **Auditoria Patrimonial (Global)**
 
 Use este log para alteracoes de patrimonio (bens/catalogo/movimentacoes/contagens), sem abrir tombo individual.
 
@@ -177,7 +177,7 @@ Filtros recomendados:
 
 ### Log de erros runtime (novo)
 
-No painel **Administracao do Painel**, consulte a secao **Log de Erros Runtime (API)** para ver falhas recentes (4xx/5xx) com:
+No menu **Auditoria e Logs**, consulte a secao **Log de Erros Runtime (API)** para ver falhas recentes (4xx/5xx) com:
 
 - data/hora UTC
 - codigo do erro

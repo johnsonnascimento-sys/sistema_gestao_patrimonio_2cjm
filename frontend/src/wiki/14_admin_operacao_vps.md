@@ -270,7 +270,10 @@ A Administracao do Painel concentra operacoes administrativas e cadastros de sup
 - Backup e Restore (Drive)
 - Conectividade backend (/health)
 - Perfis e acessos
-- Importacao GEAFIN (CSV Latin1)
 - Locais (salas) cadastrados
+
+Importacao GEAFIN permanece operacional em menu proprio:
+
+- Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
 
 Auditoria permanece em menu proprio (**Auditoria e Logs**).

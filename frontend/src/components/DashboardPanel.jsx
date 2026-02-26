@@ -228,7 +228,7 @@ export default function DashboardPanel({ onNavigate }) {
     { id: "movimentacoes", label: "Movimentacoes" },
     { id: "operacoes-cadastro-sala", label: "Cadastrar Bens por Sala" },
     { id: "inventario-contagem", label: "Inventario - Contagem" },
-    { id: "admin-importacoes-geafin", label: "Importacao GEAFIN" },
+    { id: "importacoes-geafin", label: "Importacao GEAFIN" },
   ];
   const activeFloor = hoveredFloor || selectedFloor;
 

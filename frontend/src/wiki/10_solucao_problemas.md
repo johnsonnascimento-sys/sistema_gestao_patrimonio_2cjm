@@ -133,7 +133,7 @@ Dica pratica:
 
 Se aparecer **"Formato invalido em campo enviado"**:
 
-1. Abra **Administracao do Painel** -> **Log de Erros Runtime (API)**.
+1. Abra **Auditoria e Logs** -> **Log de Erros Runtime (API)**.
 2. Copie o `requestId` da linha do erro.
 3. Correlacione com `docker logs -f cjm_backend` na VPS para diagnostico.
 

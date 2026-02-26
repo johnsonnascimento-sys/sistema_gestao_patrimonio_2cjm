@@ -7,7 +7,6 @@ import { useAuth } from "../context/AuthContext.jsx";
 import AdminHealthPanel from "./AdminHealthPanel.jsx";
 import AdminPerfisPanel from "./AdminPerfisPanel.jsx";
 import BackupOpsPanel from "./BackupOpsPanel.jsx";
-import ImportacoesPanel from "./ImportacoesPanel.jsx";
 import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 
 const SECTION_META = {
@@ -22,10 +21,6 @@ const SECTION_META = {
   "admin-perfis": {
     title: "Perfis e Acessos",
     description: "Gestao de perfis, papeis e reset de senha de primeiro acesso.",
-  },
-  "admin-importacoes-geafin": {
-    title: "Importacao GEAFIN (CSV Latin1)",
-    description: "Carga operacional e auditavel do GEAFIN com barra de progresso e cancelamento.",
   },
   "admin-locais": {
     title: "Locais (salas) cadastrados",
@@ -49,7 +44,6 @@ export default function OperationsPanel({ section = "admin-backup" }) {
       {normalizedSection === "admin-health" ? <AdminHealthPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-perfis" ? <AdminPerfisPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-backup" ? <BackupOpsPanel canAdmin={canAdmin} /> : null}
-      {normalizedSection === "admin-importacoes-geafin" ? <ImportacoesPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-locais" ? <LocaisAdminPanel canAdmin={canAdmin} /> : null}
     </section>
   );

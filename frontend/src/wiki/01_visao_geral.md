@@ -69,10 +69,9 @@ Uso:
 Uso:
 
 - Testar conectividade com backend (`/health`).
-- Importar GEAFIN (CSV Latin1) e acompanhar progresso.
-- Visualizar o **Log Geral de Alteracoes** no proprio sistema (autor, data/hora UTC, detalhe e commit).
-- Copiar rapidamente o comando de reversao (`git revert <commit>`) por item para rollback operacional.
-- Consultar a **Auditoria Patrimonial (Global)** com todas as alteracoes de bens/catalogo/movimentacoes, sem abrir um tombo especifico.
+- Operar backups/restores e snapshots pre-GEAFIN.
+- Gerir perfis/acessos e locais (salas) cadastrados.
+- Operar infraestrutura e seguranca do painel sem alterar regras de negocio.
 
 ## Regras de compliance que afetam o usuário (resumo)
 
@@ -90,7 +89,7 @@ O sistema agora abre no Dashboard Executivo Operacional.
 Distribuicao de modulos:
 
 - Dashboard: abertura com KPIs, inventario ativo e atividade recente.
-- Operacoes Patrimoniais: consulta, movimentacoes, cadastro por sala, inventario e wizard Art. 141.
+- Operacoes Patrimoniais: consulta, movimentacoes, cadastro por sala, inventario, wizard Art. 141 e importacao GEAFIN.
 - Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
-- Administracao do Painel: backup, conectividade, perfis, importacao GEAFIN e locais (salas) cadastrados.
+- Administracao do Painel: backup, conectividade, perfis e locais (salas) cadastrados.
 - Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.
