@@ -84,3 +84,27 @@ Comportamento do sistema:
 Regras legais:
 
 - Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
+
+## Cadastro de bens por sala (regularizacao em lote)
+
+A aba **Movimentacoes** agora possui uma secao para regularizar itens por sala, sem transferencia de carga.
+
+Fluxo:
+
+1. Selecione a unidade/sala de destino.
+2. Bipe os tombos (teclado/scanner/camera com modo simples ou continuo).
+3. Revise a fila e clique **Salvar lote na sala**.
+
+Comportamento de divergencia:
+
+- Se um bem for de outra unidade, o sistema alerta e pergunta se voce deseja manter o item na sala escolhida.
+- Itens divergentes nao confirmados ficam na fila e nao sao salvos ate marcacao explicita.
+
+Persistencia aplicada:
+
+- Atualiza `bens.local_id` e `bens.local_fisico` para a sala selecionada.
+- Nao altera `bens.unidade_dona_id` (nao e transferencia de carga).
+
+Permissao:
+
+- Operacao restrita ao perfil ADMIN.
