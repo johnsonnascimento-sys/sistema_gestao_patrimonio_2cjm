@@ -134,3 +134,19 @@ Observacao:
 1. Publicar um changelog tecnico incremental por release, ligado ao Wiki/Manual.
 2. Expandir testes automatizados para fluxos de regularizacao, documentos e upload de fotos.
 3. Consolidar dashboard de monitoramento operacional (importacoes, filas e erros por endpoint).
+
+## 10. Atualizacao 2026-02-26 (Frontend IA + Dashboard)
+
+Principais entregas:
+
+- Nova arquitetura de navegacao com grupos e submenu.
+- Abertura padrao no Dashboard Executivo Operacional.
+- Aba propria de Importacoes para GEAFIN.
+- Menu proprio de Auditoria e Logs.
+- Administracao do Painel reduzida para Infra + Seguranca.
+- Gestao de Locais incorporada na aba Movimentacoes.
+
+Impacto em runtime/API:
+
+- Nenhuma mudanca de endpoint, metodo ou contrato.
+- Reorganizacao estritamente de frontend e documentacao.

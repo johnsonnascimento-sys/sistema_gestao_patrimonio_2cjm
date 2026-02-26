@@ -82,3 +82,15 @@ Uso:
   - Regra legal: Art. 185 (AN303_Art185)
 - **Cautela x Transferência**: cautela não muda carga; transferência muda carga e exige formalização.
   - Regra legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127)
+
+## Atualizacao 2026-02-26 - Reorganizacao do menu
+
+O sistema agora abre no Dashboard Executivo Operacional.
+
+Distribuicao de modulos:
+
+- Dashboard: abertura com KPIs, inventario ativo e atividade recente.
+- Operacoes Patrimoniais: consulta, movimentacoes, inventario e wizard Art. 141.
+- Importacoes: GEAFIN em aba propria.
+- Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
+- Administracao do Painel: foco em Infra + Seguranca (backup, conectividade e perfis).

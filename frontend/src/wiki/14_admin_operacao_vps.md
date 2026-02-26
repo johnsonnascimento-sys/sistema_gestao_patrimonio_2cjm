@@ -262,3 +262,13 @@ A secao tambem exibe:
 - lista de backups remotos (database e media)
 - ferramentas disponiveis no backend
 - ultimas operacoes executadas (OK/ERRO)
+
+## Atualizacao 2026-02-26 - Escopo da Administracao do Painel
+
+A Administracao do Painel foi enxugada para foco em Infra + Seguranca:
+
+- Backup e Restore (Drive)
+- Conectividade backend (/health)
+- Perfis e acessos
+
+Importacoes e Auditoria foram movidas para menus proprios.

@@ -185,3 +185,13 @@ No painel **Administracao do Painel**, consulte a secao **Log de Erros Runtime (
 - requestId
 
 Use o `requestId` para correlacionar com logs do backend na VPS.
+
+## Atualizacao 2026-02-26 - Novo agrupamento de Auditoria
+
+Consulta recomendada no menu:
+
+- Auditoria e Logs -> Log Geral de Alteracoes
+- Auditoria e Logs -> Auditoria Patrimonial (Global)
+- Auditoria e Logs -> Log de Erros Runtime
+
+Esse agrupamento separa auditoria operacional da Administracao de Infra.

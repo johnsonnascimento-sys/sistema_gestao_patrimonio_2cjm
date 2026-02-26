@@ -3,13 +3,16 @@
  * Arquivo: App.jsx
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
  */
-import { Component, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
+import AuditoriaLogsPanel from "./components/AuditoriaLogsPanel.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
+import DashboardPanel from "./components/DashboardPanel.jsx";
 import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
 import InventoryAdminPanel from "./components/InventoryAdminPanel.jsx";
+import ImportacoesPanel from "./components/ImportacoesPanel.jsx";
 import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
@@ -23,19 +26,74 @@ import {
   listarEventosInventario,
 } from "./services/apiClient.js";
 
-const NAV_ITEMS = [
-  { id: "bens", label: "Consulta de Bens", short: "Bens" },
-  { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
-  { id: "inventario-admin", label: "Inventario - Administracao", short: "Admin" },
-  { id: "movimentacoes", label: "Movimentacoes", short: "Mov." },
-  { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
-  { id: "normas", label: "Gestao de Normas", short: "Normas" },
-  { id: "operacoes", label: "Administracao do Painel", short: "Painel" },
-  { id: "wiki", label: "Wiki / Manual", short: "Wiki" },
+const NAV_STRUCTURE = [
+  { type: "item", item: { id: "dashboard", label: "Dashboard", short: "Dash" } },
+  {
+    type: "group",
+    id: "operacoes",
+    label: "Operacoes Patrimoniais",
+    items: [
+      { id: "bens", label: "Consulta de Bens", short: "Bens" },
+      { id: "movimentacoes", label: "Movimentacoes", short: "Mov." },
+      { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
+      { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
+      { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
+    ],
+  },
+  {
+    type: "group",
+    id: "importacoes",
+    label: "Importacoes",
+    items: [
+      { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
+    ],
+  },
+  { type: "item", item: { id: "normas", label: "Gestao de Normas", short: "Normas" } },
+  {
+    type: "group",
+    id: "auditoria",
+    label: "Auditoria e Logs",
+    items: [
+      { id: "auditoria-changelog", label: "Log Geral de Alteracoes", short: "Log Geral" },
+      { id: "auditoria-patrimonio", label: "Auditoria Patrimonial (Global)", short: "Patrimonio" },
+      { id: "auditoria-erros", label: "Log de Erros Runtime", short: "Erros" },
+    ],
+  },
+  {
+    type: "group",
+    id: "admin",
+    label: "Administracao do Painel",
+    items: [
+      { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
+      { id: "admin-health", label: "Conectividade Backend", short: "Health" },
+      { id: "admin-perfis", label: "Perfis e Acessos", short: "Perfis" },
+    ],
+  },
+  { type: "item", item: { id: "wiki", label: "Wiki / Manual", short: "Wiki" } },
 ];
+
+const NAV_ITEMS = NAV_STRUCTURE.flatMap((entry) =>
+  entry.type === "group" ? entry.items : [entry.item],
+);
+const NAV_BY_ID = NAV_ITEMS.reduce((acc, item) => ({ ...acc, [item.id]: item }), {});
+const DEFAULT_OPEN_GROUPS = NAV_STRUCTURE.reduce((acc, entry) => {
+  if (entry.type === "group") acc[entry.id] = true;
+  return acc;
+}, {});
 
 function NavIcon({ id }) {
   const cls = "h-4 w-4";
+
+  if (id === "dashboard") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3" y="3" width="8" height="8" rx="1.5" />
+        <rect x="13" y="3" width="8" height="5" rx="1.5" />
+        <rect x="13" y="10" width="8" height="11" rx="1.5" />
+        <rect x="3" y="13" width="8" height="8" rx="1.5" />
+      </svg>
+    );
+  }
 
   if (id === "bens") {
     return (
@@ -96,7 +154,28 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "operacoes") {
+  if (id === "importacoes-geafin") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 3v11" />
+        <path d="m8 10 4 4 4-4" />
+        <rect x="4" y="15" width="16" height="6" rx="2" />
+      </svg>
+    );
+  }
+
+  if (id === "auditoria-changelog" || id === "auditoria-patrimonio" || id === "auditoria-erros") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M7 4h10l3 3v13H7z" />
+        <path d="M17 4v3h3" />
+        <path d="M10 10h7" />
+        <path d="M10 14h7" />
+      </svg>
+    );
+  }
+
+  if (id === "admin-backup" || id === "admin-health" || id === "admin-perfis" || id === "operacoes") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 3v3" />
@@ -171,7 +250,9 @@ class SectionErrorBoundary extends Component {
 
 function AppShell() {
   const auth = useAuth();
-  const [tab, setTab] = useState("bens");
+  const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+  const [tab, setTab] = useState("dashboard");
+  const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardBemTombo, setWizardBemTombo] = useState("");
   const [wizardBem, setWizardBem] = useState(null);
@@ -196,6 +277,10 @@ function AppShell() {
       ? "EM_ANDAMENTO"
       : "SEM_EVENTO";
   const activeEventCode = (eventosQuery.data || [])[0]?.codigoEvento || null;
+
+  useEffect(() => {
+    if (tab === "operacoes") setTab("admin-backup");
+  }, [tab]);
 
   const bannerMessage = useMemo(() => {
     if (inventoryStatus === "EM_ANDAMENTO") {
@@ -229,9 +314,15 @@ function AppShell() {
   }, [inventoryStatus]);
 
   const activeTabMeta = useMemo(
-    () => NAV_ITEMS.find((item) => item.id === tab) || NAV_ITEMS[0],
+    () => NAV_BY_ID[tab] || NAV_BY_ID.dashboard,
     [tab],
   );
+
+  const toggleNavGroup = (groupId) =>
+    setOpenNavGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
 
   const wizardAvaliacoesQuery = useQuery({
     queryKey: ["inserviveisAvaliacoes", wizardBem?.id || null],
@@ -307,25 +398,69 @@ function AppShell() {
             <h1 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Patrimonio</h1>
           </div>
 
-          <nav className="flex-1 space-y-1 px-3 py-4">
-            {NAV_ITEMS.map((item) => {
-              const active = tab === item.id;
+          <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+            {NAV_STRUCTURE.map((entry) => {
+              if (entry.type === "item") {
+                const item = entry.item;
+                const active = tab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTab(item.id)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
+                      active
+                        ? "bg-violet-50 text-violet-700"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                  >
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
+                      <NavIcon id={item.id} />
+                    </span>
+                    <span>{item.label}</span>
+                  </button>
+                );
+              }
+
+              const isOpen = Boolean(openNavGroups[entry.id]);
+              const hasActiveChild = entry.items.some((item) => item.id === tab);
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setTab(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
-                    active
-                      ? "bg-violet-50 text-violet-700"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
-                    <NavIcon id={item.id} />
-                  </span>
-                  <span>{item.label}</span>
-                </button>
+                <div key={entry.id} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleNavGroup(entry.id)}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider transition ${
+                      hasActiveChild ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>{entry.label}</span>
+                    <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
+                  </button>
+                  {isOpen ? (
+                    <div className="space-y-1 pl-2">
+                      {entry.items.map((item) => {
+                        const active = tab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setTab(item.id)}
+                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
+                              active
+                                ? "bg-violet-50 text-violet-700"
+                                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                            }`}
+                          >
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
+                              <NavIcon id={item.id} />
+                            </span>
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </nav>
@@ -399,25 +534,73 @@ function AppShell() {
               </section>
 
               <section className="mb-6 md:hidden">
-                <div className="overflow-x-auto">
-                  <div className="flex min-w-max gap-2 rounded-2xl border border-slate-200 bg-white p-2">
-                    {NAV_ITEMS.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setTab(item.id)}
-                        className={`rounded-lg px-3 py-2 text-xs font-semibold ${
-                          tab === item.id
-                            ? "bg-violet-50 text-violet-700"
-                            : "text-slate-600 hover:bg-slate-100"
-                        }`}
-                      >
-                        {item.short}
-                      </button>
-                    ))}
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="space-y-2">
+                    {NAV_STRUCTURE.map((entry) => {
+                      if (entry.type === "item") {
+                        const item = entry.item;
+                        const active = tab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setTab(item.id)}
+                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
+                              active
+                                ? "bg-violet-50 text-violet-700"
+                                : "text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            <span>{item.short}</span>
+                          </button>
+                        );
+                      }
+
+                      const isOpen = Boolean(openNavGroups[entry.id]);
+                      const hasActiveChild = entry.items.some((item) => item.id === tab);
+                      return (
+                        <div key={entry.id} className="space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleNavGroup(entry.id)}
+                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
+                              hasActiveChild ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span>{entry.label}</span>
+                            <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
+                          </button>
+                          {isOpen ? (
+                            <div className="space-y-1 pl-2">
+                              {entry.items.map((item) => {
+                                const active = tab === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setTab(item.id)}
+                                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
+                                      active
+                                        ? "bg-violet-50 text-violet-700"
+                                        : "text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    <span>{item.label}</span>
+                                    <span>{item.short}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </section>
+
+              {tab === "dashboard" && <DashboardPanel onNavigate={setTab} />}
 
               {tab === "bens" && <AssetsExplorer />}
 
@@ -542,8 +725,23 @@ function AppShell() {
                 </section>
               )}
 
+              {tab === "importacoes-geafin" && <ImportacoesPanel canAdmin={canAdmin} />}
+
+              {tab === "auditoria-changelog" && (
+                <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-changelog" />
+              )}
+              {tab === "auditoria-patrimonio" && (
+                <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-patrimonio" />
+              )}
+              {tab === "auditoria-erros" && (
+                <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-erros" />
+              )}
+
+              {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
+              {tab === "admin-health" && <OperationsPanel section="admin-health" />}
+              {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}
+              {tab === "operacoes" && <OperationsPanel section="admin-backup" />}
               {tab === "normas" && <NormsPage />}
-              {tab === "operacoes" && <OperationsPanel />}
               {tab === "wiki" && <WikiManual />}
             </div>
           </main>

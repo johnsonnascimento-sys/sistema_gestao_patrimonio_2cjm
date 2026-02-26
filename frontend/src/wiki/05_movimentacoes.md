@@ -108,3 +108,12 @@ Persistencia aplicada:
 Permissao:
 
 - Operacao restrita ao perfil ADMIN.
+
+## Atualizacao 2026-02-26 - Gestao de locais na aba Movimentacoes
+
+A gestao de Locais (CRUD e vinculacao em lote de bens.local_id) foi movida para a aba Movimentacoes.
+
+Motivo:
+
+- reduzir sobrecarga da Administracao do Painel
+- manter operacao de sala no mesmo contexto de movimentacao/regularizacao

@@ -129,3 +129,13 @@ Esse snapshot inclui:
 3. Upload para Google Drive (`cjm_gdrive:db-backups`).
 
 Se ocorrer incidente grave, use o restore do dump correspondente conforme `docs/BACKUP_DRIVE.md`.
+
+## Atualizacao 2026-02-26 - Local da funcionalidade
+
+A importacao GEAFIN deixou de ficar dentro da Administracao do Painel.
+
+Novo caminho de menu:
+
+- Importacoes -> Importacao GEAFIN (CSV Latin1)
+
+A API e o comportamento operacional permanecem os mesmos.

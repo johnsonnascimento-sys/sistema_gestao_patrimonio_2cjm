@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import BarcodeScanner from "./BarcodeScanner.jsx";
+import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 import {
   atualizarBemOperacional,
   listarBens,
@@ -581,6 +582,8 @@ export default function MovimentacoesPanel() {
           </>
         )}
       </article>
+
+      <LocaisAdminPanel canAdmin={canAdmin} />
 
       {showScanner ? (
         <BarcodeScanner
