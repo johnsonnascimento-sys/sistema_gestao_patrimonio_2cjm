@@ -112,3 +112,20 @@ Importante:
 - Importe sempre um arquivo por vez (aguarde `CONCLUIDO`).
 - Guarde o CSV original em arquivo interno (fora do repositorio) para auditoria externa.
 - Se importar novamente o mesmo arquivo, o sistema deve reconhecer duplicidade via hash e ainda assim registrar um novo evento (dependendo do modo configurado).
+
+## Backup obrigatorio antes de importar
+
+Para reduzir risco em caso de erro durante a importacao, execute snapshot antes de cada carga GEAFIN:
+
+```bash
+cd /opt/cjm-patrimonio/current
+./scripts/pre_geafin_snapshot.sh --tag pre-geafin --keep-days 14
+```
+
+Esse snapshot inclui:
+
+1. Dump do banco (SQL compactado).
+2. Imagens locais (`/opt/cjm-patrimonio/shared/data/fotos`).
+3. Upload para Google Drive (`cjm_gdrive:db-backups`).
+
+Se ocorrer incidente grave, use o restore do dump correspondente conforme `docs/BACKUP_DRIVE.md`.

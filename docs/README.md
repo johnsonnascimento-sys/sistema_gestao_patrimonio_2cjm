@@ -19,3 +19,4 @@
 - `docs/GEAFIN_ESPELHO.md`: tabela espelho/auditavel do `relatorio.csv` (colunas 1:1) + como consultar no Supabase.
 - `docs/LOG_GERAL_ALTERACOES.md`: trilha geral de alteracoes com autor, data/hora UTC, detalhe e reversao sugerida.
 - `docs/LOG_ERROS.md`: trilha separada de erros runtime (requestId, rota, causa e correcao).
+- `docs/BACKUP_DRIVE.md`: operacao de backup/restore de banco + imagens no Google Drive via rclone.

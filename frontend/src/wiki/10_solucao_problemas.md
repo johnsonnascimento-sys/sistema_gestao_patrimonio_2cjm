@@ -136,3 +136,19 @@ Se aparecer **"Formato invalido em campo enviado"**:
 1. Abra **Administracao do Painel** -> **Log de Erros Runtime (API)**.
 2. Copie o `requestId` da linha do erro.
 3. Correlacione com `docker logs -f cjm_backend` na VPS para diagnostico.
+
+## Erro durante Importacao GEAFIN: estrategia de recuperacao
+
+Se a importacao falhar e voce precisar voltar o banco para um ponto conhecido:
+
+1. Identifique o backup pre-geafin no Drive (`cjm_gdrive:db-backups/database`).
+2. Execute restore com confirmacao explicita:
+
+```bash
+cd /opt/cjm-patrimonio/current
+./scripts/restore_db_backup.sh --remote-file db_YYYYMMDDTHHMMSSZ_pre-geafin.sql.gz --yes-i-know
+```
+
+3. Revalide `/api/health` e os fluxos criticos apos o restore.
+
+Observacao: o restore cria backup `pre-restore` automaticamente antes de aplicar o dump.

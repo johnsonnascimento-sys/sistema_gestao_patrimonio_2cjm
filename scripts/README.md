@@ -59,3 +59,27 @@
   - Uso:
     - `node scripts/backfill_smart_inventory_cod2aud_nome.js --dry-run`
     - `node scripts/backfill_smart_inventory_cod2aud_nome.js "Inventário Inteligente - Lista de Itens - 21.02.2026 14 18.csv"`
+
+## Scripts de backup e restore (Google Drive via rclone)
+
+- `scripts/backup_to_drive.sh`:
+  - Gera backup do banco (`pg_dump` + gzip) e/ou imagens (`tar.gz`) e envia para o Google Drive.
+  - Aplica retencao local/remota por dias (`--keep-days`, padrao 14).
+  - Uso:
+    - `./scripts/backup_to_drive.sh --scope all --tag manual`
+    - `./scripts/backup_to_drive.sh --scope db --tag diario --keep-days 14`
+    - `./scripts/backup_to_drive.sh --scope media --tag fotos`
+
+- `scripts/pre_geafin_snapshot.sh`:
+  - Cria snapshot completo (banco + imagens) antes da Importacao GEAFIN.
+  - Uso:
+    - `./scripts/pre_geafin_snapshot.sh`
+    - `./scripts/pre_geafin_snapshot.sh --tag lote-fev --keep-days 14`
+
+- `scripts/restore_db_backup.sh`:
+  - Restaura backup do banco a partir de arquivo local ou remoto.
+  - Gera backup pre-restore antes de aplicar.
+  - Exige confirmacao explicita: `--yes-i-know`.
+  - Uso:
+    - `./scripts/restore_db_backup.sh --remote-file db_20260226T120000Z_pre-geafin.sql.gz --yes-i-know`
+    - `./scripts/restore_db_backup.sh --local-file /tmp/db_backup.sql.gz --yes-i-know`

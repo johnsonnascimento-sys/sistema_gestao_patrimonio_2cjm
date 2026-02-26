@@ -204,3 +204,42 @@ Uso recomendado:
 
 - monitorar erros de validacao/formatacao sem depender apenas de `docker logs`
 - usar `requestId` para correlacao rapida de incidente
+
+## Backup no Google Drive (banco + imagens)
+
+Padrao operacional atual:
+
+- Remote rclone: `cjm_gdrive:`
+- Pasta remota: `db-backups`
+- Backup local: `/opt/cjm-patrimonio/backups`
+
+Comandos principais:
+
+```bash
+cd /opt/cjm-patrimonio/current
+./scripts/backup_to_drive.sh --scope all --tag manual --keep-days 14
+```
+
+Snapshot antes da Importacao GEAFIN:
+
+```bash
+./scripts/pre_geafin_snapshot.sh --tag pre-geafin --keep-days 14
+```
+
+Restore do banco (destrutivo):
+
+```bash
+./scripts/restore_db_backup.sh --remote-file db_YYYYMMDDTHHMMSSZ_pre-geafin.sql.gz --yes-i-know
+```
+
+Agendamento recomendado (cron diario, 02:30 UTC):
+
+```cron
+30 2 * * * cd /opt/cjm-patrimonio/current && ./scripts/backup_to_drive.sh --scope all --tag cron-diario --keep-days 14 >> /var/log/cjm_backup_drive.log 2>&1
+```
+
+Checklist rapido:
+
+1. `rclone listremotes` deve exibir `cjm_gdrive:`.
+2. `rclone ls cjm_gdrive:db-backups/database` deve listar dumps SQL.
+3. `rclone ls cjm_gdrive:db-backups/media` deve listar arquivos de imagens.

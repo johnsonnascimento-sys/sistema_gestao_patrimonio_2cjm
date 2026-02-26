@@ -71,6 +71,11 @@ Para rodar tudo por Docker na VPS (frontend + backend):
    - Script: `/usr/local/bin/backup_fotos_cjm.sh`
    - Cron recomendado: `30 2 * * * /usr/local/bin/backup_fotos_cjm.sh >/var/log/backup_fotos_cjm.log 2>&1`
    - Retencao recomendada: 30 dias de arquivos `fotos_*.tar.gz`
+7. Backup integrado (banco + imagens) para Google Drive:
+   - Script: `./scripts/backup_to_drive.sh --scope all --tag cron-diario --keep-days 14`
+   - Snapshot antes do GEAFIN: `./scripts/pre_geafin_snapshot.sh --tag pre-geafin --keep-days 14`
+   - Restore banco: `./scripts/restore_db_backup.sh --remote-file <arquivo.sql.gz> --yes-i-know`
+   - Referencia: `docs/BACKUP_DRIVE.md`
 
 ## 7. Migrações SQL (quando não houver `psql` no host)
 
