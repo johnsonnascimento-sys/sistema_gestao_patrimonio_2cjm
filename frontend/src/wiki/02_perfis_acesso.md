@@ -122,6 +122,7 @@ Resultado pratico:
 Rotas relacionadas:
 
 - `GET /perfis`
+- `GET /perfis/busca?q=<termo>&limit=8` (busca por matricula/nome/UUID para campos de detentor)
 - `POST /perfis`
 - `PATCH /perfis/:id`
 - `POST /perfis/:id/reset-senha`

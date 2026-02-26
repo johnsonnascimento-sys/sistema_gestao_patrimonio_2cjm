@@ -57,7 +57,13 @@ Quando usar:
 Efeito no sistema:
 
 - Mantém `unidade_dona_id` intacto.
-- Registra detentor temporário e datas (saída/retorno).
+- Registra detentor temporário e datas (saída/retorno), com data prevista opcional.
+
+Detentor temporário (UX):
+
+- O campo aceita busca por `matricula`, `nome` ou `perfilId UUID`.
+- Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleção.
+- Ao selecionar, o sistema envia o `detentorTemporarioPerfilId` correto no payload.
 
 ## Recomendações práticas (operação)
 

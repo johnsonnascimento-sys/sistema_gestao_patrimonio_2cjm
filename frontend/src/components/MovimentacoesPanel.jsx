@@ -8,12 +8,14 @@ import { useAuth } from "../context/AuthContext.jsx";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import {
   atualizarBemOperacional,
+  buscarPerfisDetentor,
   listarBens,
   listarLocais,
   movimentarBem,
 } from "../services/apiClient.js";
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
+const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
@@ -31,6 +33,13 @@ function formatApiError(error) {
     requestId ? `requestId=${requestId}` : null,
   ].filter(Boolean);
   return suffixParts.length ? `${msg} (${suffixParts.join(", ")})` : msg;
+}
+
+function formatPerfilOption(perfil) {
+  const matricula = String(perfil?.matricula || "-");
+  const nome = String(perfil?.nome || "-");
+  const unidade = perfil?.unidadeId != null ? String(perfil.unidadeId) : "-";
+  return `${matricula} - ${nome} (unid. ${unidade})`;
 }
 
 function buildMovPayload(payload) {
@@ -67,6 +76,15 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     termoReferencia: "",
     justificativa: "",
   });
+  const [detentorQuery, setDetentorQuery] = useState("");
+  const [detentorLookupState, setDetentorLookupState] = useState({
+    loading: false,
+    data: [],
+    error: null,
+  });
+  const [detentorSelected, setDetentorSelected] = useState(null);
+  const [detentorInputFocused, setDetentorInputFocused] = useState(false);
+  const [semDataPrevista, setSemDataPrevista] = useState(false);
 
   const [locaisState, setLocaisState] = useState({ loading: false, data: [], error: null });
   const [unidadeSalaId, setUnidadeSalaId] = useState("");
@@ -87,7 +105,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       return "Transferencia muda carga (Arts. 124 e 127). Requer unidade destino e termo.";
     }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela nao muda carga. Requer detentor temporario e data prevista de devolucao.";
+      return "Cautela nao muda carga. Requer detentor temporario; data prevista de devolucao e opcional (pode ficar em branco).";
     }
     return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional).";
   }, [movPayload.tipoMovimentacao]);
@@ -114,7 +132,62 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     };
   }, [canUse, showCadastroSala, unidadeSalaId]);
 
+  useEffect(() => {
+    if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") return;
+    setDetentorQuery("");
+    setDetentorSelected(null);
+    setDetentorLookupState({ loading: false, data: [], error: null });
+    setSemDataPrevista(false);
+  }, [movPayload.tipoMovimentacao]);
+
+  useEffect(() => {
+    if (movPayload.tipoMovimentacao !== "CAUTELA_SAIDA") return undefined;
+    const query = String(detentorQuery || "").trim();
+    if (!query || query.length < 2) {
+      setDetentorLookupState((prev) => ({ ...prev, loading: false, data: [], error: null }));
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setDetentorLookupState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const data = await buscarPerfisDetentor({ q: query, limit: 8 });
+        if (cancelled) return;
+        setDetentorLookupState({ loading: false, data: data?.items || [], error: null });
+      } catch (error) {
+        if (cancelled) return;
+        setDetentorLookupState({ loading: false, data: [], error: formatApiError(error) });
+      }
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [movPayload.tipoMovimentacao, detentorQuery]);
+
   const setMovField = (key, value) => setMovPayload((prev) => ({ ...prev, [key]: value }));
+
+  const onDetentorInputChange = (value) => {
+    const raw = String(value || "");
+    const trimmed = raw.trim();
+    setDetentorQuery(raw);
+    setDetentorSelected(null);
+    if (PROFILE_ID_RE.test(trimmed)) {
+      setMovField("detentorTemporarioPerfilId", trimmed);
+      return;
+    }
+    setMovField("detentorTemporarioPerfilId", "");
+  };
+
+  const onSelectDetentor = (perfil) => {
+    if (!perfil?.id) return;
+    setDetentorSelected(perfil);
+    setDetentorQuery(formatPerfilOption(perfil));
+    setMovField("detentorTemporarioPerfilId", String(perfil.id));
+    setDetentorLookupState({ loading: false, data: [], error: null });
+  };
 
   const onMovSubmit = async (event) => {
     event.preventDefault();
@@ -122,6 +195,15 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       setMovState({ loading: false, response: null, error: "Voce precisa estar autenticado para movimentar bens." });
       return;
     }
+    if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA" && !movPayload.detentorTemporarioPerfilId) {
+      setMovState({
+        loading: false,
+        response: null,
+        error: "Selecione um detentor pela busca (matricula/nome) ou informe um perfilId UUID valido.",
+      });
+      return;
+    }
+
     setMovState({ loading: true, response: null, error: null });
     try {
       const payload = buildMovPayload(movPayload);
@@ -354,29 +436,98 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
           ) : null}
 
           {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">Detentor temporario (perfilId UUID)</span>
-              <input
-                value={movPayload.detentorTemporarioPerfilId}
-                onChange={(event) => setMovField("detentorTemporarioPerfilId", event.target.value)}
-                placeholder="UUID do perfil (detentor)"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                disabled={movState.loading}
-              />
-            </label>
+            <div className="space-y-1 md:col-span-2">
+              <span className="text-xs text-slate-600">
+                Detentor temporario (buscar por matricula, nome ou perfilId UUID)
+              </span>
+              <div className="relative">
+                <input
+                  value={detentorQuery}
+                  onChange={(event) => onDetentorInputChange(event.target.value)}
+                  onFocus={() => setDetentorInputFocused(true)}
+                  onBlur={() => {
+                    setTimeout(() => setDetentorInputFocused(false), 120);
+                  }}
+                  placeholder="Ex.: Joh, 9156 ou perfilId UUID"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  disabled={movState.loading}
+                />
+                {detentorInputFocused && movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
+                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                    {detentorLookupState.loading ? (
+                      <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p>
+                    ) : null}
+                    {!detentorLookupState.loading && detentorLookupState.error ? (
+                      <p className="px-3 py-2 text-xs text-rose-700">{detentorLookupState.error}</p>
+                    ) : null}
+                    {!detentorLookupState.loading &&
+                    !detentorLookupState.error &&
+                    detentorLookupState.data.length === 0 &&
+                    String(detentorQuery || "").trim().length >= 2 ? (
+                      <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
+                      ) : null}
+                    {!detentorLookupState.loading &&
+                      !detentorLookupState.error &&
+                      detentorLookupState.data.map((perfil) => (
+                        <button
+                          key={perfil.id}
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            onSelectDetentor(perfil);
+                          }}
+                          className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                        >
+                          <p className="font-semibold text-slate-900">{perfil.nome}</p>
+                          <p className="mt-0.5 text-slate-600">
+                            Matricula: <span className="font-mono">{perfil.matricula}</span> | PerfilId:{" "}
+                            <span className="font-mono">{perfil.id}</span>
+                          </p>
+                        </button>
+                      ))}
+                  </div>
+                ) : null}
+              </div>
+              <p className="text-xs text-slate-600">
+                Digite ao menos 2 caracteres para sugerir. O sistema aceita busca por nome, matricula ou UUID.
+              </p>
+              {movPayload.detentorTemporarioPerfilId ? (
+                <p className="text-xs text-emerald-700">
+                  Perfil selecionado: <span className="font-mono">{movPayload.detentorTemporarioPerfilId}</span>
+                  {detentorSelected?.nome ? ` (${detentorSelected.nome})` : ""}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
-            <label className="space-y-1">
+            <div className="space-y-1">
               <span className="text-xs text-slate-600">Data prevista devolucao</span>
               <input
                 type="date"
                 value={movPayload.dataPrevistaDevolucao}
                 onChange={(event) => setMovField("dataPrevistaDevolucao", event.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                disabled={movState.loading}
+                disabled={movState.loading || semDataPrevista}
               />
-            </label>
+              <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={semDataPrevista}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setSemDataPrevista(checked);
+                    if (checked) setMovField("dataPrevistaDevolucao", "");
+                  }}
+                  className="h-4 w-4 accent-violet-600"
+                  disabled={movState.loading}
+                />
+                Sem data prevista (ou deixe em branco)
+              </label>
+              <p className="text-xs text-slate-600">
+                Se nao houver previsao de retorno no momento, marque a opcao acima ou mantenha o campo vazio.
+              </p>
+            </div>
           ) : null}
 
           {movPayload.tipoMovimentacao === "CAUTELA_RETORNO" ? (

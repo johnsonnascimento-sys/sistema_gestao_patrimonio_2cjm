@@ -185,6 +185,18 @@ Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
 
+### GET `/perfis/busca`
+
+Uso: busca operacional de perfis para selecao de detentor em cautela.
+
+Query params:
+
+- `q` (obrigatorio): termo de busca por matricula, nome ou UUID.
+- `limit` (opcional, default 10, maximo 30).
+
+Quando `AUTH_ENABLED=true`:
+
+- Requer usuario autenticado.
 ### PATCH `/perfis/{id}`
 
 Uso: atualizar dados do perfil (nome/email/unidade/cargo/role/ativo).
@@ -253,7 +265,15 @@ Regras:
 - Transferência muda carga e gera histórico (Arts. 124/127).
 - Durante inventário `EM_ANDAMENTO`, transferências ficam bloqueadas no banco (Art. 183).
 
-## Inventário
+Campos importantes (payload):
+
+- `tipoMovimentacao`: `TRANSFERENCIA|CAUTELA_SAIDA|CAUTELA_RETORNO`
+- `numeroTombamento` ou `bemId`
+- `termoReferencia` (obrigatorio)
+- `detentorTemporarioPerfilId` (obrigatorio para `CAUTELA_SAIDA`)
+- `dataPrevistaDevolucao` (opcional para `CAUTELA_SAIDA`; pode ser omitida)
+
+## Inventario
 
 ### GET `/inventario/eventos/{id}/relatorio-encerramento`
 

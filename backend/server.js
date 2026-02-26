@@ -1624,6 +1624,48 @@ app.get("/perfis", mustAdmin, async (req, res, next) => {
   }
 });
 
+/**
+ * Busca rapida de perfis para selecao operacional (detentor de cautela).
+ * Permite localizar por matricula, nome ou prefixo de UUID.
+ */
+app.get("/perfis/busca", mustAuth, async (req, res, next) => {
+  try {
+    const qRaw = req.query?.q != null ? String(req.query.q).trim() : "";
+    const q = qRaw.slice(0, 80);
+    const limit = parseIntOrDefault(req.query?.limit, 10);
+    const limitFinal = Math.max(1, Math.min(30, limit));
+
+    if (!q) {
+      res.json({ requestId: req.requestId, items: [] });
+      return;
+    }
+
+    const likeContains = `%${q}%`;
+    const likePrefix = `${q}%`;
+    const r = await pool.query(
+      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo
+       FROM perfis
+       WHERE matricula ILIKE $1
+          OR nome ILIKE $1
+          OR CAST(id AS TEXT) ILIKE $1
+       ORDER BY
+         CASE
+           WHEN matricula ILIKE $2 THEN 0
+           WHEN CAST(id AS TEXT) ILIKE $2 THEN 1
+           WHEN nome ILIKE $2 THEN 2
+           ELSE 3
+         END,
+         nome ASC
+       LIMIT $3;`,
+      [likeContains, likePrefix, limitFinal],
+    );
+
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/perfis", mustAdmin, async (req, res, next) => {
   try {
     const p = validatePerfil(req.body || {});
@@ -3469,7 +3511,6 @@ function validateMov(body, opts) {
   if (tipoMovimentacao === "CAUTELA_SAIDA") {
     if (!autorizadaPorPerfilId) throw new HttpError(422, "AUTORIZACAO_OBRIGATORIA", "autorizadaPorPerfilId e obrigatorio para CAUTELA_SAIDA.");
     if (!detentorTemporarioPerfilId) throw new HttpError(422, "DETENTOR_OBRIGATORIO", "detentorTemporarioPerfilId e obrigatorio para CAUTELA_SAIDA.");
-    if (!dataPrevistaDevolucao) throw new HttpError(422, "DATA_DEVOLUCAO_OBRIGATORIA", "dataPrevistaDevolucao e obrigatoria para CAUTELA_SAIDA.");
   }
 
   return {

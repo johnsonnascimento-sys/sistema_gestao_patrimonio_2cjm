@@ -23,6 +23,7 @@
 
 | ID | DataHoraUTC | Usuario | Tipo | Branch | Commit | Detalhe | ReversaoSugerida |
 |---|---|---|---|---|---|---|---|
+| 20260226-225458-mov-detentor-autocomplete | 2026-02-26 22:54:58 UTC | johnsontn <-> | UX/FIX | `main` | `PENDENTE_COMMIT` | Movimentacoes atualizada com busca de detentor por matricula/nome/perfilId UUID (autocomplete), endpoint `GET /perfis/busca` e cautela com data prevista opcional (UI+backend+migration 015). | `git revert <commit_gerado_para_esta_entrega>` |
 | 20260226-223958-fix-perfis-nao-usuario-500 | 2026-02-26 22:39:58 UTC | johnsontn <-> | FIX | `main` | `PENDENTE_COMMIT` | Correcao de erro 500 no cadastro de nao-usuario (`POST /perfis`, erro 42P08 parametro de senha nula), com ajuste da query e tratamento de conflito (`MATRICULA_DUPLICADA`/`EMAIL_DUPLICADO`) retornando 409. | `git revert <commit_gerado_para_esta_entrega>` |
 | 20260226-223122-geafin-operacoes-final | 2026-02-26 22:31:22 UTC | johnsontn <-> | UX | `main` | `PENDENTE_COMMIT` | Ajuste final de IA: Importacao GEAFIN reposicionada como ultimo submenu de Operacoes Patrimoniais; limpeza de referencias antigas no Dashboard/Admin e sincronizacao da wiki/status. | `git revert <commit_gerado_para_esta_entrega>` |
 | 20260226-222358-nav-admin-operacoes | 2026-02-26 22:23:58 UTC | johnsontn <-> | UX | `main` | `PENDENTE_COMMIT` | Reorganizacao de menu: Importacao GEAFIN e Locais movidos para Administracao do Painel; Cadastro por Sala virou submenu proprio de Operacoes Patrimoniais; atualizacao completa da wiki. | `git revert <commit_gerado_para_esta_entrega>` |

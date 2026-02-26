@@ -519,6 +519,25 @@ export async function listarPerfis(filters = {}) {
 }
 
 /**
+ * Busca perfis para selecao operacional (detentor de cautela).
+ * Permite pesquisar por matricula, nome ou UUID.
+ * @param {{q: string, limit?: number}} filters Filtros de busca.
+ * @returns {Promise<{requestId: string, items: any[]}>} Perfis encontrados.
+ */
+export async function buscarPerfisDetentor(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q != null) params.set("q", String(filters.q));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  const response = await safeFetch(`${API_BASE_URL}/perfis/busca${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Atualiza perfil (ADMIN).
  * @param {string} id UUID do perfil.
  * @param {object} patch Campos parciais.
