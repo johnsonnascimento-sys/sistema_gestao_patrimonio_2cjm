@@ -243,3 +243,22 @@ Checklist rapido:
 1. `rclone listremotes` deve exibir `cjm_gdrive:`.
 2. `rclone ls cjm_gdrive:db-backups/database` deve listar dumps SQL.
 3. `rclone ls cjm_gdrive:db-backups/media` deve listar arquivos de imagens.
+
+## Backup por botoes (com senha ADMIN)
+
+Agora o painel **Administracao do Painel** possui a secao visual **Backup e Restore (Drive)** com execucao por botoes.
+
+Fluxo operacional:
+
+1. Informar senha do ADMIN na propria secao.
+2. Escolher acao:
+   - Snapshot pre-GEAFIN
+   - Backup manual (all/db/media)
+   - Restore (destrutivo)
+3. Para restore, selecionar arquivo e digitar `RESTORE`.
+
+A secao tambem exibe:
+
+- lista de backups remotos (database e media)
+- ferramentas disponiveis no backend
+- ultimas operacoes executadas (OK/ERRO)

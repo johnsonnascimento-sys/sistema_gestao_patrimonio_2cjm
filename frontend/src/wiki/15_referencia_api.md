@@ -555,3 +555,50 @@ Uso: gerar PDF de termo patrimonial (transferência/cautela/regularização) par
 Quando `AUTH_ENABLED=true`:
 
 - Requer `ADMIN`.
+
+### GET `/admin/backup/status`
+
+Uso: consultar status operacional do backup (ADMIN).
+
+Retorno inclui:
+
+- `config` (remote/retencao/mediaSource)
+- `tools` (`rclone`, `pg_dump`, `psql`, `tar`, `gzip`)
+- listas de backups locais/remotos (`db` e `media`)
+- historico de operacoes (`ops`)
+
+### POST `/admin/backup/snapshot`
+
+Uso: executar snapshot pre-GEAFIN por botao (ADMIN + senha).
+
+Body:
+
+- `adminPassword` (obrigatorio)
+- `keepDays` (opcional)
+- `tag` (opcional)
+
+### POST `/admin/backup/manual`
+
+Uso: executar backup manual por botao (ADMIN + senha).
+
+Body:
+
+- `adminPassword` (obrigatorio)
+- `scope`: `all` | `db` | `media`
+- `keepDays` (opcional)
+- `tag` (opcional)
+
+### POST `/admin/backup/restore`
+
+Uso: restaurar dump remoto por botao (ADMIN + senha).
+
+Body:
+
+- `adminPassword` (obrigatorio)
+- `remoteFile` (obrigatorio; `db_*.sql.gz`)
+- `confirmText` (obrigatorio; deve ser `RESTORE`)
+- `keepDays` (opcional)
+
+Observacao:
+
+- O restore gera backup `pre-restore` automaticamente antes de aplicar o dump.

@@ -117,3 +117,12 @@ Pode ser ajustado por parametro:
 2. `rclone ls cjm_gdrive:db-backups/database` lista arquivos de dump.
 3. `rclone ls cjm_gdrive:db-backups/media` lista arquivos de imagens.
 4. Log de backup sem erro em `/var/log/cjm_backup_drive.log`.
+
+## Operacao visual no sistema
+
+Tambem disponivel na UI em **Administracao do Painel > Backup e Restore (Drive)**:
+
+1. Snapshot pre-GEAFIN por botao (senha ADMIN).
+2. Backup manual por botao (senha ADMIN).
+3. Restore por botao com dupla confirmacao (`RESTORE`) + senha ADMIN.
+4. Lista de backups remotos (database/media) e historico de operacoes.

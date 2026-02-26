@@ -354,6 +354,73 @@ export async function listarErrosRuntime(params = {}) {
 }
 
 /**
+ * Consulta status operacional do backup (ADMIN).
+ * @param {{limitOps?: number}} params Parametros opcionais.
+ * @returns {Promise<object>} Config, ferramentas, listas de backup e historico de operacoes.
+ */
+export async function getBackupStatus(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.limitOps != null) usp.set("limitOps", String(params.limitOps));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/admin/backup/status${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Executa snapshot pre-GEAFIN (ADMIN + senha).
+ * @param {{adminPassword: string, keepDays?: number, tag?: string}} payload Dados.
+ * @returns {Promise<object>} Resultado da operacao.
+ */
+export async function executarSnapshotPreGeafin(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/admin/backup/snapshot`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Executa backup manual (ADMIN + senha).
+ * @param {{adminPassword: string, scope: "db"|"media"|"all", keepDays?: number, tag?: string}} payload Dados.
+ * @returns {Promise<object>} Resultado da operacao.
+ */
+export async function executarBackupManual(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/admin/backup/manual`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Executa restore de dump do banco (ADMIN + senha + confirmacao RESTORE).
+ * @param {{adminPassword: string, remoteFile: string, confirmText: string, keepDays?: number}} payload Dados.
+ * @returns {Promise<object>} Resultado da operacao.
+ */
+export async function executarRestoreBackup(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/admin/backup/restore`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Reverte uma alteracao especifica da trilha de auditoria de um bem.
  * @param {string} id BemId (UUID).
  * @param {number|string} auditId ID da linha em auditoria_log.

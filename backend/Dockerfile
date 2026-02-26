@@ -6,6 +6,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache bash postgresql16-client rclone tar gzip
+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 

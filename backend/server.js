@@ -18,6 +18,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const path = require("node:path");
 const fs = require("node:fs");
+const { spawn } = require("node:child_process");
 const sharp = require("sharp");
 const { generateTermoPdf, generateTablePdf } = require("./src/services/pdfReports");
 
@@ -111,7 +112,18 @@ fs.mkdirSync(path.join(FOTOS_DIR, "bem"), { recursive: true });
 fs.mkdirSync(path.join(FOTOS_DIR, "catalogo"), { recursive: true });
 const RUNTIME_LOG_DIR = path.join(FOTOS_DIR, "logs");
 const RUNTIME_ERROR_LOG_FILE = path.join(RUNTIME_LOG_DIR, "runtime_errors.ndjson");
+const BACKUP_OPS_LOG_FILE = path.join(RUNTIME_LOG_DIR, "backup_ops.ndjson");
+const BACKUP_LOCAL_ROOT = process.env.BACKUP_LOCAL_ROOT || path.join(__dirname, "data", "backups");
+const BACKUP_LOCAL_DB_DIR = path.join(BACKUP_LOCAL_ROOT, "db");
+const BACKUP_LOCAL_MEDIA_DIR = path.join(BACKUP_LOCAL_ROOT, "media");
+const BACKUP_REMOTE_BASE = String(process.env.BACKUP_REMOTE_BASE || "cjm_gdrive:db-backups").trim();
+const BACKUP_KEEP_DAYS_DEFAULT = Number(process.env.BACKUP_KEEP_DAYS_DEFAULT || 14);
+const BACKUP_MEDIA_SOURCE = process.env.BACKUP_MEDIA_SOURCE || FOTOS_DIR;
+const BACKUP_REMOTE_DB_DIR = `${BACKUP_REMOTE_BASE}/database`;
+const BACKUP_REMOTE_MEDIA_DIR = `${BACKUP_REMOTE_BASE}/media`;
 fs.mkdirSync(RUNTIME_LOG_DIR, { recursive: true });
+fs.mkdirSync(BACKUP_LOCAL_DB_DIR, { recursive: true });
+fs.mkdirSync(BACKUP_LOCAL_MEDIA_DIR, { recursive: true });
 app.use("/fotos", express.static(FOTOS_DIR, { maxAge: "7d", immutable: true }));
 app.use((req, res, next) => {
   req.requestId = randomUUID();
@@ -182,6 +194,258 @@ function readRuntimeErrorLog(limit) {
     }
   }
   return items;
+}
+
+function appendBackupOpsLog(entry) {
+  try {
+    fs.appendFileSync(BACKUP_OPS_LOG_FILE, `${JSON.stringify(entry)}\n`, "utf8");
+  } catch (_e) {
+    // Falha de log nao deve interromper fluxo.
+  }
+}
+
+function readBackupOpsLog(limit) {
+  if (!fs.existsSync(BACKUP_OPS_LOG_FILE)) return [];
+  const lines = fs.readFileSync(BACKUP_OPS_LOG_FILE, "utf8").split(/\r?\n/).filter(Boolean);
+  const out = [];
+  for (let i = lines.length - 1; i >= 0 && out.length < limit; i -= 1) {
+    try {
+      out.push(JSON.parse(lines[i]));
+    } catch (_e) {
+      // Ignora linha malformada.
+    }
+  }
+  return out;
+}
+
+function toUtcStamp(date = new Date()) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function sanitizeBackupTag(raw, fallback) {
+  const v = String(raw || "").trim().toLowerCase();
+  const s = v.replace(/[^a-z0-9_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return s || fallback;
+}
+
+function parseKeepDays(rawValue, fallbackValue) {
+  if (rawValue == null || rawValue === "") return fallbackValue;
+  const n = Number(rawValue);
+  if (!Number.isFinite(n) || n < 0 || n > 180) throw new HttpError(422, "KEEP_DAYS_INVALIDO", "keepDays deve ser inteiro entre 0 e 180.");
+  return Math.trunc(n);
+}
+
+function listLocalBackupFiles(dirAbs, prefix) {
+  if (!fs.existsSync(dirAbs)) return [];
+  const rows = [];
+  for (const name of fs.readdirSync(dirAbs)) {
+    if (!name.startsWith(prefix)) continue;
+    const abs = path.join(dirAbs, name);
+    let st;
+    try {
+      st = fs.statSync(abs);
+    } catch (_e) {
+      continue;
+    }
+    if (!st.isFile()) continue;
+    rows.push({
+      name,
+      size: Number(st.size || 0),
+      modifiedAt: st.mtime.toISOString(),
+      source: "local",
+    });
+  }
+  rows.sort((a, b) => String(b.modifiedAt).localeCompare(String(a.modifiedAt)));
+  return rows.slice(0, 50);
+}
+
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd || undefined,
+      env: options.env || process.env,
+      shell: false,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk || "");
+      if (stdout.length > 2_000_000) stdout = stdout.slice(-2_000_000);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk || "");
+      if (stderr.length > 2_000_000) stderr = stderr.slice(-2_000_000);
+    });
+
+    child.on("error", (error) => {
+      resolve({ code: -1, stdout, stderr: `${stderr}\n${error?.message || String(error)}`.trim() });
+    });
+    child.on("close", (code) => {
+      resolve({ code: Number(code || 0), stdout, stderr });
+    });
+
+    if (options.input) child.stdin.write(options.input);
+    child.stdin.end();
+  });
+}
+
+async function ensureAdminPassword(req, senha) {
+  const raw = String(senha || "");
+  if (!raw) throw new HttpError(422, "SENHA_ADMIN_OBRIGATORIA", "Informe a senha do administrador para confirmar.");
+  if (!req.user?.id) throw new HttpError(401, "NAO_AUTENTICADO", "Usuario autenticado nao encontrado.");
+
+  const r = await pool.query(
+    `SELECT senha_hash AS "senhaHash", ativo
+     FROM perfis
+     WHERE id = $1
+     LIMIT 1;`,
+    [String(req.user.id)],
+  );
+  const perfil = r.rows[0] || null;
+  if (!perfil || !perfil.senhaHash) throw new HttpError(401, "NAO_AUTENTICADO", "Perfil sem senha configurada.");
+  if (!perfil.ativo) throw new HttpError(403, "PERFIL_INATIVO", "Perfil inativo.");
+
+  const ok = await bcrypt.compare(raw, String(perfil.senhaHash));
+  if (!ok) throw new HttpError(401, "SENHA_ADMIN_INVALIDA", "Senha do administrador invalida.");
+}
+
+async function listRemoteBackupFiles(remoteDir) {
+  const probe = await runCommand("rclone", ["lsjson", remoteDir, "--max-depth", "1"]);
+  if (probe.code !== 0) return [];
+  let rows = [];
+  try {
+    rows = JSON.parse(String(probe.stdout || "[]"));
+  } catch (_e) {
+    return [];
+  }
+  return rows
+    .filter((x) => x && !x.IsDir && x.Name)
+    .map((x) => ({
+      name: String(x.Name),
+      size: Number(x.Size || 0),
+      modifiedAt: x.ModTime ? new Date(x.ModTime).toISOString() : null,
+      source: "drive",
+    }))
+    .sort((a, b) => String(b.modifiedAt || "").localeCompare(String(a.modifiedAt || "")))
+    .slice(0, 50);
+}
+
+function pruneLocalDir(dirAbs, prefix, keepDays) {
+  const now = Date.now();
+  const keepMs = keepDays * 24 * 60 * 60 * 1000;
+  if (!fs.existsSync(dirAbs)) return 0;
+  let removed = 0;
+  for (const name of fs.readdirSync(dirAbs)) {
+    if (!name.startsWith(prefix)) continue;
+    const abs = path.join(dirAbs, name);
+    let st;
+    try {
+      st = fs.statSync(abs);
+    } catch (_e) {
+      continue;
+    }
+    if (!st.isFile()) continue;
+    if (keepDays > 0 && now - Number(st.mtimeMs || 0) <= keepMs) continue;
+    try {
+      fs.unlinkSync(abs);
+      removed += 1;
+    } catch (_e) {
+      // Ignora falha pontual.
+    }
+  }
+  return removed;
+}
+
+async function performBackupOperation(params) {
+  const scope = params.scope;
+  const keepDays = params.keepDays;
+  const tag = params.tag;
+  const ts = toUtcStamp();
+  const created = { db: null, media: null };
+
+  if (scope === "db" || scope === "all") {
+    const dbFileName = `db_${ts}_${tag}.sql.gz`;
+    const dbLocalAbs = path.join(BACKUP_LOCAL_DB_DIR, dbFileName);
+    const dbDump = await runCommand("sh", ["-lc", "pg_dump \"$DATABASE_URL\" --no-owner --no-privileges --format=plain | gzip -9 > \"$OUT_FILE\""], {
+      env: { ...process.env, DATABASE_URL, OUT_FILE: dbLocalAbs },
+    });
+    if (dbDump.code !== 0) {
+      throw new HttpError(500, "BACKUP_DB_FALHA", `Falha no dump do banco: ${String(dbDump.stderr || dbDump.stdout || "").slice(-600)}`);
+    }
+    const dbUpload = await runCommand("rclone", ["copyto", dbLocalAbs, `${BACKUP_REMOTE_DB_DIR}/${dbFileName}`]);
+    if (dbUpload.code !== 0) {
+      throw new HttpError(500, "BACKUP_DB_UPLOAD_FALHA", `Falha no upload do dump: ${String(dbUpload.stderr || dbUpload.stdout || "").slice(-600)}`);
+    }
+    created.db = { name: dbFileName, localPath: dbLocalAbs, remotePath: `${BACKUP_REMOTE_DB_DIR}/${dbFileName}` };
+  }
+
+  if (scope === "media" || scope === "all") {
+    if (!fs.existsSync(BACKUP_MEDIA_SOURCE)) {
+      throw new HttpError(500, "BACKUP_MEDIA_ORIGEM_AUSENTE", `Origem de imagens nao encontrada: ${BACKUP_MEDIA_SOURCE}`);
+    }
+    const mediaFileName = `media_${ts}_${tag}.tar.gz`;
+    const mediaLocalAbs = path.join(BACKUP_LOCAL_MEDIA_DIR, mediaFileName);
+    const mediaTar = await runCommand("sh", ["-lc", "tar -C \"$SRC_PARENT\" -czf \"$OUT_FILE\" \"$SRC_BASE\""], {
+      env: {
+        ...process.env,
+        SRC_PARENT: path.dirname(BACKUP_MEDIA_SOURCE),
+        SRC_BASE: path.basename(BACKUP_MEDIA_SOURCE),
+        OUT_FILE: mediaLocalAbs,
+      },
+    });
+    if (mediaTar.code !== 0) {
+      throw new HttpError(500, "BACKUP_MEDIA_FALHA", `Falha no backup de imagens: ${String(mediaTar.stderr || mediaTar.stdout || "").slice(-600)}`);
+    }
+    const mediaUpload = await runCommand("rclone", ["copyto", mediaLocalAbs, `${BACKUP_REMOTE_MEDIA_DIR}/${mediaFileName}`]);
+    if (mediaUpload.code !== 0) {
+      throw new HttpError(500, "BACKUP_MEDIA_UPLOAD_FALHA", `Falha no upload de imagens: ${String(mediaUpload.stderr || mediaUpload.stdout || "").slice(-600)}`);
+    }
+    created.media = { name: mediaFileName, localPath: mediaLocalAbs, remotePath: `${BACKUP_REMOTE_MEDIA_DIR}/${mediaFileName}` };
+  }
+
+  const localPrunedDb = pruneLocalDir(BACKUP_LOCAL_DB_DIR, "db_", keepDays);
+  const localPrunedMedia = pruneLocalDir(BACKUP_LOCAL_MEDIA_DIR, "media_", keepDays);
+  await runCommand("rclone", ["delete", BACKUP_REMOTE_DB_DIR, "--min-age", `${keepDays}d`, "--include", "db_*.sql.gz"]);
+  await runCommand("rclone", ["delete", BACKUP_REMOTE_MEDIA_DIR, "--min-age", `${keepDays}d`, "--include", "media_*.tar.gz"]);
+
+  return {
+    ts,
+    scope,
+    keepDays,
+    tag,
+    created,
+    retention: {
+      localPrunedDb,
+      localPrunedMedia,
+    },
+  };
+}
+
+async function performRestoreOperation(params) {
+  const remoteFile = String(params.remoteFile || "").trim();
+  if (!/^db_[a-zA-Z0-9_-]+\.sql\.gz$/.test(remoteFile)) {
+    throw new HttpError(422, "ARQUIVO_RESTORE_INVALIDO", "remoteFile deve ser um dump valido (db_*.sql.gz).");
+  }
+
+  const tmpDir = "/tmp/cjm_restore";
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const tmpAbs = path.join(tmpDir, remoteFile);
+  const fetched = await runCommand("rclone", ["copyto", `${BACKUP_REMOTE_DB_DIR}/${remoteFile}`, tmpAbs]);
+  if (fetched.code !== 0) {
+    throw new HttpError(500, "RESTORE_DOWNLOAD_FALHA", `Falha ao baixar backup remoto: ${String(fetched.stderr || fetched.stdout || "").slice(-600)}`);
+  }
+
+  const restore = await runCommand("sh", ["-lc", "gunzip -c \"$IN_FILE\" | psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1"], {
+    env: { ...process.env, DATABASE_URL, IN_FILE: tmpAbs },
+  });
+  if (restore.code !== 0) {
+    throw new HttpError(500, "RESTORE_EXEC_FALHA", `Falha ao restaurar dump: ${String(restore.stderr || restore.stdout || "").slice(-600)}`);
+  }
+  try { fs.unlinkSync(tmpAbs); } catch (_e) {}
+  return { remoteFile };
 }
 
 const PATRIMONIO_AUDIT_TABLES = Object.freeze([
@@ -2919,6 +3183,143 @@ app.get("/logs/erros-runtime", mustAdmin, async (req, res, next) => {
   }
 });
 
+app.get("/admin/backup/status", mustAdmin, async (req, res, next) => {
+  try {
+    const localDb = listLocalBackupFiles(BACKUP_LOCAL_DB_DIR, "db_");
+    const localMedia = listLocalBackupFiles(BACKUP_LOCAL_MEDIA_DIR, "media_");
+    const remoteDb = await listRemoteBackupFiles(BACKUP_REMOTE_DB_DIR);
+    const remoteMedia = await listRemoteBackupFiles(BACKUP_REMOTE_MEDIA_DIR);
+    const lastOps = readBackupOpsLog(Math.max(1, Math.min(50, parseIntOrDefault(req.query?.limitOps, 20))));
+
+    const tools = {};
+    for (const cmd of ["rclone", "pg_dump", "psql", "tar", "gzip"]) {
+      const r = await runCommand("sh", ["-lc", `command -v ${cmd}`]);
+      tools[cmd] = r.code === 0;
+    }
+
+    res.json({
+      requestId: req.requestId,
+      config: {
+        remoteBase: BACKUP_REMOTE_BASE,
+        keepDaysDefault: BACKUP_KEEP_DAYS_DEFAULT,
+        mediaSource: BACKUP_MEDIA_SOURCE,
+      },
+      tools,
+      local: { db: localDb, media: localMedia },
+      remote: { db: remoteDb, media: remoteMedia },
+      ops: lastOps,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/admin/backup/snapshot", mustAdmin, async (req, res, next) => {
+  try {
+    await ensureAdminPassword(req, req.body?.adminPassword);
+    const keepDays = parseKeepDays(req.body?.keepDays, BACKUP_KEEP_DAYS_DEFAULT);
+    const tag = sanitizeBackupTag(req.body?.tag, "pre-geafin");
+    const startedAt = new Date().toISOString();
+    const result = await performBackupOperation({ scope: "all", keepDays, tag });
+    const payload = {
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId,
+      userId: req.user?.id || null,
+      action: "SNAPSHOT_PRE_GEAFIN",
+      status: "OK",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      result,
+    };
+    appendBackupOpsLog(payload);
+    res.json({ requestId: req.requestId, ok: true, action: "SNAPSHOT_PRE_GEAFIN", result });
+  } catch (error) {
+    appendBackupOpsLog({
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId,
+      userId: req.user?.id || null,
+      action: "SNAPSHOT_PRE_GEAFIN",
+      status: "ERRO",
+      error: { code: error?.code || "FALHA", message: error?.message || "Falha ao executar snapshot." },
+    });
+    next(error);
+  }
+});
+
+app.post("/admin/backup/manual", mustAdmin, async (req, res, next) => {
+  try {
+    await ensureAdminPassword(req, req.body?.adminPassword);
+    const scopeRaw = String(req.body?.scope || "all").trim().toLowerCase();
+    const scope = scopeRaw === "db" || scopeRaw === "media" || scopeRaw === "all" ? scopeRaw : null;
+    if (!scope) throw new HttpError(422, "SCOPE_INVALIDO", "scope deve ser db, media ou all.");
+    const keepDays = parseKeepDays(req.body?.keepDays, BACKUP_KEEP_DAYS_DEFAULT);
+    const tag = sanitizeBackupTag(req.body?.tag, "manual");
+    const startedAt = new Date().toISOString();
+    const result = await performBackupOperation({ scope, keepDays, tag });
+    appendBackupOpsLog({
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId,
+      userId: req.user?.id || null,
+      action: "BACKUP_MANUAL",
+      status: "OK",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      result,
+    });
+    res.json({ requestId: req.requestId, ok: true, action: "BACKUP_MANUAL", result });
+  } catch (error) {
+    appendBackupOpsLog({
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId,
+      userId: req.user?.id || null,
+      action: "BACKUP_MANUAL",
+      status: "ERRO",
+      error: { code: error?.code || "FALHA", message: error?.message || "Falha ao executar backup." },
+    });
+    next(error);
+  }
+});
+
+app.post("/admin/backup/restore", mustAdmin, async (req, res, next) => {
+  try {
+    await ensureAdminPassword(req, req.body?.adminPassword);
+    const confirmText = String(req.body?.confirmText || "").trim().toUpperCase();
+    if (confirmText !== "RESTORE") {
+      throw new HttpError(422, "CONFIRMACAO_RESTORE_INVALIDA", "Digite RESTORE para confirmar a operacao.");
+    }
+    const remoteFile = String(req.body?.remoteFile || "").trim();
+    if (!remoteFile) throw new HttpError(422, "ARQUIVO_RESTORE_OBRIGATORIO", "Informe remoteFile para restore.");
+
+    const keepDays = parseKeepDays(req.body?.keepDays, BACKUP_KEEP_DAYS_DEFAULT);
+    const preRestore = await performBackupOperation({
+      scope: "db",
+      keepDays,
+      tag: sanitizeBackupTag("pre-restore", "pre-restore"),
+    });
+    const restore = await performRestoreOperation({ remoteFile });
+    const result = { preRestore, restore };
+    appendBackupOpsLog({
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId,
+      userId: req.user?.id || null,
+      action: "RESTORE_DB",
+      status: "OK",
+      result,
+    });
+    res.json({ requestId: req.requestId, ok: true, action: "RESTORE_DB", result });
+  } catch (error) {
+    appendBackupOpsLog({
+      tsUtc: new Date().toISOString(),
+      requestId: req.requestId,
+      userId: req.user?.id || null,
+      action: "RESTORE_DB",
+      status: "ERRO",
+      error: { code: error?.code || "FALHA", message: error?.message || "Falha ao executar restore." },
+    });
+    next(error);
+  }
+});
+
 app.use((error, req, res, _next) => {
   const logHandledError = (status, code, message) => {
     appendRuntimeErrorLog({
@@ -3700,6 +4101,18 @@ function openapi() {
       },
       "/logs/erros-runtime": {
         get: { summary: "Listagem de erros runtime da API (ADMIN)", responses: { 200: { description: "OK" } } },
+      },
+      "/admin/backup/status": {
+        get: { summary: "Status operacional de backup (ADMIN)", responses: { 200: { description: "OK" } } },
+      },
+      "/admin/backup/snapshot": {
+        post: { summary: "Executar snapshot pre-GEAFIN (ADMIN + senha)", responses: { 200: { description: "OK" } } },
+      },
+      "/admin/backup/manual": {
+        post: { summary: "Executar backup manual (ADMIN + senha)", responses: { 200: { description: "OK" } } },
+      },
+      "/admin/backup/restore": {
+        post: { summary: "Executar restore de dump (ADMIN + senha + RESTORE)", responses: { 200: { description: "OK" } } },
       },
       "/locais": {
         get: { summary: "Listar locais/salas padronizados (query: unidadeId, includeInativos)", responses: { 200: { description: "OK" } } },
