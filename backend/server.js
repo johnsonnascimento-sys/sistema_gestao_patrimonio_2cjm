@@ -2530,6 +2530,257 @@ app.get("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
 });
 
 /**
+ * Lista catalogos (SKU) com filtros e paginacao.
+ */
+app.get("/catalogo-bens", mustAuth, async (req, res, next) => {
+  try {
+    const q = req.query?.q != null ? String(req.query.q).trim().slice(0, 120) : "";
+    const codigoCatalogo = req.query?.codigoCatalogo != null ? String(req.query.codigoCatalogo).trim().slice(0, 120) : "";
+    const grupo = req.query?.grupo != null ? String(req.query.grupo).trim().slice(0, 120) : "";
+    const limit = Math.max(1, Math.min(500, parseIntOrDefault(req.query?.limit, 100)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+
+    const where = [];
+    const params = [];
+    let i = 1;
+    if (q) {
+      where.push(`(cb.codigo_catalogo ILIKE $${i} OR cb.descricao ILIKE $${i} OR COALESCE(cb.grupo, '') ILIKE $${i})`);
+      params.push(`%${q}%`);
+      i += 1;
+    }
+    if (codigoCatalogo) {
+      where.push(`cb.codigo_catalogo ILIKE $${i}`);
+      params.push(`%${codigoCatalogo}%`);
+      i += 1;
+    }
+    if (grupo) {
+      where.push(`COALESCE(cb.grupo, '') ILIKE $${i}`);
+      params.push(`%${grupo}%`);
+      i += 1;
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const count = await pool.query(
+      `SELECT COUNT(*)::int AS total
+         FROM catalogo_bens cb
+       ${whereSql};`,
+      params,
+    );
+
+    const list = await pool.query(
+      `SELECT
+         cb.id,
+         cb.codigo_catalogo AS "codigoCatalogo",
+         cb.descricao,
+         cb.grupo,
+         cb.material_permanente AS "materialPermanente",
+         cb.foto_referencia_url AS "fotoReferenciaUrl",
+         cb.created_at AS "createdAt",
+         cb.updated_at AS "updatedAt",
+         COALESCE(cnt.total, 0) AS "totalBens"
+       FROM catalogo_bens cb
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS total
+         FROM bens b
+         WHERE b.catalogo_bem_id = cb.id
+       ) cnt ON TRUE
+       ${whereSql}
+       ORDER BY cb.updated_at DESC, cb.codigo_catalogo ASC
+       LIMIT $${i} OFFSET $${i + 1};`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      paging: { limit, offset, total: count.rows[0]?.total ?? 0 },
+      items: list.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Cria catalogo (SKU) manualmente.
+ * Restrito a ADMIN (quando auth ativa).
+ */
+app.post("/catalogo-bens", mustAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const codigoCatalogo = String(body.codigoCatalogo || "").trim().slice(0, 120);
+    const descricao = String(body.descricao || "").trim().slice(0, 500);
+    const grupo = body.grupo != null ? String(body.grupo).trim().slice(0, 120) : null;
+    const materialPermanente = Object.prototype.hasOwnProperty.call(body, "materialPermanente")
+      ? parseBool(body.materialPermanente, false)
+      : false;
+
+    if (!codigoCatalogo) throw new HttpError(422, "CODIGO_CATALOGO_OBRIGATORIO", "codigoCatalogo e obrigatorio.");
+    if (!descricao) throw new HttpError(422, "DESCRICAO_OBRIGATORIA", "descricao e obrigatoria.");
+
+    const r = await pool.query(
+      `INSERT INTO catalogo_bens (codigo_catalogo, descricao, grupo, material_permanente)
+       VALUES ($1, $2, $3, $4)
+       RETURNING
+         id,
+         codigo_catalogo AS "codigoCatalogo",
+         descricao,
+         grupo,
+         material_permanente AS "materialPermanente",
+         foto_referencia_url AS "fotoReferenciaUrl",
+         created_at AS "createdAt",
+         updated_at AS "updatedAt";`,
+      [codigoCatalogo, descricao, grupo, materialPermanente],
+    );
+
+    res.status(201).json({ requestId: req.requestId, catalogo: r.rows[0] });
+  } catch (error) {
+    if (error?.code === "23505") {
+      next(new HttpError(409, "CODIGO_CATALOGO_DUPLICADO", "Ja existe catalogo com este codigoCatalogo."));
+      return;
+    }
+    next(error);
+  }
+});
+
+/**
+ * Atualiza catalogo (SKU) por id.
+ * Restrito a ADMIN (quando auth ativa).
+ */
+app.patch("/catalogo-bens/:id", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    const fields = [];
+    const params = [];
+    let i = 1;
+
+    if (Object.prototype.hasOwnProperty.call(body, "codigoCatalogo")) {
+      const codigo = String(body.codigoCatalogo || "").trim().slice(0, 120);
+      if (!codigo) throw new HttpError(422, "CODIGO_CATALOGO_OBRIGATORIO", "codigoCatalogo e obrigatorio.");
+      fields.push(`codigo_catalogo = $${i}`);
+      params.push(codigo);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "descricao")) {
+      const descricao = String(body.descricao || "").trim().slice(0, 500);
+      if (!descricao) throw new HttpError(422, "DESCRICAO_OBRIGATORIA", "descricao e obrigatoria.");
+      fields.push(`descricao = $${i}`);
+      params.push(descricao);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "grupo")) {
+      fields.push(`grupo = $${i}`);
+      params.push(body.grupo != null ? String(body.grupo).trim().slice(0, 120) : null);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "materialPermanente")) {
+      fields.push(`material_permanente = $${i}`);
+      params.push(parseBool(body.materialPermanente, false));
+      i += 1;
+    }
+
+    if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
+
+    const r = await pool.query(
+      `UPDATE catalogo_bens
+       SET ${fields.join(", ")}, updated_at = NOW()
+       WHERE id = $${i}
+       RETURNING
+         id,
+         codigo_catalogo AS "codigoCatalogo",
+         descricao,
+         grupo,
+         material_permanente AS "materialPermanente",
+         foto_referencia_url AS "fotoReferenciaUrl",
+         created_at AS "createdAt",
+         updated_at AS "updatedAt";`,
+      [...params, id],
+    );
+    if (!r.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
+
+    res.json({ requestId: req.requestId, catalogo: r.rows[0] });
+  } catch (error) {
+    if (error?.code === "23505") {
+      next(new HttpError(409, "CODIGO_CATALOGO_DUPLICADO", "Ja existe catalogo com este codigoCatalogo."));
+      return;
+    }
+    next(error);
+  }
+});
+
+/**
+ * Associa bens existentes a um catalogo (SKU) por tombamento.
+ * Restrito a ADMIN (quando auth ativa).
+ */
+app.post("/catalogo-bens/:id/associar-bens", mustAdmin, async (req, res, next) => {
+  try {
+    const catalogoId = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(catalogoId)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    const dryRun = parseBool(body.dryRun, false);
+    const tombamentosRaw = Array.isArray(body.tombamentos) ? body.tombamentos : [];
+    const tombamentos = Array.from(new Set(
+      tombamentosRaw
+        .map((t) => normalizeTombamento(t))
+        .filter((t) => Boolean(t) && TOMBAMENTO_GEAFIN_RE.test(t)),
+    ));
+    if (!tombamentos.length) {
+      throw new HttpError(422, "TOMBAMENTOS_OBRIGATORIOS", "Envie ao menos um numero de tombamento GEAFIN valido.");
+    }
+    if (tombamentos.length > 5000) {
+      throw new HttpError(422, "TOMBAMENTOS_LIMITE", "Limite de 5000 tombamentos por operacao.");
+    }
+
+    const found = await pool.query(
+      `SELECT id, numero_tombamento AS "numeroTombamento", catalogo_bem_id AS "catalogoBemId"
+       FROM bens
+       WHERE numero_tombamento = ANY($1::text[]);`,
+      [tombamentos],
+    );
+    const foundByTombo = new Map(found.rows.map((r) => [String(r.numeroTombamento), r]));
+    const naoEncontrados = tombamentos.filter((t) => !foundByTombo.has(t));
+    const elegiveis = found.rows.filter((r) => String(r.catalogoBemId || "") !== catalogoId);
+
+    if (dryRun) {
+      res.json({
+        requestId: req.requestId,
+        dryRun: true,
+        catalogoId,
+        totalRecebidos: tombamentos.length,
+        encontrados: found.rows.length,
+        elegiveis: elegiveis.length,
+        naoEncontrados,
+      });
+      return;
+    }
+
+    const upd = await pool.query(
+      `UPDATE bens
+       SET catalogo_bem_id = $2, updated_at = NOW()
+       WHERE numero_tombamento = ANY($1::text[])
+         AND catalogo_bem_id <> $2
+       RETURNING id;`,
+      [tombamentos, catalogoId],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      dryRun: false,
+      catalogoId,
+      totalRecebidos: tombamentos.length,
+      encontrados: found.rows.length,
+      associados: upd.rowCount || 0,
+      naoEncontrados,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Lista locais (salas) padronizados.
  */
 app.get("/locais", mustAuth, async (req, res, next) => {

@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import AdminHealthPanel from "./AdminHealthPanel.jsx";
 import AdminPerfisPanel from "./AdminPerfisPanel.jsx";
 import BackupOpsPanel from "./BackupOpsPanel.jsx";
+import CatalogoAdminPanel from "./CatalogoAdminPanel.jsx";
 import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 
 const SECTION_META = {
@@ -25,6 +26,10 @@ const SECTION_META = {
   "admin-locais": {
     title: "Locais (salas) cadastrados",
     description: "CRUD de locais e vinculacao em lote de bens.local_id para governanca de sala.",
+  },
+  "admin-catalogos": {
+    title: "Catalogo (SKU) cadastrado",
+    description: "CRUD central de catalogo com associacao de bens por tombamento e foto de referencia.",
   },
 };
 
@@ -45,6 +50,7 @@ export default function OperationsPanel({ section = "admin-backup" }) {
       {normalizedSection === "admin-perfis" ? <AdminPerfisPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-backup" ? <BackupOpsPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-locais" ? <LocaisAdminPanel canAdmin={canAdmin} /> : null}
+      {normalizedSection === "admin-catalogos" ? <CatalogoAdminPanel canAdmin={canAdmin} /> : null}
     </section>
   );
 }

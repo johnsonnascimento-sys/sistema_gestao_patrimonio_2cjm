@@ -648,3 +648,40 @@ Observacao:
 
 - O restore gera backup `pre-restore` automaticamente antes de aplicar o dump.
 
+
+## Catalogo de bens (SKU)
+
+### GET `/catalogo-bens`
+
+Uso: listar catalogos cadastrados para administracao e associacao de bens.
+
+Query (opcional):
+
+- `q`
+- `codigoCatalogo`
+- `grupo`
+- `limit` / `offset`
+
+### POST `/catalogo-bens`
+
+Uso: criar catalogo manualmente (ADMIN).
+
+Body JSON:
+
+- `codigoCatalogo` (obrigatorio)
+- `descricao` (obrigatorio)
+- `grupo` (opcional)
+- `materialPermanente` (opcional)
+
+### PATCH `/catalogo-bens/{id}`
+
+Uso: atualizar catalogo existente (ADMIN).
+
+### POST `/catalogo-bens/{id}/associar-bens`
+
+Uso: associar patrimonios existentes ao catalogo por tombamento (ADMIN).
+
+Body JSON:
+
+- `tombamentos`: lista de tombamentos GEAFIN (10 digitos)
+- `dryRun` (opcional)

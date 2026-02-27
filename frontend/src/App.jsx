@@ -58,6 +58,7 @@ const NAV_STRUCTURE = [
     id: "admin",
     label: "Administracao do Painel",
     items: [
+      { id: "admin-catalogos", label: "Catalogo (SKU) cadastrado", short: "Catalogo" },
       { id: "admin-locais", label: "Locais (salas) cadastrados", short: "Locais" },
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
@@ -171,6 +172,7 @@ function NavIcon({ id }) {
     id === "admin-health" ||
     id === "admin-perfis" ||
     id === "admin-locais" ||
+    id === "admin-catalogos" ||
     id === "operacoes"
   ) {
     return (
@@ -697,6 +699,7 @@ function AppShell() {
               )}
 
               {tab === "admin-locais" && <OperationsPanel section="admin-locais" />}
+              {tab === "admin-catalogos" && <OperationsPanel section="admin-catalogos" />}
               {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
               {tab === "admin-health" && <OperationsPanel section="admin-health" />}
               {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}

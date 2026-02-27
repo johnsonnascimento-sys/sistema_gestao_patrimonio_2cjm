@@ -519,6 +519,79 @@ export async function listarPerfis(filters = {}) {
 }
 
 /**
+ * Lista catalogos (SKU) para operacao/admin.
+ * @param {{q?: string, codigoCatalogo?: string, grupo?: string, limit?: number, offset?: number}} filters Filtros.
+ * @returns {Promise<{requestId: string, paging: {limit:number, offset:number, total:number}, items: any[]}>}
+ */
+export async function listarCatalogos(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", String(filters.q));
+  if (filters.codigoCatalogo) params.set("codigoCatalogo", String(filters.codigoCatalogo));
+  if (filters.grupo) params.set("grupo", String(filters.grupo));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cria catalogo (SKU).
+ * @param {{codigoCatalogo: string, descricao: string, grupo?: string|null, materialPermanente?: boolean}} payload Dados.
+ * @returns {Promise<{requestId: string, catalogo: any}>}
+ */
+export async function criarCatalogo(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza catalogo (SKU).
+ * @param {string} id UUID do catalogo.
+ * @param {{codigoCatalogo?: string, descricao?: string, grupo?: string|null, materialPermanente?: boolean}} patch Campos.
+ * @returns {Promise<{requestId: string, catalogo: any}>}
+ */
+export async function atualizarCatalogo(id, patch) {
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(patch || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Associa bens a um catalogo por lista de tombamentos.
+ * @param {string} id UUID do catalogo.
+ * @param {{tombamentos: string[], dryRun?: boolean}} payload Dados.
+ * @returns {Promise<object>}
+ */
+export async function associarBensCatalogo(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens/${encodeURIComponent(id)}/associar-bens`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Busca perfis para selecao operacional (detentor de cautela).
  * Permite pesquisar por matricula, nome ou UUID.
  * @param {{q: string, limit?: number}} filters Filtros de busca.

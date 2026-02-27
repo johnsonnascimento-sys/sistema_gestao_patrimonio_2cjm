@@ -992,6 +992,25 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       </select>
                     </label>
 
+                    <label className="space-y-1">
+                      <span className="text-xs text-slate-600">Sala/Local (padronizado)</span>
+                      <select
+                        value={edit.localId || ""}
+                        onChange={(e) => setEdit((p) => ({ ...p, localId: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">(nenhum)</option>
+                        {locaisOptions.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.nome}
+                          </option>
+                        ))}
+                      </select>
+                      {locaisQuery.isLoading ? (
+                        <p className="text-[11px] text-slate-500">Carregando locais cadastrados...</p>
+                      ) : null}
+                    </label>
+
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-slate-600">Nome Resumo</span>
                       <input
@@ -1053,25 +1072,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       />
                     </label>
 
-                    <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Sala/Local (padronizado)</span>
-                      <select
-                        value={edit.localId || ""}
-                        onChange={(e) => setEdit((p) => ({ ...p, localId: e.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                      >
-                        <option value="">(nenhum)</option>
-                        {locaisOptions.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.nome}
-                            {l.unidadeId ? ` (${formatUnidade(Number(l.unidadeId))})` : " (geral)"}
-                          </option>
-                        ))}
-                      </select>
-                      {locaisQuery.isLoading ? (
-                        <p className="text-[11px] text-slate-500">Carregando locais cadastrados...</p>
-                      ) : null}
-                    </label>
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">

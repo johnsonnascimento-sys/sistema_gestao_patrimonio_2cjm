@@ -187,3 +187,22 @@ Impacto em runtime/API:
 
 - Sem mudanca de endpoint/metodo.
 - Alteracao de UX frontend no modal de detalhes, preservando contratos existentes.
+
+## 13. Atualizacao 2026-02-27 (Catalogo central - CRUD + associacao)
+
+Principais entregas:
+
+- Novo modulo administrativo **Catalogo (SKU) cadastrado** em `Administracao do Painel`.
+- CRUD dedicado de catalogo com campos de codigo, descricao, grupo e material permanente.
+- Upload de foto de referencia do catalogo integrado ao painel.
+- Associacao em lote de bens ao catalogo por tombamento GEAFIN (10 digitos), com modo `dryRun`.
+- Modal do bem continua consumindo o catalogo cadastrado via `getBemDetalhe`.
+
+Impacto em runtime/API:
+
+- Novos endpoints:
+  - `GET /catalogo-bens`
+  - `POST /catalogo-bens`
+  - `PATCH /catalogo-bens/:id`
+  - `POST /catalogo-bens/:id/associar-bens`
+- Endpoints existentes preservados, incluindo `PATCH /catalogo-bens/:id/foto`.
