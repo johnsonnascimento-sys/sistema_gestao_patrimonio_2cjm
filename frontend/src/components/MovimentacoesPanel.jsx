@@ -12,6 +12,7 @@ import {
   listarBens,
   listarLocais,
   movimentarBem,
+  getEstatisticasLocais,
 } from "../services/apiClient.js";
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
