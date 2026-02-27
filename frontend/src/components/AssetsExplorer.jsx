@@ -553,9 +553,7 @@ export default function AssetsExplorer() {
 function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const imp = state?.data?.bem || null;
   const catalogo = state?.data?.catalogo || null;
-  const responsavel = state?.data?.responsavel || null;
   const movs = state?.data?.movimentacoes || [];
-  const hist = state?.data?.historicoTransferencias || [];
   const divergenciaPendente = imp?.divergenciaPendente || state?.data?.divergenciaPendente || null;
   const cautelaAtual = useMemo(() => {
     if (String(imp?.status || "").toUpperCase() !== "EM_CAUTELA") return null;
@@ -595,6 +593,13 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     if (matricula) return `Matricula ${matricula}`;
     return id || "-";
   };
+  const extractCautelaDestino = (justificativa) => {
+    const s = String(justificativa || "");
+    const m = s.match(/\[CAUTELA_DESTINO=(EXTERNO|SALA:([^\]]+))\]/i);
+    if (!m) return null;
+    if (String(m[1] || "").toUpperCase() === "EXTERNO") return { tipo: "EXTERNO", label: "Externo" };
+    return { tipo: "SALA", label: String(m[2] || "").trim() || "-" };
+  };
 
   const [edit, setEdit] = useState({
     catalogoBemId: imp?.catalogoBemId || "",
@@ -606,7 +611,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     contratoReferencia: imp?.contratoReferencia || "",
     dataAquisicao: imp?.dataAquisicao ? String(imp.dataAquisicao).slice(0, 10) : "",
     valorAquisicao: imp?.valorAquisicao != null ? String(imp.valorAquisicao) : "",
-    localFisico: imp?.localFisico || "",
     localId: imp?.localId || "",
     fotoUrl: imp?.fotoUrl || "",
     fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
@@ -630,7 +634,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       contratoReferencia: imp?.contratoReferencia || "",
       dataAquisicao: imp?.dataAquisicao ? String(imp.dataAquisicao).slice(0, 10) : "",
       valorAquisicao: imp?.valorAquisicao != null ? String(imp.valorAquisicao) : "",
-      localFisico: imp?.localFisico || "",
       localId: imp?.localId || "",
       fotoUrl: imp?.fotoUrl || "",
       fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
@@ -642,7 +645,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
   const locaisQuery = useQuery({
     queryKey: ["locais", "todos"],
-    enabled: Boolean(isAdmin && imp?.id),
+    enabled: Boolean(imp?.id),
     queryFn: async () => {
       const data = await listarLocais({});
       return data.items || [];
@@ -657,6 +660,24 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       return l.unidadeId == null || Number(l.unidadeId) === unidade;
     });
   }, [locaisQuery.data, imp?.unidadeDonaId]);
+  const cautelaDestinoAtual = useMemo(
+    () => extractCautelaDestino(cautelaAtual?.justificativa),
+    [cautelaAtual?.justificativa],
+  );
+  const salaPadronizadaAtual = useMemo(() => {
+    const localId = String(imp?.localId || "").trim();
+    if (localId) {
+      const found = (locaisQuery.data || []).find((l) => String(l.id) === localId);
+      if (found?.nome) return found.nome;
+      return localId;
+    }
+    if (String(imp?.status || "").toUpperCase() === "EM_CAUTELA" && cautelaDestinoAtual?.tipo === "EXTERNO") {
+      return "Externo";
+    }
+    if (String(imp?.localFisico || "").trim().toUpperCase() === "EXTERNO") return "Externo";
+    return "-";
+  }, [imp?.localId, imp?.status, imp?.localFisico, locaisQuery.data, cautelaDestinoAtual?.tipo]);
+  const [expandedMovId, setExpandedMovId] = useState(null);
 
   const readFileAsBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -699,7 +720,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         contratoReferencia: edit.contratoReferencia || null,
         dataAquisicao: edit.dataAquisicao || null,
         valorAquisicao: edit.valorAquisicao !== "" ? Number(edit.valorAquisicao) : null,
-        localFisico: edit.localFisico || null,
+        localFisico: null,
         localId: edit.localId ? String(edit.localId) : null,
         fotoUrl: edit.fotoUrl || null,
       });
@@ -891,8 +912,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <Row k="Unidade (carga)" v={formatUnidade(Number(imp.unidadeDonaId))} />
                     <Row k="Tomb. Antigo (Azul)" v={imp.cod2Aud} />
                     <Row k="Nome Resumo" v={imp.nomeResumo} />
-                    <Row k="Local físico" v={imp.localFisico} />
-                    <Row k="LocalId" v={imp.localId} mono />
+                    <Row k="Sala/Local (padronizado)" v={salaPadronizadaAtual} />
                     <Row k="Status" v={imp.status} />
                     <Row k="Valor aquisição" v={imp.valorAquisicao} />
                     <Row k="Data aquisição" v={imp.dataAquisicao} />
@@ -1033,17 +1053,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       />
                     </label>
 
-                    <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Local físico (texto do GEAFIN / legado)</span>
-                      <input
-                        value={edit.localFisico}
-                        onChange={(e) => setEdit((p) => ({ ...p, localFisico: e.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                      />
-                      <p className="text-[11px] text-slate-500">
-                        Este campo é apenas texto e não equivale a “Sala/Local padronizado”.
-                      </p>
-                    </label>
                     <label className="space-y-1">
                       <span className="text-xs text-slate-600">Sala/Local (padronizado)</span>
                       <select
@@ -1253,90 +1262,55 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                 </section>
               ) : null}
 
-              <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Responsável</p>
-                <dl className="mt-2 space-y-1 text-sm">
-                  <Row k="PerfilId" v={responsavel?.id || imp.responsavelPerfilId} mono />
-                  <Row k="Matrícula" v={responsavel?.matricula} />
-                  <Row k="Nome" v={responsavel?.nome} />
-                </dl>
-                {String(imp?.status || "").toUpperCase() === "EM_CAUTELA" ? (
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs uppercase tracking-widest text-amber-700">Cautela atual</p>
-                    <dl className="mt-2 space-y-1 text-sm">
-                      <Row k="Detentor PerfilId" v={cautelaAtual?.detentorTemporarioPerfilId} mono />
-                      <Row k="Detentor Matrícula" v={cautelaAtual?.detentorTemporarioMatricula} />
-                      <Row k="Detentor Nome" v={cautelaAtual?.detentorTemporarioNome} />
-                      <Row k="Data prevista devolução" v={cautelaAtual?.dataPrevistaDevolucao || "Sem data prevista"} />
-                    </dl>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Histórico de transferências</p>
-                {hist.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-600">Nenhuma transferência registrada.</p>
-                ) : (
-                  <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                    <table className="min-w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
-                        <tr>
-                          <th className="px-2 py-2">Data</th>
-                          <th className="px-2 py-2">Origem</th>
-                          <th className="px-2 py-2">De</th>
-                          <th className="px-2 py-2">Para</th>
-                          <th className="px-2 py-2">Usuario</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {hist.map((h) => (
-                          <tr key={h.id}>
-                            <td className="px-2 py-2 text-slate-800">{formatDateTime(h.data)}</td>
-                            <td className="px-2 py-2 text-slate-600">{h.origem || "-"}</td>
-                            <td className="px-2 py-2 text-slate-600">{formatUnidade(Number(h.unidadeAntigaId))}</td>
-                            <td className="px-2 py-2 text-slate-600">{formatUnidade(Number(h.unidadeNovaId))}</td>
-                            <td className="px-2 py-2 text-slate-600">{profileLabel(h.usuarioNome, h.usuarioMatricula, h.usuarioId)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
+              {String(imp?.status || "").toUpperCase() === "EM_CAUTELA" ? (
+                <section className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs uppercase tracking-widest text-amber-700">Cautela atual</p>
+                  <dl className="mt-2 space-y-1 text-sm">
+                    <Row k="Detentor Matrícula" v={cautelaAtual?.detentorTemporarioMatricula} />
+                    <Row k="Detentor Nome" v={cautelaAtual?.detentorTemporarioNome} />
+                    <Row k="Local da cautela" v={cautelaDestinoAtual?.label || salaPadronizadaAtual} />
+                    <Row k="Data da cautela" v={formatDateTime(cautelaAtual?.executadaEm || cautelaAtual?.createdAt)} />
+                    <Row k="Data prevista devolução" v={cautelaAtual?.dataPrevistaDevolucao || "Sem data prevista"} />
+                  </dl>
+                </section>
+              ) : null}
 
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Movimentações</p>
                 {movs.length === 0 ? (
                   <p className="mt-2 text-sm text-slate-600">Nenhuma movimentacao registrada.</p>
                 ) : (
-                  <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                    <table className="min-w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
-                        <tr>
-                          <th className="px-2 py-2">Quando</th>
-                          <th className="px-2 py-2">Tipo</th>
-                          <th className="px-2 py-2">Origem</th>
-                          <th className="px-2 py-2">Destino</th>
-                          <th className="px-2 py-2">Alteracao</th>
-                          <th className="px-2 py-2">Executado por</th>
-                          <th className="px-2 py-2">Termo</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {movs.map((m) => (
-                          <tr key={m.id}>
-                            <td className="px-2 py-2 text-slate-800">{formatDateTime(m.executadaEm || m.createdAt)}</td>
-                            <td className="px-2 py-2 text-slate-600">{m.tipoMovimentacao}</td>
-                            <td className="px-2 py-2 text-slate-600">{m.unidadeOrigemId != null ? formatUnidade(Number(m.unidadeOrigemId)) : "-"}</td>
-                            <td className="px-2 py-2 text-slate-600">{m.unidadeDestinoId != null ? formatUnidade(Number(m.unidadeDestinoId)) : "-"}</td>
-                            <td className="px-2 py-2 text-slate-600">{movementChangeSummary(m)}</td>
-                            <td className="px-2 py-2 text-slate-600">{profileLabel(m.executadaPorNome, m.executadaPorMatricula, m.executadaPorPerfilId)}</td>
-                            <td className="px-2 py-2 font-mono text-[11px] text-slate-600">{m.termoReferencia || "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="mt-2 space-y-2">
+                    {movs.map((m) => {
+                      const expanded = expandedMovId === m.id;
+                      return (
+                        <article key={m.id} className="rounded-lg border border-slate-200 bg-white">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedMovId((prev) => (prev === m.id ? null : m.id))}
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-900">
+                                {m.tipoMovimentacao} - {formatDateTime(m.executadaEm || m.createdAt)}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-slate-600">{movementChangeSummary(m)}</p>
+                            </div>
+                            <span className="text-xs text-slate-500">{expanded ? "Ocultar" : "Detalhes"}</span>
+                          </button>
+                          {expanded ? (
+                            <div className="grid gap-2 border-t border-slate-200 px-3 py-2 text-xs text-slate-700 md:grid-cols-2">
+                              <p><span className="text-slate-500">Executado por:</span> {profileLabel(m.executadaPorNome, m.executadaPorMatricula, m.executadaPorPerfilId)}</p>
+                              <p><span className="text-slate-500">Termo:</span> <span className="font-mono">{m.termoReferencia || "-"}</span></p>
+                              <p><span className="text-slate-500">Origem:</span> {m.unidadeOrigemId != null ? formatUnidade(Number(m.unidadeOrigemId)) : "-"}</p>
+                              <p><span className="text-slate-500">Destino:</span> {m.unidadeDestinoId != null ? formatUnidade(Number(m.unidadeDestinoId)) : "-"}</p>
+                              <p><span className="text-slate-500">Detentor:</span> {m.detentorTemporarioNome || "-"}</p>
+                              <p><span className="text-slate-500">Data prevista devolução:</span> {m.dataPrevistaDevolucao || "-"}</p>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </section>

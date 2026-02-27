@@ -172,3 +172,18 @@ Impacto em runtime/API:
 
 - Sem novos endpoints.
 - `POST /movimentar` aceita e valida os campos `cautelaSalaDestino` e `cautelaExterno` para `CAUTELA_SAIDA`.
+
+## 12. Atualizacao 2026-02-27 (Modal do bem - simplificacao de historico)
+
+Principais entregas:
+
+- Modal de detalhes do bem simplificado para reduzir redundancia visual.
+- Removido bloco dedicado de `Historico de transferencias`.
+- Mantido destaque de `Cautela atual` (detentor, data da cautela, data prevista de devolucao e local da cautela).
+- `Movimentacoes` passou a ser o historico principal, com detalhes expansivos por clique (executor, termo, origem/destino e metadados da movimentacao).
+- Selecao de local externo no modal passou a usar locais reais cadastrados (UUID), eliminando opcao sintetica separada.
+
+Impacto em runtime/API:
+
+- Sem mudanca de endpoint/metodo.
+- Alteracao de UX frontend no modal de detalhes, preservando contratos existentes.
