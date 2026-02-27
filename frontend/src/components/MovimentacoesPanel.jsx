@@ -714,11 +714,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setResetModal({ open: true, loading: false, resultado: null })}
+                  onClick={() => setResetModal({ open: true, loading: false, resultado: null, escopo: unidadeSalaId || "todas", senha: "", confirmText: "" })}
                   className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
                   disabled={loteState.loading}
                 >
-                  🔄 Resetar localização{unidadeSalaId ? ` (Unidade ${unidadeSalaId})` : " (todas)"}
+                  🔄 Resetar localização
                 </button>
                 <button
                   type="button"
@@ -742,52 +742,107 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                 </button>
               </div>
 
-              {/* ── Modal de confirmação de reset ── */}
+              {/* ── Modal de reset com dupla confirmação + senha ── */}
               {resetModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                  <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-                    <h3 className="text-lg font-bold text-slate-800">Confirmar reset de localização</h3>
-                    <p className="mt-2 text-sm text-slate-600">
-                      Isso vai <strong>apagar a sala cadastrada</strong> de todos os bens
-                      {unidadeSalaId ? ` da Unidade ${unidadeSalaId}` : " de todas as unidades"}.
-                      O progresso voltará para zero. Os locais cadastrados não serão apagados.
-                    </p>
-                    {resetModal.resultado != null && (
-                      <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-sm font-medium text-emerald-700">
-                        ✅ {resetModal.resultado} bem(ns) desvinculado(s).
-                      </p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
+                    <h3 className="text-base font-bold text-rose-700">⚠️ Resetar localização física</h3>
+
+                    {resetModal.resultado != null ? (
+                      <div className="mt-3 space-y-3">
+                        <p className="rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
+                          ✅ {resetModal.resultado} bem(ns) desvinculado(s) com sucesso.
+                        </p>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setResetModal({ open: false, loading: false, resultado: null, escopo: "todas", senha: "", confirmText: "" })}
+                            className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                          >Fechar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {/* Escopo */}
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Escopo do reset</label>
+                          <select
+                            value={resetModal.escopo}
+                            onChange={(e) => setResetModal((s) => ({ ...s, escopo: e.target.value }))}
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          >
+                            <option value="todas">🌐 Todas as unidades</option>
+                            <option value="1">Unidade 1</option>
+                            <option value="2">Unidade 2</option>
+                            <option value="3">Unidade 3</option>
+                            <option value="4">Unidade 4</option>
+                          </select>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {resetModal.escopo === "todas"
+                              ? "⚠️ Isso vai remover a sala de TODOS os bens de todas as unidades."
+                              : `⚠️ Isso vai remover a sala de todos os bens da Unidade ${resetModal.escopo}.`}
+                          </p>
+                        </div>
+
+                        {/* Senha admin */}
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Senha de administrador</label>
+                          <input
+                            type="password"
+                            placeholder="Senha admin"
+                            value={resetModal.senha}
+                            onChange={(e) => setResetModal((s) => ({ ...s, senha: e.target.value }))}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                        </div>
+
+                        {/* Confirmação de texto */}
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Digite <strong>RESETAR</strong> para confirmar
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="RESETAR"
+                            value={resetModal.confirmText}
+                            onChange={(e) => setResetModal((s) => ({ ...s, confirmText: e.target.value }))}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                        </div>
+
+                        {resetModal.erroReset && (
+                          <p className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{resetModal.erroReset}</p>
+                        )}
+
+                        <div className="flex gap-2 justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setResetModal({ open: false, loading: false, resultado: null, escopo: "todas", senha: "", confirmText: "" })}
+                            className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                          >Cancelar</button>
+                          <button
+                            type="button"
+                            disabled={resetModal.loading || resetModal.confirmText !== "RESETAR" || !resetModal.senha}
+                            onClick={async () => {
+                              setResetModal((s) => ({ ...s, loading: true, erroReset: null }));
+                              try {
+                                const res = await resetLocais({
+                                  unidadeId: resetModal.escopo !== "todas" ? Number(resetModal.escopo) : undefined,
+                                  adminPassword: resetModal.senha,
+                                });
+                                setResetModal((s) => ({ ...s, loading: false, resultado: res?.afetados ?? 0 }));
+                                setStatsLocais({ loading: false, data: null, error: null });
+                              } catch (e) {
+                                setResetModal((s) => ({ ...s, loading: false, erroReset: formatApiError(e) }));
+                              }
+                            }}
+                            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-40"
+                          >
+                            {resetModal.loading ? "Resetando…" : "Confirmar reset"}
+                          </button>
+                        </div>
+                      </div>
                     )}
-                    <div className="mt-4 flex gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setResetModal({ open: false, loading: false, resultado: null })}
-                        className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
-                      >
-                        Cancelar
-                      </button>
-                      {resetModal.resultado == null && (
-                        <button
-                          type="button"
-                          disabled={resetModal.loading}
-                          onClick={async () => {
-                            setResetModal((s) => ({ ...s, loading: true }));
-                            try {
-                              const res = await resetLocais({
-                                unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
-                              });
-                              setResetModal((s) => ({ ...s, loading: false, resultado: res?.afetados ?? 0 }));
-                              // Recarrega as estatísticas
-                              setStatsLocais({ loading: false, data: null, error: null });
-                            } catch (e) {
-                              setResetModal((s) => ({ ...s, loading: false }));
-                            }
-                          }}
-                          className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-                        >
-                          {resetModal.loading ? "Resetando…" : "Sim, resetar"}
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
@@ -816,10 +871,10 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           }
                         }}
                         className={`flex-1 py-2 text-xs font-medium transition-colors ${bensLoc.tabAtiva === tab
-                            ? tab === "sem_local"
-                              ? "border-b-2 border-amber-500 text-amber-700"
-                              : "border-b-2 border-emerald-500 text-emerald-700"
-                            : "text-slate-500 hover:bg-slate-50"
+                          ? tab === "sem_local"
+                            ? "border-b-2 border-amber-500 text-amber-700"
+                            : "border-b-2 border-emerald-500 text-emerald-700"
+                          : "text-slate-500 hover:bg-slate-50"
                           }`}
                       >
                         {tab === "sem_local" ? "⏳ Pendentes (sem sala)" : "✅ Concluídos (com sala)"}

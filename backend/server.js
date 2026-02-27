@@ -1124,6 +1124,82 @@ app.get("/bens/locais-sugestoes", mustAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * Lista bens por status de localizacao fisica (com sala / sem sala).
+ * IMPORTANTE: deve estar antes de /bens/:id para nao ser capturada pelo parametro.
+ *
+ * Query params:
+ *   statusLocal  "com_local" | "sem_local" (obrigatorio)
+ *   unidadeId    1..4 (opcional)
+ *   limit        1..200 (padrao 50)
+ *   offset       >= 0 (padrao 0)
+ */
+app.get("/bens/localizacao", mustAuth, async (req, res, next) => {
+  try {
+    const q = req.query || {};
+    const statusLocal = q.statusLocal ? String(q.statusLocal).trim() : "";
+    const unidadeId = q.unidadeId != null && String(q.unidadeId).trim() !== ""
+      ? Number(q.unidadeId)
+      : null;
+    const limit = Math.min(200, Math.max(1, parseInt(q.limit || "50", 10) || 50));
+    const offset = Math.max(0, parseInt(q.offset || "0", 10) || 0);
+
+    if (!["com_local", "sem_local"].includes(statusLocal)) {
+      throw new HttpError(422, "STATUS_LOCAL_INVALIDO", "statusLocal deve ser 'com_local' ou 'sem_local'.");
+    }
+    if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+    }
+
+    const where = [
+      "b.eh_bem_terceiro = FALSE",
+      "b.status != 'BAIXADO'",
+      statusLocal === "com_local" ? "b.local_id IS NOT NULL" : "b.local_id IS NULL",
+    ];
+    const params = [];
+    let i = 1;
+
+    if (unidadeId != null) {
+      where.push(`b.unidade_dona_id = $${i}`);
+      params.push(unidadeId);
+      i += 1;
+    }
+
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM bens b ${whereSql}`,
+      params
+    );
+
+    const dataRes = await pool.query(
+      `SELECT
+         b.numero_tombamento AS "numeroTombamento",
+         COALESCE(b.nome_resumo, cb.descricao, b.descricao_complementar, '') AS "nomeResumo",
+         b.unidade_dona_id AS "unidade",
+         b.local_id AS "localId",
+         l.nome AS "localNome"
+       FROM bens b
+       LEFT JOIN locais l ON l.id = b.local_id
+       LEFT JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+       ${whereSql}
+       ORDER BY b.unidade_dona_id ASC, b.numero_tombamento ASC
+       LIMIT $${i} OFFSET $${i + 1}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      requestId: req.requestId,
+      total: countRes.rows[0]?.total ?? 0,
+      limit,
+      offset,
+      items: dataRes.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/bens/:id", mustAuth, async (req, res, next) => {
   try {
     const id = String(req.params?.id || "").trim();
@@ -3036,6 +3112,9 @@ app.delete("/locais/reset", mustAdmin, async (req, res, next) => {
       throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
     }
 
+    // Exige senha de administrador para confirmar operacao destrutiva
+    await ensureAdminPassword(req, req.body?.adminPassword);
+
     await client.query("BEGIN");
 
     let updateSql = "UPDATE bens SET local_id = NULL WHERE local_id IS NOT NULL AND eh_bem_terceiro = FALSE AND status != 'BAIXADO'";
@@ -3057,81 +3136,7 @@ app.delete("/locais/reset", mustAdmin, async (req, res, next) => {
   }
 });
 
-/**
- * Lista bens por status de localizacao fisica (com sala / sem sala).
- * Util para acompanhar o progresso de cadastro por sala.
- *
- * Query params:
- *   statusLocal  "com_local" | "sem_local" (obrigatorio)
- *   unidadeId    1..4 (opcional)
- *   limit        1..200 (padrao 50)
- *   offset       >= 0 (padrao 0)
- */
-app.get("/bens/localizacao", mustAuth, async (req, res, next) => {
-  try {
-    const q = req.query || {};
-    const statusLocal = q.statusLocal ? String(q.statusLocal).trim() : "";
-    const unidadeId = q.unidadeId != null && String(q.unidadeId).trim() !== ""
-      ? Number(q.unidadeId)
-      : null;
-    const limit = Math.min(200, Math.max(1, parseInt(q.limit || "50", 10) || 50));
-    const offset = Math.max(0, parseInt(q.offset || "0", 10) || 0);
 
-    if (!["com_local", "sem_local"].includes(statusLocal)) {
-      throw new HttpError(422, "STATUS_LOCAL_INVALIDO", "statusLocal deve ser 'com_local' ou 'sem_local'.");
-    }
-    if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
-      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
-    }
-
-    const where = [
-      "b.eh_bem_terceiro = FALSE",
-      "b.status != 'BAIXADO'",
-      statusLocal === "com_local" ? "b.local_id IS NOT NULL" : "b.local_id IS NULL",
-    ];
-    const params = [];
-    let i = 1;
-
-    if (unidadeId != null) {
-      where.push(`b.unidade_dona_id = $${i}`);
-      params.push(unidadeId);
-      i += 1;
-    }
-
-    const whereSql = `WHERE ${where.join(" AND ")}`;
-
-    const countRes = await pool.query(
-      `SELECT COUNT(*)::int AS total FROM bens b ${whereSql}`,
-      params
-    );
-
-    const dataRes = await pool.query(
-      `SELECT
-         b.numero_tombamento AS "numeroTombamento",
-         COALESCE(b.nome_resumo, cb.descricao, b.descricao_complementar, '') AS "nomeResumo",
-         b.unidade_dona_id AS "unidade",
-         b.local_id AS "localId",
-         l.nome AS "localNome"
-       FROM bens b
-       LEFT JOIN locais l ON l.id = b.local_id
-       LEFT JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
-       ${whereSql}
-       ORDER BY b.unidade_dona_id ASC, b.numero_tombamento ASC
-       LIMIT $${i} OFFSET $${i + 1}`,
-      [...params, limit, offset]
-    );
-
-    res.json({
-      requestId: req.requestId,
-      total: countRes.rows[0]?.total ?? 0,
-      limit,
-      offset,
-      items: dataRes.rows,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
 
 /**
  * Lista locais (salas) padronizados.
