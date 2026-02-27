@@ -460,7 +460,7 @@ export default function AssetsExplorer() {
                   <td className="px-3 py-2 text-xs text-slate-800">
                     {formatUnidade(Number(item.unidadeDonaId))}
                   </td>
-                  <td className="px-3 py-2 text-xs text-slate-600">{item.localFisico || "-"}</td>
+                  <td className="px-3 py-2 text-xs text-slate-600">{item.localNome || item.localFisico || "-"}</td>
                   <td className="px-3 py-2">
                     <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs">
                       {item.status}

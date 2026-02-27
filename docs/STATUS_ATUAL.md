@@ -206,3 +206,15 @@ Impacto em runtime/API:
   - `PATCH /catalogo-bens/:id`
   - `POST /catalogo-bens/:id/associar-bens`
 - Endpoints existentes preservados, incluindo `PATCH /catalogo-bens/:id/foto`.
+
+## 14. Atualizacao 2026-02-27 (Consulta de Bens - local padronizado na grade)
+
+Principais entregas:
+
+- Coluna `LOCAL` na grade de Consulta de Bens passou a exibir o local padronizado (`localNome`) quando houver `localId` vinculado.
+- Mantido fallback para `localFisico` apenas quando o vinculo padronizado nao existir.
+- Corrige exibicao de bens cautelados/externos que estavam com `-` mesmo apos salvar local cadastrado.
+
+Impacto em runtime/API:
+
+- `GET /bens` passou a retornar `localId` e `localNome` no payload de listagem.

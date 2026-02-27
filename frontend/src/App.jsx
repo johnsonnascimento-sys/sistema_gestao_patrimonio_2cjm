@@ -252,6 +252,7 @@ function AppShell() {
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
   const [tab, setTab] = useState("dashboard");
   const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardBemTombo, setWizardBemTombo] = useState("");
   const [wizardBem, setWizardBem] = useState(null);
@@ -292,6 +293,20 @@ function AppShell() {
       ...prev,
       [groupId]: !prev[groupId],
     }));
+  const selectTab = (nextTab) => {
+    setTab(nextTab);
+    setMobileMenuOpen(false);
+  };
+  const activeTabLabel = useMemo(() => {
+    for (const entry of NAV_STRUCTURE) {
+      if (entry.type === "item" && entry.item.id === tab) return entry.item.label;
+      if (entry.type === "group") {
+        const found = entry.items.find((it) => it.id === tab);
+        if (found) return found.label;
+      }
+    }
+    return "Menu";
+  }, [tab]);
 
   const wizardAvaliacoesQuery = useQuery({
     queryKey: ["inserviveisAvaliacoes", wizardBem?.id || null],
@@ -454,6 +469,13 @@ function AppShell() {
                 <p className="mt-1 hidden max-w-[620px] truncate text-xs text-slate-600 md:block">{bannerMessage}</p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 md:hidden"
+                >
+                  Menu
+                </button>
                 {auth.perfil ? (
                   <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 md:flex">
                     <div className="min-w-0 text-right">
@@ -492,72 +514,106 @@ function AppShell() {
             </div>
           </header>
 
+          {mobileMenuOpen ? (
+            <div className="fixed inset-0 z-40 md:hidden">
+              <button
+                type="button"
+                aria-label="Fechar menu"
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute inset-0 bg-slate-900/40"
+              />
+              <aside className="absolute right-0 top-0 h-full w-[88%] max-w-sm overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-2xl">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">Navegacao</p>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                  >
+                    Fechar
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {NAV_STRUCTURE.map((entry) => {
+                    if (entry.type === "item") {
+                      const item = entry.item;
+                      const active = tab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => selectTab(item.id)}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
+                            active
+                              ? "bg-violet-50 text-violet-700"
+                              : "text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          <span>{item.short}</span>
+                        </button>
+                      );
+                    }
+
+                    const isOpen = Boolean(openNavGroups[entry.id]);
+                    const hasActiveChild = entry.items.some((item) => item.id === tab);
+                    return (
+                      <div key={entry.id} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleNavGroup(entry.id)}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
+                            hasActiveChild ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span>{entry.label}</span>
+                          <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
+                        </button>
+                        {isOpen ? (
+                          <div className="space-y-1 pl-2">
+                            {entry.items.map((item) => {
+                              const active = tab === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => selectTab(item.id)}
+                                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
+                                    active
+                                      ? "bg-violet-50 text-violet-700"
+                                      : "text-slate-700 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <span>{item.label}</span>
+                                  <span>{item.short}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </aside>
+            </div>
+          ) : null}
+
           <main className="flex-1 bg-slate-50">
             <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
-              <section className="mb-6 md:hidden">
-                <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <div className="space-y-2">
-                    {NAV_STRUCTURE.map((entry) => {
-                      if (entry.type === "item") {
-                        const item = entry.item;
-                        const active = tab === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => setTab(item.id)}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
-                              active
-                                ? "bg-violet-50 text-violet-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                            }`}
-                          >
-                            <span>{item.label}</span>
-                            <span>{item.short}</span>
-                          </button>
-                        );
-                      }
-
-                      const isOpen = Boolean(openNavGroups[entry.id]);
-                      const hasActiveChild = entry.items.some((item) => item.id === tab);
-                      return (
-                        <div key={entry.id} className="space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleNavGroup(entry.id)}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
-                              hasActiveChild ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-100"
-                            }`}
-                          >
-                            <span>{entry.label}</span>
-                            <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
-                          </button>
-                          {isOpen ? (
-                            <div className="space-y-1 pl-2">
-                              {entry.items.map((item) => {
-                                const active = tab === item.id;
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => setTab(item.id)}
-                                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold ${
-                                      active
-                                        ? "bg-violet-50 text-violet-700"
-                                        : "text-slate-600 hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    <span>{item.label}</span>
-                                    <span>{item.short}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+              <section className="mb-4 md:hidden">
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Tela atual</p>
+                    <p className="text-sm font-semibold text-slate-900">{activeTabLabel}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(true)}
+                    className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    Abrir menu
+                  </button>
                 </div>
               </section>
 

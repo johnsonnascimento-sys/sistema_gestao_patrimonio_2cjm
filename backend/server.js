@@ -847,6 +847,8 @@ app.get("/bens", mustAuth, async (req, res, next) => {
         cb.descricao AS "catalogoDescricao",
         cb.foto_referencia_url AS "fotoReferenciaUrl",
         b.unidade_dona_id AS "unidadeDonaId",
+        b.local_id AS "localId",
+        l.nome AS "localNome",
         b.local_fisico AS "localFisico",
         b.foto_url AS "fotoUrl",
         b.status::text AS "status",
@@ -857,6 +859,7 @@ app.get("/bens", mustAuth, async (req, res, next) => {
         ) AS "temDivergenciaPendente"
       FROM bens b
       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+      LEFT JOIN locais l ON l.id = b.local_id
       ${whereSql}
       ORDER BY b.numero_tombamento NULLS LAST, b.created_at DESC
       LIMIT $${i} OFFSET $${i + 1};`;
