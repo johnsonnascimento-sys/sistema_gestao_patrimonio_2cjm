@@ -157,3 +157,18 @@ Impacto em runtime/API:
 
 - Nenhuma mudanca de endpoint, metodo ou contrato.
 - Reorganizacao estritamente de frontend e documentacao.
+
+## 11. Atualizacao 2026-02-27 (Movimentacoes - local obrigatorio na cautela)
+
+Principais entregas:
+
+- Em `CAUTELA_SAIDA`, o formulario passou a exigir local da cautela:
+  - informar `Sala destino da cautela`; ou
+  - marcar `Externo` (bem saiu do predio com o detentor).
+- Backend passou a validar obrigatoriamente essa regra e retornar erro `LOCAL_CAUTELA_OBRIGATORIO` quando ausente.
+- Registro da informacao foi incorporado ao historico da movimentacao na `justificativa` com metadado padronizado (`[CAUTELA_DESTINO=...]`).
+
+Impacto em runtime/API:
+
+- Sem novos endpoints.
+- `POST /movimentar` aceita e valida os campos `cautelaSalaDestino` e `cautelaExterno` para `CAUTELA_SAIDA`.

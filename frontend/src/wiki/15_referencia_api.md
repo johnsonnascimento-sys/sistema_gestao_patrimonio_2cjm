@@ -271,6 +271,8 @@ Campos importantes (payload):
 - `numeroTombamento` ou `bemId`
 - `termoReferencia` (obrigatorio)
 - `detentorTemporarioPerfilId` (obrigatorio para `CAUTELA_SAIDA`)
+- `cautelaSalaDestino` (obrigatorio em `CAUTELA_SAIDA` quando `cautelaExterno=false`)
+- `cautelaExterno` (booleano; quando `true`, dispensa `cautelaSalaDestino`)
 - `dataPrevistaDevolucao` (opcional para `CAUTELA_SAIDA`; pode ser omitida)
 
 ## Inventario
@@ -645,3 +647,4 @@ Body:
 Observacao:
 
 - O restore gera backup `pre-restore` automaticamente antes de aplicar o dump.
+

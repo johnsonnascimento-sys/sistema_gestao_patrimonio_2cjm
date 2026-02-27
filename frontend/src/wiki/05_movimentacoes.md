@@ -58,12 +58,19 @@ Efeito no sistema:
 
 - Mantém `unidade_dona_id` intacto.
 - Registra detentor temporário e datas (saída/retorno), com data prevista opcional.
+- Em `CAUTELA_SAIDA`, exige informar **Sala destino** ou marcar **Externo**.
 
 Detentor temporário (UX):
 
 - O campo aceita busca por `matricula`, `nome` ou `perfilId UUID`.
 - Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleção.
 - Ao selecionar, o sistema envia o `detentorTemporarioPerfilId` correto no payload.
+
+Local da cautela (obrigatório na saída):
+
+- Campo `Sala destino da cautela`: use quando o item permanece no prédio (ex.: gabinete/sala).
+- Opção `Externo`: use quando o item saiu do prédio com o detentor.
+- O backend rejeita `CAUTELA_SAIDA` sem uma dessas informações.
 
 ## Recomendações práticas (operação)
 

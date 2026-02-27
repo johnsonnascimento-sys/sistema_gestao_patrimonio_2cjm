@@ -3494,6 +3494,8 @@ function validateMov(body, opts) {
 
   const unidadeDestinoId = parseUnit(body.unidadeDestinoId, null);
   const detentorTemporarioPerfilId = body.detentorTemporarioPerfilId ? String(body.detentorTemporarioPerfilId).trim() : null;
+  const cautelaSalaDestino = body.cautelaSalaDestino ? String(body.cautelaSalaDestino).trim().slice(0, 180) : null;
+  const cautelaExterno = parseBool(body.cautelaExterno, false);
   let autorizadaPorPerfilId = body.autorizadaPorPerfilId ? String(body.autorizadaPorPerfilId).trim() : null;
   let executadaPorPerfilId = body.executadaPorPerfilId ? String(body.executadaPorPerfilId).trim() : null;
   const dataPrevistaDevolucao = parseDateOnly(body.dataPrevistaDevolucao);
@@ -3514,6 +3516,9 @@ function validateMov(body, opts) {
   if (tipoMovimentacao === "CAUTELA_SAIDA") {
     if (!autorizadaPorPerfilId) throw new HttpError(422, "AUTORIZACAO_OBRIGATORIA", "autorizadaPorPerfilId e obrigatorio para CAUTELA_SAIDA.");
     if (!detentorTemporarioPerfilId) throw new HttpError(422, "DETENTOR_OBRIGATORIO", "detentorTemporarioPerfilId e obrigatorio para CAUTELA_SAIDA.");
+    if (!cautelaSalaDestino && !cautelaExterno) {
+      throw new HttpError(422, "LOCAL_CAUTELA_OBRIGATORIO", "Informe cautelaSalaDestino ou marque cautelaExterno para CAUTELA_SAIDA.");
+    }
   }
 
   return {
@@ -3523,6 +3528,8 @@ function validateMov(body, opts) {
     termoReferencia,
     unidadeDestinoId,
     detentorTemporarioPerfilId,
+    cautelaSalaDestino,
+    cautelaExterno,
     dataPrevistaDevolucao,
     dataEfetivaDevolucao,
     autorizadaPorPerfilId,
@@ -3778,6 +3785,7 @@ async function executeMov(client, bem, p) {
     bemAtualizado = q.rows[0];
   }
 
+  const justificativaFinal = buildMovJustificativa(p);
   const r = await client.query(
     `INSERT INTO movimentacoes (
       bem_id, tipo_movimentacao, status, unidade_origem_id, unidade_destino_id,
@@ -3797,7 +3805,7 @@ async function executeMov(client, bem, p) {
       p.tipoMovimentacao === "CAUTELA_SAIDA" ? p.dataPrevistaDevolucao : null,
       p.tipoMovimentacao === "CAUTELA_RETORNO" ? p.dataEfetivaDevolucao : null,
       p.termoReferencia,
-      p.justificativa,
+      justificativaFinal,
       p.autorizadaPorPerfilId,
       p.autorizadaPorPerfilId ? createdAt : null,
       p.executadaPorPerfilId,
@@ -3840,6 +3848,16 @@ async function executeMov(client, bem, p) {
   }
 
   return { mov: r.rows[0], bem: bemAtualizado };
+}
+
+function buildMovJustificativa(p) {
+  const base = p.justificativa ? String(p.justificativa).trim() : "";
+  if (p.tipoMovimentacao !== "CAUTELA_SAIDA") return base || null;
+  const origem = p.cautelaExterno
+    ? "EXTERNO"
+    : `SALA:${String(p.cautelaSalaDestino || "").trim()}`;
+  const meta = `[CAUTELA_DESTINO=${origem}]`;
+  return base ? `${meta} ${base}` : meta;
 }
 
 async function lockBem(client, p) {

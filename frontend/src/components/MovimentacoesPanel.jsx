@@ -51,6 +51,8 @@ function buildMovPayload(payload) {
     bemId: payload.bemId || undefined,
     unidadeDestinoId: payload.unidadeDestinoId ? Number(payload.unidadeDestinoId) : undefined,
     detentorTemporarioPerfilId: payload.detentorTemporarioPerfilId || undefined,
+    cautelaSalaDestino: payload.cautelaSalaDestino || undefined,
+    cautelaExterno: payload.cautelaExterno ? true : undefined,
     dataPrevistaDevolucao: payload.dataPrevistaDevolucao || undefined,
     dataEfetivaDevolucao: payload.dataEfetivaDevolucao ? new Date(payload.dataEfetivaDevolucao).toISOString() : undefined,
   };
@@ -71,6 +73,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     bemId: "",
     unidadeDestinoId: "",
     detentorTemporarioPerfilId: "",
+    cautelaSalaDestino: "",
+    cautelaExterno: false,
     dataPrevistaDevolucao: "",
     dataEfetivaDevolucao: "",
     termoReferencia: "",
@@ -105,7 +109,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       return "Transferencia muda carga (Arts. 124 e 127). Requer unidade destino e termo.";
     }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela nao muda carga. Requer detentor temporario; data prevista de devolucao e opcional (pode ficar em branco).";
+      return "Cautela nao muda carga. Requer detentor temporario e local (Sala destino ou Externo); data prevista de devolucao e opcional.";
     }
     return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional).";
   }, [movPayload.tipoMovimentacao]);
@@ -138,6 +142,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     setDetentorSelected(null);
     setDetentorLookupState({ loading: false, data: [], error: null });
     setSemDataPrevista(false);
+    setMovField("cautelaSalaDestino", "");
+    setMovField("cautelaExterno", false);
   }, [movPayload.tipoMovimentacao]);
 
   useEffect(() => {
@@ -202,6 +208,18 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         error: "Selecione um detentor pela busca (matricula/nome) ou informe um perfilId UUID valido.",
       });
       return;
+    }
+    if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
+      const salaInformada = String(movPayload.cautelaSalaDestino || "").trim();
+      const externo = Boolean(movPayload.cautelaExterno);
+      if (!salaInformada && !externo) {
+        setMovState({
+          loading: false,
+          response: null,
+          error: "Para CAUTELA_SAIDA, informe a Sala destino ou marque a opcao Externo.",
+        });
+        return;
+      }
     }
 
     setMovState({ loading: true, response: null, error: null });
@@ -497,6 +515,36 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   {detentorSelected?.nome ? ` (${detentorSelected.nome})` : ""}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+
+          {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
+            <div className="space-y-1">
+              <span className="text-xs text-slate-600">Sala destino da cautela</span>
+              <input
+                value={movPayload.cautelaSalaDestino}
+                onChange={(event) => setMovField("cautelaSalaDestino", event.target.value)}
+                placeholder="Ex.: Gabinete 2A, Sala 305, Arquivo"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                disabled={movState.loading || movPayload.cautelaExterno}
+              />
+              <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(movPayload.cautelaExterno)}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setMovField("cautelaExterno", checked);
+                    if (checked) setMovField("cautelaSalaDestino", "");
+                  }}
+                  className="h-4 w-4 accent-violet-600"
+                  disabled={movState.loading}
+                />
+                Externo (bem saiu do predio com o detentor)
+              </label>
+              <p className="text-xs text-slate-600">
+                Obrigatorio informar Sala destino ou marcar Externo.
+              </p>
             </div>
           ) : null}
 
