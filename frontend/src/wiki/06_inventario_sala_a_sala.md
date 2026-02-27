@@ -225,3 +225,11 @@ Na tela "Inventario - Administracao":
 - o painel de relatorio fica visivel tambem para evento `EM_ANDAMENTO` (nao apenas encerrado);
 - ao clicar em "Relatorio" no historico, o sistema troca o painel para o inventario escolhido;
 - na grade de divergencias, os campos principais incluem `Nome Resumo` (`bens.nome_resumo`) e `Descricao` (`bens.descricao_complementar`).
+
+## Acompanhamento de Progresso por Sala
+
+Ao acessar a aba 'Cadastrar bens por sala (regularizacao em lote)', o sistema exibe um **Grafico de Progresso** visual:
+
+- **Total da Unidade vs Atualizados**: Mostra quantos bens da Unidade ja estao vinculados a um 'Local_id' em relacao ao total daquela Unidade.
+- **Barra de Indicacao**: Facilita a visualizacao para o coordenador entender o volume restante pendente de regularizacao fisica.
+

@@ -248,4 +248,14 @@ Principais entregas:
 Impacto em runtime/API:
 
 - Endpoints `/api/importacoes/geafin/...` injetados e operantes no backend.
+
+## 17. Atualizacao 2026-02-27 (Progress Bar Cadastro por Sala)
+
+Principais entregas:
+
+- Implementada barra visual de progresso dinamica dentro da funcionalidade *Cadastrar bens por sala* permitindo visualizar em tempo real a proporcao de itens "Com Local" vs "Sem local" por unidade ou global.
+
+Impacto em runtime/API:
+
+- Novo endpoint de acompanhamento adicionado: `GET /locais/estatisticas`
 - Rotina legacy `POST /importar-geafin` mantida por compatibilidade mas depreciada de uso pela UI atual.

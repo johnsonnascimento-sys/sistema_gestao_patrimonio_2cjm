@@ -193,6 +193,22 @@ export async function getStats(incluirTerceiros = false) {
 }
 
 /**
+ * Consulta estatisticas basicas do cadastro de locais (bens com/sem sala).
+ * @param {{ unidadeId?: number }} params Filtros.
+ * @returns {Promise<object>} Estatisticas de localizacao.
+ */
+export async function getEstatisticasLocais(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.unidadeId) usp.set("unidadeId", String(params.unidadeId));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/locais/estatisticas${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Lista/consulta bens com paginacao.
  * @param {object} filters Filtros opcionais.
  * @param {string=} filters.numeroTombamento Tombamento GEAFIN (10 digitos) ou codigo de 4 digitos.

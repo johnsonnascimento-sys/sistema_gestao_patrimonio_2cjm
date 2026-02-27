@@ -98,6 +98,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [showScanner, setShowScanner] = useState(false);
   const [loteItens, setLoteItens] = useState([]);
   const [loteState, setLoteState] = useState({ loading: false, response: null, error: null, info: null });
+  const [statsLocais, setStatsLocais] = useState({ loading: false, data: null, error: null });
 
   const selectedLocal = useMemo(
     () => (locaisState.data || []).find((l) => String(l.id) === String(localSalaId)) || null,
@@ -135,6 +136,28 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       cancelled = true;
     };
   }, [canUse, showCadastroSala, unidadeSalaId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadStats = async () => {
+      setStatsLocais({ loading: true, data: null, error: null });
+      try {
+        const payload = await getEstatisticasLocais({
+          unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
+        });
+        if (cancelled) return;
+        setStatsLocais({ loading: false, data: payload?.estatisticas || null, error: null });
+      } catch (error) {
+        if (cancelled) return;
+        setStatsLocais({ loading: false, data: null, error: formatApiError(error) });
+      }
+    };
+    if (!canUse || !showCadastroSala) return undefined;
+    loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [canUse, showCadastroSala, unidadeSalaId, loteState.response]);
 
   useEffect(() => {
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") return;
@@ -382,414 +405,464 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
       {showMovimentacaoForm ? (
         <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="font-semibold">Movimentar bem</h3>
-        <p className="mt-1 text-xs text-slate-600">
-          Dica: informe <code className="px-1">numeroTombamento</code> (10 digitos) ou <code className="px-1">bemId</code>.
-          Durante inventario ativo, transferencias continuam bloqueadas (Art. 183).
-        </p>
+          <h3 className="font-semibold">Movimentar bem</h3>
+          <p className="mt-1 text-xs text-slate-600">
+            Dica: informe <code className="px-1">numeroTombamento</code> (10 digitos) ou <code className="px-1">bemId</code>.
+            Durante inventario ativo, transferencias continuam bloqueadas (Art. 183).
+          </p>
 
-        <form onSubmit={onMovSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">Tipo</span>
-            <select
-              value={movPayload.tipoMovimentacao}
-              onChange={(event) => setMovField("tipoMovimentacao", event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              disabled={movState.loading}
-            >
-              {MOV_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">Numero do tombamento</span>
-            <input
-              value={movPayload.numeroTombamento}
-              onChange={(event) => setMovField("numeroTombamento", normalizeTombamentoInput(event.target.value))}
-              placeholder="Ex.: 1290001788"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              disabled={movState.loading}
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">bemId (opcional)</span>
-            <input
-              value={movPayload.bemId}
-              onChange={(event) => setMovField("bemId", event.target.value)}
-              placeholder="UUID do bem (se preferir)"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              disabled={movState.loading}
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">Termo referencia</span>
-            <input
-              value={movPayload.termoReferencia}
-              onChange={(event) => setMovField("termoReferencia", event.target.value)}
-              placeholder="Ex.: TRF-2026-0001"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              disabled={movState.loading}
-            />
-          </label>
-
-          {movPayload.tipoMovimentacao === "TRANSFERENCIA" ? (
+          <form onSubmit={onMovSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs text-slate-600">Unidade destino (1-4)</span>
+              <span className="text-xs text-slate-600">Tipo</span>
+              <select
+                value={movPayload.tipoMovimentacao}
+                onChange={(event) => setMovField("tipoMovimentacao", event.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                disabled={movState.loading}
+              >
+                {MOV_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">Numero do tombamento</span>
               <input
-                type="number"
-                min="1"
-                max="4"
-                value={movPayload.unidadeDestinoId}
-                onChange={(event) => setMovField("unidadeDestinoId", event.target.value)}
+                value={movPayload.numeroTombamento}
+                onChange={(event) => setMovField("numeroTombamento", normalizeTombamentoInput(event.target.value))}
+                placeholder="Ex.: 1290001788"
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={movState.loading}
               />
             </label>
-          ) : null}
 
-          {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
-            <div className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-600">
-                Detentor temporario (buscar por matricula, nome ou perfilId UUID)
-              </span>
-              <div className="relative">
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">bemId (opcional)</span>
+              <input
+                value={movPayload.bemId}
+                onChange={(event) => setMovField("bemId", event.target.value)}
+                placeholder="UUID do bem (se preferir)"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                disabled={movState.loading}
+              />
+            </label>
+
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">Termo referencia</span>
+              <input
+                value={movPayload.termoReferencia}
+                onChange={(event) => setMovField("termoReferencia", event.target.value)}
+                placeholder="Ex.: TRF-2026-0001"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                disabled={movState.loading}
+              />
+            </label>
+
+            {movPayload.tipoMovimentacao === "TRANSFERENCIA" ? (
+              <label className="space-y-1">
+                <span className="text-xs text-slate-600">Unidade destino (1-4)</span>
                 <input
-                  value={detentorQuery}
-                  onChange={(event) => onDetentorInputChange(event.target.value)}
-                  onFocus={() => setDetentorInputFocused(true)}
-                  onBlur={() => {
-                    setTimeout(() => setDetentorInputFocused(false), 120);
-                  }}
-                  placeholder="Ex.: Joh, 9156 ou perfilId UUID"
+                  type="number"
+                  min="1"
+                  max="4"
+                  value={movPayload.unidadeDestinoId}
+                  onChange={(event) => setMovField("unidadeDestinoId", event.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={movState.loading}
                 />
-                {detentorInputFocused && movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                    {detentorLookupState.loading ? (
-                      <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p>
-                    ) : null}
-                    {!detentorLookupState.loading && detentorLookupState.error ? (
-                      <p className="px-3 py-2 text-xs text-rose-700">{detentorLookupState.error}</p>
-                    ) : null}
-                    {!detentorLookupState.loading &&
-                    !detentorLookupState.error &&
-                    detentorLookupState.data.length === 0 &&
-                    String(detentorQuery || "").trim().length >= 2 ? (
-                      <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
+              </label>
+            ) : null}
+
+            {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
+              <div className="space-y-1 md:col-span-2">
+                <span className="text-xs text-slate-600">
+                  Detentor temporario (buscar por matricula, nome ou perfilId UUID)
+                </span>
+                <div className="relative">
+                  <input
+                    value={detentorQuery}
+                    onChange={(event) => onDetentorInputChange(event.target.value)}
+                    onFocus={() => setDetentorInputFocused(true)}
+                    onBlur={() => {
+                      setTimeout(() => setDetentorInputFocused(false), 120);
+                    }}
+                    placeholder="Ex.: Joh, 9156 ou perfilId UUID"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    disabled={movState.loading}
+                  />
+                  {detentorInputFocused && movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
+                    <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                      {detentorLookupState.loading ? (
+                        <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p>
                       ) : null}
-                    {!detentorLookupState.loading &&
-                      !detentorLookupState.error &&
-                      detentorLookupState.data.map((perfil) => (
-                        <button
-                          key={perfil.id}
-                          type="button"
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            onSelectDetentor(perfil);
-                          }}
-                          className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
-                        >
-                          <p className="font-semibold text-slate-900">{perfil.nome}</p>
-                          <p className="mt-0.5 text-slate-600">
-                            Matricula: <span className="font-mono">{perfil.matricula}</span> | PerfilId:{" "}
-                            <span className="font-mono">{perfil.id}</span>
-                          </p>
-                        </button>
-                      ))}
-                  </div>
+                      {!detentorLookupState.loading && detentorLookupState.error ? (
+                        <p className="px-3 py-2 text-xs text-rose-700">{detentorLookupState.error}</p>
+                      ) : null}
+                      {!detentorLookupState.loading &&
+                        !detentorLookupState.error &&
+                        detentorLookupState.data.length === 0 &&
+                        String(detentorQuery || "").trim().length >= 2 ? (
+                        <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
+                      ) : null}
+                      {!detentorLookupState.loading &&
+                        !detentorLookupState.error &&
+                        detentorLookupState.data.map((perfil) => (
+                          <button
+                            key={perfil.id}
+                            type="button"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              onSelectDetentor(perfil);
+                            }}
+                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                          >
+                            <p className="font-semibold text-slate-900">{perfil.nome}</p>
+                            <p className="mt-0.5 text-slate-600">
+                              Matricula: <span className="font-mono">{perfil.matricula}</span> | PerfilId:{" "}
+                              <span className="font-mono">{perfil.id}</span>
+                            </p>
+                          </button>
+                        ))}
+                    </div>
+                  ) : null}
+                </div>
+                <p className="text-xs text-slate-600">
+                  Digite ao menos 2 caracteres para sugerir. O sistema aceita busca por nome, matricula ou UUID.
+                </p>
+                {movPayload.detentorTemporarioPerfilId ? (
+                  <p className="text-xs text-emerald-700">
+                    Perfil selecionado: <span className="font-mono">{movPayload.detentorTemporarioPerfilId}</span>
+                    {detentorSelected?.nome ? ` (${detentorSelected.nome})` : ""}
+                  </p>
                 ) : null}
               </div>
-              <p className="text-xs text-slate-600">
-                Digite ao menos 2 caracteres para sugerir. O sistema aceita busca por nome, matricula ou UUID.
-              </p>
-              {movPayload.detentorTemporarioPerfilId ? (
-                <p className="text-xs text-emerald-700">
-                  Perfil selecionado: <span className="font-mono">{movPayload.detentorTemporarioPerfilId}</span>
-                  {detentorSelected?.nome ? ` (${detentorSelected.nome})` : ""}
+            ) : null}
+
+            {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
+              <div className="space-y-1">
+                <span className="text-xs text-slate-600">Sala destino da cautela</span>
+                <input
+                  value={movPayload.cautelaSalaDestino}
+                  onChange={(event) => setMovField("cautelaSalaDestino", event.target.value)}
+                  placeholder="Ex.: Gabinete 2A, Sala 305, Arquivo"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  disabled={movState.loading || movPayload.cautelaExterno}
+                />
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(movPayload.cautelaExterno)}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setMovField("cautelaExterno", checked);
+                      if (checked) setMovField("cautelaSalaDestino", "");
+                    }}
+                    className="h-4 w-4 accent-violet-600"
+                    disabled={movState.loading}
+                  />
+                  Externo (bem saiu do predio com o detentor)
+                </label>
+                <p className="text-xs text-slate-600">
+                  Obrigatorio informar Sala destino ou marcar Externo.
                 </p>
-              ) : null}
-            </div>
-          ) : null}
+              </div>
+            ) : null}
 
-          {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
-            <div className="space-y-1">
-              <span className="text-xs text-slate-600">Sala destino da cautela</span>
-              <input
-                value={movPayload.cautelaSalaDestino}
-                onChange={(event) => setMovField("cautelaSalaDestino", event.target.value)}
-                placeholder="Ex.: Gabinete 2A, Sala 305, Arquivo"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                disabled={movState.loading || movPayload.cautelaExterno}
-              />
-              <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+            {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
+              <div className="space-y-1">
+                <span className="text-xs text-slate-600">Data prevista devolucao</span>
                 <input
-                  type="checkbox"
-                  checked={Boolean(movPayload.cautelaExterno)}
-                  onChange={(event) => {
-                    const checked = event.target.checked;
-                    setMovField("cautelaExterno", checked);
-                    if (checked) setMovField("cautelaSalaDestino", "");
-                  }}
-                  className="h-4 w-4 accent-violet-600"
+                  type="date"
+                  value={movPayload.dataPrevistaDevolucao}
+                  onChange={(event) => setMovField("dataPrevistaDevolucao", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  disabled={movState.loading || semDataPrevista}
+                />
+                <label className="inline-flex items-center gap-2 text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={semDataPrevista}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setSemDataPrevista(checked);
+                      if (checked) setMovField("dataPrevistaDevolucao", "");
+                    }}
+                    className="h-4 w-4 accent-violet-600"
+                    disabled={movState.loading}
+                  />
+                  Sem data prevista (ou deixe em branco)
+                </label>
+                <p className="text-xs text-slate-600">
+                  Se nao houver previsao de retorno no momento, marque a opcao acima ou mantenha o campo vazio.
+                </p>
+              </div>
+            ) : null}
+
+            {movPayload.tipoMovimentacao === "CAUTELA_RETORNO" ? (
+              <label className="space-y-1">
+                <span className="text-xs text-slate-600">Data efetiva devolucao (opcional)</span>
+                <input
+                  type="datetime-local"
+                  value={movPayload.dataEfetivaDevolucao}
+                  onChange={(event) => setMovField("dataEfetivaDevolucao", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={movState.loading}
                 />
-                Externo (bem saiu do predio com o detentor)
               </label>
-              <p className="text-xs text-slate-600">
-                Obrigatorio informar Sala destino ou marcar Externo.
-              </p>
-            </div>
-          ) : null}
+            ) : null}
 
-          {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
-            <div className="space-y-1">
-              <span className="text-xs text-slate-600">Data prevista devolucao</span>
-              <input
-                type="date"
-                value={movPayload.dataPrevistaDevolucao}
-                onChange={(event) => setMovField("dataPrevistaDevolucao", event.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                disabled={movState.loading || semDataPrevista}
-              />
-              <label className="inline-flex items-center gap-2 text-xs text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={semDataPrevista}
-                  onChange={(event) => {
-                    const checked = event.target.checked;
-                    setSemDataPrevista(checked);
-                    if (checked) setMovField("dataPrevistaDevolucao", "");
-                  }}
-                  className="h-4 w-4 accent-violet-600"
-                  disabled={movState.loading}
-                />
-                Sem data prevista (ou deixe em branco)
-              </label>
-              <p className="text-xs text-slate-600">
-                Se nao houver previsao de retorno no momento, marque a opcao acima ou mantenha o campo vazio.
-              </p>
-            </div>
-          ) : null}
-
-          {movPayload.tipoMovimentacao === "CAUTELA_RETORNO" ? (
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">Data efetiva devolucao (opcional)</span>
-              <input
-                type="datetime-local"
-                value={movPayload.dataEfetivaDevolucao}
-                onChange={(event) => setMovField("dataEfetivaDevolucao", event.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-xs text-slate-600">Justificativa (opcional)</span>
+              <textarea
+                value={movPayload.justificativa}
+                onChange={(event) => setMovField("justificativa", event.target.value)}
+                className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 disabled={movState.loading}
               />
             </label>
-          ) : null}
 
-          <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-600">Justificativa (opcional)</span>
-            <textarea
-              value={movPayload.justificativa}
-              onChange={(event) => setMovField("justificativa", event.target.value)}
-              className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              disabled={movState.loading}
-            />
-          </label>
-
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              disabled={movState.loading}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {movState.loading ? "Enviando..." : "Executar /movimentar"}
-            </button>
-            {movState.error ? <p className="mt-2 text-sm text-rose-700">{movState.error}</p> : null}
-            {movState.response ? (
-              <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
-                {JSON.stringify(movState.response, null, 2)}
-              </pre>
-            ) : null}
-          </div>
-        </form>
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                disabled={movState.loading}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {movState.loading ? "Enviando..." : "Executar /movimentar"}
+              </button>
+              {movState.error ? <p className="mt-2 text-sm text-rose-700">{movState.error}</p> : null}
+              {movState.response ? (
+                <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+                  {JSON.stringify(movState.response, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          </form>
         </article>
       ) : null}
 
       {showCadastroSala ? (
         <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="font-semibold">Cadastrar bens por sala (regularizacao em lote)</h3>
-        <p className="mt-1 text-xs text-slate-600">
-          Selecione unidade e sala de destino, bipa os itens encontrados (teclado/scanner/camera) e salve em lote.
-          Em divergencia de unidade, o sistema pergunta se deseja manter o item na sala escolhida.
-        </p>
+          <h3 className="font-semibold">Cadastrar bens por sala (regularizacao em lote)</h3>
+          <p className="mt-1 text-xs text-slate-600">
+            Selecione unidade e sala de destino, bipa os itens encontrados (teclado/scanner/camera) e salve em lote.
+            Em divergencia de unidade, o sistema pergunta se deseja manter o item na sala escolhida.
+          </p>
 
-        {!canAdmin ? (
-          <p className="mt-3 text-sm text-amber-800">Funcionalidade restrita ao perfil ADMIN.</p>
-        ) : (
-          <>
-            <div className="mt-3 grid gap-3 md:grid-cols-4">
-              <label className="space-y-1">
-                <span className="text-xs text-slate-600">Unidade da sala</span>
-                <select
-                  value={unidadeSalaId}
-                  onChange={(e) => {
-                    setUnidadeSalaId(e.target.value);
-                    setLocalSalaId("");
-                  }}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          {!canAdmin ? (
+            <p className="mt-3 text-sm text-amber-800">Funcionalidade restrita ao perfil ADMIN.</p>
+          ) : (
+            <>
+              {statsLocais.loading ? (
+                <div className="mt-4 animate-pulse rounded-lg bg-slate-50 p-3">
+                  <div className="h-4 w-1/3 rounded bg-slate-200"></div>
+                </div>
+              ) : statsLocais.error ? (
+                <div className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+                  Falha ao carregar progresso: {statsLocais.error}
+                </div>
+              ) : statsLocais.data ? (
+                <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-slate-800">
+                        Progresso de Cadastro {unidadeSalaId ? `(Unidade ${unidadeSalaId})` : "(Geral)"}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Bens com local atualizado vs. pendentes de sala
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-slate-800">
+                        {statsLocais.data.comLocal} <span className="text-sm font-normal text-slate-500">/ {statsLocais.data.total}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="flex h-full items-center justify-center bg-emerald-500 text-[10px] text-white transition-all duration-500"
+                      style={{
+                        width: statsLocais.data.total > 0
+                          ? `${Math.round((statsLocais.data.comLocal / statsLocais.data.total) * 100)}%`
+                          : "0%",
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-2 flex justify-between text-xs text-slate-600">
+                    <div>
+                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1"></span>
+                      {statsLocais.data.comLocal} atualizados
+                    </div>
+                    <div>
+                      <span className="inline-block h-2 w-2 rounded-full bg-slate-300 mr-1"></span>
+                      {statsLocais.data.semLocal} pendentes
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-3 grid gap-3 md:grid-cols-4">
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-600">Unidade da sala</span>
+                  <select
+                    value={unidadeSalaId}
+                    onChange={(e) => {
+                      setUnidadeSalaId(e.target.value);
+                      setLocalSalaId("");
+                    }}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    disabled={loteState.loading}
+                  >
+                    <option value="">Todas</option>
+                    <option value="1">1 (1a Aud)</option>
+                    <option value="2">2 (2a Aud)</option>
+                    <option value="3">3 (Foro)</option>
+                    <option value="4">4 (Almox)</option>
+                  </select>
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs text-slate-600">Sala/Local de destino</span>
+                  <select
+                    value={localSalaId}
+                    onChange={(e) => setLocalSalaId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    disabled={loteState.loading || locaisState.loading}
+                  >
+                    <option value="">Selecione...</option>
+                    {(locaisState.data || []).map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.nome} (unidade {l.unidadeId || "-"})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-600">Modo camera</span>
+                  <select
+                    value={scannerMode}
+                    onChange={(e) => setScannerMode(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    disabled={loteState.loading}
+                  >
+                    <option value="single">Leitura simples</option>
+                    <option value="continuous">Leitura continua</option>
+                  </select>
+                </label>
+              </div>
+
+              <form onSubmit={onAdicionarTombo} className="mt-3 flex flex-wrap gap-2">
+                <input
+                  value={scanInput}
+                  onChange={(e) => setScanInput(normalizeTombamentoInput(e.target.value))}
+                  className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  placeholder="Bipe ou digite tombamento (10 digitos)"
+                  disabled={loteState.loading}
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
                   disabled={loteState.loading}
                 >
-                  <option value="">Todas</option>
-                  <option value="1">1 (1a Aud)</option>
-                  <option value="2">2 (2a Aud)</option>
-                  <option value="3">3 (Foro)</option>
-                  <option value="4">4 (Almox)</option>
-                </select>
-              </label>
-              <label className="space-y-1 md:col-span-2">
-                <span className="text-xs text-slate-600">Sala/Local de destino</span>
-                <select
-                  value={localSalaId}
-                  onChange={(e) => setLocalSalaId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  disabled={loteState.loading || locaisState.loading}
-                >
-                  <option value="">Selecione...</option>
-                  {(locaisState.data || []).map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.nome} (unidade {l.unidadeId || "-"})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs text-slate-600">Modo camera</span>
-                <select
-                  value={scannerMode}
-                  onChange={(e) => setScannerMode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  Adicionar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(true)}
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
                   disabled={loteState.loading}
                 >
-                  <option value="single">Leitura simples</option>
-                  <option value="continuous">Leitura continua</option>
-                </select>
-              </label>
-            </div>
+                  Abrir camera
+                </button>
+                <button
+                  type="button"
+                  onClick={onSalvarLote}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  disabled={loteState.loading || !loteItens.length || !selectedLocal}
+                >
+                  {loteState.loading ? "Salvando..." : "Salvar lote na sala"}
+                </button>
+              </form>
 
-            <form onSubmit={onAdicionarTombo} className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={scanInput}
-                onChange={(e) => setScanInput(normalizeTombamentoInput(e.target.value))}
-                className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                placeholder="Bipe ou digite tombamento (10 digitos)"
-                disabled={loteState.loading}
-              />
-              <button
-                type="submit"
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
-                disabled={loteState.loading}
-              >
-                Adicionar
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowScanner(true)}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-                disabled={loteState.loading}
-              >
-                Abrir camera
-              </button>
-              <button
-                type="button"
-                onClick={onSalvarLote}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                disabled={loteState.loading || !loteItens.length || !selectedLocal}
-              >
-                {loteState.loading ? "Salvando..." : "Salvar lote na sala"}
-              </button>
-            </form>
+              {locaisState.error ? <p className="mt-2 text-sm text-rose-700">{locaisState.error}</p> : null}
+              {loteState.error ? <p className="mt-2 text-sm text-rose-700">{loteState.error}</p> : null}
+              {loteState.info ? <p className="mt-2 text-sm text-slate-700">{loteState.info}</p> : null}
 
-            {locaisState.error ? <p className="mt-2 text-sm text-rose-700">{locaisState.error}</p> : null}
-            {loteState.error ? <p className="mt-2 text-sm text-rose-700">{loteState.error}</p> : null}
-            {loteState.info ? <p className="mt-2 text-sm text-slate-700">{loteState.info}</p> : null}
-
-            <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200">
-              <table className="min-w-full text-left text-xs">
-                <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
-                  <tr>
-                    <th className="px-3 py-2">Tombo</th>
-                    <th className="px-3 py-2">Descricao</th>
-                    <th className="px-3 py-2">Unid.</th>
-                    <th className="px-3 py-2">Local atual</th>
-                    <th className="px-3 py-2">Divergencia</th>
-                    <th className="px-3 py-2">Manter?</th>
-                    <th className="px-3 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {loteItens.map((row) => (
-                    <tr key={row.bemId} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 font-mono text-[11px]">{row.numeroTombamento}</td>
-                      <td className="px-3 py-2 text-slate-800">{row.descricao}</td>
-                      <td className="px-3 py-2 text-slate-700">{row.unidadeDonaId || "-"}</td>
-                      <td className="px-3 py-2 text-slate-700">{row.localAtual || "-"}</td>
-                      <td className="px-3 py-2">
-                        {row.divergenciaUnidade ? (
-                          <span className="rounded bg-amber-100 px-2 py-0.5 text-amber-800">Outra unidade</span>
-                        ) : (
-                          <span className="text-slate-500">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {row.divergenciaUnidade ? (
-                          <label className="inline-flex items-center gap-2 text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(row.manterOutraUnidade)}
-                              onChange={(e) =>
-                                setLoteItens((prev) =>
-                                  prev.map((x) =>
-                                    x.bemId === row.bemId ? { ...x, manterOutraUnidade: e.target.checked } : x,
-                                  ),
-                                )
-                              }
-                              disabled={loteState.loading}
-                              className="h-4 w-4 accent-violet-600"
-                            />
-                            Sim
-                          </label>
-                        ) : (
-                          <span className="text-slate-500">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {row.erro ? (
-                          <span className="text-rose-700">{row.erro}</span>
-                        ) : row.salvo ? (
-                          <span className="text-emerald-700">Salvo</span>
-                        ) : (
-                          <span className="text-slate-500">Pendente</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {!loteItens.length ? (
+              <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                     <tr>
-                      <td className="px-3 py-3 text-slate-600" colSpan={7}>
-                        Nenhum item na fila.
-                      </td>
+                      <th className="px-3 py-2">Tombo</th>
+                      <th className="px-3 py-2">Descricao</th>
+                      <th className="px-3 py-2">Unid.</th>
+                      <th className="px-3 py-2">Local atual</th>
+                      <th className="px-3 py-2">Divergencia</th>
+                      <th className="px-3 py-2">Manter?</th>
+                      <th className="px-3 py-2">Status</th>
                     </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loteItens.map((row) => (
+                      <tr key={row.bemId} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 font-mono text-[11px]">{row.numeroTombamento}</td>
+                        <td className="px-3 py-2 text-slate-800">{row.descricao}</td>
+                        <td className="px-3 py-2 text-slate-700">{row.unidadeDonaId || "-"}</td>
+                        <td className="px-3 py-2 text-slate-700">{row.localAtual || "-"}</td>
+                        <td className="px-3 py-2">
+                          {row.divergenciaUnidade ? (
+                            <span className="rounded bg-amber-100 px-2 py-0.5 text-amber-800">Outra unidade</span>
+                          ) : (
+                            <span className="text-slate-500">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {row.divergenciaUnidade ? (
+                            <label className="inline-flex items-center gap-2 text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(row.manterOutraUnidade)}
+                                onChange={(e) =>
+                                  setLoteItens((prev) =>
+                                    prev.map((x) =>
+                                      x.bemId === row.bemId ? { ...x, manterOutraUnidade: e.target.checked } : x,
+                                    ),
+                                  )
+                                }
+                                disabled={loteState.loading}
+                                className="h-4 w-4 accent-violet-600"
+                              />
+                              Sim
+                            </label>
+                          ) : (
+                            <span className="text-slate-500">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {row.erro ? (
+                            <span className="text-rose-700">{row.erro}</span>
+                          ) : row.salvo ? (
+                            <span className="text-emerald-700">Salvo</span>
+                          ) : (
+                            <span className="text-slate-500">Pendente</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {!loteItens.length ? (
+                      <tr>
+                        <td className="px-3 py-3 text-slate-600" colSpan={7}>
+                          Nenhum item na fila.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </article>
       ) : null}
 
