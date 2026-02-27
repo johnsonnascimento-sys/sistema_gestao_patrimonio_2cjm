@@ -2990,7 +2990,7 @@ app.get("/locais/estatisticas", mustAuth, async (req, res, next) => {
     const params = [];
 
     if (unidadeId != null) {
-      whereSql += " AND unidade_id = $1";
+      whereSql += " AND unidade_dona_id = $1";
       params.push(unidadeId);
     }
 
