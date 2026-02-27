@@ -89,7 +89,7 @@ O sistema agora abre no Dashboard Executivo Operacional.
 Distribuicao de modulos:
 
 - Dashboard: abertura com KPIs, inventario ativo e atividade recente.
-- Operacoes Patrimoniais: consulta, movimentacoes, cadastro por sala, inventario, wizard Art. 141 e importacao GEAFIN.
+- Operacoes Patrimoniais: consulta, movimentacoes, cadastro por sala, inventario, wizard Art. 141, catalogo (material), gestao de normas e importacao GEAFIN.
 - Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
 - Administracao do Painel: backup, conectividade, perfis e locais (salas) cadastrados.
 - Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.

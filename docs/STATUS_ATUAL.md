@@ -143,6 +143,8 @@ Principais entregas:
 - Nova arquitetura de navegacao com grupos e submenu.
 - Abertura padrao no Dashboard Executivo Operacional.
 - Cadastro por sala promovido para submenu proprio em Operacoes Patrimoniais.
+- Catalogo (Material) movido para submenu proprio em Operacoes Patrimoniais.
+- Gestao de Normas movida para submenu proprio em Operacoes Patrimoniais.
 - Importacao GEAFIN posicionada como ultimo submenu em Operacoes Patrimoniais.
 - Menu proprio de Auditoria e Logs.
 - Administracao do Painel com backup, conectividade, perfis e gestao de locais.
@@ -192,7 +194,7 @@ Impacto em runtime/API:
 
 Principais entregas:
 
-- Novo modulo administrativo **Catalogo (SKU) cadastrado** em `Administracao do Painel`.
+- Novo modulo **Catalogo (Material)** em `Operacoes Patrimoniais`.
 - CRUD dedicado de catalogo com campos de codigo, descricao, grupo e material permanente.
 - Upload de foto de referencia do catalogo integrado ao painel.
 - Associacao em lote de bens ao catalogo por tombamento GEAFIN (10 digitos), com modo `dryRun`.

@@ -16,6 +16,7 @@ import InventoryAdminPanel from "./components/InventoryAdminPanel.jsx";
 import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
+import CatalogoAdminPanel from "./components/CatalogoAdminPanel.jsx";
 import WikiManual from "./components/WikiManual.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import {
@@ -39,10 +40,11 @@ const NAV_STRUCTURE = [
       { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
       { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
+      { id: "catalogo-material", label: "Catalogo (Material)", short: "Catalogo" },
+      { id: "normas", label: "Gestao de Normas", short: "Normas" },
       { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
   },
-  { type: "item", item: { id: "normas", label: "Gestao de Normas", short: "Normas" } },
   {
     type: "group",
     id: "auditoria",
@@ -58,7 +60,6 @@ const NAV_STRUCTURE = [
     id: "admin",
     label: "Administracao do Painel",
     items: [
-      { id: "admin-catalogos", label: "Catalogo (SKU) cadastrado", short: "Catalogo" },
       { id: "admin-locais", label: "Locais (salas) cadastrados", short: "Locais" },
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
@@ -137,6 +138,17 @@ function NavIcon({ id }) {
     );
   }
 
+  if (id === "catalogo-material") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <path d="M9 9h6" />
+        <path d="M9 13h6" />
+        <path d="M9 17h4" />
+      </svg>
+    );
+  }
+
   if (id === "normas") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -172,7 +184,6 @@ function NavIcon({ id }) {
     id === "admin-health" ||
     id === "admin-perfis" ||
     id === "admin-locais" ||
-    id === "admin-catalogos" ||
     id === "operacoes"
   ) {
     return (
@@ -631,6 +642,7 @@ function AppShell() {
 
               {tab === "movimentacoes" && <MovimentacoesPanel />}
               {tab === "operacoes-cadastro-sala" && <MovimentacoesPanel section="cadastro-sala" />}
+              {tab === "catalogo-material" && <CatalogoAdminPanel canAdmin={canAdmin} />}
               {tab === "importacoes-geafin" && <ImportacoesPanel canAdmin={canAdmin} />}
 
               {tab === "classificacao" && (
@@ -755,7 +767,6 @@ function AppShell() {
               )}
 
               {tab === "admin-locais" && <OperationsPanel section="admin-locais" />}
-              {tab === "admin-catalogos" && <OperationsPanel section="admin-catalogos" />}
               {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
               {tab === "admin-health" && <OperationsPanel section="admin-health" />}
               {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}
