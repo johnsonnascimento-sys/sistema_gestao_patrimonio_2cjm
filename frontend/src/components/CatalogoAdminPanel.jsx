@@ -10,6 +10,7 @@ import {
   atualizarCatalogo,
   criarCatalogo,
   getFotoUrl,
+  listarBens,
   listarCatalogos,
   uploadFoto,
 } from "../services/apiClient.js";
@@ -58,6 +59,8 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   });
   const [assocState, setAssocState] = useState({ loading: false, response: null, error: null });
   const [uploadState, setUploadState] = useState({ loading: false, error: null });
+  const [selectedCatalogo, setSelectedCatalogo] = useState(null);
+  const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
 
   const loadCatalogos = async () => {
     if (!canAdmin) return;
@@ -187,11 +190,27 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     }
   };
 
+  const onVerBensAssociados = async (catalogo) => {
+    if (!catalogo?.codigoCatalogo) return;
+    setSelectedCatalogo(catalogo);
+    setBensState({ loading: true, items: [], error: null });
+    try {
+      const data = await listarBens({
+        codigoCatalogo: String(catalogo.codigoCatalogo),
+        limit: 200,
+        offset: 0,
+      });
+      setBensState({ loading: false, items: data?.items || [], error: null });
+    } catch (error) {
+      setBensState({ loading: false, items: [], error: formatApiError(error) });
+    }
+  };
+
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold">Catalogo (SKU) cadastrado</h3>
+          <h3 className="font-semibold">Catalogo (Material)</h3>
           <p className="mt-1 text-xs text-slate-600">
             Cadastro central de catalogo com foto de referencia e associacao de bens por tombamento.
           </p>
@@ -224,7 +243,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                 value={form.codigoCatalogo}
                 onChange={(e) => setForm((p) => ({ ...p, codigoCatalogo: e.target.value }))}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                placeholder="Ex.: 101004470"
+                placeholder="Ex.: 49581"
                 disabled={!canAdmin && auth.authEnabled}
               />
               <p className="text-[11px] text-amber-700">
@@ -367,6 +386,13 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                       </button>
                       <button
                         type="button"
+                        onClick={() => void onVerBensAssociados(c)}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-[11px] font-semibold hover:bg-slate-100"
+                      >
+                        Ver bens
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setAssocForm((p) => ({ ...p, catalogoId: String(c.id) }));
                           fileRef.current = c;
@@ -412,6 +438,89 @@ export default function CatalogoAdminPanel({ canAdmin }) {
             await onUploadFoto(fileRef.current, file);
           }}
         />
+      </div>
+
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-slate-900">Bens e fotos associados ao catalogo</h4>
+          {selectedCatalogo?.codigoCatalogo ? (
+            <span className="text-xs text-slate-600">
+              Catalogo: <strong>{selectedCatalogo.codigoCatalogo}</strong>
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Use o botao <strong>Ver bens</strong> na lista de catalogo para carregar os itens associados e suas fotos.
+        </p>
+
+        {bensState.error ? <p className="mt-3 text-sm text-rose-700">{bensState.error}</p> : null}
+        {bensState.loading ? <p className="mt-3 text-sm text-slate-600">Carregando bens associados...</p> : null}
+        {!bensState.loading && selectedCatalogo && bensState.items.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">Nenhum bem associado encontrado para este catalogo.</p>
+        ) : null}
+
+        {bensState.items.length > 0 ? (
+          <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white">
+            <table className="min-w-full text-left text-xs">
+              <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
+                <tr>
+                  <th className="px-3 py-2">Tombo</th>
+                  <th className="px-3 py-2">Descricao</th>
+                  <th className="px-3 py-2">Unidade</th>
+                  <th className="px-3 py-2">Local</th>
+                  <th className="px-3 py-2">Foto item</th>
+                  <th className="px-3 py-2">Foto catalogo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {bensState.items.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-mono text-[11px] text-slate-700">{item.numeroTombamento || "-"}</td>
+                    <td className="px-3 py-2 text-slate-900">{item.nomeResumo || item.catalogoDescricao || "-"}</td>
+                    <td className="px-3 py-2 text-slate-600">{item.unidadeDonaId ? `${item.unidadeDonaId}` : "-"}</td>
+                    <td className="px-3 py-2 text-slate-600">{item.localNome || item.localFisico || "-"}</td>
+                    <td className="px-3 py-2">
+                      {item.fotoUrl ? (
+                        <a
+                          href={getFotoUrl(item.fotoUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex"
+                        >
+                          <img
+                            src={getFotoUrl(item.fotoUrl)}
+                            alt={`Foto item ${item.numeroTombamento || ""}`}
+                            className="h-8 w-8 rounded border border-slate-300 object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-slate-500">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {item.fotoReferenciaUrl ? (
+                        <a
+                          href={getFotoUrl(item.fotoReferenciaUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex"
+                        >
+                          <img
+                            src={getFotoUrl(item.fotoReferenciaUrl)}
+                            alt={`Foto catalogo ${item.codigoCatalogo || ""}`}
+                            className="h-8 w-8 rounded border border-slate-300 object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-slate-500">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">

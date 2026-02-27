@@ -139,3 +139,47 @@ Novo caminho de menu:
 - Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
 
 A API e o comportamento operacional permanecem os mesmos.
+
+## Atualizacao 2026-02-27 - Sessao v2 (previa -> revisao -> aplicacao)
+
+Novo fluxo da Importacao GEAFIN:
+
+1. Criar sessao de previa (sem gravar alteracoes operacionais em `bens/catalogo`).
+2. Revisar acoes planejadas.
+3. Aplicar sessao com backup automatico obrigatorio antes da escrita.
+
+### Modos
+
+- `INCREMENTAL` (padrao):
+  - exige decisao item a item para acoes de criacao/atualizacao (`APROVADA` ou `REJEITADA`);
+  - permite atalho de decisao em lote por filtro.
+
+- `TOTAL`:
+  - exige confirmacao forte (`IMPORTACAO_TOTAL`);
+  - exige escolha obrigatoria para bens ausentes no escopo:
+    - `MANTER`: nao altera ausentes;
+    - `BAIXAR`: marca ausentes como `BAIXADO`.
+
+### Escopo
+
+- `GERAL`: todas as unidades.
+- `UNIDADE`: uma unidade por execucao (`1..4`).
+
+### Cancelamento e rollback
+
+- Cancelar em previa: encerra sessao sem impacto operacional.
+- Cancelar durante aplicacao: o backend faz rollback total da aplicacao em curso.
+
+### Regra permanente de seguranca
+
+- A importacao GEAFIN nao executa delete fisico de `bens` nem `catalogo_bens`.
+
+### Endpoints principais (v2)
+
+- `POST /importacoes/geafin/sessoes`
+- `GET /importacoes/geafin/:id`
+- `GET /importacoes/geafin/:id/acoes`
+- `POST /importacoes/geafin/:id/acoes/:acaoId/decisao`
+- `POST /importacoes/geafin/:id/acoes/decisao-lote`
+- `POST /importacoes/geafin/:id/aplicar`
+- `POST /importacoes/geafin/:id/cancelar`

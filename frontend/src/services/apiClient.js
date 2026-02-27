@@ -664,6 +664,141 @@ export async function importarGeafin(file, unidadePadraoId, opts = {}) {
 }
 
 /**
+ * Cria sessao GEAFIN em modo previa (v2).
+ * @param {File} file Arquivo CSV.
+ * @param {{modoImportacao?: "INCREMENTAL"|"TOTAL", escopoTipo?: "GERAL"|"UNIDADE", unidadeEscopoId?: number|null, unidadePadraoId?: number|null}} payload Configuracao da sessao.
+ * @param {{signal?: AbortSignal}=} opts Opcoes.
+ * @returns {Promise<{requestId:string, importacao:any}>} Sessao criada.
+ */
+export async function criarSessaoImportacaoGeafin(file, payload = {}, opts = {}) {
+  const formData = new FormData();
+  formData.append("arquivo", file);
+  const modoImportacao = String(payload?.modoImportacao || "INCREMENTAL").toUpperCase();
+  const escopoTipo = String(payload?.escopoTipo || "GERAL").toUpperCase();
+  formData.append("modoImportacao", modoImportacao);
+  formData.append("escopoTipo", escopoTipo);
+  if (payload?.unidadeEscopoId != null) formData.append("unidadeEscopoId", String(payload.unidadeEscopoId));
+  if (payload?.unidadePadraoId != null) formData.append("unidadePadraoId", String(payload.unidadePadraoId));
+
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/sessoes`, {
+    method: "POST",
+    body: formData,
+    signal: opts.signal,
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Consulta uma sessao GEAFIN por id (v2).
+ * @param {string} id UUID da sessao.
+ * @returns {Promise<{requestId:string, importacao:any}>}
+ */
+export async function getImportacaoGeafinSessao(id) {
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista acoes planejadas de uma sessao GEAFIN (v2).
+ * @param {string} id UUID da sessao.
+ * @param {{limit?:number, offset?:number, tipoAcao?:string, decisao?:string, q?:string}} params Filtros/paginacao.
+ * @returns {Promise<{requestId:string, paging:any, items:any[]}>}
+ */
+export async function listarAcoesImportacaoGeafin(id, params = {}) {
+  const usp = new URLSearchParams();
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  if (params.offset != null) usp.set("offset", String(params.offset));
+  if (params.tipoAcao) usp.set("tipoAcao", String(params.tipoAcao));
+  if (params.decisao) usp.set("decisao", String(params.decisao));
+  if (params.q) usp.set("q", String(params.q));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}/acoes${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Define decisao para uma acao individual (v2, incremental).
+ * @param {string} id UUID da sessao.
+ * @param {string} acaoId UUID da acao.
+ * @param {"APROVADA"|"REJEITADA"} decisao Decisao.
+ * @returns {Promise<{requestId:string, acao:any}>}
+ */
+export async function decidirAcaoImportacaoGeafin(id, acaoId, decisao) {
+  const response = await safeFetch(
+    `${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}/acoes/${encodeURIComponent(acaoId)}/decisao`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ decisao }),
+    },
+  );
+  return parseResponse(response);
+}
+
+/**
+ * Define decisao em lote para acoes da sessao (v2, incremental).
+ * @param {string} id UUID da sessao.
+ * @param {{decisao:"APROVADA"|"REJEITADA", tipoAcao?:string, q?:string, somentePendentes?:boolean}} payload Configuracao.
+ * @returns {Promise<{requestId:string, atualizados:number, decisao:string}>}
+ */
+export async function decidirAcoesLoteImportacaoGeafin(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}/acoes/decisao-lote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Aplica sessao GEAFIN (v2).
+ * @param {string} id UUID da sessao.
+ * @param {{adminPassword:string, confirmText?:string, acaoAusentes?: "MANTER"|"BAIXAR", keepDays?:number}} payload Confirmacoes.
+ * @returns {Promise<{requestId:string, message:string, resumo:any, importacao:any}>}
+ */
+export async function aplicarImportacaoGeafinSessao(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}/aplicar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cancela sessao GEAFIN (v2).
+ * @param {string} id UUID da sessao.
+ * @param {string=} motivo Motivo opcional.
+ * @returns {Promise<{requestId:string, importacao:any}>}
+ */
+export async function cancelarImportacaoGeafinSessao(id, motivo) {
+  const response = await safeFetch(`${API_BASE_URL}/importacoes/geafin/${encodeURIComponent(id)}/cancelar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ motivo }),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Consulta progresso da ultima importacao GEAFIN (para barra de progresso).
  * @returns {Promise<{requestId: string, importacao: object}>} Estado da ultima importacao.
  */

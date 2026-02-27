@@ -52,6 +52,24 @@ const VALID_UNIDADES = new Set([1, 2, 3, 4]);
 const VALID_MOV = new Set(["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"]);
 const VALID_STATUS_BEM = new Set(["OK", "BAIXADO", "EM_CAUTELA", "AGUARDANDO_RECEBIMENTO"]);
 const VALID_ROLES = new Set(["ADMIN", "OPERADOR"]);
+const GEAFIN_MODES = new Set(["INCREMENTAL", "TOTAL"]);
+const GEAFIN_SCOPE_TYPES = new Set(["GERAL", "UNIDADE"]);
+const GEAFIN_SESSION_STATUS = new Set([
+  "EM_ANDAMENTO",
+  "AGUARDANDO_CONFIRMACAO",
+  "APLICANDO",
+  "CANCELADO",
+  "CONCLUIDO",
+  "ERRO",
+]);
+const GEAFIN_ACTION_TYPES = new Set([
+  "CRIAR_BEM",
+  "ATUALIZAR_BEM",
+  "SEM_MUDANCA",
+  "ERRO_VALIDACAO",
+]);
+const GEAFIN_DECISIONS = new Set(["PENDENTE", "APROVADA", "REJEITADA", "AUTO"]);
+const GEAFIN_AUSENTES_ACTIONS = new Set(["MANTER", "BAIXAR"]);
 const TOMBAMENTO_GEAFIN_RE = /^\d{10}$/;
 const TOMBAMENTO_LEGADO_RE = /^\d{4}$/;
 const UUID_RE =
@@ -642,90 +660,266 @@ app.get("/health", async (req, res, next) => {
   }
 });
 
-app.get("/importacoes/geafin/ultimo", mustAdmin, async (req, res, next) => {
+app.post("/importacoes/geafin/sessoes", mustAdmin, upload.single("arquivo"), async (req, res, next) => {
   try {
-    const r = await pool.query(
-      `WITH ultimo AS (
-         SELECT id, request_id, original_filename, content_sha256, bytes, delimiter,
-                imported_em, total_linhas, status, finalizado_em, erro_resumo
-         FROM public.geafin_import_arquivos
-         ORDER BY imported_em DESC
-         LIMIT 1
-       ),
-       cont AS (
-         SELECT arquivo_id,
-                COUNT(*)::int AS linhas_inseridas,
-                 COUNT(*) FILTER (WHERE persistencia_ok)::int AS persistencia_ok,
-                 COUNT(*) FILTER (WHERE persistencia_ok = FALSE AND normalizacao_ok)::int AS falha_persistencia,
-                 COUNT(*) FILTER (WHERE normalizacao_ok = FALSE)::int AS falha_normalizacao,
-                 MAX(created_at) AS ultima_atualizacao_em
-         FROM public.geafin_import_linhas
-         WHERE arquivo_id = (SELECT id FROM ultimo)
-         GROUP BY arquivo_id
-       )
-        SELECT
-          u.id,
-          u.request_id AS "requestId",
-          u.original_filename AS "originalFilename",
-          u.content_sha256 AS "contentSha256",
-          u.bytes,
-          u.delimiter,
-          u.imported_em AS "importedEm",
-          u.total_linhas AS "totalLinhas",
-          u.status,
-          u.finalizado_em AS "finalizadoEm",
-          u.erro_resumo AS "erroResumo",
-          COALESCE(c.linhas_inseridas, 0) AS "linhasInseridas",
-          COALESCE(c.persistencia_ok, 0) AS "persistenciaOk",
-          COALESCE(c.falha_persistencia, 0) AS "falhaPersistencia",
-          COALESCE(c.falha_normalizacao, 0) AS "falhaNormalizacao",
-          c.ultima_atualizacao_em AS "ultimaAtualizacaoEm"
-        FROM ultimo u
-        LEFT JOIN cont c ON c.arquivo_id = u.id;`,
-    );
-
-    const row = r.rows[0];
-    if (!row?.id) {
-      res.status(404).json({ requestId: req.requestId, error: { code: "SEM_IMPORTACAO", message: "Nenhuma importacao GEAFIN registrada." } });
-      return;
-    }
-
-    const total = row.totalLinhas ? Number(row.totalLinhas) : null;
-    const done = Number(row.linhasInseridas || 0);
-    const percent = total && total > 0 ? Math.min(100, Math.round((done / total) * 1000) / 10) : null;
-
-    res.json({
+    const created = await buildGeafinPreviewSession(req);
+    const overview = await getGeafinSessionOverview(created.id);
+    res.status(201).json({
       requestId: req.requestId,
-      importacao: {
-        ...row,
-        percent,
-      },
+      message: "Sessao GEAFIN criada em modo de previa.",
+      importacao: overview,
     });
   } catch (error) {
     next(error);
   }
 });
 
+app.get("/importacoes/geafin/:id", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "IMPORTACAO_ID_INVALIDO", "id deve ser UUID.");
+    const overview = await getGeafinSessionOverview(id);
+    if (!overview) throw new HttpError(404, "IMPORTACAO_NAO_ENCONTRADA", "Sessao GEAFIN nao encontrada.");
+    res.json({ requestId: req.requestId, importacao: overview });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/importacoes/geafin/:id/acoes", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "IMPORTACAO_ID_INVALIDO", "id deve ser UUID.");
+    const limit = Math.max(1, Math.min(500, parseIntOrDefault(req.query?.limit, 100)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+    const tipoAcao = req.query?.tipoAcao ? String(req.query.tipoAcao).trim().toUpperCase() : "";
+    const decisao = req.query?.decisao ? String(req.query.decisao).trim().toUpperCase() : "";
+    const q = req.query?.q ? String(req.query.q).trim() : "";
+
+    const where = ["arquivo_id = $1"];
+    const params = [id];
+    let i = 2;
+    if (tipoAcao) {
+      where.push(`tipo_acao = $${i}`);
+      params.push(tipoAcao);
+      i += 1;
+    }
+    if (decisao) {
+      where.push(`decisao = $${i}`);
+      params.push(decisao);
+      i += 1;
+    }
+    if (q) {
+      where.push(`(
+        numero_tombamento ILIKE $${i}
+        OR codigo_catalogo ILIKE $${i}
+        OR motivo ILIKE $${i}
+      )`);
+      params.push(`%${q}%`);
+      i += 1;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const count = await pool.query(`SELECT COUNT(*)::int AS total FROM public.geafin_import_acoes ${whereSql};`, params);
+    const rows = await pool.query(
+      `SELECT
+         id,
+         linha_id AS "linhaId",
+         ordem,
+         tipo_acao AS "tipoAcao",
+         requer_confirmacao AS "requerConfirmacao",
+         decisao,
+         decidido_por AS "decididoPor",
+         decidido_em AS "decididoEm",
+         aplicada,
+         erro_aplicacao AS "erroAplicacao",
+         numero_tombamento AS "numeroTombamento",
+         codigo_catalogo AS "codigoCatalogo",
+         unidade_dona_id AS "unidadeDonaId",
+         descricao_resumo AS "descricaoResumo",
+         dados_antes_json AS "dadosAntes",
+         dados_depois_json AS "dadosDepois",
+         motivo,
+         em_escopo AS "emEscopo",
+         created_at AS "createdAt"
+       FROM public.geafin_import_acoes
+       ${whereSql}
+       ORDER BY ordem ASC
+       LIMIT $${i} OFFSET $${i + 1};`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      paging: { limit, offset, total: Number(count.rows[0]?.total || 0) },
+      items: rows.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/importacoes/geafin/:id/acoes/:acaoId/decisao", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    const acaoId = String(req.params?.acaoId || "").trim();
+    if (!UUID_RE.test(id) || !UUID_RE.test(acaoId)) throw new HttpError(422, "ID_INVALIDO", "id e acaoId devem ser UUID.");
+    const decision = parseGeafinDecisionApply(req.body?.decisao);
+
+    const session = await getGeafinSessionById(id);
+    if (!session) throw new HttpError(404, "IMPORTACAO_NAO_ENCONTRADA", "Sessao GEAFIN nao encontrada.");
+    if (String(session.modoImportacao || "").toUpperCase() !== "INCREMENTAL") {
+      throw new HttpError(409, "DECISAO_APENAS_INCREMENTAL", "Decisao item a item disponivel apenas no modo INCREMENTAL.");
+    }
+    if (session.status !== "AGUARDANDO_CONFIRMACAO") {
+      throw new HttpError(409, "STATUS_IMPORTACAO_INVALIDO", `Sessao nao aceita decisao no status ${session.status}.`);
+    }
+
+    const r = await pool.query(
+      `UPDATE public.geafin_import_acoes
+       SET decisao = $3, decidido_por = $4, decidido_em = NOW()
+       WHERE arquivo_id = $1
+         AND id = $2
+         AND requer_confirmacao = TRUE
+       RETURNING id, decisao, decidido_por AS "decididoPor", decidido_em AS "decididoEm";`,
+      [id, acaoId, decision, req.user?.id || null],
+    );
+    if (!r.rowCount) throw new HttpError(404, "ACAO_NAO_ENCONTRADA", "Acao nao encontrada para decisao.");
+
+    res.json({ requestId: req.requestId, acao: r.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/importacoes/geafin/:id/acoes/decisao-lote", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "IMPORTACAO_ID_INVALIDO", "id deve ser UUID.");
+    const decision = parseGeafinDecisionApply(req.body?.decisao);
+    const tipoAcao = req.body?.tipoAcao ? String(req.body.tipoAcao).trim().toUpperCase() : "";
+    const q = req.body?.q ? String(req.body.q).trim() : "";
+    const somentePendentes = parseBool(req.body?.somentePendentes, true);
+
+    const session = await getGeafinSessionById(id);
+    if (!session) throw new HttpError(404, "IMPORTACAO_NAO_ENCONTRADA", "Sessao GEAFIN nao encontrada.");
+    if (String(session.modoImportacao || "").toUpperCase() !== "INCREMENTAL") {
+      throw new HttpError(409, "DECISAO_APENAS_INCREMENTAL", "Decisao em lote disponivel apenas no modo INCREMENTAL.");
+    }
+    if (session.status !== "AGUARDANDO_CONFIRMACAO") {
+      throw new HttpError(409, "STATUS_IMPORTACAO_INVALIDO", `Sessao nao aceita decisao no status ${session.status}.`);
+    }
+
+    const where = ["arquivo_id = $1", "requer_confirmacao = TRUE"];
+    const params = [id];
+    let i = 2;
+    if (somentePendentes) {
+      where.push("decisao = 'PENDENTE'");
+    }
+    if (tipoAcao) {
+      where.push(`tipo_acao = $${i}`);
+      params.push(tipoAcao);
+      i += 1;
+    }
+    if (q) {
+      where.push(`(
+        numero_tombamento ILIKE $${i}
+        OR codigo_catalogo ILIKE $${i}
+        OR motivo ILIKE $${i}
+      )`);
+      params.push(`%${q}%`);
+      i += 1;
+    }
+    const whereSql = where.join(" AND ");
+    const upd = await pool.query(
+      `UPDATE public.geafin_import_acoes
+       SET decisao = $${i}, decidido_por = $${i + 1}, decidido_em = NOW()
+       WHERE ${whereSql}
+       RETURNING id;`,
+      [...params, decision, req.user?.id || null],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      atualizados: Number(upd.rowCount || 0),
+      decisao: decision,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/importacoes/geafin/:id/aplicar", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "IMPORTACAO_ID_INVALIDO", "id deve ser UUID.");
+    const result = await applyGeafinSession(req, id, req.body || {});
+    const overview = await getGeafinSessionOverview(id);
+    res.json({
+      requestId: req.requestId,
+      message: "Sessao GEAFIN aplicada com sucesso.",
+      resumo: result,
+      importacao: overview,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/importacoes/geafin/ultimo", mustAdmin, async (req, res, next) => {
+  try {
+    const r = await pool.query(
+      `SELECT id
+       FROM public.geafin_import_arquivos
+       ORDER BY imported_em DESC
+       LIMIT 1;`,
+    );
+    const id = r.rows[0]?.id || null;
+    if (!id) {
+      res.status(404).json({
+        requestId: req.requestId,
+        error: { code: "SEM_IMPORTACAO", message: "Nenhuma importacao GEAFIN registrada." },
+      });
+      return;
+    }
+    const overview = await getGeafinSessionOverview(id);
+    res.json({ requestId: req.requestId, importacao: overview });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /**
- * Cancela a ultima importacao GEAFIN (marcando como ERRO) para destravar UI.
- * Restrito a ADMIN.
- *
- * Regra operacional:
- * - Nao remove dados ja importados (raw/staging e operacional). Apenas encerra o processo.
- * - A importacao em execucao deve checar o status a cada lote (ver /importar-geafin) e parar.
+ * Cancela importacao/sessao GEAFIN.
+ * - Em AGUARDANDO_CONFIRMACAO: finaliza como CANCELADO sem efeitos operacionais.
+ * - Em APLICANDO/EM_ANDAMENTO: marca cancel_requested e o processo faz rollback total da aplicacao.
  */
 app.post("/importacoes/geafin/:id/cancelar", mustAdmin, async (req, res, next) => {
   try {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(422, "IMPORTACAO_ID_INVALIDO", "id deve ser UUID.");
 
+    const motivo = String(req.body?.motivo || "").trim().slice(0, 2000);
     const r = await pool.query(
       `UPDATE public.geafin_import_arquivos
-       SET status = 'ERRO', finalizado_em = NOW(),
-           erro_resumo = COALESCE(NULLIF($2, ''), 'Cancelada pelo usuario.')
+       SET
+         cancel_requested = TRUE,
+         status = CASE
+           WHEN status IN ('AGUARDANDO_CONFIRMACAO', 'EM_ANDAMENTO') THEN 'CANCELADO'
+           ELSE status
+         END,
+         etapa = CASE
+           WHEN status IN ('AGUARDANDO_CONFIRMACAO', 'EM_ANDAMENTO') THEN 'CANCELADA'
+           ELSE etapa
+         END,
+         finalizado_em = CASE
+           WHEN status IN ('AGUARDANDO_CONFIRMACAO', 'EM_ANDAMENTO') THEN NOW()
+           ELSE finalizado_em
+         END,
+         erro_resumo = COALESCE(NULLIF($2, ''), 'Cancelamento solicitado pelo usuario.')
        WHERE id = $1
-       RETURNING id, status, finalizado_em AS "finalizadoEm", erro_resumo AS "erroResumo";`,
-      [id, String(req.body?.motivo || "").trim().slice(0, 2000)],
+       RETURNING id, status, cancel_requested AS "cancelRequested", finalizado_em AS "finalizadoEm", erro_resumo AS "erroResumo";`,
+      [id, motivo],
     );
     if (!r.rowCount) throw new HttpError(404, "IMPORTACAO_NAO_ENCONTRADA", "Importacao GEAFIN nao encontrada.");
 
@@ -4263,6 +4457,61 @@ function normalizeTombamento(raw) {
   return digits || null;
 }
 
+function parseGeafinMode(raw) {
+  const mode = String(raw || "INCREMENTAL").trim().toUpperCase();
+  if (!GEAFIN_MODES.has(mode)) throw new HttpError(422, "MODO_IMPORTACAO_INVALIDO", "modoImportacao deve ser INCREMENTAL ou TOTAL.");
+  return mode;
+}
+
+function parseGeafinScopeType(raw) {
+  const scope = String(raw || "GERAL").trim().toUpperCase();
+  if (!GEAFIN_SCOPE_TYPES.has(scope)) throw new HttpError(422, "ESCOPO_IMPORTACAO_INVALIDO", "escopoTipo deve ser GERAL ou UNIDADE.");
+  return scope;
+}
+
+function parseGeafinAusentesAction(raw) {
+  const action = String(raw || "").trim().toUpperCase();
+  if (!GEAFIN_AUSENTES_ACTIONS.has(action)) {
+    throw new HttpError(422, "ACAO_AUSENTES_INVALIDA", "acaoAusentes deve ser MANTER ou BAIXAR.");
+  }
+  return action;
+}
+
+function parseGeafinDecision(raw) {
+  const decision = String(raw || "").trim().toUpperCase();
+  if (!GEAFIN_DECISIONS.has(decision)) throw new HttpError(422, "DECISAO_INVALIDA", "decisao invalida.");
+  return decision;
+}
+
+function parseGeafinDecisionApply(raw) {
+  const decision = parseGeafinDecision(raw);
+  if (decision !== "APROVADA" && decision !== "REJEITADA") {
+    throw new HttpError(422, "DECISAO_INVALIDA", "decisao deve ser APROVADA ou REJEITADA.");
+  }
+  return decision;
+}
+
+function isInScopeGeafin(unidadeDonaId, escopoTipo, unidadeEscopoId) {
+  if (escopoTipo === "GERAL") return true;
+  return Number(unidadeDonaId || 0) === Number(unidadeEscopoId || 0);
+}
+
+function summarizeNormalizedForSession(data) {
+  if (!data || typeof data !== "object") return {};
+  return {
+    numeroTombamento: data.numeroTombamento || null,
+    codigoCatalogo: data.codigoCatalogo || null,
+    descricao: data.descricao || null,
+    grupo: data.grupo || null,
+    nomeResumo: data.nomeResumo || null,
+    unidadeDonaId: data.unidadeDonaId || null,
+    localFisico: data.localFisico || null,
+    status: data.status || null,
+    valorAquisicao: data.valorAquisicao == null ? null : Number(data.valorAquisicao),
+    cod2Aud: data.cod2Aud || null,
+  };
+}
+
 function normalizeGeafin(raw, rowNo, fallbackUnit) {
   const row = {};
   for (const [k, v] of Object.entries(raw || {})) row[normalizeKey(k)] = v == null ? "" : String(v).trim();
@@ -4387,6 +4636,740 @@ async function upsertBem(client, d, catId) {
   return r.rows[0];
 }
 
+async function getGeafinSessionById(sessionId) {
+  const r = await pool.query(
+    `SELECT
+       id,
+       request_id AS "requestId",
+       original_filename AS "originalFilename",
+       content_sha256 AS "contentSha256",
+       bytes,
+       delimiter,
+       imported_em AS "importedEm",
+       total_linhas AS "totalLinhas",
+       status,
+       finalizado_em AS "finalizadoEm",
+       erro_resumo AS "erroResumo",
+       modo_importacao AS "modoImportacao",
+       escopo_tipo AS "escopoTipo",
+       unidade_escopo_id AS "unidadeEscopoId",
+       etapa,
+       cancel_requested AS "cancelRequested",
+       backup_status AS "backupStatus",
+       backup_result_json AS "backupResult",
+       resumo_preview_json AS "resumoPreview",
+       resumo_aplicacao_json AS "resumoAplicacao",
+       acao_ausentes AS "acaoAusentes",
+       aplicado_em AS "aplicadoEm",
+       aplicado_por AS "aplicadoPor"
+     FROM public.geafin_import_arquivos
+     WHERE id = $1
+     LIMIT 1;`,
+    [sessionId],
+  );
+  return r.rows[0] || null;
+}
+
+async function countAusentesNoEscopo(client, escopoTipo, unidadeEscopoId, tombamentos) {
+  const ids = Array.isArray(tombamentos) ? tombamentos.filter(Boolean) : [];
+  if (escopoTipo === "UNIDADE") {
+    if (!VALID_UNIDADES.has(Number(unidadeEscopoId || 0))) return 0;
+    if (!ids.length) {
+      const c = await client.query(
+        `SELECT COUNT(*)::int AS total
+         FROM public.bens
+         WHERE eh_bem_terceiro = FALSE
+           AND numero_tombamento IS NOT NULL
+           AND unidade_dona_id = $1;`,
+        [Number(unidadeEscopoId)],
+      );
+      return Number(c.rows[0]?.total || 0);
+    }
+    const c = await client.query(
+      `SELECT COUNT(*)::int AS total
+       FROM public.bens
+       WHERE eh_bem_terceiro = FALSE
+         AND numero_tombamento IS NOT NULL
+         AND unidade_dona_id = $1
+         AND NOT (numero_tombamento = ANY($2::text[]));`,
+      [Number(unidadeEscopoId), ids],
+    );
+    return Number(c.rows[0]?.total || 0);
+  }
+
+  if (!ids.length) {
+    const c = await client.query(
+      `SELECT COUNT(*)::int AS total
+       FROM public.bens
+       WHERE eh_bem_terceiro = FALSE
+         AND numero_tombamento IS NOT NULL;`,
+    );
+    return Number(c.rows[0]?.total || 0);
+  }
+  const c = await client.query(
+    `SELECT COUNT(*)::int AS total
+     FROM public.bens
+     WHERE eh_bem_terceiro = FALSE
+       AND numero_tombamento IS NOT NULL
+       AND NOT (numero_tombamento = ANY($1::text[]));`,
+    [ids],
+  );
+  return Number(c.rows[0]?.total || 0);
+}
+
+async function applyBaixaAusentesNoEscopo(client, escopoTipo, unidadeEscopoId, tombamentos) {
+  const ids = Array.isArray(tombamentos) ? tombamentos.filter(Boolean) : [];
+  if (escopoTipo === "UNIDADE") {
+    if (!VALID_UNIDADES.has(Number(unidadeEscopoId || 0))) return 0;
+    if (!ids.length) {
+      const r = await client.query(
+        `UPDATE public.bens
+         SET status = 'BAIXADO'::public.status_bem,
+             updated_at = NOW()
+         WHERE eh_bem_terceiro = FALSE
+           AND numero_tombamento IS NOT NULL
+           AND unidade_dona_id = $1
+           AND status <> 'BAIXADO'::public.status_bem;`,
+        [Number(unidadeEscopoId)],
+      );
+      return Number(r.rowCount || 0);
+    }
+    const r = await client.query(
+      `UPDATE public.bens
+       SET status = 'BAIXADO'::public.status_bem,
+           updated_at = NOW()
+       WHERE eh_bem_terceiro = FALSE
+         AND numero_tombamento IS NOT NULL
+         AND unidade_dona_id = $1
+         AND NOT (numero_tombamento = ANY($2::text[]))
+         AND status <> 'BAIXADO'::public.status_bem;`,
+      [Number(unidadeEscopoId), ids],
+    );
+    return Number(r.rowCount || 0);
+  }
+
+  if (!ids.length) {
+    const r = await client.query(
+      `UPDATE public.bens
+       SET status = 'BAIXADO'::public.status_bem,
+           updated_at = NOW()
+       WHERE eh_bem_terceiro = FALSE
+         AND numero_tombamento IS NOT NULL
+         AND status <> 'BAIXADO'::public.status_bem;`,
+    );
+    return Number(r.rowCount || 0);
+  }
+  const r = await client.query(
+    `UPDATE public.bens
+     SET status = 'BAIXADO'::public.status_bem,
+         updated_at = NOW()
+     WHERE eh_bem_terceiro = FALSE
+       AND numero_tombamento IS NOT NULL
+       AND NOT (numero_tombamento = ANY($1::text[]))
+       AND status <> 'BAIXADO'::public.status_bem;`,
+    [ids],
+  );
+  return Number(r.rowCount || 0);
+}
+
+function buildBeforeSnapshotFromBem(row) {
+  if (!row) return null;
+  return {
+    bemId: row.id || null,
+    numeroTombamento: row.numero_tombamento || null,
+    codigoCatalogo: row.codigo_catalogo_atual || null,
+    catalogoDescricao: row.catalogo_descricao_atual || null,
+    catalogoGrupo: row.catalogo_grupo_atual || null,
+    unidadeDonaId: row.unidade_dona_id || null,
+    localFisico: row.local_fisico || null,
+    status: row.status || null,
+    valorAquisicao: row.valor_aquisicao == null ? null : Number(row.valor_aquisicao),
+    cod2Aud: row.cod_2_aud || null,
+    nomeResumo: row.nome_resumo || null,
+  };
+}
+
+async function buildGeafinPreviewSession(req) {
+  if (!req.file?.buffer?.length) {
+    throw new HttpError(400, "ARQUIVO_OBRIGATORIO", "Envie o CSV no campo 'arquivo'.");
+  }
+
+  const modoImportacao = parseGeafinMode(req.body?.modoImportacao || "INCREMENTAL");
+  const escopoTipo = parseGeafinScopeType(req.body?.escopoTipo || "GERAL");
+  const unidadePadraoId = parseUnit(req.body?.unidadePadraoId, null);
+  const unidadeEscopoRaw = req.body?.unidadeEscopoId ?? req.body?.unidadeId ?? null;
+  const unidadeEscopoId = escopoTipo === "UNIDADE" ? parseUnit(unidadeEscopoRaw, null) : null;
+  if (escopoTipo === "UNIDADE" && !VALID_UNIDADES.has(Number(unidadeEscopoId || 0))) {
+    throw new HttpError(422, "UNIDADE_ESCOPO_INVALIDA", "Para escopo UNIDADE, informe unidadeEscopoId entre 1 e 4.");
+  }
+
+  const csvText = iconv.decode(req.file.buffer, "latin1");
+  const delimiter = detectDelimiter(csvText);
+  const fileSha256 = createHash("sha256").update(req.file.buffer).digest("hex");
+  const rows = parse(csvText, {
+    columns: true,
+    skip_empty_lines: true,
+    delimiter,
+    trim: true,
+    relax_column_count: true,
+  });
+
+  const normalized = [];
+  const tombamentosEscopo = [];
+  const catalogosEscopo = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const rowNo = i + 2;
+    const rowRaw = rows[i] || {};
+    const ordered = {};
+    for (const k of Object.keys(rowRaw).sort((a, b) => String(a).localeCompare(String(b)))) {
+      ordered[k] = rowRaw[k];
+    }
+    const rowSha256 = createHash("sha256").update(JSON.stringify(ordered)).digest("hex");
+    const n = normalizeGeafin(rowRaw, rowNo, unidadePadraoId);
+    const inScope = n.ok ? isInScopeGeafin(n.data.unidadeDonaId, escopoTipo, unidadeEscopoId) : false;
+    normalized.push({ rowNo, rowRaw, rowSha256, normalized: n, inScope });
+    if (n.ok && inScope) {
+      tombamentosEscopo.push(String(n.data.numeroTombamento));
+      catalogosEscopo.push(String(n.data.codigoCatalogo));
+    }
+  }
+
+  const uniqueTombos = Array.from(new Set(tombamentosEscopo));
+  const uniqueCatalogos = Array.from(new Set(catalogosEscopo));
+
+  const bensByTombo = new Map();
+  if (uniqueTombos.length) {
+    const rBens = await pool.query(
+      `SELECT
+         b.id,
+         b.numero_tombamento,
+         b.catalogo_bem_id,
+         b.unidade_dona_id,
+         b.local_fisico,
+         b.status::text,
+         b.valor_aquisicao,
+         b.cod_2_aud,
+         b.nome_resumo,
+         cb.codigo_catalogo AS codigo_catalogo_atual,
+         cb.descricao AS catalogo_descricao_atual,
+         cb.grupo AS catalogo_grupo_atual
+       FROM public.bens b
+       JOIN public.catalogo_bens cb ON cb.id = b.catalogo_bem_id
+       WHERE b.numero_tombamento = ANY($1::text[]);`,
+      [uniqueTombos],
+    );
+    for (const row of rBens.rows) bensByTombo.set(String(row.numero_tombamento), row);
+  }
+
+  const catalogByCode = new Map();
+  if (uniqueCatalogos.length) {
+    const rCat = await pool.query(
+      `SELECT id, codigo_catalogo, descricao, grupo
+       FROM public.catalogo_bens
+       WHERE codigo_catalogo = ANY($1::text[]);`,
+      [uniqueCatalogos],
+    );
+    for (const row of rCat.rows) catalogByCode.set(String(row.codigo_catalogo), row);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await setDbContext(client, {
+      changeOrigin: "IMPORTACAO",
+      currentUserId: req.user?.id || "",
+    });
+
+    const fileMeta = await client.query(
+      `INSERT INTO public.geafin_import_arquivos (
+         request_id, original_filename, content_sha256, bytes, delimiter, total_linhas,
+         status, modo_importacao, escopo_tipo, unidade_escopo_id, etapa
+       ) VALUES (
+         $1,$2,$3,$4,$5,$6,
+         'AGUARDANDO_CONFIRMACAO',$7,$8,$9,'PREVIA'
+       )
+       RETURNING id;`,
+      [
+        req.requestId,
+        req.file.originalname || null,
+        fileSha256,
+        req.file.size || req.file.buffer.length,
+        delimiter,
+        rows.length,
+        modoImportacao,
+        escopoTipo,
+        unidadeEscopoId,
+      ],
+    );
+    const arquivoId = fileMeta.rows[0].id;
+
+    const summary = {
+      delimiter,
+      modoImportacao,
+      escopoTipo,
+      unidadeEscopoId: unidadeEscopoId || null,
+      totalLinhas: rows.length,
+      validas: 0,
+      invalidas: 0,
+      emEscopo: 0,
+      foraEscopo: 0,
+      totalAcoes: 0,
+      pendentesConfirmacao: 0,
+      criarBem: 0,
+      atualizarBem: 0,
+      semMudanca: 0,
+      erroValidacao: 0,
+      potencialAusentesEscopo: 0,
+    };
+
+    const tombosParaAusentes = new Set();
+
+    for (let i = 0; i < normalized.length; i += 1) {
+      const row = normalized[i];
+      const n = row.normalized;
+      const rawInsert = await client.query(
+        `INSERT INTO public.geafin_import_linhas (
+           arquivo_id, linha_numero, row_raw, row_sha256,
+           normalizacao_ok, normalizacao_erro, persistencia_ok, persistencia_erro
+         ) VALUES (
+           $1,$2,$3::jsonb,$4,$5,$6,FALSE,NULL
+         )
+         RETURNING id;`,
+        [
+          arquivoId,
+          row.rowNo,
+          JSON.stringify(row.rowRaw),
+          row.rowSha256,
+          n.ok,
+          n.ok ? null : n.error,
+        ],
+      );
+      const linhaId = rawInsert.rows[0].id;
+
+      let tipoAcao = "SEM_MUDANCA";
+      let requerConfirmacao = false;
+      let decisao = "AUTO";
+      let motivo = "";
+      let dadosAntes = null;
+      let dadosDepois = null;
+      let numeroTombamento = null;
+      let codigoCatalogo = null;
+      let unidadeDonaId = null;
+
+      if (!n.ok) {
+        summary.invalidas += 1;
+        tipoAcao = "ERRO_VALIDACAO";
+        motivo = String(n.error || "Falha de validacao.");
+        summary.erroValidacao += 1;
+      } else {
+        summary.validas += 1;
+        numeroTombamento = String(n.data.numeroTombamento || "");
+        codigoCatalogo = String(n.data.codigoCatalogo || "");
+        unidadeDonaId = Number(n.data.unidadeDonaId || 0) || null;
+        dadosDepois = summarizeNormalizedForSession(n.data);
+
+        if (row.inScope) {
+          summary.emEscopo += 1;
+          if (numeroTombamento) tombosParaAusentes.add(numeroTombamento);
+        } else {
+          summary.foraEscopo += 1;
+          motivo = "Fora do escopo selecionado.";
+        }
+
+        if (row.inScope) {
+          const bemAtual = bensByTombo.get(numeroTombamento) || null;
+          const catAtual = catalogByCode.get(codigoCatalogo) || null;
+          const motivos = [];
+          if (!catAtual) motivos.push("Catalogo inexistente no banco.");
+
+          if (!bemAtual) {
+            tipoAcao = "CRIAR_BEM";
+            motivos.push("Bem inexistente no banco.");
+          } else {
+            dadosAntes = buildBeforeSnapshotFromBem(bemAtual);
+            const changed = [];
+            if (String(dadosAntes.codigoCatalogo || "") !== String(dadosDepois.codigoCatalogo || "")) changed.push("catalogo");
+            if (Number(dadosAntes.unidadeDonaId || 0) !== Number(dadosDepois.unidadeDonaId || 0)) changed.push("unidade");
+            if (String(dadosAntes.localFisico || "") !== String(dadosDepois.localFisico || "")) changed.push("localFisico");
+            if (String(dadosAntes.status || "") !== String(dadosDepois.status || "")) changed.push("status");
+            if (Number(dadosAntes.valorAquisicao || 0) !== Number(dadosDepois.valorAquisicao || 0)) changed.push("valorAquisicao");
+            if (String(dadosAntes.cod2Aud || "") !== String(dadosDepois.cod2Aud || "")) changed.push("cod2Aud");
+            if (String(dadosAntes.nomeResumo || "") !== String(dadosDepois.nomeResumo || "")) changed.push("nomeResumo");
+            if (changed.length) {
+              tipoAcao = "ATUALIZAR_BEM";
+              motivos.push(`Campos alterados: ${changed.join(", ")}`);
+            } else {
+              tipoAcao = "SEM_MUDANCA";
+              motivos.push("Sem alteracoes operacionais.");
+            }
+          }
+
+          motivo = motivos.join(" ");
+          if (tipoAcao === "CRIAR_BEM") summary.criarBem += 1;
+          if (tipoAcao === "ATUALIZAR_BEM") summary.atualizarBem += 1;
+          if (tipoAcao === "SEM_MUDANCA") summary.semMudanca += 1;
+        } else if (tipoAcao === "SEM_MUDANCA") {
+          summary.semMudanca += 1;
+        }
+
+        if (modoImportacao === "INCREMENTAL" && (tipoAcao === "CRIAR_BEM" || tipoAcao === "ATUALIZAR_BEM")) {
+          requerConfirmacao = true;
+          decisao = "PENDENTE";
+          summary.pendentesConfirmacao += 1;
+        }
+      }
+
+      summary.totalAcoes += 1;
+      await client.query(
+        `INSERT INTO public.geafin_import_acoes (
+           arquivo_id, linha_id, ordem,
+           tipo_acao, requer_confirmacao, decisao,
+           numero_tombamento, codigo_catalogo, unidade_dona_id,
+           descricao_resumo, dados_antes_json, dados_depois_json,
+           motivo, em_escopo
+         ) VALUES (
+           $1,$2,$3,
+           $4,$5,$6,
+           $7,$8,$9,
+           $10,$11::jsonb,$12::jsonb,
+           $13,$14
+         );`,
+        [
+          arquivoId,
+          linhaId,
+          i + 1,
+          tipoAcao,
+          requerConfirmacao,
+          decisao,
+          numeroTombamento || null,
+          codigoCatalogo || null,
+          unidadeDonaId,
+          n.ok ? String(n.data?.descricao || "").slice(0, 300) : null,
+          dadosAntes ? JSON.stringify(dadosAntes) : null,
+          dadosDepois ? JSON.stringify(dadosDepois) : null,
+          motivo || null,
+          Boolean(row.inScope),
+        ],
+      );
+    }
+
+    if (modoImportacao === "TOTAL") {
+      summary.potencialAusentesEscopo = await countAusentesNoEscopo(
+        client,
+        escopoTipo,
+        unidadeEscopoId,
+        Array.from(tombosParaAusentes),
+      );
+    }
+
+    await client.query(
+      `UPDATE public.geafin_import_arquivos
+       SET resumo_preview_json = $2::jsonb,
+           backup_status = 'PENDENTE'
+       WHERE id = $1;`,
+      [arquivoId, JSON.stringify(summary)],
+    );
+    await client.query("COMMIT");
+
+    return {
+      id: arquivoId,
+      modoImportacao,
+      escopoTipo,
+      unidadeEscopoId: unidadeEscopoId || null,
+      summary,
+    };
+  } catch (error) {
+    await safeRollback(client);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function getGeafinSessionOverview(sessionId) {
+  const session = await getGeafinSessionById(sessionId);
+  if (!session) return null;
+
+  const agg = await pool.query(
+    `SELECT
+       COUNT(*)::int AS total_acoes,
+       COUNT(*) FILTER (WHERE tipo_acao IN ('CRIAR_BEM','ATUALIZAR_BEM'))::int AS total_aplicaveis,
+       COUNT(*) FILTER (WHERE requer_confirmacao)::int AS total_confirmacao,
+       COUNT(*) FILTER (WHERE decisao = 'PENDENTE')::int AS pendentes,
+       COUNT(*) FILTER (WHERE decisao = 'APROVADA')::int AS aprovadas,
+       COUNT(*) FILTER (WHERE decisao = 'REJEITADA')::int AS rejeitadas,
+       COUNT(*) FILTER (WHERE aplicada)::int AS aplicadas,
+       COUNT(*) FILTER (WHERE erro_aplicacao IS NOT NULL)::int AS erros_aplicacao
+     FROM public.geafin_import_acoes
+     WHERE arquivo_id = $1;`,
+    [sessionId],
+  );
+  const rawAgg = await pool.query(
+    `SELECT
+       COUNT(*)::int AS linhas_inseridas,
+       COUNT(*) FILTER (WHERE normalizacao_ok = FALSE)::int AS falha_normalizacao,
+       COUNT(*) FILTER (WHERE persistencia_ok = FALSE AND normalizacao_ok)::int AS falha_persistencia,
+       MAX(created_at) AS ultima_atualizacao_em
+     FROM public.geafin_import_linhas
+     WHERE arquivo_id = $1;`,
+    [sessionId],
+  );
+
+  const a = agg.rows[0] || {};
+  const r = rawAgg.rows[0] || {};
+  const totalAplicaveis = Number(a.total_aplicaveis || 0);
+  const aplicadas = Number(a.aplicadas || 0);
+  const percent = totalAplicaveis > 0 ? Math.min(100, Math.round((aplicadas / totalAplicaveis) * 1000) / 10) : null;
+
+  return {
+    ...session,
+    linhasInseridas: Number(r.linhas_inseridas || 0),
+    falhaNormalizacao: Number(r.falha_normalizacao || 0),
+    falhaPersistencia: Number(r.falha_persistencia || 0),
+    ultimaAtualizacaoEm: r.ultima_atualizacao_em || null,
+    metricas: {
+      totalAcoes: Number(a.total_acoes || 0),
+      totalAplicaveis,
+      totalConfirmacao: Number(a.total_confirmacao || 0),
+      pendentes: Number(a.pendentes || 0),
+      aprovadas: Number(a.aprovadas || 0),
+      rejeitadas: Number(a.rejeitadas || 0),
+      aplicadas,
+      errosAplicacao: Number(a.erros_aplicacao || 0),
+      percent,
+    },
+    percent,
+  };
+}
+
+async function applyGeafinSession(req, sessionId, payload) {
+  const session = await getGeafinSessionById(sessionId);
+  if (!session) throw new HttpError(404, "IMPORTACAO_NAO_ENCONTRADA", "Sessao de importacao GEAFIN nao encontrada.");
+  if (session.status !== "AGUARDANDO_CONFIRMACAO") {
+    throw new HttpError(409, "STATUS_IMPORTACAO_INVALIDO", `Sessao nao pode ser aplicada no status atual: ${session.status}.`);
+  }
+  if (!GEAFIN_MODES.has(String(session.modoImportacao || "").toUpperCase())) {
+    throw new HttpError(500, "SESSAO_MODO_INVALIDO", "Sessao GEAFIN sem modo valido.");
+  }
+
+  const modoImportacao = String(session.modoImportacao || "").toUpperCase();
+  const escopoTipo = String(session.escopoTipo || "GERAL").toUpperCase();
+  const unidadeEscopoId = session.unidadeEscopoId == null ? null : Number(session.unidadeEscopoId);
+
+  let acaoAusentes = null;
+  if (modoImportacao === "TOTAL") {
+    const confirmText = String(payload?.confirmText || "").trim().toUpperCase();
+    if (confirmText !== "IMPORTACAO_TOTAL") {
+      throw new HttpError(422, "CONFIRMACAO_TOTAL_INVALIDA", "Digite IMPORTACAO_TOTAL para confirmar a importacao TOTAL.");
+    }
+    acaoAusentes = parseGeafinAusentesAction(payload?.acaoAusentes);
+  }
+
+  await ensureAdminPassword(req, payload?.adminPassword);
+
+  if (modoImportacao === "INCREMENTAL") {
+    const pend = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM public.geafin_import_acoes
+       WHERE arquivo_id = $1
+         AND requer_confirmacao = TRUE
+         AND decisao = 'PENDENTE'
+         AND tipo_acao IN ('CRIAR_BEM','ATUALIZAR_BEM');`,
+      [sessionId],
+    );
+    if (Number(pend.rows[0]?.total || 0) > 0) {
+      throw new HttpError(422, "DECISOES_PENDENTES", "Existem acoes pendentes de confirmacao no modo INCREMENTAL.");
+    }
+  }
+
+  let backupResult = null;
+  try {
+    backupResult = await performBackupOperation({
+      scope: "all",
+      keepDays: parseKeepDays(payload?.keepDays, BACKUP_KEEP_DAYS_DEFAULT),
+      tag: sanitizeBackupTag(`pre-geafin-${String(sessionId).slice(0, 8)}`, "pre-geafin"),
+    });
+  } catch (error) {
+    await pool.query(
+      `UPDATE public.geafin_import_arquivos
+       SET status = 'ERRO',
+           etapa = 'FALHA_BACKUP',
+           backup_status = 'ERRO',
+           erro_resumo = $2,
+           finalizado_em = NOW()
+       WHERE id = $1;`,
+      [sessionId, String(error?.message || "Falha ao executar backup automatico pre-importacao.")],
+    );
+    throw error;
+  }
+
+  await pool.query(
+    `UPDATE public.geafin_import_arquivos
+     SET status = 'APLICANDO',
+         etapa = 'APLICACAO',
+         backup_status = 'OK',
+         backup_result_json = $2::jsonb,
+         erro_resumo = NULL,
+         cancel_requested = FALSE
+     WHERE id = $1;`,
+    [sessionId, JSON.stringify(backupResult || {})],
+  );
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await setDbContext(client, {
+      changeOrigin: "IMPORTACAO",
+      currentUserId: req.user?.id || "",
+    });
+
+    const actions = await client.query(
+      `SELECT
+         id, tipo_acao, requer_confirmacao, decisao, dados_depois_json,
+         numero_tombamento, em_escopo
+       FROM public.geafin_import_acoes
+       WHERE arquivo_id = $1
+       ORDER BY ordem ASC;`,
+      [sessionId],
+    );
+
+    const importedTombos = new Set();
+    let aplicadas = 0;
+    let ignoradas = 0;
+    let baixadosAusentes = 0;
+
+    for (let i = 0; i < actions.rows.length; i += 1) {
+      const acao = actions.rows[i];
+      if (acao.numero_tombamento && acao.em_escopo) importedTombos.add(String(acao.numero_tombamento));
+
+      if (i % 20 === 0) {
+        const cancel = await client.query(
+          `SELECT cancel_requested
+           FROM public.geafin_import_arquivos
+           WHERE id = $1
+           LIMIT 1;`,
+          [sessionId],
+        );
+        if (Boolean(cancel.rows[0]?.cancel_requested)) {
+          throw new HttpError(409, "IMPORTACAO_CANCELADA_SOLICITADA", "Cancelamento solicitado pelo usuario.");
+        }
+      }
+
+      const actionable = acao.tipo_acao === "CRIAR_BEM" || acao.tipo_acao === "ATUALIZAR_BEM";
+      if (!actionable) {
+        ignoradas += 1;
+        continue;
+      }
+      if (!acao.em_escopo) {
+        ignoradas += 1;
+        continue;
+      }
+      if (acao.requer_confirmacao && acao.decisao !== "APROVADA") {
+        ignoradas += 1;
+        continue;
+      }
+      if (!acao.requer_confirmacao && acao.decisao === "REJEITADA") {
+        ignoradas += 1;
+        continue;
+      }
+
+      const d = acao.dados_depois_json || {};
+      const payloadNorm = {
+        numeroTombamento: String(d.numeroTombamento || ""),
+        codigoCatalogo: String(d.codigoCatalogo || ""),
+        descricao: String(d.descricao || ""),
+        grupo: d.grupo == null ? null : String(d.grupo),
+        nomeResumo: d.nomeResumo == null ? null : String(d.nomeResumo),
+        cod2Aud: d.cod2Aud == null ? null : String(d.cod2Aud),
+        unidadeDonaId: Number(d.unidadeDonaId || 0),
+        localFisico: d.localFisico == null ? "NAO_INFORMADO" : String(d.localFisico),
+        status: String(d.status || "OK"),
+        valorAquisicao: d.valorAquisicao == null ? null : Number(d.valorAquisicao),
+      };
+      if (!TOMBAMENTO_GEAFIN_RE.test(payloadNorm.numeroTombamento)) {
+        throw new HttpError(422, "ACAO_TOMBAMENTO_INVALIDO", `Tombamento invalido na acao ${acao.id}.`);
+      }
+      if (!payloadNorm.codigoCatalogo || !payloadNorm.descricao) {
+        throw new HttpError(422, "ACAO_CATALOGO_INVALIDO", `Catalogo invalido na acao ${acao.id}.`);
+      }
+      if (!VALID_UNIDADES.has(payloadNorm.unidadeDonaId)) {
+        throw new HttpError(422, "ACAO_UNIDADE_INVALIDA", `Unidade invalida na acao ${acao.id}.`);
+      }
+      if (!VALID_STATUS_BEM.has(payloadNorm.status)) payloadNorm.status = "OK";
+
+      const catId = await upsertCatalogo(client, payloadNorm);
+      await upsertBem(client, payloadNorm, catId);
+      await client.query(
+        `UPDATE public.geafin_import_acoes
+         SET aplicada = TRUE, erro_aplicacao = NULL
+         WHERE id = $1;`,
+        [acao.id],
+      );
+      aplicadas += 1;
+    }
+
+    if (modoImportacao === "TOTAL" && acaoAusentes === "BAIXAR") {
+      baixadosAusentes = await applyBaixaAusentesNoEscopo(
+        client,
+        escopoTipo,
+        unidadeEscopoId,
+        Array.from(importedTombos),
+      );
+    }
+
+    await client.query("COMMIT");
+
+    const resumoAplicacao = {
+      aplicadas,
+      ignoradas,
+      totalAcoes: actions.rows.length,
+      modoImportacao,
+      escopoTipo,
+      unidadeEscopoId: unidadeEscopoId || null,
+      acaoAusentes: acaoAusentes || null,
+      baixadosAusentes,
+      backup: backupResult,
+      concluidoEm: new Date().toISOString(),
+    };
+    await pool.query(
+      `UPDATE public.geafin_import_arquivos
+       SET status = 'CONCLUIDO',
+           etapa = 'FINALIZADA',
+           cancel_requested = FALSE,
+           finalizado_em = NOW(),
+           aplicado_em = NOW(),
+           aplicado_por = $2,
+           acao_ausentes = $3,
+           resumo_aplicacao_json = $4::jsonb,
+           erro_resumo = NULL
+       WHERE id = $1;`,
+      [sessionId, req.user?.id || null, acaoAusentes, JSON.stringify(resumoAplicacao)],
+    );
+
+    return resumoAplicacao;
+  } catch (error) {
+    await safeRollback(client);
+    const isCancel = error?.code === "IMPORTACAO_CANCELADA_SOLICITADA";
+    await pool.query(
+      `UPDATE public.geafin_import_arquivos
+       SET status = $2,
+           etapa = $3,
+           finalizado_em = NOW(),
+           erro_resumo = $4
+       WHERE id = $1;`,
+      [
+        sessionId,
+        isCancel ? "CANCELADO" : "ERRO",
+        isCancel ? "CANCELADA" : "FALHA_APLICACAO",
+        String(error?.message || "Falha na aplicacao da sessao GEAFIN."),
+      ],
+    );
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function dbError(error) {
   if (error?.code === "P0001") return "Bloqueado por inventario em andamento (Art. 183 - AN303_Art183).";
   if (error?.code === "23505") return `Conflito de unicidade.${error?.constraint ? ` constraint=${error.constraint}` : ""}`;
@@ -4461,9 +5444,15 @@ function openapi() {
       "/perfis": { get: { summary: "Listagem basica de perfis", responses: { 200: { description: "OK" } } }, post: { summary: "Criacao de perfil", responses: { 201: { description: "Criado" } } } },
       "/perfis/{id}": { patch: { summary: "Atualizar perfil (ADMIN)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/perfis/{id}/reset-senha": { post: { summary: "Resetar senha (ADMIN) para permitir primeiro acesso novamente", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
-      "/importar-geafin": { post: { summary: "Importacao CSV GEAFIN", responses: { 200: { description: "Sucesso" }, 207: { description: "Parcial" } } } },
-      "/importacoes/geafin/ultimo": { get: { summary: "Progresso da ultima importacao GEAFIN (para barra de progresso na UI)", responses: { 200: { description: "OK" }, 404: { description: "Sem importacao" } } } },
-      "/importacoes/geafin/{id}/cancelar": { post: { summary: "Cancelar importacao GEAFIN (marca como ERRO)", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
+      "/importar-geafin": { post: { summary: "Importacao CSV GEAFIN (legado)", responses: { 200: { description: "Sucesso" }, 207: { description: "Parcial" } } } },
+      "/importacoes/geafin/sessoes": { post: { summary: "Criar sessao GEAFIN em modo previa", responses: { 201: { description: "Criado" } } } },
+      "/importacoes/geafin/{id}": { get: { summary: "Detalhar sessao GEAFIN", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
+      "/importacoes/geafin/{id}/acoes": { get: { summary: "Listar acoes planejadas da sessao GEAFIN", responses: { 200: { description: "OK" } } } },
+      "/importacoes/geafin/{id}/acoes/{acaoId}/decisao": { post: { summary: "Aprovar/rejeitar acao individual (modo incremental)", responses: { 200: { description: "OK" } } } },
+      "/importacoes/geafin/{id}/acoes/decisao-lote": { post: { summary: "Aplicar decisao em lote (modo incremental)", responses: { 200: { description: "OK" } } } },
+      "/importacoes/geafin/{id}/aplicar": { post: { summary: "Aplicar sessao GEAFIN (com backup automatico)", responses: { 200: { description: "OK" } } } },
+      "/importacoes/geafin/ultimo": { get: { summary: "Progresso da ultima sessao/importacao GEAFIN", responses: { 200: { description: "OK" }, 404: { description: "Sem importacao" } } } },
+      "/importacoes/geafin/{id}/cancelar": { post: { summary: "Cancelar sessao/importacao GEAFIN", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/movimentar": { post: { summary: "Movimenta bem por transferencia/cautela (tombamento GEAFIN: 10 digitos)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado por inventario" } } } },
       "/inventario/eventos": {
         get: { summary: "Listar eventos de inventario", responses: { 200: { description: "OK" } } },

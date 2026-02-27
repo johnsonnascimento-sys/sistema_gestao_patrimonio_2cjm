@@ -220,3 +220,32 @@ Principais entregas:
 Impacto em runtime/API:
 
 - `GET /bens` passou a retornar `localId` e `localNome` no payload de listagem.
+
+## 15. Atualizacao 2026-02-27 (Catalogo - visibilidade de bens associados)
+
+Principais entregas:
+
+- Campo `Codigo catalogo` no formulario de cadastro passou a usar placeholder `Ex.: 49581`.
+- Lista de catalogos recebeu acao `Ver bens` para consultar itens associados ao catalogo selecionado.
+- Novo bloco visual no painel de catalogo exibe bens associados com:
+  - tombamento, descricao, unidade e local;
+  - miniatura e link da foto do item;
+  - miniatura e link da foto de referencia do catalogo.
+
+Impacto em runtime/API:
+
+- Sem novos endpoints.
+- Reuso de `GET /bens?codigoCatalogo=...` para exibicao operacional.
+
+## 16. Atualizacao 2026-02-28 (Backend Importacao GEAFIN V2 Completo)
+
+Principais entregas:
+
+- Modulo GEAFIN de importacao V2 completamente finalizado com endpoints transacionais e de revisao de dados importados.
+- Novo fluxo: Upload gerando Previa (`AGUARDANDO_CONFIRMACAO`) -> Revisao de Acoes -> Snapshot de Backup Obrigatorio -> Aplicacao (`UPSERT`).
+- Garantida inexistencia de operacoes de Exclusao Fisica (`DELETE`) duramente mantida nas rotinas (itens que devem ser deletados, tem sua localizacao trocada/status setado para BAIXADO).
+
+Impacto em runtime/API:
+
+- Endpoints `/api/importacoes/geafin/...` injetados e operantes no backend.
+- Rotina legacy `POST /importar-geafin` mantida por compatibilidade mas depreciada de uso pela UI atual.
