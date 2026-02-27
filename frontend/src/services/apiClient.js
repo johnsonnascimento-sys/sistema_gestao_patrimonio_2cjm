@@ -209,6 +209,39 @@ export async function getEstatisticasLocais(params = {}) {
 }
 
 /**
+ * Reseta o local_id de todos os bens (ou de uma unidade), limpando o mapeamento de sala.
+ * @param {{ unidadeId?: number }} params Filtros.
+ * @returns {Promise<{ afetados: number }>}
+ */
+export async function resetLocais(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.unidadeId) usp.set("unidadeId", String(params.unidadeId));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/locais/reset${suffix}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista bens filtrados por status de localizacao fisica.
+ * @param {{ statusLocal: "com_local"|"sem_local", unidadeId?: number, limit?: number, offset?: number }} params
+ */
+export async function listarBensLocalizacao(params = {}) {
+  const usp = new URLSearchParams();
+  usp.set("statusLocal", params.statusLocal || "sem_local");
+  if (params.unidadeId) usp.set("unidadeId", String(params.unidadeId));
+  if (params.limit) usp.set("limit", String(params.limit));
+  if (params.offset != null) usp.set("offset", String(params.offset));
+  const response = await safeFetch(`${API_BASE_URL}/bens/localizacao?${usp.toString()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Lista/consulta bens com paginacao.
  * @param {object} filters Filtros opcionais.
  * @param {string=} filters.numeroTombamento Tombamento GEAFIN (10 digitos) ou codigo de 4 digitos.

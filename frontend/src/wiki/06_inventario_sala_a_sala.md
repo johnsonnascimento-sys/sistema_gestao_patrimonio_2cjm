@@ -233,3 +233,25 @@ Ao acessar a aba 'Cadastrar bens por sala (regularizacao em lote)', o sistema ex
 - **Total da Unidade vs Atualizados**: Mostra quantos bens da Unidade ja estao vinculados a um 'Local_id' em relacao ao total daquela Unidade.
 - **Barra de Indicacao**: Facilita a visualizacao para o coordenador entender o volume restante pendente de regularizacao fisica.
 
+
+
+## Reset de Localização Física (Pré-Inventário Livre)
+
+Na aba *Cadastrar bens por sala*, o Admin dispõe de dois recursos adicionais:
+
+### Botão Resetar localização
+
+- Limpa o vínculo de sala (`local_id`) de todos os bens — ou apenas da Unidade selecionada no dropdown.
+- Exibe modal de confirmação com aviso sobre o impacto.
+- Ao confirmar, mostra quantos bens foram desvinculados e atualiza o gráfico de progresso automaticamente.
+- **Nenhum local cadastrado é apagado.** Apenas o vínculo bens?sala é zerado.
+- Útil para recomeçar o mapeamento físico do zero, como um pré-inventário sem as exigências formais do inventário.
+
+### Botão Ver bens por situação
+
+- Abre um painel com duas abas:
+  - **? Pendentes (sem sala)** — bens que ainda não têm sala cadastrada
+  - **? Concluídos (com sala)** — bens já vinculados a um local
+- O filtro de Unidade (dropdown acima) se aplica automaticamente à listagem.
+- Paginação de 50 itens por página, com navegação Anterior/Próxima.
+- Colunas: Tombamento, Nome, Unidade, Sala.

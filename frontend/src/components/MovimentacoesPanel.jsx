@@ -13,6 +13,8 @@ import {
   listarLocais,
   movimentarBem,
   getEstatisticasLocais,
+  resetLocais,
+  listarBensLocalizacao,
 } from "../services/apiClient.js";
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
@@ -100,6 +102,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [loteItens, setLoteItens] = useState([]);
   const [loteState, setLoteState] = useState({ loading: false, response: null, error: null, info: null });
   const [statsLocais, setStatsLocais] = useState({ loading: false, data: null, error: null });
+  const [resetModal, setResetModal] = useState({ open: false, loading: false, resultado: null });
+  const [bensLoc, setBensLoc] = useState({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 });
 
   const selectedLocal = useMemo(
     () => (locaisState.data || []).find((l) => String(l.id) === String(localSalaId)) || null,
@@ -705,6 +709,216 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   </div>
                 </div>
               ) : null}
+
+              {/* ── Ações de localização (ADMIN) ── */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetModal({ open: true, loading: false, resultado: null })}
+                  className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+                  disabled={loteState.loading}
+                >
+                  🔄 Resetar localização{unidadeSalaId ? ` (Unidade ${unidadeSalaId})` : " (todas)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setBensLoc((s) => ({ ...s, loading: true, error: null, offset: 0 }));
+                    try {
+                      const res = await listarBensLocalizacao({
+                        statusLocal: bensLoc.tabAtiva,
+                        unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
+                        limit: 50,
+                        offset: 0,
+                      });
+                      setBensLoc((s) => ({ ...s, loading: false, data: res, offset: 0 }));
+                    } catch (e) {
+                      setBensLoc((s) => ({ ...s, loading: false, error: formatApiError(e) }));
+                    }
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  📋 Ver bens por situação
+                </button>
+              </div>
+
+              {/* ── Modal de confirmação de reset ── */}
+              {resetModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                  <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+                    <h3 className="text-lg font-bold text-slate-800">Confirmar reset de localização</h3>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Isso vai <strong>apagar a sala cadastrada</strong> de todos os bens
+                      {unidadeSalaId ? ` da Unidade ${unidadeSalaId}` : " de todas as unidades"}.
+                      O progresso voltará para zero. Os locais cadastrados não serão apagados.
+                    </p>
+                    {resetModal.resultado != null && (
+                      <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-sm font-medium text-emerald-700">
+                        ✅ {resetModal.resultado} bem(ns) desvinculado(s).
+                      </p>
+                    )}
+                    <div className="mt-4 flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setResetModal({ open: false, loading: false, resultado: null })}
+                        className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                      {resetModal.resultado == null && (
+                        <button
+                          type="button"
+                          disabled={resetModal.loading}
+                          onClick={async () => {
+                            setResetModal((s) => ({ ...s, loading: true }));
+                            try {
+                              const res = await resetLocais({
+                                unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
+                              });
+                              setResetModal((s) => ({ ...s, loading: false, resultado: res?.afetados ?? 0 }));
+                              // Recarrega as estatísticas
+                              setStatsLocais({ loading: false, data: null, error: null });
+                            } catch (e) {
+                              setResetModal((s) => ({ ...s, loading: false }));
+                            }
+                          }}
+                          className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                        >
+                          {resetModal.loading ? "Resetando…" : "Sim, resetar"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Listagem de bens por situação ── */}
+              {(bensLoc.data || bensLoc.loading || bensLoc.error) && (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="flex border-b border-slate-200">
+                    {["sem_local", "com_local"].map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={async () => {
+                          const novaTab = tab;
+                          setBensLoc((s) => ({ ...s, tabAtiva: novaTab, loading: true, data: null, error: null, offset: 0 }));
+                          try {
+                            const res = await listarBensLocalizacao({
+                              statusLocal: novaTab,
+                              unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
+                              limit: 50,
+                              offset: 0,
+                            });
+                            setBensLoc((s) => ({ ...s, loading: false, data: res, offset: 0 }));
+                          } catch (e) {
+                            setBensLoc((s) => ({ ...s, loading: false, error: formatApiError(e) }));
+                          }
+                        }}
+                        className={`flex-1 py-2 text-xs font-medium transition-colors ${bensLoc.tabAtiva === tab
+                            ? tab === "sem_local"
+                              ? "border-b-2 border-amber-500 text-amber-700"
+                              : "border-b-2 border-emerald-500 text-emerald-700"
+                            : "text-slate-500 hover:bg-slate-50"
+                          }`}
+                      >
+                        {tab === "sem_local" ? "⏳ Pendentes (sem sala)" : "✅ Concluídos (com sala)"}
+                        {bensLoc.data && bensLoc.tabAtiva === tab ? ` · ${bensLoc.data.total}` : ""}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setBensLoc({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 })}
+                      className="px-3 text-slate-400 hover:text-slate-700"
+                      title="Fechar"
+                    >✕</button>
+                  </div>
+
+                  {bensLoc.loading && (
+                    <div className="p-4 text-center text-xs text-slate-500 animate-pulse">Carregando…</div>
+                  )}
+                  {bensLoc.error && (
+                    <div className="p-3 text-xs text-rose-700">{bensLoc.error}</div>
+                  )}
+                  {bensLoc.data && !bensLoc.loading && (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-slate-50 text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium">Tombamento</th>
+                              <th className="px-3 py-2 text-left font-medium">Nome</th>
+                              <th className="px-3 py-2 text-center font-medium">Unid.</th>
+                              <th className="px-3 py-2 text-left font-medium">Sala</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {bensLoc.data.items.length === 0 && (
+                              <tr><td colSpan={4} className="px-3 py-4 text-center text-slate-400">Nenhum item</td></tr>
+                            )}
+                            {bensLoc.data.items.map((item) => (
+                              <tr key={item.numeroTombamento} className="hover:bg-slate-50">
+                                <td className="px-3 py-1.5 font-mono">{item.numeroTombamento}</td>
+                                <td className="px-3 py-1.5 max-w-[180px] truncate">{item.nomeResumo || "—"}</td>
+                                <td className="px-3 py-1.5 text-center">{item.unidade}</td>
+                                <td className="px-3 py-1.5">{item.localNome || <span className="text-slate-400">—</span>}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* Paginação */}
+                      <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
+                        <span className="text-xs text-slate-500">
+                          {bensLoc.data.offset + 1}–{Math.min(bensLoc.data.offset + bensLoc.data.limit, bensLoc.data.total)} de {bensLoc.data.total}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            disabled={bensLoc.data.offset === 0}
+                            onClick={async () => {
+                              const novoOffset = Math.max(0, bensLoc.data.offset - 50);
+                              setBensLoc((s) => ({ ...s, loading: true }));
+                              try {
+                                const res = await listarBensLocalizacao({
+                                  statusLocal: bensLoc.tabAtiva,
+                                  unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
+                                  limit: 50,
+                                  offset: novoOffset,
+                                });
+                                setBensLoc((s) => ({ ...s, loading: false, data: res, offset: novoOffset }));
+                              } catch (e) {
+                                setBensLoc((s) => ({ ...s, loading: false, error: formatApiError(e) }));
+                              }
+                            }}
+                            className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                          >← Anterior</button>
+                          <button
+                            type="button"
+                            disabled={bensLoc.data.offset + bensLoc.data.limit >= bensLoc.data.total}
+                            onClick={async () => {
+                              const novoOffset = bensLoc.data.offset + 50;
+                              setBensLoc((s) => ({ ...s, loading: true }));
+                              try {
+                                const res = await listarBensLocalizacao({
+                                  statusLocal: bensLoc.tabAtiva,
+                                  unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
+                                  limit: 50,
+                                  offset: novoOffset,
+                                });
+                                setBensLoc((s) => ({ ...s, loading: false, data: res, offset: novoOffset }));
+                              } catch (e) {
+                                setBensLoc((s) => ({ ...s, loading: false, error: formatApiError(e) }));
+                              }
+                            }}
+                            className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                          >Próxima →</button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 <label className="space-y-1">
