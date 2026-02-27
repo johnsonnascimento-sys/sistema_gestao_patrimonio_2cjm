@@ -147,7 +147,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
           unidadeId: unidadeSalaId ? Number(unidadeSalaId) : undefined,
         });
         if (cancelled) return;
-        setStatsLocais({ loading: false, data: payload?.estatisticas || null, error: null });
+        setStatsLocais({ loading: false, data: payload ?? null, error: null });
       } catch (error) {
         if (cancelled) return;
         setStatsLocais({ loading: false, data: null, error: formatApiError(error) });
