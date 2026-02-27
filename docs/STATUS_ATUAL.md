@@ -249,13 +249,19 @@ Impacto em runtime/API:
 
 - Endpoints `/api/importacoes/geafin/...` injetados e operantes no backend.
 
-## 17. Atualizacao 2026-02-27 (Progress Bar Cadastro por Sala)
+## 17. Atualizacao 2026-02-27 (Progresso de Localizacao Fisica e Reset)
 
 Principais entregas:
 
-- Implementada barra visual de progresso dinamica dentro da funcionalidade *Cadastrar bens por sala* permitindo visualizar em tempo real a proporcao de itens "Com Local" vs "Sem local" por unidade ou global.
+- Implementado card visual de progresso na aba *Cadastrar bens por sala* mostrando bens com/sem sala atribuida, globalmente ou por unidade.
+- Corrigida rota de conflito: `GET /bens/localizacao` movida antes de `GET /bens/:id` no `server.js` para evitar captura incorreta como parametro UUID.
+- Implementado painel de listagem de bens por situacao com dois filtros: *Pendentes (sem sala)* e *Concluidos (com sala)*, com paginacao de 50 itens.
+- Implementada operacao de reset de localizacao fisica com tripla seguranca: JWT admin + senha bcrypt + confirmacao de texto `RESETAR`.
+- Reset permite escopo geral (todas as unidades) ou por unidade especifica (1..4), independente do dropdown de sala da UI.
 
 Impacto em runtime/API:
 
-- Novo endpoint de acompanhamento adicionado: `GET /locais/estatisticas`
-- Rotina legacy `POST /importar-geafin` mantida por compatibilidade mas depreciada de uso pela UI atual.
+- Novo endpoint: `GET /locais/estatisticas` — retorna `{ total, comLocal, semLocal }`.
+- Novo endpoint: `GET /bens/localizacao` — lista bens filtrando por `statusLocal`, paginados.
+- Novo endpoint: `DELETE /locais/reset` — limpa `local_id` dos bens com validacao de senha admin via `ensureAdminPassword`.
+- Wikis `06_inventario_sala_a_sala.md` e `15_referencia_api.md` atualizadas com contratos completos, tabelas de seguranca e exemplos de resposta.
