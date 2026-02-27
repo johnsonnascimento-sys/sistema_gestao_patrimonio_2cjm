@@ -462,7 +462,7 @@ async function performRestoreOperation(params) {
   if (restore.code !== 0) {
     throw new HttpError(500, "RESTORE_EXEC_FALHA", `Falha ao restaurar dump: ${String(restore.stderr || restore.stdout || "").slice(-600)}`);
   }
-  try { fs.unlinkSync(tmpAbs); } catch (_e) {}
+  try { fs.unlinkSync(tmpAbs); } catch (_e) { }
   return { remoteFile };
 }
 
@@ -2971,6 +2971,46 @@ app.post("/catalogo-bens/:id/associar-bens", mustAdmin, async (req, res, next) =
       encontrados: found.rows.length,
       associados: upd.rowCount || 0,
       naoEncontrados,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Estatisticas de locais (progresso de cadastro por sala).
+ */
+app.get("/locais/estatisticas", mustAuth, async (req, res, next) => {
+  try {
+    const unidadeId = req.query?.unidadeId != null && String(req.query.unidadeId).trim() !== ""
+      ? Number(req.query.unidadeId)
+      : null;
+
+    let whereSql = "WHERE eh_bem_terceiro = FALSE AND status != 'BAIXADO'";
+    const params = [];
+
+    if (unidadeId != null) {
+      whereSql += " AND unidade_id = $1";
+      params.push(unidadeId);
+    }
+
+    const { rows } = await pool.query(
+      `SELECT
+         COUNT(*) AS total,
+         COUNT(local_id) AS com_local,
+         COUNT(*) - COUNT(local_id) AS sem_local
+       FROM bens
+       ${whereSql}`,
+      params
+    );
+
+    const stats = rows[0] || { total: 0, com_local: 0, sem_local: 0 };
+
+    res.json({
+      requestId: req.requestId,
+      total: Number(stats.total),
+      comLocal: Number(stats.com_local),
+      semLocal: Number(stats.sem_local)
     });
   } catch (error) {
     next(error);
