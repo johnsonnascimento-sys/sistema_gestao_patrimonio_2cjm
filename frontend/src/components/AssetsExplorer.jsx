@@ -677,7 +677,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     return { tipo: "SALA", label: String(m[2] || "").trim() || "-" };
   };
 
-  const [edit, setEdit] = useState({
+  const editBaseState = useMemo(() => ({
     catalogoBemId: imp?.catalogoBemId || "",
     unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
     nomeResumo: imp?.nomeResumo || "",
@@ -690,7 +690,21 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     localId: imp?.localId || "",
     fotoUrl: imp?.fotoUrl || "",
     fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
-  });
+  }), [
+    catalogo?.fotoReferenciaUrl,
+    imp?.catalogoBemId,
+    imp?.contratoReferencia,
+    imp?.dataAquisicao,
+    imp?.descricaoComplementar,
+    imp?.fotoUrl,
+    imp?.localId,
+    imp?.nomeResumo,
+    imp?.responsavelPerfilId,
+    imp?.status,
+    imp?.unidadeDonaId,
+    imp?.valorAquisicao,
+  ]);
+  const [edit, setEdit] = useState(editBaseState);
   const [editMsg, setEditMsg] = useState(null);
   const [editErr, setEditErr] = useState(null);
   const [uploadState, setUploadState] = useState({ loading: false, error: null });
@@ -700,24 +714,11 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const catalogCameraRef = useRef(null);
 
   useEffect(() => {
-    setEdit({
-      catalogoBemId: imp?.catalogoBemId || "",
-      unidadeDonaId: imp?.unidadeDonaId ? String(imp.unidadeDonaId) : "",
-      nomeResumo: imp?.nomeResumo || "",
-      status: imp?.status || "",
-      descricaoComplementar: imp?.descricaoComplementar || "",
-      responsavelPerfilId: imp?.responsavelPerfilId || "",
-      contratoReferencia: imp?.contratoReferencia || "",
-      dataAquisicao: imp?.dataAquisicao ? String(imp.dataAquisicao).slice(0, 10) : "",
-      valorAquisicao: imp?.valorAquisicao != null ? String(imp.valorAquisicao) : "",
-      localId: imp?.localId || "",
-      fotoUrl: imp?.fotoUrl || "",
-      fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
-    });
+    setEdit(editBaseState);
     setEditMsg(null);
     setEditErr(null);
     setUploadState({ loading: false, error: null });
-  }, [imp?.id, catalogo?.id]);
+  }, [editBaseState, imp?.id, catalogo?.id]);
 
   const locaisQuery = useQuery({
     queryKey: ["locais", "todos"],
@@ -765,6 +766,35 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     setMaterialCodigoBusca(String(catalogo?.codigoCatalogo || ""));
     setMaterialBuscaState({ loading: false, error: null, candidato: null });
   }, [catalogo?.codigoCatalogo, imp?.id]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!isAdmin || !imp) return false;
+    const normalize = (v) => (v == null ? "" : String(v));
+    const serialize = (obj) =>
+      JSON.stringify({
+        catalogoBemId: normalize(obj.catalogoBemId),
+        unidadeDonaId: normalize(obj.unidadeDonaId),
+        nomeResumo: normalize(obj.nomeResumo),
+        status: normalize(obj.status),
+        descricaoComplementar: normalize(obj.descricaoComplementar),
+        responsavelPerfilId: normalize(obj.responsavelPerfilId),
+        contratoReferencia: normalize(obj.contratoReferencia),
+        dataAquisicao: normalize(obj.dataAquisicao),
+        valorAquisicao: normalize(obj.valorAquisicao),
+        localId: normalize(obj.localId),
+        fotoUrl: normalize(obj.fotoUrl),
+        fotoReferenciaUrl: normalize(obj.fotoReferenciaUrl),
+      });
+    return serialize(edit) !== serialize(editBaseState);
+  }, [edit, editBaseState, imp, isAdmin]);
+
+  const requestClose = () => {
+    if (hasUnsavedChanges) {
+      const ok = window.confirm("Existem alteracoes nao salvas. Deseja fechar o modal sem salvar?");
+      if (!ok) return;
+    }
+    onClose?.();
+  };
 
   const readFileAsBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -989,7 +1019,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
           >
             Fechar
