@@ -52,6 +52,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     showItemPhoto: false,
     showCatalogPhoto: false,
   });
+  const [copyFeedback, setCopyFeedback] = useState("");
 
   const canPrev = paging.offset > 0;
   const canNext = paging.offset + paging.limit < paging.total;
@@ -216,8 +217,12 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
+      setCopyFeedback("Número copiado");
+      window.setTimeout(() => setCopyFeedback(""), 1600);
     } catch (_error) {
       // Clipboard pode falhar em alguns navegadores; sem efeito colateral.
+      setCopyFeedback("Falha ao copiar");
+      window.setTimeout(() => setCopyFeedback(""), 1600);
     }
   };
 
@@ -425,6 +430,11 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             </label>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
+            {copyFeedback ? (
+              <span className={`rounded-md px-2 py-1 font-semibold ${copyFeedback === "Número copiado" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                {copyFeedback}
+              </span>
+            ) : null}
             <span>
               {paging.total ? `${paging.offset + 1}-${Math.min(paging.offset + paging.limit, paging.total)}` : "0"} de{" "}
               {paging.total}
