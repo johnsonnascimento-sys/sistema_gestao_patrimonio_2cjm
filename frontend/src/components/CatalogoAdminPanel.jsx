@@ -69,6 +69,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     totalBens: "",
   });
   const [sortState, setSortState] = useState({ key: "", dir: "asc" });
+  const totalServerItems = Array.isArray(listState.data?.items) ? listState.data.items.length : 0;
 
   const loadCatalogos = async () => {
     if (!canAdmin) return;
@@ -136,6 +137,25 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     });
     return filtrados;
   }, [columnFilters, listState.data?.items, sortState.dir, sortState.key]);
+
+  const hasColumnFilterActive = Boolean(
+    String(columnFilters.codigoCatalogo || "").trim()
+    || String(columnFilters.descricao || "").trim()
+    || String(columnFilters.grupo || "").trim()
+    || String(columnFilters.permanente || "").trim()
+    || String(columnFilters.totalBens || "").trim(),
+  );
+
+  const clearTableFilters = () => {
+    setColumnFilters({
+      codigoCatalogo: "",
+      descricao: "",
+      grupo: "",
+      permanente: "",
+      totalBens: "",
+    });
+    setSortState({ key: "", dir: "asc" });
+  };
 
   const onSalvarCatalogo = async (event) => {
     event.preventDefault();
@@ -392,7 +412,22 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <h4 className="text-sm font-semibold text-slate-900">Lista de catalogo</h4>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-slate-900">Lista de catalogo</h4>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-600">
+              Mostrando {itemsFiltradosOrdenados.length} de {totalServerItems} materiais
+            </span>
+            <button
+              type="button"
+              onClick={clearTableFilters}
+              className="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+              disabled={!hasColumnFilterActive && !sortState.key}
+            >
+              Limpar filtros da tabela
+            </button>
+          </div>
+        </div>
         <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200">
           <table className="min-w-full text-left text-xs">
             <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
