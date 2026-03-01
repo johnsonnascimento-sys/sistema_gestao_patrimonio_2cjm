@@ -52,6 +52,7 @@ git pull --ff-only
 # Injeta metadados git no ambiente do compose para o backend expor versao em /health.
 export APP_GIT_COMMIT="$(git rev-parse --short=12 HEAD)"
 export APP_GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+compose_env=(APP_GIT_COMMIT="$APP_GIT_COMMIT" APP_GIT_BRANCH="$APP_GIT_BRANCH")
 
 echo "[deploy] removendo containers antigos (se existirem)..."
 # Importante (UX/operacao):
@@ -68,14 +69,14 @@ fi
 
 echo "[deploy] build + up ($target)..."
 if [[ "$target" == "frontend" ]]; then
-  docker compose -f "$COMPOSE_FILE" build frontend
-  docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate frontend
+  env "${compose_env[@]}" docker compose -f "$COMPOSE_FILE" build frontend
+  env "${compose_env[@]}" docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate frontend
 elif [[ "$target" == "backend" ]]; then
-  docker compose -f "$COMPOSE_FILE" build backend
-  docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate backend
+  env "${compose_env[@]}" docker compose -f "$COMPOSE_FILE" build backend
+  env "${compose_env[@]}" docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate backend
 else
-  docker compose -f "$COMPOSE_FILE" build backend frontend
-  docker compose -f "$COMPOSE_FILE" up -d --force-recreate
+  env "${compose_env[@]}" docker compose -f "$COMPOSE_FILE" build backend frontend
+  env "${compose_env[@]}" docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 fi
 
 if command -v curl >/dev/null 2>&1; then
