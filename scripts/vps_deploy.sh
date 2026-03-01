@@ -49,6 +49,10 @@ echo "[deploy] atualizando codigo (git pull)..."
 git fetch --all --prune
 git pull --ff-only
 
+# Injeta metadados git no ambiente do compose para o backend expor versao em /health.
+export APP_GIT_COMMIT="$(git rev-parse --short=12 HEAD)"
+export APP_GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
 echo "[deploy] removendo containers antigos (se existirem)..."
 # Importante (UX/operacao):
 # - Deploy "frontend" NAO pode derrubar o backend, senao o site volta com 502 em /api.

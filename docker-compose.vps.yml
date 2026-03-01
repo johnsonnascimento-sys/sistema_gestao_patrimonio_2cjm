@@ -40,6 +40,9 @@ services:
       BACKUP_REMOTE_BASE: "${BACKUP_REMOTE_BASE:-cjm_gdrive:db-backups}"
       BACKUP_KEEP_DAYS_DEFAULT: "${BACKUP_KEEP_DAYS_DEFAULT:-14}"
       BACKUP_MEDIA_SOURCE: "${BACKUP_MEDIA_SOURCE:-/app/data/fotos}"
+      # Metadados de versao para /health e painel Auditoria/Logs.
+      APP_GIT_COMMIT: "${APP_GIT_COMMIT:-}"
+      APP_GIT_BRANCH: "${APP_GIT_BRANCH:-}"
 
   frontend:
     container_name: cjm_frontend
