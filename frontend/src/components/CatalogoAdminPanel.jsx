@@ -75,14 +75,40 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     if (!canAdmin) return;
     setListState({ loading: true, data: null, error: null });
     try {
-      const data = await listarCatalogos({
+      const pageSize = 500;
+      const maxPages = 20;
+      const baseParams = {
         q: filtros.q.trim() || undefined,
         codigoCatalogo: filtros.codigoCatalogo.trim() || undefined,
         grupo: filtros.grupo.trim() || undefined,
-        limit: 400,
-        offset: 0,
+        limit: pageSize,
+      };
+
+      let offset = 0;
+      let total = 0;
+      let pages = 0;
+      const allItems = [];
+
+      while (pages < maxPages) {
+        const data = await listarCatalogos({ ...baseParams, offset });
+        const items = Array.isArray(data?.items) ? data.items : [];
+        total = Number(data?.paging?.total || 0);
+        allItems.push(...items);
+        pages += 1;
+
+        if (!items.length || allItems.length >= total) break;
+        offset += items.length;
+      }
+
+      setListState({
+        loading: false,
+        data: {
+          requestId: null,
+          paging: { limit: pageSize, offset: 0, total },
+          items: allItems,
+        },
+        error: null,
       });
-      setListState({ loading: false, data, error: null });
     } catch (error) {
       setListState({ loading: false, data: null, error: formatApiError(error) });
     }
