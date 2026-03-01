@@ -59,6 +59,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   });
   const [assocState, setAssocState] = useState({ loading: false, response: null, error: null });
   const [uploadState, setUploadState] = useState({ loading: false, error: null });
+  const [formFotoFile, setFormFotoFile] = useState(null);
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
   const [columnFilters, setColumnFilters] = useState({
@@ -205,6 +206,12 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       const data = editId
         ? await atualizarCatalogo(String(editId), payload)
         : await criarCatalogo(payload);
+      const savedCatalogoId = data?.catalogo?.id ? String(data.catalogo.id) : "";
+      if (formFotoFile && savedCatalogoId) {
+        await onUploadFoto({ id: savedCatalogoId }, formFotoFile, { skipReload: true });
+        setFormFotoFile(null);
+      }
+
       setFormState({ loading: false, response: data, error: null });
       if (editId) {
         setEditId("");
@@ -226,17 +233,19 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       grupo: String(catalogo.grupo || ""),
       materialPermanente: Boolean(catalogo.materialPermanente),
     });
+    setFormFotoFile(null);
     setFormState({ loading: false, response: null, error: null });
   };
 
   const onCancelarEdicao = () => {
     setEditId("");
     setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
+    setFormFotoFile(null);
     setFormState({ loading: false, response: null, error: null });
   };
 
-  const onUploadFoto = async (catalogo, file) => {
-    if (!canAdmin || !catalogo?.id || !file) return;
+  const onUploadFoto = async (catalogo, file, opts = {}) => {
+    if (!canAdmin || !catalogo?.id || !file) return false;
     setUploadState({ loading: true, error: null });
     try {
       const base64 = await new Promise((resolve, reject) => {
@@ -257,9 +266,11 @@ export default function CatalogoAdminPanel({ canAdmin }) {
         base64Data: String(base64),
       });
       setUploadState({ loading: false, error: null });
-      await loadCatalogos();
+      if (!opts.skipReload) await loadCatalogos();
+      return true;
     } catch (error) {
       setUploadState({ loading: false, error: formatApiError(error) });
+      return false;
     }
   };
 
@@ -378,6 +389,21 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                 disabled={!canAdmin && auth.authEnabled}
               />
               Material permanente
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">Imagem do material (opcional)</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFormFotoFile(e.target.files?.[0] || null)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                disabled={formState.loading || (!canAdmin && auth.authEnabled)}
+              />
+              <p className="text-[11px] text-slate-500">
+                {formFotoFile
+                  ? `Selecionado: ${formFotoFile.name}`
+                  : "Se informar imagem, ela sera enviada ao salvar o material."}
+              </p>
             </label>
             <button
               type="submit"
