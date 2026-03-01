@@ -3514,20 +3514,14 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(body, "ehBemTerceiro") || Object.prototype.hasOwnProperty.call(body, "eh_bem_terceiro")) {
       throw new HttpError(422, "CHAVE_IMUTAVEL", "ehBemTerceiro e imutavel.");
     }
-    if (Object.prototype.hasOwnProperty.call(body, "unidadeDonaId")) {
-      throw new HttpError(
-        422,
-        "PROCEDIMENTO_OBRIGATORIO_TRANSFERENCIA",
-        "Alteracao de unidade (carga) deve ser feita pelo procedimento de TRANSFERENCIA em Movimentacoes."
-      );
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "status")) {
-      throw new HttpError(
-        422,
-        "PROCEDIMENTO_OBRIGATORIO_STATUS",
-        "Alteracao de status deve seguir o procedimento proprio (ex.: CAUTELA_SAIDA/CAUTELA_RETORNO em Movimentacoes)."
-      );
-    }
+    const currentBem = await client.query(
+      `SELECT unidade_dona_id AS "unidadeDonaId", status::text AS "status"
+       FROM bens
+       WHERE id = $1`,
+      [id],
+    );
+    if (!currentBem.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+    const currentRow = currentBem.rows[0];
 
     const patch = {};
 
@@ -3543,6 +3537,22 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
 
     if (Object.prototype.hasOwnProperty.call(body, "nomeResumo")) {
       patch.nomeResumo = sanitizeNomeResumo(body.nomeResumo);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "unidadeDonaId")) {
+      const unidadeDonaId = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== ""
+        ? Number(body.unidadeDonaId)
+        : null;
+      if (unidadeDonaId == null || !Number.isInteger(unidadeDonaId) || !VALID_UNIDADES.has(unidadeDonaId)) {
+        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+      }
+      if (Number(unidadeDonaId) !== Number(currentRow.unidadeDonaId)) {
+        throw new HttpError(
+          422,
+          "PROCEDIMENTO_OBRIGATORIO_TRANSFERENCIA",
+          "Alteracao de unidade (carga) deve ser feita pelo procedimento de TRANSFERENCIA em Movimentacoes."
+        );
+      }
     }
 
 
@@ -3565,6 +3575,19 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
       else {
         if (!UUID_RE.test(raw)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID ou null.");
         patch.localId = raw;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "status")) {
+      const status = String(body.status || "").trim().toUpperCase();
+      const allowed = new Set(["OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"]);
+      if (!allowed.has(status)) throw new HttpError(422, "STATUS_INVALIDO", "status invalido.");
+      if (status !== String(currentRow.status || "").trim().toUpperCase()) {
+        throw new HttpError(
+          422,
+          "PROCEDIMENTO_OBRIGATORIO_STATUS",
+          "Alteracao de status deve seguir o procedimento proprio (ex.: CAUTELA_SAIDA/CAUTELA_RETORNO em Movimentacoes)."
+        );
       }
     }
 
