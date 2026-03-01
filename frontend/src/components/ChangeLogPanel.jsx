@@ -23,6 +23,16 @@ function formatUtcLabel(raw) {
   return `${date.toLocaleString("pt-BR", { timeZone: "UTC" })} UTC`;
 }
 
+function parseUtcTimestamp(raw) {
+  const text = normalizeText(raw);
+  if (!text) return Number.NEGATIVE_INFINITY;
+  const normalized = text.endsWith(" UTC")
+    ? `${text.slice(0, -4).replace(" ", "T")}Z`
+    : text;
+  const ms = Date.parse(normalized);
+  return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
+}
+
 async function copyToClipboard(value) {
   try {
     if (!value) return false;
@@ -37,7 +47,15 @@ export default function ChangeLogPanel() {
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState("");
 
-  const entries = Array.isArray(changeLogEntries) ? changeLogEntries : [];
+  const entries = useMemo(() => {
+    const raw = Array.isArray(changeLogEntries) ? changeLogEntries : [];
+    return [...raw].sort((a, b) => {
+      const timeDiff = parseUtcTimestamp(b?.dataHoraUTC) - parseUtcTimestamp(a?.dataHoraUTC);
+      if (timeDiff !== 0) return timeDiff;
+      return normalizeText(b?.id).localeCompare(normalizeText(a?.id), "pt-BR");
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     const q = normalizeText(query).toLowerCase();
     if (!q) return entries;
