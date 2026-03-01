@@ -728,15 +728,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     },
   });
 
-  const materiaisQuery = useQuery({
-    queryKey: ["materiais", "todos"],
-    enabled: Boolean(imp?.id),
-    queryFn: async () => {
-      const data = await listarCatalogos({ limit: 5000, offset: 0 });
-      return data.items || [];
-    },
-  });
-
   const locaisOptions = useMemo(() => {
     const unidade = imp?.unidadeDonaId != null ? Number(imp.unidadeDonaId) : null;
     return (locaisQuery.data || []).filter((l) => {
@@ -745,21 +736,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       return l.unidadeId == null || Number(l.unidadeId) === unidade;
     });
   }, [locaisQuery.data, imp?.unidadeDonaId]);
-
-  const materiaisOptions = useMemo(
-    () => (materiaisQuery.data || []).filter((m) => String(m?.id || "").trim() !== ""),
-    [materiaisQuery.data],
-  );
-  const materialAtualOption = useMemo(() => {
-    const currentId = String(edit?.catalogoBemId || "").trim();
-    if (!currentId) return null;
-    const found = materiaisOptions.find((m) => String(m.id) === currentId);
-    if (found) return found;
-    return {
-      id: currentId,
-      codigoCatalogo: catalogo?.codigoCatalogo || currentId,
-    };
-  }, [catalogo?.codigoCatalogo, edit?.catalogoBemId, materiaisOptions]);
   const cautelaDestinoAtual = useMemo(
     () => extractCautelaDestino(cautelaAtual?.justificativa),
     [cautelaAtual?.justificativa],
@@ -1088,26 +1064,9 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-slate-600">Material (SKU)</span>
-                      <select
-                        value={edit.catalogoBemId}
-                        onChange={(e) => setEdit((p) => ({ ...p, catalogoBemId: e.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                        disabled={materiaisQuery.isLoading}
-                      >
-                        {materialAtualOption && !materiaisOptions.some((m) => String(m.id) === String(materialAtualOption.id)) ? (
-                          <option value={materialAtualOption.id}>
-                            {String(materialAtualOption.codigoCatalogo || materialAtualOption.id)}
-                          </option>
-                        ) : null}
-                        {materiaisOptions.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {String(m.codigoCatalogo || m.id)}
-                          </option>
-                        ))}
-                      </select>
-                      {materiaisQuery.isLoading ? (
-                        <p className="text-[11px] text-slate-500">Carregando materiais cadastrados...</p>
-                      ) : null}
+                      <p className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                        Atual: <strong>{catalogo?.codigoCatalogo || "-"}</strong>
+                      </p>
                       <p className="text-[11px] font-semibold text-amber-700">
                         Atenção: o Material (SKU) deve ser o mesmo cadastrado no GEAFIN para evitar divergências.
                       </p>
