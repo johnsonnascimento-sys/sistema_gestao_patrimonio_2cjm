@@ -12,6 +12,7 @@ import {
   getBemDetalhe,
   getStats,
   listarBens,
+  listarCatalogos,
   listarLocais,
   reverterBemAuditoria,
   uploadFoto,
@@ -727,6 +728,15 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     },
   });
 
+  const materiaisQuery = useQuery({
+    queryKey: ["materiais", "todos"],
+    enabled: Boolean(imp?.id),
+    queryFn: async () => {
+      const data = await listarCatalogos({ limit: 5000, offset: 0 });
+      return data.items || [];
+    },
+  });
+
   const locaisOptions = useMemo(() => {
     const unidade = imp?.unidadeDonaId != null ? Number(imp.unidadeDonaId) : null;
     return (locaisQuery.data || []).filter((l) => {
@@ -735,6 +745,21 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       return l.unidadeId == null || Number(l.unidadeId) === unidade;
     });
   }, [locaisQuery.data, imp?.unidadeDonaId]);
+
+  const materiaisOptions = useMemo(
+    () => (materiaisQuery.data || []).filter((m) => String(m?.id || "").trim() !== ""),
+    [materiaisQuery.data],
+  );
+  const materialAtualOption = useMemo(() => {
+    const currentId = String(edit?.catalogoBemId || "").trim();
+    if (!currentId) return null;
+    const found = materiaisOptions.find((m) => String(m.id) === currentId);
+    if (found) return found;
+    return {
+      id: currentId,
+      codigoCatalogo: catalogo?.codigoCatalogo || currentId,
+    };
+  }, [catalogo?.codigoCatalogo, edit?.catalogoBemId, materiaisOptions]);
   const cautelaDestinoAtual = useMemo(
     () => extractCautelaDestino(cautelaAtual?.justificativa),
     [cautelaAtual?.justificativa],
@@ -998,10 +1023,10 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                   </dl>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Catálogo (SKU)</p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Material (SKU)</p>
                   <dl className="mt-2 space-y-1 text-sm">
-                    <Row k="CatalogoBemId" v={catalogo?.id || imp.catalogoBemId} mono />
-                    <Row k="Código catálogo" v={catalogo?.codigoCatalogo} />
+                    <Row k="Material (SKU) id" v={catalogo?.id || imp.catalogoBemId} mono />
+                    <Row k="Codigo material (SKU)" v={catalogo?.codigoCatalogo} />
                     <Row k="Descrição" v={catalogo?.descricao} />
                     <Row k="Grupo" v={catalogo?.grupo} />
                     <Row k="Material permanente" v={String(Boolean(catalogo?.materialPermanente))} />
@@ -1021,16 +1046,27 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-600">Catálogo (SKU) id (UUID)</span>
-                      <input
+                      <span className="text-xs text-slate-600">Material (SKU)</span>
+                      <select
                         value={edit.catalogoBemId}
                         onChange={(e) => setEdit((p) => ({ ...p, catalogoBemId: e.target.value }))}
-                        placeholder={catalogo?.id || imp.catalogoBemId || "UUID do catálogo"}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs"
-                      />
-                      <p className="text-[11px] text-slate-500">
-                        Use apenas para correção manual. Idealmente o SKU vem da normalização do GEAFIN.
-                      </p>
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        disabled={materiaisQuery.isLoading}
+                      >
+                        {materialAtualOption && !materiaisOptions.some((m) => String(m.id) === String(materialAtualOption.id)) ? (
+                          <option value={materialAtualOption.id}>
+                            {String(materialAtualOption.codigoCatalogo || materialAtualOption.id)}
+                          </option>
+                        ) : null}
+                        {materiaisOptions.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {String(m.codigoCatalogo || m.id)}
+                          </option>
+                        ))}
+                      </select>
+                      {materiaisQuery.isLoading ? (
+                        <p className="text-[11px] text-slate-500">Carregando materiais cadastrados...</p>
+                      ) : null}
                     </label>
 
                     <label className="space-y-1">
