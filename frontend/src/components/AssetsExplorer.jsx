@@ -42,7 +42,6 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     numeroTombamento: "",
     codigoCatalogo: "",
     q: "",
-    localFisico: "",
     localId: "",
     unidadeDonaId: "",
     status: "",
@@ -127,7 +126,6 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
         tipoBusca,
         codigoCatalogo: activeFilters.codigoCatalogo.trim() || undefined,
         q: activeFilters.q.trim() || undefined,
-        localFisico: activeFilters.localFisico.trim() || undefined,
         localId: activeFilters.localId ? String(activeFilters.localId) : undefined,
         unidadeDonaId: activeFilters.unidadeDonaId ? Number(activeFilters.unidadeDonaId) : undefined,
         status: activeFilters.status || undefined,
@@ -182,7 +180,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     setFormError(null);
     setTipoBusca4Digitos(null);
     setTagIdModal({ isOpen: false, value: "" });
-    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localFisico: "", localId: "", unidadeDonaId: "", status: "" };
+    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localId: "", unidadeDonaId: "", status: "" };
     setFilters(clearedFilters);
     setPaging((prev) => ({ ...prev, offset: 0 }));
     setTimeout(() => loadList(0, undefined, clearedFilters), 0);
@@ -238,7 +236,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header className="space-y-2">
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens (dados reais)</h2>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens</h2>
         <p className="text-sm text-slate-600">
           Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo), codigo de catalogo ou texto da descricao.
         </p>
@@ -332,15 +330,6 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
               value={filters.codigoCatalogo}
               onChange={(e) => setFilters((prev) => ({ ...prev, codigoCatalogo: e.target.value }))}
               placeholder="Ex.: 101004470"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-600">Local (texto do GEAFIN / local_fisico)</span>
-            <input
-              value={filters.localFisico}
-              onChange={(e) => setFilters((prev) => ({ ...prev, localFisico: e.target.value }))}
-              placeholder="Ex.: Sala 101, Hall 6º Andar, Almox..."
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
@@ -1496,7 +1485,4 @@ function Row({ k, v, mono }) {
     </div>
   );
 }
-
-
-
 
