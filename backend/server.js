@@ -3431,6 +3431,7 @@ app.get("/pdf/forasteiros", mustAdmin, async (req, res, next) => {
  * Restrito a ADMIN (quando auth ativa).
  */
 app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
@@ -3442,7 +3443,10 @@ app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
 
     const fotoUrl = body.fotoUrl != null ? String(body.fotoUrl).trim().slice(0, 2000) : null;
 
-    const r = await pool.query(
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+
+    const r = await client.query(
       `UPDATE bens
     SET
     local_fisico = COALESCE($2, local_fisico),
@@ -3459,9 +3463,13 @@ app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
     );
     if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
 
+    await client.query("COMMIT");
     res.json({ requestId: req.requestId, bem: r.rows[0] });
   } catch (error) {
+    await safeRollback(client);
     next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -3712,6 +3720,7 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
  * - Otimiza automaticamente: converte para WebP, redimensiona para max 1200px.
  */
 app.post("/fotos/upload", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const body = req.body || {};
     const target = String(body.target || "").trim().toUpperCase();
@@ -3749,25 +3758,34 @@ app.post("/fotos/upload", mustAdmin, async (req, res, next) => {
 
     // Atualiza banco
     if (target === "BEM") {
-      const r = await pool.query(
+      await client.query("BEGIN");
+      await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+      const r = await client.query(
         `UPDATE bens SET foto_url = $2, updated_at = NOW() WHERE id = $1
          RETURNING id, foto_url AS "fotoUrl", updated_at AS "updatedAt";`,
         [id, fotoUrl],
       );
       if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+      await client.query("COMMIT");
       res.json({ requestId: req.requestId, fotoUrl, sizeKb, bem: r.rows[0] });
       return;
     }
 
-    const r = await pool.query(
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+    const r = await client.query(
       `UPDATE catalogo_bens SET foto_referencia_url = $2, updated_at = NOW() WHERE id = $1
        RETURNING id, foto_referencia_url AS "fotoReferenciaUrl", updated_at AS "updatedAt";`,
       [id, fotoUrl],
     );
     if (!r.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
+    await client.query("COMMIT");
     res.json({ requestId: req.requestId, fotoUrl, sizeKb, catalogo: r.rows[0] });
   } catch (error) {
+    await safeRollback(client);
     next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -3786,6 +3804,7 @@ app.post("/drive/fotos/upload", mustAdmin, (req, res, next) => {
  * - Nao e regra legal; e melhoria operacional para inventario por sala.
  */
 app.post("/bens/vincular-local", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const body = req.body || {};
     const localId = body.localId != null ? String(body.localId).trim() : "";
@@ -3846,13 +3865,17 @@ app.post("/bens/vincular-local", mustAdmin, async (req, res, next) => {
       return;
     }
 
-    const upd = await pool.query(
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
+
+    const upd = await client.query(
       `UPDATE bens
        SET local_id = $${i}, updated_at = NOW()
        ${whereSql}
        RETURNING id;`,
       [...params, localId],
     );
+    await client.query("COMMIT");
 
     res.json({
       requestId: req.requestId,
@@ -3862,7 +3885,10 @@ app.post("/bens/vincular-local", mustAdmin, async (req, res, next) => {
       exemplo: preview.rows,
     });
   } catch (error) {
+    await safeRollback(client);
     next(error);
+  } finally {
+    client.release();
   }
 });
 
