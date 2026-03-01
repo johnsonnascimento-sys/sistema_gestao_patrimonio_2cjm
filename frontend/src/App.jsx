@@ -262,6 +262,7 @@ function AppShell() {
   const auth = useAuth();
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
   const [tab, setTab] = useState("dashboard");
+  const [bensNavPreset, setBensNavPreset] = useState({ unidadeDonaId: null, nonce: 0 });
   const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -307,6 +308,23 @@ function AppShell() {
   const selectTab = (nextTab) => {
     setTab(nextTab);
     setMobileMenuOpen(false);
+  };
+  const handleDashboardNavigate = (target) => {
+    if (typeof target === "string") {
+      setTab(target);
+      return;
+    }
+    if (target && typeof target === "object") {
+      const nextTab = target.id ? String(target.id) : "dashboard";
+      if (nextTab === "bens") {
+        const unidade = target.filters?.unidadeDonaId ?? null;
+        setBensNavPreset((prev) => ({
+          unidadeDonaId: unidade,
+          nonce: prev.nonce + 1,
+        }));
+      }
+      setTab(nextTab);
+    }
   };
   const activeTabLabel = useMemo(() => {
     for (const entry of NAV_STRUCTURE) {
@@ -628,9 +646,14 @@ function AppShell() {
                 </div>
               </section>
 
-              {tab === "dashboard" && <DashboardPanel onNavigate={setTab} />}
+              {tab === "dashboard" && <DashboardPanel onNavigate={handleDashboardNavigate} />}
 
-              {tab === "bens" && <AssetsExplorer />}
+              {tab === "bens" && (
+                <AssetsExplorer
+                  initialUnidadeDonaId={bensNavPreset.unidadeDonaId}
+                  key={`assets-explorer-${bensNavPreset.nonce}`}
+                />
+              )}
 
               {tab === "inventario-contagem" && (
                 <SectionErrorBoundary>

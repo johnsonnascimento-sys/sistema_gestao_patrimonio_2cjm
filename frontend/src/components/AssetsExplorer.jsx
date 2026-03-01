@@ -30,7 +30,7 @@ function formatUnidade(id) {
   return String(id || "");
 }
 
-export default function AssetsExplorer() {
+export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   const auth = useAuth();
   const [stats, setStats] = useState({ loading: false, data: null, error: null });
   const [list, setList] = useState({ loading: false, data: null, error: null });
@@ -92,6 +92,18 @@ export default function AssetsExplorer() {
     ];
   }, [stats.data]);
 
+  const applyUnidadeFilter = (unidadeIdOrNull) => {
+    const unidadeValue = unidadeIdOrNull == null ? "" : String(Number(unidadeIdOrNull));
+    const nextFilters = {
+      ...filters,
+      unidadeDonaId: unidadeValue,
+      localId: "",
+    };
+    setFilters(nextFilters);
+    setPaging((prev) => ({ ...prev, offset: 0 }));
+    setTimeout(() => loadList(0, undefined, nextFilters), 0);
+  };
+
   const loadStats = async () => {
     setStats({ loading: true, data: null, error: null });
     try {
@@ -138,6 +150,14 @@ export default function AssetsExplorer() {
     loadList(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (initialUnidadeDonaId == null) return;
+    const unidadeNum = Number(initialUnidadeDonaId);
+    if (!Number.isInteger(unidadeNum) || unidadeNum < 1 || unidadeNum > 4) return;
+    applyUnidadeFilter(unidadeNum);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUnidadeDonaId]);
 
   const onSubmit = (event) => {
     event.preventDefault();
@@ -225,7 +245,16 @@ export default function AssetsExplorer() {
       </header>
 
       <article className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <button
+          type="button"
+          onClick={() => applyUnidadeFilter(null)}
+          className={`rounded-xl border p-4 text-left transition ${
+            !filters.unidadeDonaId
+              ? "border-violet-300 bg-violet-50 ring-1 ring-violet-200"
+              : "border-slate-200 bg-white hover:bg-slate-50"
+          }`}
+          title="Clique para listar bens de todas as unidades"
+        >
           <p className="text-xs uppercase tracking-widest text-slate-500">Total bens</p>
           {stats.loading && <p className="mt-2 text-sm text-slate-600">Carregando...</p>}
           {stats.error && <p className="mt-2 text-sm text-rose-700">{stats.error}</p>}
@@ -234,15 +263,25 @@ export default function AssetsExplorer() {
               {stats.data.bens.total}
             </p>
           )}
-        </div>
+        </button>
         <div className="rounded-xl border border-slate-200 bg-white p-4 md:col-span-2">
           <p className="text-xs uppercase tracking-widest text-slate-500">Bens por unidade</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {unitSummary.map((row) => (
-              <div key={row.unidade} className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">
+              <button
+                key={row.unidade}
+                type="button"
+                onClick={() => applyUnidadeFilter(row.unidade)}
+                className={`rounded-lg border px-3 py-2 text-left transition ${
+                  String(filters.unidadeDonaId) === String(row.unidade)
+                    ? "border-violet-300 bg-violet-50 ring-1 ring-violet-200"
+                    : "border-slate-200 bg-slate-100 hover:bg-slate-200"
+                }`}
+                title={`Clique para listar apenas a unidade ${formatUnidade(row.unidade)}`}
+              >
                 <p className="text-xs text-slate-600">{formatUnidade(row.unidade)}</p>
                 <p className="mt-1 text-lg font-semibold text-slate-900">{row.total}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>

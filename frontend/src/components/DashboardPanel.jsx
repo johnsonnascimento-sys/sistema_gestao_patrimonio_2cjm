@@ -231,6 +231,12 @@ export default function DashboardPanel({ onNavigate }) {
     { id: "importacoes-geafin", label: "Importacao GEAFIN" },
   ];
   const activeFloor = hoveredFloor || selectedFloor;
+  const goToBensByUnidade = (unidadeDonaId = null) => {
+    onNavigate?.({
+      id: "bens",
+      filters: { unidadeDonaId },
+    });
+  };
 
   return (
     <section className="mt-6 space-y-6">
@@ -244,10 +250,17 @@ export default function DashboardPanel({ onNavigate }) {
             Panorama operacional consolidado para consulta, inventario e rastreabilidade patrimonial.
           </p>
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-widest text-slate-500">Total de bens</p>
-            <p className="mt-1 font-[Space_Grotesk] text-4xl font-bold text-violet-700">
-              {statsQuery.isLoading ? "..." : totalBens}
-            </p>
+            <button
+              type="button"
+              onClick={() => goToBensByUnidade(null)}
+              className="w-full text-left"
+              title="Abrir Consulta de Bens sem filtro de unidade"
+            >
+              <p className="text-xs uppercase tracking-widest text-slate-500">Total de bens</p>
+              <p className="mt-1 font-[Space_Grotesk] text-4xl font-bold text-violet-700">
+                {statsQuery.isLoading ? "..." : totalBens}
+              </p>
+            </button>
             <div className="mt-3 flex flex-wrap gap-2">
               {quickActions.map((action) => (
                 <button
@@ -276,10 +289,16 @@ export default function DashboardPanel({ onNavigate }) {
           </div>
           <div className="mt-3 space-y-2">
             {porUnidade.map((row) => (
-              <div key={`u-${row.unidade}`} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+              <button
+                key={`u-${row.unidade}`}
+                type="button"
+                onClick={() => goToBensByUnidade(Number(row.unidade))}
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-100"
+                title={`Abrir Consulta de Bens filtrada para ${unidadeLabel(row.unidade)}`}
+              >
                 <span className="text-sm text-slate-700">{unidadeLabel(row.unidade)}</span>
                 <span className="text-sm font-semibold text-slate-900">{Number(row.total || 0)}</span>
-              </div>
+              </button>
             ))}
             {!porUnidade.length && !statsQuery.isLoading ? (
               <p className="text-sm text-slate-500">Sem dados de distribuicao.</p>
