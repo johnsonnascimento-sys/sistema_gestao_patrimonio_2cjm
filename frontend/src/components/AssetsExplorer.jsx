@@ -43,6 +43,7 @@ export default function AssetsExplorer() {
     codigoCatalogo: "",
     q: "",
     localFisico: "",
+    localId: "",
     unidadeDonaId: "",
     status: "",
   });
@@ -54,6 +55,31 @@ export default function AssetsExplorer() {
 
   const canPrev = paging.offset > 0;
   const canNext = paging.offset + paging.limit < paging.total;
+
+  const locaisFiltroQuery = useQuery({
+    queryKey: ["locais", "todos"],
+    queryFn: async () => {
+      const data = await listarLocais({});
+      return data.items || [];
+    },
+  });
+
+  const locaisFiltroOptions = useMemo(() => {
+    const unidadeFiltro = filters.unidadeDonaId ? Number(filters.unidadeDonaId) : null;
+    return (locaisFiltroQuery.data || []).filter((l) => {
+      if (l.ativo === false) return false;
+      if (unidadeFiltro == null) return true;
+      return l.unidadeId == null || Number(l.unidadeId) === unidadeFiltro;
+    });
+  }, [filters.unidadeDonaId, locaisFiltroQuery.data]);
+
+  useEffect(() => {
+    if (!filters.localId) return;
+    const exists = locaisFiltroOptions.some((l) => String(l.id) === String(filters.localId));
+    if (!exists) {
+      setFilters((prev) => ({ ...prev, localId: "" }));
+    }
+  }, [filters.localId, locaisFiltroOptions]);
 
   const unitSummary = useMemo(() => {
     const rows = stats.data?.bens?.porUnidade || [];
@@ -90,6 +116,7 @@ export default function AssetsExplorer() {
         codigoCatalogo: activeFilters.codigoCatalogo.trim() || undefined,
         q: activeFilters.q.trim() || undefined,
         localFisico: activeFilters.localFisico.trim() || undefined,
+        localId: activeFilters.localId ? String(activeFilters.localId) : undefined,
         unidadeDonaId: activeFilters.unidadeDonaId ? Number(activeFilters.unidadeDonaId) : undefined,
         status: activeFilters.status || undefined,
         limit: paging.limit,
@@ -135,7 +162,7 @@ export default function AssetsExplorer() {
     setFormError(null);
     setTipoBusca4Digitos(null);
     setTagIdModal({ isOpen: false, value: "" });
-    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localFisico: "", unidadeDonaId: "", status: "" };
+    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localFisico: "", localId: "", unidadeDonaId: "", status: "" };
     setFilters(clearedFilters);
     setPaging((prev) => ({ ...prev, offset: 0 }));
     setTimeout(() => loadList(0, undefined, clearedFilters), 0);
@@ -277,6 +304,24 @@ export default function AssetsExplorer() {
               placeholder="Ex.: Sala 101, Hall 6º Andar, Almox..."
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
+          </label>
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-xs text-slate-600">Sala (local cadastrado)</span>
+            <select
+              value={filters.localId}
+              onChange={(e) => setFilters((prev) => ({ ...prev, localId: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Todas as salas</option>
+              {locaisFiltroOptions.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {`${l.nome}${l.unidadeId ? ` (${formatUnidade(Number(l.unidadeId))})` : ""}`}
+                </option>
+              ))}
+            </select>
+            {locaisFiltroQuery.isLoading ? (
+              <p className="text-[11px] text-slate-500">Carregando salas...</p>
+            ) : null}
           </label>
           <label className="space-y-1">
             <span className="text-xs text-slate-600">Unidade</span>
