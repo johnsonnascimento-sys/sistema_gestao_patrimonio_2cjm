@@ -3510,6 +3510,20 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(body, "ehBemTerceiro") || Object.prototype.hasOwnProperty.call(body, "eh_bem_terceiro")) {
       throw new HttpError(422, "CHAVE_IMUTAVEL", "ehBemTerceiro e imutavel.");
     }
+    if (Object.prototype.hasOwnProperty.call(body, "unidadeDonaId")) {
+      throw new HttpError(
+        422,
+        "PROCEDIMENTO_OBRIGATORIO_TRANSFERENCIA",
+        "Alteracao de unidade (carga) deve ser feita pelo procedimento de TRANSFERENCIA em Movimentacoes."
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "status")) {
+      throw new HttpError(
+        422,
+        "PROCEDIMENTO_OBRIGATORIO_STATUS",
+        "Alteracao de status deve seguir o procedimento proprio (ex.: CAUTELA_SAIDA/CAUTELA_RETORNO em Movimentacoes)."
+      );
+    }
 
     const patch = {};
 
@@ -3527,13 +3541,6 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
       patch.nomeResumo = sanitizeNomeResumo(body.nomeResumo);
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, "unidadeDonaId")) {
-      const unidadeDonaId = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== "" ? Number(body.unidadeDonaId) : null;
-      if (unidadeDonaId == null || !Number.isInteger(unidadeDonaId) || !VALID_UNIDADES.has(unidadeDonaId)) {
-        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
-      }
-      patch.unidadeDonaId = unidadeDonaId;
-    }
 
     if (Object.prototype.hasOwnProperty.call(body, "responsavelPerfilId")) {
       const raw = body.responsavelPerfilId != null ? String(body.responsavelPerfilId).trim() : "";
@@ -3557,12 +3564,6 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
       }
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, "status")) {
-      const status = String(body.status || "").trim().toUpperCase();
-      const allowed = new Set(["OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"]);
-      if (!allowed.has(status)) throw new HttpError(422, "STATUS_INVALIDO", "status invalido.");
-      patch.status = status;
-    }
 
     if (Object.prototype.hasOwnProperty.call(body, "tipoInservivel")) {
       const raw = body.tipoInservivel != null ? String(body.tipoInservivel).trim().toUpperCase() : "";
@@ -3615,11 +3616,6 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
       params.push(patch.nomeResumo);
       i += 1;
     }
-    if (patch.unidadeDonaId != null) {
-      fields.push(`unidade_dona_id = $${i} `);
-      params.push(patch.unidadeDonaId);
-      i += 1;
-    }
     if (patch.responsavelPerfilId !== undefined) {
       fields.push(`responsavel_perfil_id = $${i} `);
       params.push(patch.responsavelPerfilId);
@@ -3633,11 +3629,6 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     if (patch.localId !== undefined) {
       fields.push(`local_id = $${i} `);
       params.push(patch.localId);
-      i += 1;
-    }
-    if (patch.status != null) {
-      fields.push(`status = $${i}:: public.status_bem`);
-      params.push(patch.status);
       i += 1;
     }
     if (patch.tipoInservivel !== undefined) {

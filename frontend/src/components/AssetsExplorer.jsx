@@ -859,9 +859,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
       const bemUpdated = await atualizarBem(imp.id, {
         catalogoBemId: edit.catalogoBemId ? String(edit.catalogoBemId).trim() : undefined,
-        unidadeDonaId: edit.unidadeDonaId ? Number(edit.unidadeDonaId) : undefined,
         nomeResumo: edit.nomeResumo || null,
-        status: edit.status || undefined,
         descricaoComplementar: edit.descricaoComplementar || null,
         responsavelPerfilId: edit.responsavelPerfilId || null,
         contratoReferencia: edit.contratoReferencia || null,
@@ -1150,36 +1148,22 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
                     <label className="space-y-1">
                       <span className="text-xs text-slate-600">Unidade (carga)</span>
-                      <select
-                        value={edit.unidadeDonaId}
-                        onChange={(e) => setEdit((p) => ({ ...p, unidadeDonaId: e.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                      >
-                        <option value="">(não alterar)</option>
-                        {["1", "2", "3", "4"].map((u) => (
-                          <option key={u} value={u}>
-                            {formatUnidade(Number(u))}
-                          </option>
-                        ))}
-                      </select>
+                      <p className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                        {formatUnidade(Number(imp?.unidadeDonaId))}
+                      </p>
                       <p className="text-[11px] text-slate-500">
-                        Regra legal: transferências podem ser bloqueadas durante inventário (Art. 183 - AN303_Art183).
+                        Alteracao de unidade nao e permitida aqui. Use Movimentacoes / TRANSFERENCIA.
                       </p>
                     </label>
 
                     <label className="space-y-1">
                       <span className="text-xs text-slate-600">Status do bem</span>
-                      <select
-                        value={edit.status}
-                        onChange={(e) => setEdit((p) => ({ ...p, status: e.target.value }))}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                      >
-                        {STATUS_OPTIONS.filter(Boolean).map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
+                      <p className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                        {String(imp?.status || "-")}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Alteracao de status nao e permitida aqui. Use o procedimento proprio em Movimentacoes (ex.: Cautela).
+                      </p>
                     </label>
 
                     <label className="space-y-1">
