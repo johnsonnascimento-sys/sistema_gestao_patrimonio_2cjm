@@ -778,6 +778,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     return "-";
   }, [imp?.localId, imp?.status, imp?.localFisico, locaisQuery.data, cautelaDestinoAtual?.tipo]);
   const [expandedMovId, setExpandedMovId] = useState(null);
+  const [materialCodigoBusca, setMaterialCodigoBusca] = useState("");
+  const [materialBuscaState, setMaterialBuscaState] = useState({
+    loading: false,
+    error: null,
+    candidato: null,
+  });
+
+  useEffect(() => {
+    setMaterialCodigoBusca(String(catalogo?.codigoCatalogo || ""));
+    setMaterialBuscaState({ loading: false, error: null, candidato: null });
+  }, [catalogo?.codigoCatalogo, imp?.id]);
 
   const readFileAsBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -804,6 +815,36 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       mimeType: String(file.type || "image/jpeg"),
       base64Data,
     });
+  };
+
+  const buscarMaterialPorCodigo = async () => {
+    const codigo = String(materialCodigoBusca || "").trim();
+    if (!codigo) {
+      setMaterialBuscaState({ loading: false, error: "Informe o numero do material (SKU).", candidato: null });
+      return;
+    }
+    setMaterialBuscaState({ loading: true, error: null, candidato: null });
+    try {
+      const data = await listarCatalogos({ codigoCatalogo: codigo, limit: 30, offset: 0 });
+      const items = data?.items || [];
+      const exact = items.find((m) => String(m?.codigoCatalogo || "").trim() === codigo) || null;
+      const candidato = exact || items[0] || null;
+      if (!candidato) {
+        setMaterialBuscaState({
+          loading: false,
+          error: `Nenhum material cadastrado encontrado para o codigo ${codigo}.`,
+          candidato: null,
+        });
+        return;
+      }
+      setMaterialBuscaState({ loading: false, error: null, candidato });
+    } catch (e) {
+      setMaterialBuscaState({
+        loading: false,
+        error: String(e?.message || "Falha ao buscar material por codigo."),
+        candidato: null,
+      });
+    }
   };
 
   const salvarBemMut = useMutation({
@@ -1066,6 +1107,55 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       </select>
                       {materiaisQuery.isLoading ? (
                         <p className="text-[11px] text-slate-500">Carregando materiais cadastrados...</p>
+                      ) : null}
+                      <p className="text-[11px] font-semibold text-amber-700">
+                        Atenção: o Material (SKU) deve ser o mesmo cadastrado no GEAFIN para evitar divergências.
+                      </p>
+                      <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
+                        <input
+                          value={materialCodigoBusca}
+                          onChange={(e) => setMaterialCodigoBusca(e.target.value)}
+                          placeholder="Digite o numero do material (SKU)"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={buscarMaterialPorCodigo}
+                          disabled={materialBuscaState.loading}
+                          className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                        >
+                          {materialBuscaState.loading ? "Buscando..." : "Buscar codigo"}
+                        </button>
+                      </div>
+                      {materialBuscaState.error ? (
+                        <p className="text-[11px] text-rose-700">{materialBuscaState.error}</p>
+                      ) : null}
+                      {materialBuscaState.candidato ? (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900">
+                          <p>
+                            Codigo: <strong>{materialBuscaState.candidato.codigoCatalogo || "-"}</strong>
+                          </p>
+                          <p>
+                            Descrição: <strong>{materialBuscaState.candidato.descricao || "-"}</strong>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const c = materialBuscaState.candidato;
+                              if (!c?.id) return;
+                              const ok = window.confirm(
+                                `Confirmar uso do material ${c.codigoCatalogo || "-"}?\n\n${c.descricao || "Sem descricao"}`
+                              );
+                              if (!ok) return;
+                              setEdit((p) => ({ ...p, catalogoBemId: c.id }));
+                              setEditMsg(`Material (SKU) ${c.codigoCatalogo || ""} selecionado.`);
+                              setEditErr(null);
+                            }}
+                            className="mt-2 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
+                          >
+                            Confirmar este material
+                          </button>
+                        </div>
                       ) : null}
                     </label>
 
