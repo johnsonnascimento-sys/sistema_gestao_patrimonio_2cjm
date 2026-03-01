@@ -333,6 +333,20 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
           </label>
+          <label className="space-y-1">
+            <span className="text-xs text-slate-600">Unidade</span>
+            <select
+              value={filters.unidadeDonaId}
+              onChange={(e) => setFilters((prev) => ({ ...prev, unidadeDonaId: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              {UNIT_OPTIONS.map((u) => (
+                <option key={u || "all"} value={u}>
+                  {u ? formatUnidade(Number(u)) : "Todas"}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="space-y-1 md:col-span-2">
             <span className="text-xs text-slate-600">Sala (local cadastrado)</span>
             <select
@@ -350,20 +364,6 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             {locaisFiltroQuery.isLoading ? (
               <p className="text-[11px] text-slate-500">Carregando salas...</p>
             ) : null}
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-600">Unidade</span>
-            <select
-              value={filters.unidadeDonaId}
-              onChange={(e) => setFilters((prev) => ({ ...prev, unidadeDonaId: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            >
-              {UNIT_OPTIONS.map((u) => (
-                <option key={u || "all"} value={u}>
-                  {u ? formatUnidade(Number(u)) : "Todas"}
-                </option>
-              ))}
-            </select>
           </label>
           <label className="space-y-1">
             <span className="text-xs text-slate-600">Status</span>
