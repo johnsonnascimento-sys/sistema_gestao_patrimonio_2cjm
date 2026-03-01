@@ -3,7 +3,7 @@
  * Arquivo: CatalogoAdminPanel.jsx
  * Funcao no sistema: administrar catalogo de bens (CRUD) e associar bens ao catalogo por tombamento.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   associarBensCatalogo,
@@ -61,6 +61,14 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [uploadState, setUploadState] = useState({ loading: false, error: null });
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
+  const [columnFilters, setColumnFilters] = useState({
+    codigoCatalogo: "",
+    descricao: "",
+    grupo: "",
+    permanente: "",
+    totalBens: "",
+  });
+  const [sortState, setSortState] = useState({ key: "", dir: "asc" });
 
   const loadCatalogos = async () => {
     if (!canAdmin) return;
@@ -84,6 +92,50 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     void loadCatalogos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAdmin]);
+
+  const toggleSort = (key) => {
+    setSortState((prev) => {
+      if (prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return { key: "", dir: "asc" };
+    });
+  };
+
+  const itemsFiltradosOrdenados = useMemo(() => {
+    const items = Array.isArray(listState.data?.items) ? [...listState.data.items] : [];
+    const codigo = String(columnFilters.codigoCatalogo || "").trim().toLowerCase();
+    const descricao = String(columnFilters.descricao || "").trim().toLowerCase();
+    const grupo = String(columnFilters.grupo || "").trim().toLowerCase();
+    const permanente = String(columnFilters.permanente || "").trim().toUpperCase();
+    const totalBens = String(columnFilters.totalBens || "").trim().toLowerCase();
+
+    const filtrados = items.filter((c) => {
+      const codigoOk = !codigo || String(c.codigoCatalogo || "").toLowerCase().includes(codigo);
+      const descricaoOk = !descricao || String(c.descricao || "").toLowerCase().includes(descricao);
+      const grupoOk = !grupo || String(c.grupo || "").toLowerCase().includes(grupo);
+      const permanenteVal = c.materialPermanente ? "SIM" : "NAO";
+      const permanenteOk = !permanente || permanenteVal === permanente;
+      const bensOk = !totalBens || String(Number(c.totalBens ?? 0)).toLowerCase().includes(totalBens);
+      return codigoOk && descricaoOk && grupoOk && permanenteOk && bensOk;
+    });
+
+    if (!sortState.key) return filtrados;
+    const direction = sortState.dir === "desc" ? -1 : 1;
+    filtrados.sort((a, b) => {
+      if (sortState.key === "totalBens") {
+        return (Number(a.totalBens ?? 0) - Number(b.totalBens ?? 0)) * direction;
+      }
+      if (sortState.key === "permanente") {
+        const aVal = a.materialPermanente ? "SIM" : "NAO";
+        const bVal = b.materialPermanente ? "SIM" : "NAO";
+        return aVal.localeCompare(bVal, "pt-BR") * direction;
+      }
+      const aVal = String(a[sortState.key] || "");
+      const bVal = String(b[sortState.key] || "");
+      return aVal.localeCompare(bVal, "pt-BR", { numeric: true, sensitivity: "base" }) * direction;
+    });
+    return filtrados;
+  }, [columnFilters, listState.data?.items, sortState.dir, sortState.key]);
 
   const onSalvarCatalogo = async (event) => {
     event.preventDefault();
@@ -210,7 +262,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold">Catalogo (Material)</h3>
+          <h3 className="font-semibold">Material (SKU)</h3>
           <p className="mt-1 text-xs text-slate-600">
             Cadastro central de catalogo com foto de referencia e associacao de bens por tombamento.
           </p>
@@ -345,17 +397,84 @@ export default function CatalogoAdminPanel({ canAdmin }) {
           <table className="min-w-full text-left text-xs">
             <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
               <tr>
-                <th className="px-3 py-2">Codigo</th>
-                <th className="px-3 py-2">Descricao</th>
-                <th className="px-3 py-2">Grupo</th>
-                <th className="px-3 py-2">Permanente</th>
-                <th className="px-3 py-2">Bens</th>
+                <th className="px-3 py-2">
+                  <button type="button" onClick={() => toggleSort("codigoCatalogo")} className="inline-flex items-center gap-1 hover:text-slate-900">
+                    Codigo {sortState.key === "codigoCatalogo" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2">
+                  <button type="button" onClick={() => toggleSort("descricao")} className="inline-flex items-center gap-1 hover:text-slate-900">
+                    Descricao {sortState.key === "descricao" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2">
+                  <button type="button" onClick={() => toggleSort("grupo")} className="inline-flex items-center gap-1 hover:text-slate-900">
+                    Grupo {sortState.key === "grupo" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2">
+                  <button type="button" onClick={() => toggleSort("permanente")} className="inline-flex items-center gap-1 hover:text-slate-900">
+                    Permanente {sortState.key === "permanente" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2">
+                  <button type="button" onClick={() => toggleSort("totalBens")} className="inline-flex items-center gap-1 hover:text-slate-900">
+                    Bens {sortState.key === "totalBens" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
+                  </button>
+                </th>
                 <th className="px-3 py-2">Foto</th>
                 <th className="px-3 py-2">Acoes</th>
               </tr>
+              <tr className="bg-slate-50">
+                <th className="px-2 py-1">
+                  <input
+                    value={columnFilters.codigoCatalogo}
+                    onChange={(e) => setColumnFilters((p) => ({ ...p, codigoCatalogo: e.target.value }))}
+                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px]"
+                    placeholder="Filtrar"
+                  />
+                </th>
+                <th className="px-2 py-1">
+                  <input
+                    value={columnFilters.descricao}
+                    onChange={(e) => setColumnFilters((p) => ({ ...p, descricao: e.target.value }))}
+                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px]"
+                    placeholder="Filtrar"
+                  />
+                </th>
+                <th className="px-2 py-1">
+                  <input
+                    value={columnFilters.grupo}
+                    onChange={(e) => setColumnFilters((p) => ({ ...p, grupo: e.target.value }))}
+                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px]"
+                    placeholder="Filtrar"
+                  />
+                </th>
+                <th className="px-2 py-1">
+                  <select
+                    value={columnFilters.permanente}
+                    onChange={(e) => setColumnFilters((p) => ({ ...p, permanente: e.target.value }))}
+                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px]"
+                  >
+                    <option value="">Todos</option>
+                    <option value="SIM">SIM</option>
+                    <option value="NAO">NAO</option>
+                  </select>
+                </th>
+                <th className="px-2 py-1">
+                  <input
+                    value={columnFilters.totalBens}
+                    onChange={(e) => setColumnFilters((p) => ({ ...p, totalBens: e.target.value }))}
+                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-[11px]"
+                    placeholder="Qtd"
+                  />
+                </th>
+                <th className="px-2 py-1 text-[11px] text-slate-500">-</th>
+                <th className="px-2 py-1 text-[11px] text-slate-500">-</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {(listState.data?.items || []).map((c) => (
+              {itemsFiltradosOrdenados.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2 font-mono text-[11px] text-slate-700">{c.codigoCatalogo}</td>
                   <td className="px-3 py-2 text-slate-900">{c.descricao}</td>
@@ -416,7 +535,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                   </td>
                 </tr>
               ))}
-              {(listState.data?.items || []).length === 0 && !listState.loading ? (
+              {itemsFiltradosOrdenados.length === 0 && !listState.loading ? (
                 <tr>
                   <td className="px-3 py-3 text-slate-600" colSpan={7}>
                     Nenhum catalogo encontrado.

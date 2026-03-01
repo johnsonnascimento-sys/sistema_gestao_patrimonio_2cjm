@@ -48,7 +48,7 @@ Legenda:
 | Material Permanente: Classificação e Tombamento | 71–77 | Parcial | Tombamento (10 dígitos) validado; importação GEAFIN cria itens. |
 | Permanente: Planejamento e Aquisição | 78–88 | Pendente | Não há fluxo de aquisição/planejamento no sistema. |
 | Permanente: Recebimento e Aceitação | 89–96 | Pendente | Falta fluxo de recebimento provisório/definitivo. |
-| Controle Patrimonial: Tombamento e Registro | 97–106 | Parcial | Catálogo (SKU) + bens (item) normalizados; espelho GEAFIN para auditoria. |
+| Controle Patrimonial: Tombamento e Registro | 97–106 | Parcial | material (SKU) + bens (item) normalizados; espelho GEAFIN para auditoria. |
 | Patrimônio: Distribuição e Responsabilidade | 107–121 | Parcial | Unidade dona (carga) e perfis existem; falta termo formal do consignatário (fluxo). |
 | Patrimônio: Movimentação e Uso | 122–140 | Parcial | Cautela x transferência implementadas; falta termo oficial e anexos. |
 | Patrimônio: Desfazimento e Inservíveis | 141–152 | Parcial | Wizard existe; falta persistir decisão e produzir peças/relatórios. |

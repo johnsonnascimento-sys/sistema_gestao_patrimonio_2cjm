@@ -20,7 +20,7 @@ O sistema de Gestão Patrimonial da 2a CJM foi desenhado para ser:
 
 Um **bem** é o objeto físico com tombamento (ex.: `1290001788`). Cada tombamento identifica um item único.
 
-### Catálogo (SKU)
+### material (SKU)
 
 O **catálogo** descreve "o que é" (modelo/tipo), por exemplo:
 
@@ -54,7 +54,7 @@ Uso:
 Uso:
 
 - Registrar contagens por sala (modo "sala a sala").
-- Trabalhar agrupado por catálogo (SKU) para ganhar velocidade.
+- Trabalhar agrupado por material (SKU) para ganhar velocidade.
 - Registrar divergências ("intruso") sem transferir carga durante inventário.
 
 ### 3) Wizard Art. 141

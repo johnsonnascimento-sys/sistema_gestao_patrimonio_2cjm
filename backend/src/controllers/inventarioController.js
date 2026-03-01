@@ -767,6 +767,16 @@ function createInventarioController(deps) {
       if (!encerradoPorPerfilId || !UUID_RE.test(encerradoPorPerfilId)) {
         throw new HttpError(422, "ENCERRADOR_INVALIDO", "encerradoPorPerfilId (UUID) e obrigatorio.");
       }
+      const perfilR = await pool.query(
+        `SELECT id
+         FROM perfis
+         WHERE id = $1
+         LIMIT 1;`,
+        [encerradoPorPerfilId],
+      );
+      if (!perfilR.rowCount) {
+        throw new HttpError(422, "ENCERRADOR_NAO_ENCONTRADO", "Perfil informado para encerramento nao foi encontrado.");
+      }
 
       const observacoesRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
       const observacoes = observacoesRaw ? observacoesRaw.slice(0, 2000) : null;

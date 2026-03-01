@@ -6,10 +6,10 @@
 import { useEffect, useState } from "react";
 import { listarErrosRuntime } from "../services/apiClient.js";
 
-function formatDateTimeUtc(value) {
+function formatDateTimeBrasilia(value) {
   if (!value) return "-";
   try {
-    return `${new Date(value).toLocaleString("pt-BR", { timeZone: "UTC" })} UTC`;
+    return new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   } catch {
     return String(value);
   }
@@ -63,7 +63,7 @@ export default function RuntimeErrorLogPanel({ canAdmin }) {
         <table className="min-w-full text-left text-xs">
           <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
             <tr>
-              <th className="px-3 py-2">Data/Hora UTC</th>
+              <th className="px-3 py-2">Data/Hora Brasília</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Codigo</th>
               <th className="px-3 py-2">Rota</th>
@@ -74,7 +74,7 @@ export default function RuntimeErrorLogPanel({ canAdmin }) {
           <tbody className="divide-y divide-slate-200 bg-white">
             {items.map((it, idx) => (
               <tr key={`${it.requestId || "sem-id"}-${idx}`} className="hover:bg-slate-50">
-                <td className="px-3 py-2 text-slate-700">{formatDateTimeUtc(it.tsUtc)}</td>
+                <td className="px-3 py-2 text-slate-700">{formatDateTimeBrasilia(it.tsUtc)}</td>
                 <td className="px-3 py-2 text-slate-700">{it.status ?? "-"}</td>
                 <td className="px-3 py-2">
                   <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">

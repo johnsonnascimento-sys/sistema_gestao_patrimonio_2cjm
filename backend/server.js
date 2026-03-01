@@ -18,7 +18,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const path = require("node:path");
 const fs = require("node:fs");
-const { spawn } = require("node:child_process");
+const { spawn, execFileSync } = require("node:child_process");
 const sharp = require("sharp");
 const { generateTermoPdf, generateTablePdf } = require("./src/services/pdfReports");
 
@@ -143,6 +143,22 @@ fs.mkdirSync(RUNTIME_LOG_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_LOCAL_DB_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_LOCAL_MEDIA_DIR, { recursive: true });
 app.use("/fotos", express.static(FOTOS_DIR, { maxAge: "7d", immutable: true }));
+
+function readGitMeta() {
+  const envCommit = String(process.env.APP_GIT_COMMIT || process.env.GIT_COMMIT || "").trim();
+  const envBranch = String(process.env.APP_GIT_BRANCH || process.env.GIT_BRANCH || "").trim();
+  if (envCommit || envBranch) {
+    return { commit: envCommit || null, branch: envBranch || null };
+  }
+  try {
+    const commit = String(execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { cwd: __dirname, stdio: ["ignore", "pipe", "ignore"] }) || "").trim();
+    const branch = String(execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: __dirname, stdio: ["ignore", "pipe", "ignore"] }) || "").trim();
+    return { commit: commit || null, branch: branch || null };
+  } catch (_error) {
+    return { commit: null, branch: null };
+  }
+}
+const APP_GIT_META = readGitMeta();
 app.use((req, res, next) => {
   req.requestId = randomUUID();
   res.setHeader("X-Request-Id", req.requestId);
@@ -238,6 +254,41 @@ function readBackupOpsLog(limit) {
 
 function toUtcStamp(date = new Date()) {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function toTimeZoneIso(date = new Date(), timeZone = "America/Sao_Paulo") {
+  const d = date instanceof Date ? date : new Date(date);
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = dtf.formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value || "00";
+  const year = get("year");
+  const month = get("month");
+  const day = get("day");
+  const hour = get("hour");
+  const minute = get("minute");
+  const second = get("second");
+
+  const asUtcMs = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+  const offsetMinutes = Math.round((asUtcMs - d.getTime()) / 60000);
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMinutes);
+  const offH = String(Math.floor(abs / 60)).padStart(2, "0");
+  const offM = String(abs % 60).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}${sign}${offH}:${offM}`;
+}
+
+function toBrasiliaIso(date = new Date()) {
+  return toTimeZoneIso(date, "America/Sao_Paulo");
 }
 
 function sanitizeBackupTag(raw, fallback) {
@@ -654,7 +705,12 @@ app.get("/", (_req, res) => res.json({ status: "ok", docs: "/docs" }));
 app.get("/health", async (req, res, next) => {
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ok", requestId: req.requestId, authEnabled: AUTH_ENABLED });
+    res.json({
+      status: "ok",
+      requestId: req.requestId,
+      authEnabled: AUTH_ENABLED,
+      git: APP_GIT_META,
+    });
   } catch (error) {
     next(error);
   }
@@ -3890,23 +3946,23 @@ app.post("/admin/backup/snapshot", mustAdmin, async (req, res, next) => {
     await ensureAdminPassword(req, req.body?.adminPassword);
     const keepDays = parseKeepDays(req.body?.keepDays, BACKUP_KEEP_DAYS_DEFAULT);
     const tag = sanitizeBackupTag(req.body?.tag, "pre-geafin");
-    const startedAt = new Date().toISOString();
+    const startedAt = toBrasiliaIso();
     const result = await performBackupOperation({ scope: "all", keepDays, tag });
     const payload = {
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId,
       userId: req.user?.id || null,
       action: "SNAPSHOT_PRE_GEAFIN",
       status: "OK",
       startedAt,
-      finishedAt: new Date().toISOString(),
+      finishedAt: toBrasiliaIso(),
       result,
     };
     appendBackupOpsLog(payload);
     res.json({ requestId: req.requestId, ok: true, action: "SNAPSHOT_PRE_GEAFIN", result });
   } catch (error) {
     appendBackupOpsLog({
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId,
       userId: req.user?.id || null,
       action: "SNAPSHOT_PRE_GEAFIN",
@@ -3925,22 +3981,22 @@ app.post("/admin/backup/manual", mustAdmin, async (req, res, next) => {
     if (!scope) throw new HttpError(422, "SCOPE_INVALIDO", "scope deve ser db, media ou all.");
     const keepDays = parseKeepDays(req.body?.keepDays, BACKUP_KEEP_DAYS_DEFAULT);
     const tag = sanitizeBackupTag(req.body?.tag, "manual");
-    const startedAt = new Date().toISOString();
+    const startedAt = toBrasiliaIso();
     const result = await performBackupOperation({ scope, keepDays, tag });
     appendBackupOpsLog({
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId,
       userId: req.user?.id || null,
       action: "BACKUP_MANUAL",
       status: "OK",
       startedAt,
-      finishedAt: new Date().toISOString(),
+      finishedAt: toBrasiliaIso(),
       result,
     });
     res.json({ requestId: req.requestId, ok: true, action: "BACKUP_MANUAL", result });
   } catch (error) {
     appendBackupOpsLog({
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId,
       userId: req.user?.id || null,
       action: "BACKUP_MANUAL",
@@ -3970,7 +4026,7 @@ app.post("/admin/backup/restore", mustAdmin, async (req, res, next) => {
     const restore = await performRestoreOperation({ remoteFile });
     const result = { preRestore, restore };
     appendBackupOpsLog({
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId,
       userId: req.user?.id || null,
       action: "RESTORE_DB",
@@ -3980,7 +4036,7 @@ app.post("/admin/backup/restore", mustAdmin, async (req, res, next) => {
     res.json({ requestId: req.requestId, ok: true, action: "RESTORE_DB", result });
   } catch (error) {
     appendBackupOpsLog({
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId,
       userId: req.user?.id || null,
       action: "RESTORE_DB",
@@ -3994,7 +4050,7 @@ app.post("/admin/backup/restore", mustAdmin, async (req, res, next) => {
 app.use((error, req, res, _next) => {
   const logHandledError = (status, code, message) => {
     appendRuntimeErrorLog({
-      tsUtc: new Date().toISOString(),
+      tsUtc: toBrasiliaIso(),
       requestId: req.requestId || null,
       method: req.method || null,
       path: req.originalUrl || req.url || null,
@@ -4057,6 +4113,17 @@ app.use((error, req, res, _next) => {
   if (error?.code === "23514") {
     logHandledError(422, "VIOLACAO_REGRA_NEGOCIO", "Violacao de regra de negocio.");
     res.status(422).json({ error: { code: "VIOLACAO_REGRA_NEGOCIO", message: "Violacao de regra de negocio." }, requestId: req.requestId });
+    return;
+  }
+  if (error?.code === "23503") {
+    logHandledError(422, "REFERENCIA_INVALIDA", "Violacao de referencia (FK).");
+    res.status(422).json({
+      error: {
+        code: "REFERENCIA_INVALIDA",
+        message: "Referencia invalida em campo relacionado (FK).",
+      },
+      requestId: req.requestId,
+    });
     return;
   }
   if (error?.code === "22P02") {

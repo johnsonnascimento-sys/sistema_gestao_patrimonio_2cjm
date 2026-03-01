@@ -51,7 +51,7 @@ Estrutura principal da sidebar:
 Submenus relevantes:
 
 - Operacoes Patrimoniais -> Cadastrar Bens por Sala
-- Operacoes Patrimoniais -> Catalogo (Material)
+- Operacoes Patrimoniais -> Material (SKU)
 - Operacoes Patrimoniais -> Gestao de Normas
 - Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
 - Administracao do Painel -> Locais (salas) cadastrados

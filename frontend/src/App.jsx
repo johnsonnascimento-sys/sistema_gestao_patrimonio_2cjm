@@ -40,7 +40,7 @@ const NAV_STRUCTURE = [
       { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
       { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
-      { id: "catalogo-material", label: "Catalogo (Material)", short: "Catalogo" },
+      { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
       { id: "normas", label: "Gestao de Normas", short: "Normas" },
       { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],

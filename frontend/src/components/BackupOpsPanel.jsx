@@ -54,7 +54,7 @@ export default function BackupOpsPanel({ canAdmin }) {
   const fmt = (v) => {
     if (!v) return "-";
     try {
-      return new Date(v).toLocaleString("pt-BR");
+      return new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     } catch {
       return String(v);
     }

@@ -145,7 +145,7 @@ Se a carga for alterada:
 
 ## 7) Padrao da grade de regularizacao
 
-- Coluna `Catalogo (SKU)`: exibe apenas o codigo do catalogo.
+- Coluna `material (SKU)`: exibe apenas o codigo do catalogo.
 - Coluna `Descricao / Resumo`: prioriza `nome_resumo`; a descricao complementar aparece como detalhe compacto.
 - A grade possui controles para exibir foto do item e foto do catalogo.
 - Colunas `Evento` e `Tombo` usam largura fixa para evitar sobreposicao visual entre celulas.

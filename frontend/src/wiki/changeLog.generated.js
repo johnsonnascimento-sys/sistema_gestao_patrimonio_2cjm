@@ -29,7 +29,7 @@ export const changeLogEntries = [
     "tipo": "UX",
     "branch": "main",
     "commit": "PENDENTE_COMMIT",
-    "detalhe": "Catalogo (Material): placeholder do campo `Codigo catalogo` atualizado para `49581`; adicionada opcao `Ver bens` por catalogo com grade de itens associados e visualizacao de foto do item/foto de catalogo.",
+    "detalhe": "Material (SKU): placeholder do campo `Codigo catalogo` atualizado para `49581`; adicionada opcao `Ver bens` por catalogo com grade de itens associados e visualizacao de foto do item/foto de catalogo.",
     "reversaoSugerida": "git revert <commit_gerado_para_esta_entrega>"
   },
   {
@@ -39,7 +39,7 @@ export const changeLogEntries = [
     "tipo": "UX/DOC",
     "branch": "main",
     "commit": "PENDENTE_COMMIT",
-    "detalhe": "Reorganizacao de menu: `Catalogo (Material)` e `Gestao de Normas` movidos para `Operacoes Patrimoniais`; item renomeado de `Catalogo (SKU) cadastrado`; atualizacao de wiki e status para refletir a nova IA.",
+    "detalhe": "Reorganizacao de menu: `Material (SKU)` e `Gestao de Normas` movidos para `Operacoes Patrimoniais`; item renomeado de `material (SKU) cadastrado`; atualizacao de wiki e status para refletir a nova IA.",
     "reversaoSugerida": "git revert <commit_gerado_para_esta_entrega>"
   },
   {
@@ -59,7 +59,7 @@ export const changeLogEntries = [
     "tipo": "FEAT/API",
     "branch": "main",
     "commit": "PENDENTE_COMMIT",
-    "detalhe": "Novo modulo `Catalogo (SKU) cadastrado` na Administracao do Painel, com CRUD de catalogo, upload de foto de referencia e associacao de bens por tombamento; adicionados endpoints `/catalogo-bens` (GET/POST/PATCH) e `/catalogo-bens/:id/associar-bens`.",
+    "detalhe": "Novo modulo `material (SKU) cadastrado` na Administracao do Painel, com CRUD de catalogo, upload de foto de referencia e associacao de bens por tombamento; adicionados endpoints `/catalogo-bens` (GET/POST/PATCH) e `/catalogo-bens/:id/associar-bens`.",
     "reversaoSugerida": "git revert <commit_gerado_para_esta_entrega>"
   },
   {

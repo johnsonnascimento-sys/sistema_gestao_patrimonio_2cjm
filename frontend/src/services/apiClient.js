@@ -210,7 +210,7 @@ export async function getEstatisticasLocais(params = {}) {
 
 /**
  * Reseta o local_id de todos os bens (ou de uma unidade), limpando o mapeamento de sala.
- * @param {{ unidadeId?: number }} params Filtros.
+ * @param {{ unidadeId?: number, adminPassword?: string }} params Filtros + confirmacao.
  * @returns {Promise<{ afetados: number }>}
  */
 export async function resetLocais(params = {}) {
@@ -219,7 +219,13 @@ export async function resetLocais(params = {}) {
   const suffix = usp.toString() ? `?${usp.toString()}` : "";
   const response = await safeFetch(`${API_BASE_URL}/locais/reset${suffix}`, {
     method: "DELETE",
-    headers: { Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      adminPassword: params.adminPassword || "",
+    }),
   });
   return parseResponse(response);
 }
