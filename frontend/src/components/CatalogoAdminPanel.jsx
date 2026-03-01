@@ -60,6 +60,9 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [assocState, setAssocState] = useState({ loading: false, response: null, error: null });
   const [uploadState, setUploadState] = useState({ loading: false, error: null });
   const [formFotoFile, setFormFotoFile] = useState(null);
+  const [formFotoPreviewUrl, setFormFotoPreviewUrl] = useState("");
+  const [formFotoAtualUrl, setFormFotoAtualUrl] = useState("");
+  const [formFotoInputKey, setFormFotoInputKey] = useState(0);
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
   const [columnFilters, setColumnFilters] = useState({
@@ -120,6 +123,16 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     void loadCatalogos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAdmin]);
+
+  useEffect(() => {
+    if (!formFotoFile) {
+      setFormFotoPreviewUrl("");
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(formFotoFile);
+    setFormFotoPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [formFotoFile]);
 
   const toggleSort = (key) => {
     setSortState((prev) => {
@@ -218,6 +231,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       } else {
         setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
       }
+      setFormFotoAtualUrl("");
       await loadCatalogos();
     } catch (error) {
       setFormState({ loading: false, response: null, error: formatApiError(error) });
@@ -234,6 +248,8 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       materialPermanente: Boolean(catalogo.materialPermanente),
     });
     setFormFotoFile(null);
+    setFormFotoInputKey((v) => v + 1);
+    setFormFotoAtualUrl(catalogo?.fotoReferenciaUrl ? getFotoUrl(catalogo.fotoReferenciaUrl) : "");
     setFormState({ loading: false, response: null, error: null });
   };
 
@@ -241,6 +257,8 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     setEditId("");
     setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
     setFormFotoFile(null);
+    setFormFotoInputKey((v) => v + 1);
+    setFormFotoAtualUrl("");
     setFormState({ loading: false, response: null, error: null });
   };
 
@@ -393,6 +411,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Imagem do material (opcional)</span>
               <input
+                key={`form-foto-${formFotoInputKey}`}
                 type="file"
                 accept="image/*"
                 onChange={(e) => setFormFotoFile(e.target.files?.[0] || null)}
@@ -404,6 +423,32 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                   ? `Selecionado: ${formFotoFile.name}`
                   : "Se informar imagem, ela sera enviada ao salvar o material."}
               </p>
+              {(formFotoPreviewUrl || formFotoAtualUrl) ? (
+                <div className="mt-2 flex items-center gap-3">
+                  <img
+                    src={formFotoPreviewUrl || formFotoAtualUrl}
+                    alt="Preview da imagem do material"
+                    className="h-16 w-16 rounded border border-slate-300 object-cover"
+                  />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-600">
+                      {formFotoPreviewUrl ? "Preview da nova imagem" : "Imagem atual do material"}
+                    </span>
+                    {formFotoFile ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormFotoFile(null);
+                          setFormFotoInputKey((v) => v + 1);
+                        }}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Remover selecao
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </label>
             <button
               type="submit"
