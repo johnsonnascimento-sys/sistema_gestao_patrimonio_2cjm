@@ -1048,10 +1048,14 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       i += 1;
     }
     if (filters.texto) {
+      const textoBusca = normalizeLatinForSearch(filters.texto);
       // Normalizacao (SKU vs Item): a descricao canonica pertence ao catalogo_bens.
       // Mantemos descricao_complementar como campo opcional para anotacoes locais.
-      where.push(`(cb.descricao ILIKE $${i} OR b.descricao_complementar ILIKE $${i})`);
-      params.push(`%${filters.texto}%`);
+      where.push(`(
+        translate(lower(coalesce(cb.descricao, '')), 'áàãâäéèẽêëíìĩîïóòõôöúùũûüçñ', 'aaaaaeeeeeiiiiiooooouuuuucn') LIKE $${i}
+        OR translate(lower(coalesce(b.descricao_complementar, '')), 'áàãâäéèẽêëíìĩîïóòõôöúùũûüçñ', 'aaaaaeeeeeiiiiiooooouuuuucn') LIKE $${i}
+      )`);
+      params.push(`%${textoBusca}%`);
       i += 1;
     }
     if (filters.codigoCatalogo) {
@@ -4432,6 +4436,14 @@ function parseBool(raw, fallback) {
   if (v === "1" || v === "true" || v === "sim" || v === "yes") return true;
   if (v === "0" || v === "false" || v === "nao" || v === "no") return false;
   return fallback;
+}
+
+function normalizeLatinForSearch(raw) {
+  return String(raw || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 /**
