@@ -238,7 +238,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
       <header className="space-y-2">
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens</h2>
         <p className="text-sm text-slate-600">
-          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo), codigo de catalogo ou texto da descricao.
+          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo), codigo do material (SKU) ou texto da descricao.
         </p>
       </header>
 
@@ -325,7 +325,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-slate-600">Numero do catalogo</span>
+            <span className="text-xs text-slate-600">Numero do material (SKU)</span>
             <input
               value={filters.codigoCatalogo}
               onChange={(e) => setFilters((prev) => ({ ...prev, codigoCatalogo: e.target.value }))}
@@ -453,7 +453,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
               <tr>
                 <th className="px-3 py-2">Tombo</th>
                 <th className="px-3 py-2">Antigo (Azul)</th>
-                <th className="px-3 py-2">Catalogo</th>
+                <th className="px-3 py-2">Material (SKU)</th>
                 <th className="px-3 py-2">Descrição / Resumo</th>
                 {listView.showItemPhoto && <th className="px-3 py-2">Foto Item</th>}
                 {listView.showCatalogPhoto && <th className="px-3 py-2">Foto Catálogo</th>}
@@ -487,8 +487,19 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                   <td className="px-3 py-2 font-mono text-[11px] text-violet-700">
                     {item.cod2Aud || "-"}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-emerald-700">
-                    {item.codigoCatalogo || "-"}
+                  <td className="px-3 py-2 font-mono text-[11px]">
+                    {item.codigoCatalogo ? (
+                      <button
+                        type="button"
+                        onClick={() => aplicarMesmoCatalogo(item.codigoCatalogo)}
+                        className="text-emerald-700 hover:underline"
+                        title="Filtrar por este material (SKU)"
+                      >
+                        {item.codigoCatalogo}
+                      </button>
+                    ) : (
+                      <span className="text-slate-500">-</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-900">
@@ -548,15 +559,6 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="inline-flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => aplicarMesmoCatalogo(item.codigoCatalogo)}
-                        disabled={!item.codigoCatalogo}
-                        className="rounded-md border border-violet-300 bg-violet-50 px-2 py-1 text-xs text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
-                        title="Filtrar itens do mesmo catalogo"
-                      >
-                        Mesmo catalogo
-                      </button>
                       <button
                         type="button"
                         onClick={() => openDetail(item.id)}
