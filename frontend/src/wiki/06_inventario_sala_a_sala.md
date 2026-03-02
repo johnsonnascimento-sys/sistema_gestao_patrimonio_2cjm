@@ -215,3 +215,12 @@ Observacao de UX:
 - Em cada `POST /inventario/sync` valido, quando houver `localEncontradoId`, o sistema atualiza `locais.data_ultima_contagem`.
 - Isso alimenta automaticamente as sugestoes do proximo ciclo.
 - Para ambiente legado, aplicar tambem `database/018_backfill_locais_data_ultima_contagem.sql` para preencher ultima contagem com historico ja existente.
+
+## Leitura continua com scanner fisico (Inventario - Contagem)
+
+No campo de leitura de tombamento da tela **Inventario - Contagem**:
+
+- O leitor de codigo de barras em modo teclado funciona em ciclo continuo.
+- Leitura finalizada com Enter **ou** Tab registra automaticamente.
+- O campo volta a receber foco apos cada tentativa de registro (sucesso, alerta ou validacao), acelerando operacao em sequencia.
+- Para etiquetas de 4 digitos (azul/erro), o modal de identificacao continua obrigatorio para escolher o tipo de busca.

@@ -140,6 +140,13 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [bensLoc, setBensLoc] = useState({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 });
   const cameraPreviewTimeoutRef = useRef(null);
   const cadastroSalaStateHydratedRef = useRef(false);
+  const scanInputRef = useRef(null);
+
+  const focusScanInput = () => {
+    window.setTimeout(() => {
+      scanInputRef.current?.focus();
+    }, 0);
+  };
 
   const selectedLocal = useMemo(
     () => (locaisState.data || []).find((l) => String(l.id) === String(localSalaId)) || null,
@@ -365,6 +372,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (!showCadastroSala || showScanner) return;
+    focusScanInput();
+  }, [showCadastroSala, showScanner]);
+
   const buscarEAdicionarTombo = async (rawTombo, options = {}) => {
     const tombo = normalizeTombamentoInput(rawTombo);
     if (!/^\d{10}$/.test(tombo)) {
@@ -423,14 +435,17 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         showCameraScanPreview(item.numeroTombamento, item.nomeResumo || item.descricao || item.descricaoComplementar, scannerMode);
       }
       setScanInput("");
+      focusScanInput();
     } catch (error) {
       setLoteState({ loading: false, response: null, error: formatApiError(error), info: null });
+      focusScanInput();
     }
   };
 
   const onAdicionarTombo = async (event) => {
     event.preventDefault();
     await buscarEAdicionarTombo(scanInput);
+    focusScanInput();
   };
 
   const onSalvarLote = async () => {
@@ -1124,10 +1139,17 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
               <form onSubmit={onAdicionarTombo} className="mt-3 flex flex-wrap gap-2">
                 <input
+                  ref={scanInputRef}
                   value={scanInput}
                   onChange={(e) => setScanInput(normalizeTombamentoInput(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Tab") return;
+                    e.preventDefault();
+                    void onAdicionarTombo(e);
+                  }}
                   className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   placeholder="Bipe ou digite tombamento (10 digitos)"
+                  autoComplete="off"
                   disabled={loteState.loading}
                 />
                 <button

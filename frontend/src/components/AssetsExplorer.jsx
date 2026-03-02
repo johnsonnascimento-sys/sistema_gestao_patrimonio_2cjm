@@ -63,6 +63,13 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   const [scannerMode, setScannerMode] = useState("continuous");
   const [cameraScanPreview, setCameraScanPreview] = useState(null);
   const cameraPreviewTimeoutRef = useRef(null);
+  const tombamentoInputRef = useRef(null);
+
+  const focusTombamentoInput = () => {
+    window.setTimeout(() => {
+      tombamentoInputRef.current?.focus();
+    }, 0);
+  };
 
   const canPrev = paging.offset > 0;
   const canNext = paging.offset + paging.limit < paging.total;
@@ -186,6 +193,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
       setTipoBusca4Digitos(null);
     }
     loadList(0);
+    focusTombamentoInput();
   };
 
   const onClear = () => {
@@ -226,6 +234,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
       }
     }
     await loadList(0, tipoBusca);
+    focusTombamentoInput();
   };
 
   const items = list.data?.items || [];
@@ -385,6 +394,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
           <label className="space-y-1">
             <span className="text-xs text-slate-600">Tombamento (10) ou Etiqueta (4)</span>
             <input
+              ref={tombamentoInputRef}
               value={filters.numeroTombamento}
               onChange={(e) => {
                 const normalized = normalizeTombamentoInput(e.target.value);
@@ -394,9 +404,15 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                 }
                 setFormError(null);
               }}
+              onKeyDown={(e) => {
+                if (e.key !== "Tab") return;
+                e.preventDefault();
+                onSubmit(e);
+              }}
               placeholder="Ex.: 1290001788 ou 2657"
               inputMode="numeric"
               maxLength={10}
+              autoComplete="off"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
             {filters.numeroTombamento.length === 4 && (

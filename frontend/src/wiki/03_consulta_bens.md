@@ -141,4 +141,10 @@ OBS: O sistema armazena as fotos localmente no servidor para maior performance e
 
 - Se você estiver no inventário e não encontrou um item, use a Consulta para ver "onde deveria estar" e "onde está cadastrado".
 - Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda não foi localizado/recebido fisicamente.
+## Leitor de codigo de barras (scanner fisico)
 
+No campo **Tombamento (10) ou Etiqueta (4)**:
+
+- O sistema aceita leitura continua por scanner de bancada/pistola (modo teclado).
+- O sufixo de leitura com Enter **ou** Tab dispara a consulta automaticamente.
+- Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.

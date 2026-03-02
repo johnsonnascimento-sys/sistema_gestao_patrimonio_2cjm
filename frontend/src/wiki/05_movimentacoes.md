@@ -138,3 +138,10 @@ Motivo:
 
 - manter governanca de cadastros estruturais no modulo administrativo
 - preservar Operacoes Patrimoniais focada em execucao operacional
+## Leitura continua com scanner fisico (cadastro por sala)
+
+No campo de bipagem de tombamento da tela **Cadastrar bens por sala**:
+
+- Leitor fisico em modo teclado pode operar em sequencia continua.
+- O termino da leitura com Enter **ou** Tab adiciona o item na fila automaticamente.
+- Apos adicionar/validar o item, o foco retorna para o campo para a proxima leitura.

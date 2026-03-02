@@ -181,6 +181,13 @@ export default function InventoryRoomPanel() {
   const scannedSessionRef = useRef(new Set());
   const scanCooldownRef = useRef(new Map());
   const cameraPreviewTimeoutRef = useRef(null);
+  const scannerInputRef = useRef(null);
+
+  const focusScannerInput = () => {
+    window.setTimeout(() => {
+      scannerInputRef.current?.focus();
+    }, 0);
+  };
 
   const showCameraScanPreview = (numeroTombamento, nomeResumo, mode = "single") => {
     setCameraScanPreview({
@@ -205,6 +212,11 @@ export default function InventoryRoomPanel() {
       window.clearTimeout(cameraPreviewTimeoutRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    if (showScanner || tagIdModal.isOpen) return;
+    focusScannerInput();
+  }, [showScanner, tagIdModal.isOpen]);
 
 
   useEffect(() => {
@@ -663,6 +675,7 @@ export default function InventoryRoomPanel() {
   const registerScan = async (event) => {
     event.preventDefault();
     await handleScanValue(scannerValue);
+    focusScannerInput();
   };
 
   const processScan = async (numeroTombamento, tipoBusca = null, options = {}) => {
@@ -974,11 +987,18 @@ export default function InventoryRoomPanel() {
               <span className="text-xs text-slate-600">Bipar tombamento (10 dígitos)</span>
               <div className="grid gap-2 grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto]">
                 <input
+                  ref={scannerInputRef}
                   value={scannerValue}
                   onChange={(e) => setScannerValue(normalizeTombamentoInput(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Tab") return;
+                    e.preventDefault();
+                    void registerScan(e);
+                  }}
                   placeholder="Ex: 1290001788"
                   inputMode="numeric"
                   maxLength={10}
+                  autoComplete="off"
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm col-span-1"
                 />
 
@@ -1441,6 +1461,7 @@ export default function InventoryRoomPanel() {
                 onClick={() => {
                   processScan(tagIdModal.value, "antigo", tagIdModal.fromCamera ? { fromCamera: true } : {});
                   setTagIdModal({ isOpen: false, value: "", type: null, fromCamera: false });
+                  focusScannerInput();
                 }}
                 className="flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
               >
@@ -1460,6 +1481,7 @@ export default function InventoryRoomPanel() {
                 onClick={() => {
                   processScan(tagIdModal.value, "novo", tagIdModal.fromCamera ? { fromCamera: true } : {});
                   setTagIdModal({ isOpen: false, value: "", type: null, fromCamera: false });
+                  focusScannerInput();
                 }}
                 className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
               >
@@ -1480,6 +1502,7 @@ export default function InventoryRoomPanel() {
               onClick={() => {
                 setTagIdModal({ isOpen: false, value: "", type: null, fromCamera: false });
                 setScannerValue("");
+                focusScannerInput();
               }}
               className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
             >
