@@ -24,6 +24,8 @@ function formatUnidade(id) {
     return String(id || "");
 }
 
+const UNIDADES_MICRO_CICLO = [1, 2, 3, 4];
+
 function generateCodigoEvento(unidadeInventariadaId) {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -34,6 +36,12 @@ function generateCodigoEvento(unidadeInventariadaId) {
     const u = Number(unidadeInventariadaId);
     const suffix = u === 1 ? "1AUD" : u === 2 ? "2AUD" : u === 3 ? "FORO" : u === 4 ? "ALMOX" : "GERAL";
     return `INV_${yyyy}_${mm}_${dd}_${hh}${min}_${suffix}`;
+}
+
+function formatDiasSemContagemLabel(diasSemContagem) {
+    const dias = Number(diasSemContagem);
+    if (!Number.isFinite(dias) || dias < 0) return "Sem contagem";
+    return `${dias} dias`;
 }
 
 export default function InventoryAdminPanel() {
@@ -486,12 +494,20 @@ export default function InventoryAdminPanel() {
                             <form onSubmit={onCreateEvento} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                                 <p className="text-sm font-semibold text-slate-900">Novo micro-inventario ciclico</p>
                                 <div className="grid gap-2 md:grid-cols-2">
-                                    <button type="button" onClick={() => { setTipoCiclo("SEMANAL"); setEscopoTipo("UNIDADE"); setUnidadeInventariadaId("4"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100">
-                                        Ciclo semanal - Almox
-                                    </button>
-                                    <button type="button" onClick={() => { setTipoCiclo("SEMANAL"); setEscopoTipo("UNIDADE"); setUnidadeInventariadaId("3"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100">
-                                        Ciclo semanal - Foro
-                                    </button>
+                                    {UNIDADES_MICRO_CICLO.map((unidadeId) => (
+                                        <button
+                                            key={unidadeId}
+                                            type="button"
+                                            onClick={() => {
+                                                setTipoCiclo("SEMANAL");
+                                                setEscopoTipo("UNIDADE");
+                                                setUnidadeInventariadaId(String(unidadeId));
+                                            }}
+                                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100"
+                                        >
+                                            Ciclo semanal - {formatUnidade(unidadeId)}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 <div className="grid gap-3 md:grid-cols-2">
@@ -576,7 +592,7 @@ export default function InventoryAdminPanel() {
                                             className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-left text-xs hover:bg-slate-100"
                                         >
                                             <div className="font-semibold text-slate-900">{s.nome}</div>
-                                            <div className="text-slate-600">Unid {s.unidadeId} | {s.diasSemContagem} dias | bens {s.qtdBensAtivos}</div>
+                                            <div className="text-slate-600">Unid {s.unidadeId} | {formatDiasSemContagemLabel(s.diasSemContagem)} | bens {s.qtdBensAtivos}</div>
                                         </button>
                                     ))}
                                     {!(sugestoesCicloQuery.data || []).length ? <p className="text-xs text-slate-500">Sem sugestoes no momento.</p> : null}

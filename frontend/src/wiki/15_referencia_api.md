@@ -168,8 +168,8 @@ Resposta:
       "localId": "uuid",
       "nome": "MEZANINO",
       "unidadeId": 4,
-      "dataUltimaContagem": "2026-02-01T12:00:00.000Z",
-      "diasSemContagem": 30,
+      "dataUltimaContagem": null,
+      "diasSemContagem": null,
       "qtdBensAtivos": 486,
       "qtdDivergenciasPendentes": 12,
       "scorePrioridade": 30486
@@ -177,6 +177,12 @@ Resposta:
   ]
 }
 ```
+
+Notas:
+
+- `diasSemContagem` pode ser `null` quando o local ainda nao teve contagem registrada.
+- Na UI de Administracao, esse caso aparece como `Sem contagem`.
+- Para preencher historico inicial em bases antigas, aplicar `database/018_backfill_locais_data_ultima_contagem.sql`.
 
 ### POST `/inventario/sync` (reforco de escopo)
 

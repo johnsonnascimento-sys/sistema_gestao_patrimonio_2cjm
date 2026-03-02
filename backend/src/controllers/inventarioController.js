@@ -539,7 +539,7 @@ function createInventarioController(deps) {
            l.unidade_id AS "unidadeId",
            l.data_ultima_contagem AS "dataUltimaContagem",
            CASE
-             WHEN l.data_ultima_contagem IS NULL THEN 999999
+             WHEN l.data_ultima_contagem IS NULL THEN NULL
              ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - l.data_ultima_contagem))/86400))::int
            END AS "diasSemContagem",
            COALESCE(bx.qtd_bens_ativos, 0)::int AS "qtdBensAtivos",

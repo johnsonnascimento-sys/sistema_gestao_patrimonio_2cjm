@@ -184,7 +184,13 @@ Ordenacao prioritaria:
 1. locais ha mais tempo sem contagem (`data_ultima_contagem` mais antiga)
 2. maior volume de bens ativos na sala (desempate)
 
+Observacao de UX:
+
+- Quando um local ainda nao possui `data_ultima_contagem`, a UI exibe `Sem contagem`.
+- Isso evita mostrar numero sentinela tecnico (ex.: `999999 dias`) para operador.
+
 ### Atualizacao de ultima contagem
 
 - Em cada `POST /inventario/sync` valido, quando houver `localEncontradoId`, o sistema atualiza `locais.data_ultima_contagem`.
 - Isso alimenta automaticamente as sugestoes do proximo ciclo.
+- Para ambiente legado, aplicar tambem `database/018_backfill_locais_data_ultima_contagem.sql` para preencher ultima contagem com historico ja existente.
