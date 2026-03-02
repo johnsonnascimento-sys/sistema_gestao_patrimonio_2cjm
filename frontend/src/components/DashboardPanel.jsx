@@ -220,7 +220,7 @@ export default function DashboardPanel({ onNavigate }) {
     return keys.map((key) => ({ key, total: byStatus.get(key) || 0 }));
   }, [statsQuery.data?.bens?.porStatus]);
 
-  const eventoAtivo = (eventosAtivosQuery.data || [])[0] || null;
+  const eventosAtivos = eventosAtivosQuery.data || [];
   const recentRows = canAdmin ? (recentAuditQuery.data || []) : (recentEventosQuery.data || []);
 
   const quickActions = [
@@ -362,17 +362,22 @@ export default function DashboardPanel({ onNavigate }) {
           <h3 className="font-semibold text-slate-900">Inventario ativo</h3>
           {eventosAtivosQuery.isLoading ? (
             <p className="mt-3 text-sm text-slate-600">Carregando status...</p>
-          ) : eventoAtivo ? (
+          ) : eventosAtivos.length ? (
             <div className="mt-3 space-y-2 text-sm text-slate-700">
-              <p>
-                <span className="font-semibold">Evento:</span> {eventoAtivo.codigoEvento}
+              <p className="text-xs text-slate-600">
+                {eventosAtivos.length > 1
+                  ? `${eventosAtivos.length} eventos ativos em paralelo.`
+                  : "1 evento ativo em andamento."}
               </p>
-              <p>
-                <span className="font-semibold">Unidade:</span> {eventoAtivo.unidadeInventariadaId ?? "Geral"}
-              </p>
-              <p>
-                <span className="font-semibold">Status:</span> {eventoAtivo.status}
-              </p>
+              <div className="space-y-2">
+                {eventosAtivos.map((ev) => (
+                  <div key={ev.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p><span className="font-semibold">Evento:</span> {ev.codigoEvento}</p>
+                    <p><span className="font-semibold">Unidade:</span> {ev.unidadeInventariadaId ?? "Geral"}</p>
+                    <p><span className="font-semibold">Status:</span> {ev.status}</p>
+                  </div>
+                ))}
+              </div>
               <button
                 type="button"
                 onClick={() => onNavigate?.("inventario-admin")}

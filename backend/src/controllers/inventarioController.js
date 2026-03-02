@@ -34,6 +34,7 @@ function createInventarioController(deps) {
 
   const normalizeRoomLabel = (raw) => String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
   const csvEsc = (raw) => `"${String(raw == null ? "" : raw).replace(/"/g, "\"\"")}"`;
+  const unitLabel = (unitId) => (unitId == null ? "GERAL" : String(unitId));
 
   /**
    * Lista eventos de inventario, com filtro opcional por status.
@@ -713,6 +714,30 @@ function createInventarioController(deps) {
         throw new HttpError(422, "UNIDADE_INVENTARIADA_INVALIDA", "unidadeInventariadaId deve ser 1..4 ou null (inventario geral).");
       }
 
+      const conflito = unidadeInventariadaId == null
+        ? await pool.query(
+          `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId"
+           FROM eventos_inventario
+           WHERE e.status = 'EM_ANDAMENTO'
+           LIMIT 1;`,
+        )
+        : await pool.query(
+          `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId"
+           FROM eventos_inventario
+           WHERE status = 'EM_ANDAMENTO'
+             AND (unidade_inventariada_id IS NULL OR unidade_inventariada_id = $1)
+           LIMIT 1;`,
+          [unidadeInventariadaId],
+        );
+      if (conflito.rowCount) {
+        const c = conflito.rows[0];
+        throw new HttpError(
+          409,
+          "EVENTO_ATIVO_EXISTENTE",
+          `Ja existe inventario EM_ANDAMENTO em escopo conflitante (evento=${c.codigoEvento || c.id}, unidade=${unitLabel(c.unidadeInventariadaId)}).`
+        );
+      }
+
       const abertoPorPerfilId = req.user?.id
         ? String(req.user.id).trim()
         : String(body.abertoPorPerfilId || "").trim();
@@ -783,15 +808,26 @@ function createInventarioController(deps) {
 
       if (status === "EM_ANDAMENTO") {
         const conflito = await pool.query(
-          `SELECT id
-           FROM eventos_inventario
+          `SELECT e.id, e.codigo_evento AS "codigoEvento", e.unidade_inventariada_id AS "unidadeInventariadaId"
+           FROM eventos_inventario e
+           JOIN eventos_inventario alvo ON alvo.id = $1
            WHERE status = 'EM_ANDAMENTO'
-             AND id <> $1
+             AND e.id <> $1
+             AND (
+               alvo.unidade_inventariada_id IS NULL
+               OR e.unidade_inventariada_id IS NULL
+               OR e.unidade_inventariada_id = alvo.unidade_inventariada_id
+             )
            LIMIT 1;`,
-          [eventoId],
-        );
+           [eventoId],
+         );
         if (conflito.rowCount) {
-          throw new HttpError(409, "EVENTO_ATIVO_EXISTENTE", "Ja existe outro evento EM_ANDAMENTO.");
+          const c = conflito.rows[0];
+          throw new HttpError(
+            409,
+            "EVENTO_ATIVO_EXISTENTE",
+            `Ja existe inventario EM_ANDAMENTO em escopo conflitante (evento=${c.codigoEvento || c.id}, unidade=${unitLabel(c.unidadeInventariadaId)}).`
+          );
         }
       }
 
@@ -834,6 +870,16 @@ function createInventarioController(deps) {
       const eventoId = String(req.params?.id || "").trim();
       if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
 
+      const currentEvento = await pool.query(
+        `SELECT id, status::text AS status, unidade_inventariada_id AS "unidadeInventariadaId"
+         FROM eventos_inventario
+         WHERE id = $1
+         LIMIT 1;`,
+        [eventoId],
+      );
+      if (!currentEvento.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+      const eventoAtual = currentEvento.rows[0];
+
       const body = req.body || {};
       const fields = [];
       const params = [];
@@ -850,6 +896,34 @@ function createInventarioController(deps) {
         const uId = body.unidadeInventariadaId ? Number(body.unidadeInventariadaId) : null;
         if (uId != null && (!Number.isInteger(uId) || !VALID_UNIDADES.has(uId))) {
           throw new HttpError(422, "UNIDADE_INVENTARIADA_INVALIDA", "unidadeInventariadaId deve ser 1..4 ou null.");
+        }
+        if (eventoAtual.status === "EM_ANDAMENTO" && Number(uId || 0) !== Number(eventoAtual.unidadeInventariadaId || 0)) {
+          const conflito = uId == null
+            ? await pool.query(
+              `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId"
+               FROM eventos_inventario
+               WHERE status = 'EM_ANDAMENTO'
+                 AND id <> $1
+               LIMIT 1;`,
+              [eventoId],
+            )
+            : await pool.query(
+              `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId"
+               FROM eventos_inventario
+               WHERE status = 'EM_ANDAMENTO'
+                 AND id <> $1
+                 AND (unidade_inventariada_id IS NULL OR unidade_inventariada_id = $2)
+               LIMIT 1;`,
+              [eventoId, uId],
+            );
+          if (conflito.rowCount) {
+            const c = conflito.rows[0];
+            throw new HttpError(
+              409,
+              "EVENTO_ATIVO_EXISTENTE",
+              `Nao e possivel alterar escopo deste evento ativo: conflito com evento=${c.codigoEvento || c.id} (unidade=${unitLabel(c.unidadeInventariadaId)}).`
+            );
+          }
         }
         fields.push(`unidade_inventariada_id = $${i}`);
         params.push(uId);
@@ -956,12 +1030,22 @@ function createInventarioController(deps) {
       await client.query("BEGIN");
 
       const ev = await client.query(
-        "SELECT id, status::text AS status FROM eventos_inventario WHERE id = $1",
+        `SELECT id, status::text AS status, unidade_inventariada_id AS "unidadeInventariadaId"
+         FROM eventos_inventario
+         WHERE id = $1`,
         [eventoInventarioId],
       );
       if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento de inventario nao encontrado.");
       if (ev.rows[0].status !== "EM_ANDAMENTO") {
         throw new HttpError(409, "EVENTO_NAO_ATIVO", "Evento de inventario nao esta EM_ANDAMENTO.");
+      }
+      const eventoUnidade = ev.rows[0].unidadeInventariadaId != null ? Number(ev.rows[0].unidadeInventariadaId) : null;
+      if (eventoUnidade != null && eventoUnidade !== unidadeEncontradaId) {
+        throw new HttpError(
+          409,
+          "UNIDADE_FORA_ESCOPO_EVENTO",
+          `Este evento esta em escopo da unidade ${unitLabel(eventoUnidade)}. Selecione unidade encontrada ${unitLabel(eventoUnidade)} ou use o evento correto.`
+        );
       }
 
       const summary = {

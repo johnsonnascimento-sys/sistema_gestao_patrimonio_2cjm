@@ -144,6 +144,9 @@ export default function InventoryRoomPanel() {
   const [unidadeEncontradaId, setUnidadeEncontradaId] = useState(
     initialUi?.unidadeEncontradaId != null ? String(initialUi.unidadeEncontradaId) : "",
   );
+  const [selectedEventoId, setSelectedEventoId] = useState(
+    initialUi?.selectedEventoId != null ? String(initialUi.selectedEventoId) : "",
+  );
   const [selectedLocalId, setSelectedLocalId] = useState(
     initialUi?.selectedLocalId != null ? String(initialUi.selectedLocalId) : "",
   );
@@ -205,10 +208,34 @@ export default function InventoryRoomPanel() {
   const eventoAtivo = useMemo(() => {
     const items = eventosQuery.data || [];
     if (!items.length) return null;
+    if (selectedEventoId) {
+      const byId = items.find((ev) => String(ev.id) === String(selectedEventoId));
+      if (byId) return byId;
+    }
+    const unidade = Number(unidadeEncontradaId);
+    if (Number.isInteger(unidade) && unidade >= 1 && unidade <= 4) {
+      const byUnit = items.find((ev) => Number(ev?.unidadeInventariadaId) === unidade);
+      if (byUnit) return byUnit;
+      const geral = items.find((ev) => ev?.unidadeInventariadaId == null);
+      if (geral) return geral;
+      return null;
+    }
     return items[0];
-  }, [eventosQuery.data]);
+  }, [eventosQuery.data, selectedEventoId, unidadeEncontradaId]);
 
   const selectedEventoIdFinal = eventoAtivo?.id || "";
+  const eventoSelecionadoIncompativel = useMemo(() => {
+    if (!eventoAtivo) return false;
+    const unidade = Number(unidadeEncontradaId);
+    if (!Number.isInteger(unidade) || unidade < 1 || unidade > 4) return false;
+    const evUnidade = eventoAtivo?.unidadeInventariadaId != null ? Number(eventoAtivo.unidadeInventariadaId) : null;
+    return evUnidade != null && evUnidade !== unidade;
+  }, [eventoAtivo, unidadeEncontradaId]);
+
+  useEffect(() => {
+    if (!selectedEventoIdFinal) return;
+    setSelectedEventoId(String(selectedEventoIdFinal));
+  }, [selectedEventoIdFinal]);
 
   useEffect(() => {
     setScanFeedback(null);
@@ -465,6 +492,7 @@ export default function InventoryRoomPanel() {
 
   const canRegister = Boolean(
     selectedEventoIdFinal &&
+    !eventoSelecionadoIncompativel &&
     salaEncontrada.trim().length >= 2 &&
     selectedLocalId &&
     String(selectedLocalId).trim() !== "" &&
@@ -560,6 +588,10 @@ export default function InventoryRoomPanel() {
 
     if (!canRegister) {
       setUiError("Selecione evento ativo, unidade encontrada e sala antes de registrar.");
+      return;
+    }
+    if (eventoSelecionadoIncompativel) {
+      setUiError("O evento selecionado nao corresponde a unidade encontrada informada.");
       return;
     }
 
@@ -798,6 +830,40 @@ export default function InventoryRoomPanel() {
           </p>
 
           <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="space-y-1 md:col-span-2">
+              <span className="text-xs text-slate-600">Evento ativo</span>
+              <select
+                value={selectedEventoId}
+                onChange={(e) => setSelectedEventoId(String(e.target.value || ""))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">
+                  {(eventosQuery.data || []).length
+                    ? "Selecione um evento ativo"
+                    : "Nenhum evento ativo em andamento"}
+                </option>
+                {(eventosQuery.data || []).map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {`${ev.codigoEvento || ev.id} - Unidade ${ev.unidadeInventariadaId ?? "GERAL"}`}
+                  </option>
+                ))}
+              </select>
+              {selectedEventoIdFinal ? (
+                <p className="text-[11px] text-slate-500">
+                  Evento aplicado: <strong>{eventoAtivo?.codigoEvento || selectedEventoIdFinal}</strong>{" "}
+                  (unidade {eventoAtivo?.unidadeInventariadaId ?? "GERAL"}).
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-700">
+                  Abra um evento na aba de Administracao do Inventario para iniciar a contagem.
+                </p>
+              )}
+              {eventoSelecionadoIncompativel ? (
+                <p className="text-[11px] text-rose-700">
+                  Evento incompatível com a unidade encontrada selecionada. Escolha o evento da mesma unidade ou um evento GERAL.
+                </p>
+              ) : null}
+            </label>
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Unidade encontrada (1..4)</span>
               <select

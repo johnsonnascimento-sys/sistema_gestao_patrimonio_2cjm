@@ -149,3 +149,28 @@ Se a carga for alterada:
 - Coluna `Descricao / Resumo`: prioriza `nome_resumo`; a descricao complementar aparece como detalhe compacto.
 - A grade possui controles para exibir foto do item e foto do catalogo.
 - Colunas `Evento` e `Tombo` usam largura fixa para evitar sobreposicao visual entre celulas.
+
+## 8) Tratamento de divergencias com inventario simultaneo por unidade
+
+Quando unidades inventariam em paralelo, use este criterio:
+
+- **Mesma unidade, sala diferente**
+  - Classificacao: divergencia de sala.
+  - Acao preferencial: `ATUALIZAR_LOCAL`.
+  - Nao altera `unidade_dona_id`.
+
+- **Unidade diferente da carga**
+  - Classificacao: divergencia de unidade (com ou sem sala).
+  - Acao preferencial: `TRANSFERIR_CARGA` com `termoReferencia`.
+  - Nao altere unidade diretamente no cadastro do bem.
+
+- **Divergencia unidade + sala**
+  - Tratar como regularizacao formal com transferencia.
+  - Corrigir sala/local no mesmo fluxo de regularizacao, mantendo rastreabilidade.
+
+Recomendacao operacional:
+
+1. Encerrar cada evento de unidade.
+2. Rodar fila de regularizacao por evento/unidade.
+3. Separar lote "somente sala" de lote "transferencia de carga".
+4. Exigir evidencias (termo/documento) nas transferencias.

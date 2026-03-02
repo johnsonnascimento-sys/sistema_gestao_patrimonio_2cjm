@@ -118,3 +118,29 @@ Respostas de erro possiveis:
 | 401 | `NAO_AUTENTICADO` | JWT invalido ou perfil sem senha |
 | 403 | `PERFIL_INATIVO` | Perfil administrativo inativo |
 | 422 | `UNIDADE_INVALIDA` | `unidadeId` fora do intervalo 1..4 |
+
+---
+
+## Inventario simultaneo por unidade (novo fluxo operacional)
+
+Para inventariar unidades em paralelo com governanca:
+
+- Permita varios eventos `EM_ANDAMENTO`, com regra de conflito por escopo.
+- Escopo `GERAL` (todas as unidades) e exclusivo.
+- Escopo por unidade aceita no maximo 1 evento ativo por unidade.
+- Um evento de unidade conflita com:
+  - outro evento ativo da mesma unidade
+  - qualquer evento `GERAL` ativo
+
+### Regra pratica
+
+- Unidade 1 e Unidade 2 podem inventariar ao mesmo tempo.
+- Unidade 1 nao pode abrir dois eventos simultaneos.
+- Se houver evento `GERAL`, nenhum evento por unidade pode ser aberto/reaberto.
+
+### Contagem no modo por unidade
+
+- No Modo Inventario, o operador deve selecionar explicitamente o **Evento ativo**.
+- A `unidade encontrada` deve ser compativel com o escopo do evento.
+- Se evento for de unidade especifica, `POST /inventario/sync` rejeita unidade divergente (`UNIDADE_FORA_ESCOPO_EVENTO`).
+- Evento `GERAL` aceita contagens de qualquer unidade.

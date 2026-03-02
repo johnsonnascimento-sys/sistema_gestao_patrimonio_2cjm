@@ -288,17 +288,22 @@ function AppShell() {
     : (eventosQuery.data || []).length
       ? "EM_ANDAMENTO"
       : "SEM_EVENTO";
-  const activeEventCode = (eventosQuery.data || [])[0]?.codigoEvento || null;
+  const activeEvents = eventosQuery.data || [];
+  const activeEventCode = activeEvents[0]?.codigoEvento || null;
 
   const bannerMessage = useMemo(() => {
     if (inventoryStatus === "EM_ANDAMENTO") {
+      const n = activeEvents.length;
+      if (n > 1) {
+        return `Inventario ativo em ${n} eventos (por unidade): transferencias ficam bloqueadas no escopo do Art. 183 (AN303_Art183).`;
+      }
       return "Inventario ativo: movimentacoes de transferencia ficam bloqueadas pelo Art. 183 (AN303_Art183).";
     }
     if (inventoryStatus === "CARREGANDO") {
       return "Consultando status do inventario no banco...";
     }
     return "Sem evento ativo: transferencias e regularizacoes podem ser executadas.";
-  }, [inventoryStatus]);
+  }, [inventoryStatus, activeEvents.length]);
 
   const toggleNavGroup = (groupId) =>
     setOpenNavGroups((prev) => ({
@@ -489,7 +494,11 @@ function AppShell() {
                   <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
                     {inventoryStatus}
                   </span>
-                  {activeEventCode ? (
+                  {activeEvents.length > 1 ? (
+                    <span className="truncate text-xs text-slate-600">
+                      Eventos ativos: <span className="font-semibold">{activeEvents.length}</span>
+                    </span>
+                  ) : activeEventCode ? (
                     <span className="truncate text-xs text-slate-600">
                       Evento: <span className="font-semibold">{activeEventCode}</span>
                     </span>
