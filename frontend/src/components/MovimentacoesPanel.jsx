@@ -19,6 +19,7 @@ import {
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CADASTRO_SALA_UI_STATE_KEY = "cjm_cadastro_sala_ui_v1";
 
 function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
@@ -60,6 +61,38 @@ function buildMovPayload(payload) {
     dataEfetivaDevolucao: payload.dataEfetivaDevolucao ? new Date(payload.dataEfetivaDevolucao).toISOString() : undefined,
   };
   return Object.fromEntries(Object.entries(clean).filter(([, value]) => value !== undefined));
+}
+
+function loadCadastroSalaUiState() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CADASTRO_SALA_UI_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const loteItens = Array.isArray(parsed.loteItens) ? parsed.loteItens : [];
+    return {
+      unidadeSalaId: parsed.unidadeSalaId != null ? String(parsed.unidadeSalaId) : "",
+      localSalaId: parsed.localSalaId != null ? String(parsed.localSalaId) : "",
+      loteItens,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveCadastroSalaUiState(state) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CADASTRO_SALA_UI_STATE_KEY, JSON.stringify({
+      unidadeSalaId: state.unidadeSalaId || "",
+      localSalaId: state.localSalaId || "",
+      loteItens: Array.isArray(state.loteItens) ? state.loteItens : [],
+      updatedAt: new Date().toISOString(),
+    }));
+  } catch {
+    // sem fatal
+  }
 }
 
 export default function MovimentacoesPanel({ section = "movimentacoes" }) {
@@ -106,6 +139,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [resetModal, setResetModal] = useState({ open: false, loading: false, resultado: null });
   const [bensLoc, setBensLoc] = useState({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 });
   const cameraPreviewTimeoutRef = useRef(null);
+  const cadastroSalaStateHydratedRef = useRef(false);
 
   const selectedLocal = useMemo(
     () => (locaisState.data || []).find((l) => String(l.id) === String(localSalaId)) || null,
@@ -143,6 +177,26 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       cancelled = true;
     };
   }, [canUse, showCadastroSala, unidadeSalaId]);
+
+  useEffect(() => {
+    if (!showCadastroSala || cadastroSalaStateHydratedRef.current) return;
+    const saved = loadCadastroSalaUiState();
+    if (saved) {
+      setUnidadeSalaId(saved.unidadeSalaId || "");
+      setLocalSalaId(saved.localSalaId || "");
+      setLoteItens(saved.loteItens || []);
+    }
+    cadastroSalaStateHydratedRef.current = true;
+  }, [showCadastroSala]);
+
+  useEffect(() => {
+    if (!showCadastroSala || !cadastroSalaStateHydratedRef.current) return;
+    saveCadastroSalaUiState({
+      unidadeSalaId,
+      localSalaId,
+      loteItens,
+    });
+  }, [showCadastroSala, unidadeSalaId, localSalaId, loteItens]);
 
   useEffect(() => {
     let cancelled = false;
@@ -274,6 +328,17 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
   const removeLoteItem = (bemId) => {
     setLoteItens((prev) => prev.filter((row) => String(row.bemId) !== String(bemId)));
+  };
+
+  const clearLoteComConfirmacao = () => {
+    if (!loteItens.length) return;
+    const ok = window.confirm(
+      "Deseja realmente limpar a fila temporaria de bens lidos?\nEsta acao remove todos os itens nao salvos.",
+    );
+    if (!ok) return;
+    setLoteItens([]);
+    setLoteState((prev) => ({ ...prev, info: "Fila temporaria limpa.", error: null }));
+    setCameraScanPreview(null);
   };
 
   const showCameraScanPreview = (numeroTombamento, nomeResumo, mode = "single") => {
@@ -1087,6 +1152,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   disabled={loteState.loading || !loteItens.length || !selectedLocal}
                 >
                   {loteState.loading ? "Salvando..." : "Salvar lote na sala"}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearLoteComConfirmacao}
+                  className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
+                  disabled={loteState.loading || !loteItens.length}
+                >
+                  Limpar fila
                 </button>
               </form>
 
