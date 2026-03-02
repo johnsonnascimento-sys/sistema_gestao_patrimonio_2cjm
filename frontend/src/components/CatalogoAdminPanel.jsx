@@ -67,9 +67,9 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
   const [editLookupCodigo, setEditLookupCodigo] = useState("");
   const [editLookupMsg, setEditLookupMsg] = useState(null);
-  const [nomeResumoTargetId, setNomeResumoTargetId] = useState("");
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
-  const [nomeResumoForm, setNomeResumoForm] = useState({ value: "", loading: false, error: null, info: null });
+  const [nomeResumoPadrao, setNomeResumoPadrao] = useState("");
+  const [nomeResumoState, setNomeResumoState] = useState({ loading: false, error: null, info: null });
   const [columnFilters, setColumnFilters] = useState({
     codigoCatalogo: "",
     descricao: "",
@@ -230,6 +230,16 @@ export default function CatalogoAdminPanel({ canAdmin }) {
         await onUploadFoto({ id: savedCatalogoId }, formFotoFile, { skipReload: true });
         setFormFotoFile(null);
       }
+      if (nomeResumoPadrao.trim() && savedCatalogoId) {
+        const batch = await aplicarNomeResumoCatalogo(savedCatalogoId, { nomeResumo: nomeResumoPadrao.trim() });
+        setNomeResumoState({
+          loading: false,
+          error: null,
+          info: `Nome resumo aplicado em ${Number(batch?.atualizados || 0)} bem(ns).`,
+        });
+      } else {
+        setNomeResumoState({ loading: false, error: null, info: null });
+      }
 
       setFormState({ loading: false, response: data, error: null });
       if (editId) {
@@ -255,20 +265,24 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       grupo: String(catalogo.grupo || ""),
       materialPermanente: Boolean(catalogo.materialPermanente),
     });
+    setNomeResumoPadrao(String(catalogo.descricao || ""));
     setFormFotoFile(null);
     setFormFotoInputKey((v) => v + 1);
     setFormFotoAtualUrl(catalogo?.fotoReferenciaUrl ? getFotoUrl(catalogo.fotoReferenciaUrl) : "");
     setFormState({ loading: false, response: null, error: null });
+    setNomeResumoState({ loading: false, error: null, info: null });
   };
 
   const onCancelarEdicao = () => {
     setEditId("");
     setEditLookupMsg(null);
     setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
+    setNomeResumoPadrao("");
     setFormFotoFile(null);
     setFormFotoInputKey((v) => v + 1);
     setFormFotoAtualUrl("");
     setFormState({ loading: false, response: null, error: null });
+    setNomeResumoState({ loading: false, error: null, info: null });
   };
 
   const onUploadFoto = async (catalogo, file, opts = {}) => {
@@ -329,13 +343,6 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const onVerBensAssociados = async (catalogo) => {
     if (!catalogo?.codigoCatalogo) return;
     setSelectedCatalogo(catalogo);
-    setNomeResumoTargetId(String(catalogo?.id || ""));
-    setNomeResumoForm({
-      value: String(catalogo?.descricao || ""),
-      loading: false,
-      error: null,
-      info: null,
-    });
     setBensState({ loading: true, items: [], error: null });
     try {
       const data = await listarBens({
@@ -369,31 +376,34 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     setEditLookupMsg("Material (SKU) nao encontrado na lista atual. Clique em Atualizar e tente novamente.");
   };
 
-  const onAplicarNomeResumoSku = async () => {
+  const onAplicarNomeResumoNoMaterialAtual = async () => {
     if (!canAdmin) {
-      setNomeResumoForm((prev) => ({ ...prev, error: "Operacao restrita ao perfil ADMIN.", info: null }));
+      setNomeResumoState({ loading: false, error: "Operacao restrita ao perfil ADMIN.", info: null });
       return;
     }
-    const catalogoId = String(nomeResumoTargetId || selectedCatalogo?.id || "").trim();
+    const catalogoId = String(editId || formState.response?.catalogo?.id || "").trim();
     if (!catalogoId) {
-      setNomeResumoForm((prev) => ({ ...prev, error: "Selecione um Material (SKU) antes de aplicar.", info: null }));
+      setNomeResumoState({
+        loading: false,
+        error: "Salve ou carregue um Material (SKU) para editar antes de aplicar o nome resumo.",
+        info: null,
+      });
       return;
     }
-    const nomeResumo = String(nomeResumoForm.value || "").trim();
-    setNomeResumoForm((prev) => ({ ...prev, loading: true, error: null, info: null }));
+    const nomeResumo = String(nomeResumoPadrao || "").trim();
+    setNomeResumoState({ loading: true, error: null, info: null });
     try {
       const data = await aplicarNomeResumoCatalogo(catalogoId, { nomeResumo });
-      setNomeResumoForm((prev) => ({
-        ...prev,
+      setNomeResumoState({
         loading: false,
         error: null,
         info: `Nome resumo aplicado em ${Number(data?.atualizados || 0)} bem(ns).`,
-      }));
+      });
       if (selectedCatalogo && String(selectedCatalogo.id) === String(catalogoId)) {
         await onVerBensAssociados(selectedCatalogo);
       }
     } catch (error) {
-      setNomeResumoForm((prev) => ({ ...prev, loading: false, error: formatApiError(error), info: null }));
+      setNomeResumoState({ loading: false, error: formatApiError(error), info: null });
     }
   };
 
@@ -481,6 +491,29 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                 disabled={!canAdmin && auth.authEnabled}
               />
             </label>
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">Nome resumo (aplicar em lote no SKU)</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={nomeResumoPadrao}
+                  onChange={(e) => setNomeResumoPadrao(e.target.value)}
+                  className="min-w-[220px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  placeholder="Ex.: Notebook Dell Latitude 5420"
+                  disabled={!canAdmin && auth.authEnabled}
+                />
+                <button
+                  type="button"
+                  onClick={() => void onAplicarNomeResumoNoMaterialAtual()}
+                  className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                  disabled={nomeResumoState.loading || (!canAdmin && auth.authEnabled)}
+                >
+                  {nomeResumoState.loading ? "Aplicando..." : "Aplicar agora"}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Ao salvar o Material (SKU), este nome resumo tambem pode ser aplicado automaticamente nos bens associados.
+              </p>
+            </label>
             <label className="inline-flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -556,6 +589,8 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                 Salvo: {formState.response.catalogo.codigoCatalogo} (id={formState.response.catalogo.id})
               </p>
             ) : null}
+            {nomeResumoState.error ? <p className="text-sm text-rose-700">{nomeResumoState.error}</p> : null}
+            {nomeResumoState.info ? <p className="text-sm text-emerald-700">{nomeResumoState.info}</p> : null}
           </div>
         </form>
 
@@ -786,54 +821,6 @@ export default function CatalogoAdminPanel({ canAdmin }) {
         <p className="mt-1 text-[11px] text-slate-500">
           Use o botao <strong>Ver bens</strong> na lista para carregar os itens associados e suas fotos.
         </p>
-        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-          <p className="text-xs font-semibold text-slate-800">Nome Resumo em lote por SKU</p>
-          <p className="mt-1 text-[11px] text-slate-600">
-            Selecione o Material (SKU), informe o nome resumo e aplique para todos os bens vinculados.
-          </p>
-          <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-            <select
-              value={nomeResumoTargetId}
-              onChange={(e) => {
-                const id = String(e.target.value || "");
-                setNomeResumoTargetId(id);
-                const cat = catalogosOptions.find((c) => String(c.id) === id) || null;
-                setNomeResumoForm((prev) => ({
-                  ...prev,
-                  value: String(cat?.descricao || ""),
-                  error: null,
-                  info: null,
-                }));
-              }}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Selecione o Material (SKU)</option>
-              {catalogosOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.codigoCatalogo} - {c.descricao}
-                </option>
-              ))}
-            </select>
-            <input
-              value={nomeResumoForm.value}
-              onChange={(e) => setNomeResumoForm((prev) => ({ ...prev, value: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              placeholder="Ex.: Notebook Dell Latitude 5420"
-              disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
-            />
-            <button
-              type="button"
-              onClick={() => void onAplicarNomeResumoSku()}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-              disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
-            >
-              {nomeResumoForm.loading ? "Aplicando..." : "Aplicar nome resumo"}
-            </button>
-          </div>
-          {nomeResumoForm.error ? <p className="mt-2 text-sm text-rose-700">{nomeResumoForm.error}</p> : null}
-          {nomeResumoForm.info ? <p className="mt-2 text-sm text-emerald-700">{nomeResumoForm.info}</p> : null}
-        </div>
-
         {bensState.error ? <p className="mt-3 text-sm text-rose-700">{bensState.error}</p> : null}
         {bensState.loading ? <p className="mt-3 text-sm text-slate-600">Carregando bens associados...</p> : null}
         {!bensState.loading && selectedCatalogo && bensState.items.length === 0 ? (
