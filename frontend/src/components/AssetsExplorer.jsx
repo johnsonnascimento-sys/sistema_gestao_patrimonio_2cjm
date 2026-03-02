@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
+import BarcodeScanner from "./BarcodeScanner.jsx";
 import {
   atualizarBem,
   getBemAuditoria,
@@ -31,6 +32,11 @@ function formatUnidade(id) {
   return String(id || "");
 }
 
+function normalizeTombamentoInput(raw) {
+  if (raw == null) return "";
+  return String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "").slice(0, 10);
+}
+
 export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   const auth = useAuth();
   const [stats, setStats] = useState({ loading: false, data: null, error: null });
@@ -53,6 +59,10 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     showCatalogPhoto: false,
   });
   const [copyFeedback, setCopyFeedback] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerMode, setScannerMode] = useState("continuous");
+  const [cameraScanPreview, setCameraScanPreview] = useState(null);
+  const cameraPreviewTimeoutRef = useRef(null);
 
   const canPrev = paging.offset > 0;
   const canNext = paging.offset + paging.limit < paging.total;
@@ -197,6 +207,57 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
 
   const items = list.data?.items || [];
 
+  const showCameraPreview = (code, summary) => {
+    setCameraScanPreview({
+      code: String(code || ""),
+      summary: String(summary || "Sem nome resumo cadastrado."),
+    });
+    if (cameraPreviewTimeoutRef.current) window.clearTimeout(cameraPreviewTimeoutRef.current);
+    cameraPreviewTimeoutRef.current = window.setTimeout(() => {
+      setCameraScanPreview(null);
+      cameraPreviewTimeoutRef.current = null;
+    }, 2000);
+  };
+
+  useEffect(() => () => {
+    if (cameraPreviewTimeoutRef.current) window.clearTimeout(cameraPreviewTimeoutRef.current);
+  }, []);
+
+  const onCameraScan = async (decodedValue) => {
+    const normalized = normalizeTombamentoInput(decodedValue);
+    if (!normalized) return;
+
+    setFormError(null);
+    setTipoBusca4Digitos(null);
+    const nextFilters = { ...filters, numeroTombamento: normalized };
+    setFilters(nextFilters);
+    setPaging((prev) => ({ ...prev, offset: 0 }));
+
+    if (normalized.length === 4) {
+      showCameraPreview(normalized, "Etiqueta de 4 digitos lida. Selecione o tipo de busca.");
+      setTagIdModal({ isOpen: true, value: normalized });
+      if (scannerMode === "single") setShowScanner(false);
+      return;
+    }
+
+    if (!/^\d{10}$/.test(normalized)) {
+      setFormError("Leitura invalida da camera. Use tombamento de 10 digitos ou etiqueta de 4 digitos.");
+      return;
+    }
+
+    try {
+      const data = await listarBens({ numeroTombamento: normalized, limit: 1, offset: 0 });
+      const bem = (data?.items || [])[0];
+      const nomeResumo = bem?.nomeResumo || bem?.descricao || bem?.descricaoComplementar || "Sem nome resumo cadastrado.";
+      showCameraPreview(normalized, nomeResumo);
+    } catch (_error) {
+      showCameraPreview(normalized, "Tombamento lido. Falha ao carregar nome resumo.");
+    }
+
+    await loadList(0, undefined, nextFilters);
+    if (scannerMode === "single") setShowScanner(false);
+  };
+
   const aplicarMesmoCatalogo = (codigoCatalogo) => {
     const codigo = String(codigoCatalogo || "").trim();
     if (!codigo) return;
@@ -299,9 +360,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             <input
               value={filters.numeroTombamento}
               onChange={(e) => {
-                // Normaliza entrada para evitar falhas por espacos/aspas ao colar.
-                const raw = String(e.target.value || "");
-                const normalized = raw.replace(/^\"+|\"+$/g, "").replace(/\D+/g, "").slice(0, 10);
+                const normalized = normalizeTombamentoInput(e.target.value);
                 setFilters((prev) => ({ ...prev, numeroTombamento: normalized }));
                 if (normalized.length !== 4 || normalized !== String(filters.numeroTombamento || "")) {
                   setTipoBusca4Digitos(null);
@@ -320,6 +379,23 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                   : "Ao consultar, o sistema vai perguntar se este codigo e etiqueta azul antiga ou etiqueta nova impressa errada."}
               </p>
             )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <select
+                value={scannerMode}
+                onChange={(e) => setScannerMode(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs"
+              >
+                <option value="single">Camera simples</option>
+                <option value="continuous">Camera continua</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200"
+              >
+                Ler por camera
+              </button>
+            </div>
           </label>
           <label className="space-y-1 md:col-span-2">
             <span className="text-xs text-slate-600">Texto na descricao</span>
@@ -585,6 +661,17 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
           </table>
         </div>
       </article>
+
+      {showScanner && (
+        <BarcodeScanner
+          continuous={scannerMode === "continuous"}
+          scanPreview={cameraScanPreview}
+          onClose={() => setShowScanner(false)}
+          onScan={(value) => {
+            void onCameraScan(value);
+          }}
+        />
+      )}
 
       {tagIdModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
