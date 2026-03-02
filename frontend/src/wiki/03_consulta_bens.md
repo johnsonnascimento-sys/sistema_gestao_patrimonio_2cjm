@@ -111,24 +111,21 @@ Modo de reversao item-a-item (ADMIN):
 
 ## Editar bem (ADMIN)
 
-No modal de detalhes, usuários `ADMIN` podem editar os campos operacionais do bem (exceto chaves), incluindo:
+No modal de detalhes, usuarios `ADMIN` podem editar os campos operacionais do bem (exceto chaves), incluindo:
 
-- Unidade (carga)
-- Nome resumo
-- Status
-- Descrição complementar
-- Responsável (perfilId)
-- Contrato / data / valor de aquisição
-- Local físico (texto legado do GEAFIN)
-- Sala/Local (padronizado) via tabela locais 
-- Nome Resumo e Descricao complementar nao sao editaveis neste modal; ajuste no menu Material (SKU).
+- Material (SKU) via busca por codigo
+- Sala/Local (padronizado) via tabela locais
+- Responsavel (perfilId)
+- Contrato / data / valor de aquisicao
+- Fotos (item e referencia do SKU)
 
-Importante:
+Importante no modal:
 
-- **Unidade (1..4)** é a *carga* (quem é o dono no sistema).
-- **Sala/Local** é um cadastro operacional (tabela `locais`) para padronizar ambientes.
+- Unidade (carga) e status aparecem bloqueados e exigem o fluxo proprio em Movimentacoes.
+- Nome Resumo e Descricao sao exibidos em modo leitura e devem ser alterados no menu Material (SKU).
+- A descricao exibida no modal vem da ficha do Material (SKU).
 
-## Fotos (item e referência do SKU)
+## Fotos (item e referencia do SKU)
 
 No mesmo modal, o `ADMIN` pode:
 
@@ -151,6 +148,7 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
 
 - Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+
 
 
 
