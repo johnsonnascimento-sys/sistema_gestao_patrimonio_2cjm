@@ -1083,9 +1083,26 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       params.push(filters.status);
       i += 1;
     }
+    if (filters.responsavelPerfilId) {
+      where.push(`b.responsavel_perfil_id = $${i}`);
+      params.push(filters.responsavelPerfilId);
+      i += 1;
+    }
+    if (filters.responsavelTexto) {
+      where.push(`(
+        rp.matricula ILIKE $${i}
+        OR rp.nome ILIKE $${i}
+      )`);
+      params.push(`%${filters.responsavelTexto}%`);
+      i += 1;
+    }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const countSql = `SELECT COUNT(*)::int AS total FROM bens b JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id ${whereSql};`;
+    const countSql = `SELECT COUNT(*)::int AS total
+      FROM bens b
+      JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+      LEFT JOIN perfis rp ON rp.id = b.responsavel_perfil_id
+      ${whereSql};`;
     const count = await pool.query(countSql, params);
     const total = count.rows[0]?.total ?? 0;
 
@@ -1101,6 +1118,9 @@ app.get("/bens", mustAuth, async (req, res, next) => {
         cb.descricao AS "catalogoDescricao",
         cb.foto_referencia_url AS "fotoReferenciaUrl",
         b.unidade_dona_id AS "unidadeDonaId",
+        b.responsavel_perfil_id AS "responsavelPerfilId",
+        rp.matricula AS "responsavelMatricula",
+        rp.nome AS "responsavelNome",
         b.local_id AS "localId",
         l.nome AS "localNome",
         b.local_fisico AS "localFisico",
@@ -1114,6 +1134,7 @@ app.get("/bens", mustAuth, async (req, res, next) => {
       FROM bens b
       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
       LEFT JOIN locais l ON l.id = b.local_id
+      LEFT JOIN perfis rp ON rp.id = b.responsavel_perfil_id
       ${whereSql}
       ORDER BY b.numero_tombamento NULLS LAST, b.created_at DESC
       LIMIT $${i} OFFSET $${i + 1};`;
@@ -4499,7 +4520,7 @@ function validateMov(body, opts) {
 /**
  * Valida query de listagem/consulta de bens.
  * @param {object} query Query string bruta do Express.
- * @returns {{numeroTombamento: string|null, tipoBusca: ("antigo"|"novo"|null), texto: string|null, codigoCatalogo: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
+ * @returns {{numeroTombamento: string|null, tipoBusca: ("antigo"|"novo"|null), texto: string|null, codigoCatalogo: string|null, localFisico: string|null, localId: string|null, unidadeDonaId: number|null, status: string|null, responsavelPerfilId: string|null, responsavelTexto: string|null, limit: number, offset: number, incluirTerceiros: boolean}} Filtros validados.
  */
 function validateBensQuery(query) {
   const numeroTombamento = normalizeTombamento(query.numeroTombamento || query.tombamento);
@@ -4567,6 +4588,19 @@ function validateBensQuery(query) {
   if (status && !VALID_STATUS_BEM.has(status)) {
     throw new HttpError(422, "STATUS_INVALIDO", `status deve ser: ${Array.from(VALID_STATUS_BEM).join(", ")}.`);
   }
+  const responsavelPerfilIdRaw = query.responsavelPerfilId || query.responsavel_perfil_id || null;
+  const responsavelPerfilId =
+    responsavelPerfilIdRaw != null && String(responsavelPerfilIdRaw).trim() !== ""
+      ? String(responsavelPerfilIdRaw).trim()
+      : null;
+  if (responsavelPerfilId && !UUID_RE.test(responsavelPerfilId)) {
+    throw new HttpError(422, "RESPONSAVEL_ID_INVALIDO", "responsavelPerfilId deve ser UUID.");
+  }
+  const responsavelTextoRaw = query.responsavel || query.responsavelTexto || null;
+  const responsavelTexto =
+    responsavelTextoRaw != null && String(responsavelTextoRaw).trim() !== ""
+      ? String(responsavelTextoRaw).trim().slice(0, 120)
+      : null;
 
   const limit = parseIntOrDefault(query.limit, 50);
   if (limit < 1 || limit > 5000) throw new HttpError(422, "LIMIT_INVALIDO", "limit deve estar entre 1 e 5000.");
@@ -4584,6 +4618,8 @@ function validateBensQuery(query) {
     localId,
     unidadeDonaId,
     status,
+    responsavelPerfilId,
+    responsavelTexto,
     limit,
     offset,
     incluirTerceiros,

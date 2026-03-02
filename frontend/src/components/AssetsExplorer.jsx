@@ -19,6 +19,7 @@ import {
   uploadFoto,
   getFotoUrl,
   atualizarFotoCatalogo,
+  buscarPerfisDetentor,
 } from "../services/apiClient.js";
 
 const STATUS_OPTIONS = ["", "OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
@@ -52,6 +53,8 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     localId: "",
     unidadeDonaId: "",
     status: "",
+    responsavelPerfilId: "",
+    responsavel: "",
   });
   const [paging, setPaging] = useState({ limit: 50, offset: 0, total: 0 });
   const [listView, setListView] = useState({
@@ -65,6 +68,8 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   const cameraPreviewTimeoutRef = useRef(null);
   const tombamentoInputRef = useRef(null);
 
+  const [responsavelLookup, setResponsavelLookup] = useState({ loading: false, error: null, data: [] });
+  const [responsavelInputFocused, setResponsavelInputFocused] = useState(false);
   const focusTombamentoInput = () => {
     window.setTimeout(() => {
       tombamentoInputRef.current?.focus();
@@ -97,7 +102,31 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     if (!exists) {
       setFilters((prev) => ({ ...prev, localId: "" }));
     }
+
   }, [filters.localId, locaisFiltroOptions]);
+  useEffect(() => {
+    const query = String(filters.responsavel || "").trim();
+    if (query.length < 2) {
+      setResponsavelLookup({ loading: false, error: null, data: [] });
+      return;
+    }
+    let active = true;
+    setResponsavelLookup((prev) => ({ ...prev, loading: true, error: null }));
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await buscarPerfisDetentor({ q: query, limit: 20 });
+        if (!active) return;
+        setResponsavelLookup({ loading: false, error: null, data: data?.items || [] });
+      } catch (e) {
+        if (!active) return;
+        setResponsavelLookup({ loading: false, error: String(e?.message || "Falha ao buscar responsavel."), data: [] });
+      }
+    }, 150);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [filters.responsavel]);
 
   const unitSummary = useMemo(() => {
     const rows = stats.data?.bens?.porUnidade || [];
@@ -148,6 +177,8 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
         localId: activeFilters.localId ? String(activeFilters.localId) : undefined,
         unidadeDonaId: activeFilters.unidadeDonaId ? Number(activeFilters.unidadeDonaId) : undefined,
         status: activeFilters.status || undefined,
+        responsavelPerfilId: activeFilters.responsavelPerfilId ? String(activeFilters.responsavelPerfilId) : undefined,
+        responsavel: activeFilters.responsavelPerfilId ? undefined : (activeFilters.responsavel ? String(activeFilters.responsavel).trim() : undefined),
         limit: paging.limit,
         offset: newOffset,
       });
@@ -215,7 +246,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     setFormError(null);
     setTipoBusca4Digitos(null);
     setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" });
-    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localId: "", unidadeDonaId: "", status: "" };
+    const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localId: "", unidadeDonaId: "", status: "", responsavelPerfilId: "", responsavel: "" };
     setFilters(clearedFilters);
     setPaging((prev) => ({ ...prev, offset: 0 }));
     setTimeout(() => loadList(0, undefined, clearedFilters), 0);
@@ -502,6 +533,57 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
               <p className="text-[11px] text-slate-500">Carregando salas...</p>
             ) : null}
           </label>
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-xs text-slate-600">Responsavel (matricula)</span>
+            <div className="relative">
+              <input
+                value={filters.responsavel}
+                onFocus={() => setResponsavelInputFocused(true)}
+                onBlur={() => window.setTimeout(() => setResponsavelInputFocused(false), 120)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setFilters((prev) => ({ ...prev, responsavel: next, responsavelPerfilId: "" }));
+                }}
+                placeholder="Digite matricula ou nome do responsavel"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              />
+              {responsavelInputFocused ? (
+                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                  {responsavelLookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
+                  {!responsavelLookup.loading && responsavelLookup.error ? (
+                    <p className="px-3 py-2 text-xs text-rose-700">{responsavelLookup.error}</p>
+                  ) : null}
+                  {!responsavelLookup.loading && !responsavelLookup.error &&
+                    responsavelLookup.data.length === 0 && String(filters.responsavel || "").trim().length >= 2 ? (
+                    <p className="px-3 py-2 text-xs text-slate-500">Nenhum responsavel encontrado.</p>
+                  ) : null}
+                  {!responsavelLookup.loading && !responsavelLookup.error && responsavelLookup.data.map((perfil) => (
+                    <button
+                      key={perfil.id}
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        const label = perfil?.matricula
+                          ? `${perfil.matricula}${perfil?.nome ? ` - ${perfil.nome}` : ""}`
+                          : (perfil?.nome || perfil?.id || "");
+                        setFilters((prev) => ({
+                          ...prev,
+                          responsavelPerfilId: String(perfil.id || ""),
+                          responsavel: label,
+                        }));
+                        setResponsavelInputFocused(false);
+                      }}
+                      className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                    >
+                      <p className="font-semibold text-slate-900">{perfil.nome || "-"}</p>
+                      <p className="mt-0.5 text-slate-600">Matricula: <span className="font-mono">{perfil.matricula || "-"}</span></p>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <p className="text-[11px] text-slate-500">Filtro por responsavel patrimonial (matricula/nome).</p>
+          </label>
           <label className="space-y-1">
             <span className="text-xs text-slate-600">Status</span>
             <select
@@ -601,6 +683,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                 {listView.showCatalogPhoto && <th className="px-3 py-2">Foto Catálogo</th>}
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
+                <th className="px-3 py-2">Responsavel</th>
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2 text-center">Obs</th>
                 <th className="px-3 py-2 text-right">Acoes</th>
@@ -609,7 +692,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             <tbody className="divide-y divide-slate-200 bg-slate-50">
               {items.length === 0 && !list.loading && (
                 <tr>
-                  <td colSpan={9 + (listView.showItemPhoto ? 1 : 0) + (listView.showCatalogPhoto ? 1 : 0)} className="px-3 py-8 text-center text-sm text-slate-600">
+                  <td colSpan={10 + (listView.showItemPhoto ? 1 : 0) + (listView.showCatalogPhoto ? 1 : 0)} className="px-3 py-8 text-center text-sm text-slate-600">
                     Nenhum bem encontrado para os filtros informados.
                   </td>
                 </tr>
@@ -689,6 +772,11 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                     {formatUnidade(Number(item.unidadeDonaId))}
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-600">{item.localNome || item.localFisico || "-"}</td>
+                  <td className="px-3 py-2 text-xs text-slate-700">
+                    {item.responsavelMatricula || item.responsavelNome
+                      ? `${item.responsavelMatricula || "-"}${item.responsavelNome ? ` - ${item.responsavelNome}` : ""}`
+                      : "-"}
+                  </td>
                   <td className="px-3 py-2">
                     <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs">
                       {item.status}
@@ -924,10 +1012,49 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     candidato: null,
   });
 
+  const [responsavelBusca, setResponsavelBusca] = useState("");
+  const [responsavelLookupState, setResponsavelLookupState] = useState({ loading: false, error: null, data: [] });
+  const [responsavelSelecionado, setResponsavelSelecionado] = useState(null);
+  const [responsavelInputFocusedModal, setResponsavelInputFocusedModal] = useState(false);
+
   useEffect(() => {
     setMaterialCodigoBusca(String(catalogo?.codigoCatalogo || ""));
     setMaterialBuscaState({ loading: false, error: null, candidato: null });
   }, [catalogo?.codigoCatalogo, imp?.id]);
+
+  useEffect(() => {
+    const r = state?.data?.responsavel || null;
+    setResponsavelSelecionado(r);
+    const label = r?.matricula
+      ? `${r.matricula}${r?.nome ? ` - ${r.nome}` : ""}`
+      : (r?.nome || "");
+    setResponsavelBusca(label);
+    setResponsavelLookupState({ loading: false, error: null, data: [] });
+  }, [state?.data?.responsavel, imp?.id]);
+
+  useEffect(() => {
+    const q = String(responsavelBusca || "").trim();
+    if (q.length < 2) {
+      setResponsavelLookupState({ loading: false, error: null, data: [] });
+      return;
+    }
+    let active = true;
+    setResponsavelLookupState((prev) => ({ ...prev, loading: true, error: null }));
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await buscarPerfisDetentor({ q, limit: 20 });
+        if (!active) return;
+        setResponsavelLookupState({ loading: false, error: null, data: data?.items || [] });
+      } catch (e) {
+        if (!active) return;
+        setResponsavelLookupState({ loading: false, error: String(e?.message || "Falha ao buscar responsavel."), data: [] });
+      }
+    }, 150);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [responsavelBusca]);
 
   const hasUnsavedChanges = useMemo(() => {
     if (!isAdmin || !imp) return false;
@@ -1015,6 +1142,25 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     }
   };
 
+  const associarResponsavelComDuplaConfirmacao = (perfil) => {
+    if (!perfil?.id) return;
+    const nome = perfil?.nome || "-";
+    const matricula = perfil?.matricula || "-";
+    const ok = window.confirm(`Confirmar associacao do responsavel ${nome} (matricula ${matricula}) para este bem?`);
+    if (!ok) return;
+    const frase = window.prompt("Digite ASSOCIAR_RESPONSAVEL para confirmar a associacao:", "");
+    if (String(frase || "").trim() !== "ASSOCIAR_RESPONSAVEL") {
+      setEditErr("Associacao cancelada: frase de confirmacao invalida.");
+      setEditMsg(null);
+      return;
+    }
+    setEdit((p) => ({ ...p, responsavelPerfilId: String(perfil.id) }));
+    setResponsavelSelecionado(perfil);
+    setResponsavelBusca(`${perfil.matricula || "-"}${perfil.nome ? ` - ${perfil.nome}` : ""}`);
+    setEditMsg(`Responsavel selecionado: ${perfil.nome || "-"}. Clique em Salvar alteracoes do bem para aplicar.`);
+    setEditErr(null);
+    setResponsavelInputFocusedModal(false);
+  };
   const salvarBemMut = useMutation({
     mutationFn: async () => {
       if (!imp?.id) throw new Error("BemId ausente.");
@@ -1025,6 +1171,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         contratoReferencia: edit.contratoReferencia || null,
         dataAquisicao: edit.dataAquisicao || null,
         valorAquisicao: edit.valorAquisicao !== "" ? Number(edit.valorAquisicao) : null,
+
         localFisico: null,
         localId: edit.localId ? String(edit.localId) : null,
         fotoUrl: edit.fotoUrl || null,
@@ -1217,6 +1364,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <Row k="Unidade (carga)" v={formatUnidade(Number(imp.unidadeDonaId))} />
                     <Row k="Tomb. Antigo (Azul)" v={imp.cod2Aud} />
                     <Row k="Nome Resumo" v={imp.nomeResumo} />
+                    <Row k="Responsavel" v={state?.data?.responsavel?.matricula ? `${state.data.responsavel.matricula}${state?.data?.responsavel?.nome ? ` - ${state.data.responsavel.nome}` : ""}` : (state?.data?.responsavel?.nome || "-")} />
                     <Row k="Sala/Local (padronizado)" v={salaPadronizadaAtual} />
                     <Row k="Status" v={imp.status} />
                     <Row k="Valor aquisição" v={imp.valorAquisicao} />
@@ -1365,16 +1513,53 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       </p>
                     </label>
 
-                    <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Responsavel patrimonial (perfilId UUID)</span>
-                      <input
-                        value={edit.responsavelPerfilId}
-                        onChange={(e) => setEdit((p) => ({ ...p, responsavelPerfilId: e.target.value }))}
-                        placeholder="UUID do perfil responsavel"
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs"
-                      />
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-600">Responsavel patrimonial (buscar por matricula)</span>
+                      <div className="relative">
+                        <input
+                          value={responsavelBusca}
+                          onFocus={() => setResponsavelInputFocusedModal(true)}
+                          onBlur={() => window.setTimeout(() => setResponsavelInputFocusedModal(false), 120)}
+                          onChange={(e) => {
+                            setResponsavelBusca(e.target.value);
+                            setEdit((p) => ({ ...p, responsavelPerfilId: "" }));
+                            setResponsavelSelecionado(null);
+                          }}
+                          placeholder="Digite matricula ou nome do responsavel"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                        {responsavelInputFocusedModal ? (
+                          <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                            {responsavelLookupState.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
+                            {!responsavelLookupState.loading && responsavelLookupState.error ? (
+                              <p className="px-3 py-2 text-xs text-rose-700">{responsavelLookupState.error}</p>
+                            ) : null}
+                            {!responsavelLookupState.loading && !responsavelLookupState.error &&
+                              responsavelLookupState.data.length === 0 && String(responsavelBusca || "").trim().length >= 2 ? (
+                              <p className="px-3 py-2 text-xs text-slate-500">Nenhum responsavel encontrado.</p>
+                            ) : null}
+                            {!responsavelLookupState.loading && !responsavelLookupState.error && responsavelLookupState.data.map((perfil) => (
+                              <button
+                                key={perfil.id}
+                                type="button"
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  associarResponsavelComDuplaConfirmacao(perfil);
+                                }}
+                                className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                              >
+                                <p className="font-semibold text-slate-900">{perfil.nome || "-"}</p>
+                                <p className="mt-0.5 text-slate-600">Matricula: <span className="font-mono">{perfil.matricula || "-"}</span></p>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                       <p className="text-[11px] text-slate-500">
-                        Indica a posse operacional do bem no dia a dia (sem cautela ativa). Cautela e registrada em Movimentacoes.
+                        Associa posse operacional (sem cautela). Exige dupla confirmacao para vincular responsavel.
+                      </p>
+                      <p className="text-[11px] text-emerald-700">
+                        Atual: {responsavelSelecionado?.matricula || "-"}{responsavelSelecionado?.nome ? ` - ${responsavelSelecionado.nome}` : ""}
                       </p>
                     </label>
 
@@ -1749,5 +1934,4 @@ function Row({ k, v, mono }) {
     </div>
   );
 }
-
 

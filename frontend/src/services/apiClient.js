@@ -258,6 +258,8 @@ export async function listarBensLocalizacao(params = {}) {
  * @param {string=} filters.localId UUID do local cadastrado (tabela locais) vinculado ao bem.
  * @param {number=} filters.unidadeDonaId Unidade 1..4.
  * @param {string=} filters.status OK|BAIXADO|EM_CAUTELA|AGUARDANDO_RECEBIMENTO.
+ * @param {string=} filters.responsavelPerfilId UUID do perfil responsavel associado ao bem.
+ * @param {string=} filters.responsavel Texto parcial para filtrar por matricula/nome do responsavel.
  * @param {number=} filters.limit Limite (1..200).
  * @param {number=} filters.offset Offset (>=0).
  * @param {boolean=} filters.incluirTerceiros Incluir bens de terceiros.
@@ -272,6 +274,8 @@ export async function listarBens(filters = {}) {
   if (filters.localId) params.set("localId", String(filters.localId));
   if (filters.unidadeDonaId) params.set("unidadeDonaId", String(filters.unidadeDonaId));
   if (filters.status) params.set("status", filters.status);
+  if (filters.responsavelPerfilId) params.set("responsavelPerfilId", String(filters.responsavelPerfilId));
+  if (filters.responsavel) params.set("responsavel", String(filters.responsavel));
   if (filters.limit != null) params.set("limit", String(filters.limit));
   if (filters.offset != null) params.set("offset", String(filters.offset));
   if (filters.incluirTerceiros) params.set("incluirTerceiros", "true");

@@ -53,6 +53,13 @@ Importante:
 
 Use quando você quer ver apenas itens de uma unidade (carga).
 
+
+### 5) Filtro por responsavel
+
+- Digite matricula ou nome do responsavel patrimonial.
+- Selecione o perfil sugerido para filtrar com precisao.
+- O resultado lista apenas bens associados ao responsavel selecionado.
+
 ## Entendendo as colunas
 
 As colunas visiveis na lista sao um "resumo operacional". O sistema guarda mais campos no detalhe.
@@ -63,6 +70,7 @@ Campos típicos no resumo:
 - Descrição (do catálogo ou descrição consolidada)
 - Unidade (carga)
 - Local (local fisico)
+- Responsavel (matricula/nome)
 - Tombo antigo (Azul) (`cod2Aud`)
 - Cat�logo (SKU)
 - Status (OK/EM_CAUTELA/BAIXADO/AGUARDANDO_RECEBIMENTO quando aplicavel)
@@ -115,7 +123,7 @@ No modal de detalhes, usuarios `ADMIN` podem editar os campos operacionais do be
 
 - Material (SKU) via busca por codigo
 - Sala/Local (padronizado) via tabela locais
-- Responsavel (perfilId)
+- Responsavel patrimonial por busca de matricula/nome (com dupla confirmacao na associacao)
 - Contrato / data / valor de aquisicao
 - Fotos (item e referencia do SKU)
 
@@ -150,6 +158,7 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
 
 - Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+
 
 
 
