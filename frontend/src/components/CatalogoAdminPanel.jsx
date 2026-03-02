@@ -65,6 +65,9 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [formFotoAtualUrl, setFormFotoAtualUrl] = useState("");
   const [formFotoInputKey, setFormFotoInputKey] = useState(0);
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
+  const [editLookupCodigo, setEditLookupCodigo] = useState("");
+  const [editLookupMsg, setEditLookupMsg] = useState(null);
+  const [nomeResumoTargetId, setNomeResumoTargetId] = useState("");
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
   const [nomeResumoForm, setNomeResumoForm] = useState({ value: "", loading: false, error: null, info: null });
   const [columnFilters, setColumnFilters] = useState({
@@ -76,6 +79,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   });
   const [sortState, setSortState] = useState({ key: "", dir: "asc" });
   const totalServerItems = Array.isArray(listState.data?.items) ? listState.data.items.length : 0;
+  const catalogosOptions = Array.isArray(listState.data?.items) ? listState.data.items : [];
 
   const loadCatalogos = async () => {
     if (!canAdmin) return;
@@ -243,6 +247,8 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const onEditar = (catalogo) => {
     if (!catalogo?.id) return;
     setEditId(String(catalogo.id));
+    setEditLookupCodigo(String(catalogo.codigoCatalogo || ""));
+    setEditLookupMsg(`Material (SKU) ${String(catalogo.codigoCatalogo || "")} carregado para edicao.`);
     setForm({
       codigoCatalogo: String(catalogo.codigoCatalogo || ""),
       descricao: String(catalogo.descricao || ""),
@@ -257,6 +263,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
 
   const onCancelarEdicao = () => {
     setEditId("");
+    setEditLookupMsg(null);
     setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
     setFormFotoFile(null);
     setFormFotoInputKey((v) => v + 1);
@@ -322,6 +329,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const onVerBensAssociados = async (catalogo) => {
     if (!catalogo?.codigoCatalogo) return;
     setSelectedCatalogo(catalogo);
+    setNomeResumoTargetId(String(catalogo?.id || ""));
     setNomeResumoForm({
       value: String(catalogo?.descricao || ""),
       loading: false,
@@ -341,14 +349,34 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     }
   };
 
+  const onCarregarMaterialParaEdicao = () => {
+    const codigo = String(editLookupCodigo || "").trim();
+    if (!codigo) {
+      setEditLookupMsg("Informe o codigo do Material (SKU).");
+      return;
+    }
+    const exact = catalogosOptions.find((c) => String(c?.codigoCatalogo || "").trim() === codigo);
+    if (exact) {
+      onEditar(exact);
+      return;
+    }
+    const similar = catalogosOptions.find((c) => String(c?.codigoCatalogo || "").toLowerCase().includes(codigo.toLowerCase()));
+    if (similar) {
+      onEditar(similar);
+      setEditLookupMsg(`Codigo exato nao encontrado. Material ${similar.codigoCatalogo} carregado por similaridade.`);
+      return;
+    }
+    setEditLookupMsg("Material (SKU) nao encontrado na lista atual. Clique em Atualizar e tente novamente.");
+  };
+
   const onAplicarNomeResumoSku = async () => {
     if (!canAdmin) {
       setNomeResumoForm((prev) => ({ ...prev, error: "Operacao restrita ao perfil ADMIN.", info: null }));
       return;
     }
-    const catalogoId = String(selectedCatalogo?.id || "").trim();
+    const catalogoId = String(nomeResumoTargetId || selectedCatalogo?.id || "").trim();
     if (!catalogoId) {
-      setNomeResumoForm((prev) => ({ ...prev, error: "Selecione um catalogo (SKU) antes de aplicar.", info: null }));
+      setNomeResumoForm((prev) => ({ ...prev, error: "Selecione um Material (SKU) antes de aplicar.", info: null }));
       return;
     }
     const nomeResumo = String(nomeResumoForm.value || "").trim();
@@ -361,7 +389,9 @@ export default function CatalogoAdminPanel({ canAdmin }) {
         error: null,
         info: `Nome resumo aplicado em ${Number(data?.atualizados || 0)} bem(ns).`,
       }));
-      await onVerBensAssociados(selectedCatalogo);
+      if (selectedCatalogo && String(selectedCatalogo.id) === String(catalogoId)) {
+        await onVerBensAssociados(selectedCatalogo);
+      }
     } catch (error) {
       setNomeResumoForm((prev) => ({ ...prev, loading: false, error: formatApiError(error), info: null }));
     }
@@ -396,10 +426,29 @@ export default function CatalogoAdminPanel({ canAdmin }) {
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <form onSubmit={onSalvarCatalogo} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h4 className="text-sm font-semibold text-slate-900">Criar/editar catalogo</h4>
+          <h4 className="text-sm font-semibold text-slate-900">Criar/editar Material (SKU)</h4>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-xs font-semibold text-slate-800">Edicao rapida por codigo</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                value={editLookupCodigo}
+                onChange={(e) => setEditLookupCodigo(e.target.value)}
+                className="min-w-[220px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                placeholder="Ex.: 49581"
+              />
+              <button
+                type="button"
+                onClick={onCarregarMaterialParaEdicao}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-100"
+              >
+                Carregar para edicao
+              </button>
+            </div>
+            {editLookupMsg ? <p className="mt-2 text-[11px] text-slate-600">{editLookupMsg}</p> : null}
+          </div>
           <div className="mt-3 grid gap-2">
             <label className="space-y-1">
-              <span className="text-xs text-slate-600">Codigo catalogo</span>
+              <span className="text-xs text-slate-600">Codigo do Material (SKU)</span>
               <input
                 value={form.codigoCatalogo}
                 onChange={(e) => setForm((p) => ({ ...p, codigoCatalogo: e.target.value }))}
@@ -489,7 +538,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
               disabled={formState.loading || (!canAdmin && auth.authEnabled)}
               className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {formState.loading ? "Salvando..." : editId ? "Atualizar catalogo" : "Criar catalogo"}
+              {formState.loading ? "Salvando..." : editId ? "Atualizar Material (SKU)" : "Criar Material (SKU)"}
             </button>
             {editId ? (
               <button
@@ -544,7 +593,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-900">Lista de catalogo</h4>
+          <h4 className="text-sm font-semibold text-slate-900">Lista de Material (SKU)</h4>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-600">
               Mostrando {itemsFiltradosOrdenados.length} de {totalServerItems} materiais
@@ -727,43 +776,63 @@ export default function CatalogoAdminPanel({ canAdmin }) {
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-900">Bens e fotos associados ao catalogo</h4>
+          <h4 className="text-sm font-semibold text-slate-900">Bens e fotos associados ao Material (SKU)</h4>
           {selectedCatalogo?.codigoCatalogo ? (
             <span className="text-xs text-slate-600">
-              Catalogo: <strong>{selectedCatalogo.codigoCatalogo}</strong>
+              Material (SKU): <strong>{selectedCatalogo.codigoCatalogo}</strong>
             </span>
           ) : null}
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          Use o botao <strong>Ver bens</strong> na lista de catalogo para carregar os itens associados e suas fotos.
+          Use o botao <strong>Ver bens</strong> na lista para carregar os itens associados e suas fotos.
         </p>
-        {selectedCatalogo ? (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold text-slate-800">Nome Resumo para todo o SKU</p>
-            <p className="mt-1 text-[11px] text-slate-600">
-              Define o campo <code>nomeResumo</code> para todos os bens vinculados a este material (SKU).
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                value={nomeResumoForm.value}
-                onChange={(e) => setNomeResumoForm((prev) => ({ ...prev, value: e.target.value }))}
-                className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                placeholder="Ex.: Notebook Dell Latitude 5420"
-                disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
-              />
-              <button
-                type="button"
-                onClick={() => void onAplicarNomeResumoSku()}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-                disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
-              >
-                {nomeResumoForm.loading ? "Aplicando..." : "Aplicar nome resumo no SKU"}
-              </button>
-            </div>
-            {nomeResumoForm.error ? <p className="mt-2 text-sm text-rose-700">{nomeResumoForm.error}</p> : null}
-            {nomeResumoForm.info ? <p className="mt-2 text-sm text-emerald-700">{nomeResumoForm.info}</p> : null}
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+          <p className="text-xs font-semibold text-slate-800">Nome Resumo em lote por SKU</p>
+          <p className="mt-1 text-[11px] text-slate-600">
+            Selecione o Material (SKU), informe o nome resumo e aplique para todos os bens vinculados.
+          </p>
+          <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+            <select
+              value={nomeResumoTargetId}
+              onChange={(e) => {
+                const id = String(e.target.value || "");
+                setNomeResumoTargetId(id);
+                const cat = catalogosOptions.find((c) => String(c.id) === id) || null;
+                setNomeResumoForm((prev) => ({
+                  ...prev,
+                  value: String(cat?.descricao || ""),
+                  error: null,
+                  info: null,
+                }));
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Selecione o Material (SKU)</option>
+              {catalogosOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.codigoCatalogo} - {c.descricao}
+                </option>
+              ))}
+            </select>
+            <input
+              value={nomeResumoForm.value}
+              onChange={(e) => setNomeResumoForm((prev) => ({ ...prev, value: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              placeholder="Ex.: Notebook Dell Latitude 5420"
+              disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
+            />
+            <button
+              type="button"
+              onClick={() => void onAplicarNomeResumoSku()}
+              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
+            >
+              {nomeResumoForm.loading ? "Aplicando..." : "Aplicar nome resumo"}
+            </button>
           </div>
-        ) : null}
+          {nomeResumoForm.error ? <p className="mt-2 text-sm text-rose-700">{nomeResumoForm.error}</p> : null}
+          {nomeResumoForm.info ? <p className="mt-2 text-sm text-emerald-700">{nomeResumoForm.info}</p> : null}
+        </div>
 
         {bensState.error ? <p className="mt-3 text-sm text-rose-700">{bensState.error}</p> : null}
         {bensState.loading ? <p className="mt-3 text-sm text-slate-600">Carregando bens associados...</p> : null}
@@ -836,13 +905,13 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <h4 className="text-sm font-semibold text-slate-900">Associar patrimonios ao catalogo</h4>
+        <h4 className="text-sm font-semibold text-slate-900">Associar patrimonios ao Material (SKU)</h4>
         <p className="mt-1 text-[11px] text-slate-500">
           Informe os tombamentos GEAFIN (10 digitos), separados por espaco, virgula ou quebra de linha.
         </p>
         <form onSubmit={onAssociar} className="mt-3 grid gap-3">
           <label className="space-y-1">
-            <span className="text-xs text-slate-600">Catalogo destino</span>
+            <span className="text-xs text-slate-600">Material (SKU) destino</span>
             <select
               value={assocForm.catalogoId}
               onChange={(e) => setAssocForm((p) => ({ ...p, catalogoId: e.target.value }))}

@@ -15,11 +15,18 @@ Cada material pode ser associado a varios bens (tombamentos).
 ## Operacoes principais
 
 - criar material
-- editar descricao e grupo
+- editar Material (SKU) por codigo (edicao rapida)
 - marcar material permanente
 - anexar foto de referencia (SKU)
 - consultar itens associados
 - aplicar nome resumo para todos os bens do mesmo SKU
+
+## Fluxo mais intuitivo (recomendado)
+
+1. Em **Criar/editar Material (SKU)**, use **Edicao rapida por codigo**.
+2. Informe o codigo do material e clique **Carregar para edicao**.
+3. Ajuste descricao/grupo/foto e salve.
+4. Em **Nome Resumo em lote por SKU**, selecione o Material (SKU), informe o nome resumo e aplique.
 
 ## Regras operacionais
 
