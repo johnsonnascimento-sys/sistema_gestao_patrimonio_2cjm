@@ -8,8 +8,9 @@ import { Html5Qrcode } from "html5-qrcode";
  * @param {(code: string) => void} props.onScan Disparado quando um codigo e lido com sucesso.
  * @param {() => void} props.onClose Disparado quando o usuario clica em cancelar/fechar.
  * @param {boolean} [props.continuous=false] Se true, a camera nao fecha automaticamente apos ler um codigo.
+ * @param {{code?: string, summary?: string}|null} [props.scanPreview=null] Preview da ultima leitura para feedback visual.
  */
-export default function BarcodeScanner({ onScan, onClose, continuous = false }) {
+export default function BarcodeScanner({ onScan, onClose, continuous = false, scanPreview = null }) {
   const regionIdRef = useRef(`barcode-scanner-region-${Math.random().toString(36).slice(2, 10)}`);
   const regionId = regionIdRef.current;
 
@@ -165,6 +166,13 @@ export default function BarcodeScanner({ onScan, onClose, continuous = false }) 
             ? "Aponte a camera para os codigos de barras. A camera continuara ligada apos cada leitura."
             : "Aponte a camera para o codigo de barras. A camera sera fechada automaticamente apos a leitura."}
         </div>
+        {scanPreview?.code ? (
+          <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Leitura confirmada</p>
+            <p className="font-mono text-sm font-semibold text-slate-900">{scanPreview.code}</p>
+            <p className="line-clamp-2 text-xs text-slate-700">{scanPreview.summary || "Sem nome resumo cadastrado."}</p>
+          </div>
+        ) : null}
 
         <button
           onClick={() => requestCloseRef.current()}

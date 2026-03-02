@@ -3,7 +3,7 @@
  * Arquivo: MovimentacoesPanel.jsx
  * Funcao no sistema: executar movimentacoes patrimoniais (transferencia/cautela) e regularizacao em lote por sala.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import {
@@ -99,11 +99,13 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [scanInput, setScanInput] = useState("");
   const [scannerMode, setScannerMode] = useState("continuous");
   const [showScanner, setShowScanner] = useState(false);
+  const [cameraScanPreview, setCameraScanPreview] = useState(null);
   const [loteItens, setLoteItens] = useState([]);
   const [loteState, setLoteState] = useState({ loading: false, response: null, error: null, info: null });
   const [statsLocais, setStatsLocais] = useState({ loading: false, data: null, error: null });
   const [resetModal, setResetModal] = useState({ open: false, loading: false, resultado: null });
   const [bensLoc, setBensLoc] = useState({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 });
+  const cameraPreviewTimeoutRef = useRef(null);
 
   const selectedLocal = useMemo(
     () => (locaisState.data || []).find((l) => String(l.id) === String(localSalaId)) || null,
@@ -270,7 +272,27 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     });
   };
 
-  const buscarEAdicionarTombo = async (rawTombo) => {
+  const showCameraScanPreview = (numeroTombamento, nomeResumo) => {
+    setCameraScanPreview({
+      code: String(numeroTombamento || ""),
+      summary: String(nomeResumo || "Sem nome resumo cadastrado."),
+    });
+    if (cameraPreviewTimeoutRef.current) {
+      window.clearTimeout(cameraPreviewTimeoutRef.current);
+    }
+    cameraPreviewTimeoutRef.current = window.setTimeout(() => {
+      setCameraScanPreview(null);
+      cameraPreviewTimeoutRef.current = null;
+    }, 2000);
+  };
+
+  useEffect(() => () => {
+    if (cameraPreviewTimeoutRef.current) {
+      window.clearTimeout(cameraPreviewTimeoutRef.current);
+    }
+  }, []);
+
+  const buscarEAdicionarTombo = async (rawTombo, options = {}) => {
     const tombo = normalizeTombamentoInput(rawTombo);
     if (!/^\d{10}$/.test(tombo)) {
       setLoteState({ loading: false, response: null, error: "Informe tombamento GEAFIN com 10 digitos.", info: null });
@@ -324,6 +346,9 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
           ? `Tombo ${tombo} adicionado como divergente (nao sera salvo ate marcar manter).`
           : `Tombo ${tombo} adicionado na fila.`,
       });
+      if (options?.fromCamera) {
+        showCameraScanPreview(item.numeroTombamento, item.nomeResumo || item.descricao || item.descricaoComplementar);
+      }
       setScanInput("");
     } catch (error) {
       setLoteState({ loading: false, response: null, error: formatApiError(error), info: null });
@@ -1139,11 +1164,12 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       {showCadastroSala && showScanner ? (
         <BarcodeScanner
           continuous={scannerMode === "continuous"}
+          scanPreview={cameraScanPreview}
           onClose={() => setShowScanner(false)}
           onScan={(value) => {
             const normalized = normalizeTombamentoInput(value);
             if (normalized) {
-              void buscarEAdicionarTombo(normalized);
+              void buscarEAdicionarTombo(normalized, { fromCamera: true });
             }
             if (scannerMode === "single") {
               setShowScanner(false);

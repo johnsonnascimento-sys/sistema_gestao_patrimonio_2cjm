@@ -161,6 +161,7 @@ export default function InventoryRoomPanel() {
   const [showCatalogPhotoList, setShowCatalogPhotoList] = useState(false);
   const [unitEffectReady, setUnitEffectReady] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [cameraScanPreview, setCameraScanPreview] = useState(null);
   const [scannerMode, setScannerMode] = useState("single"); // 'single' ou 'continuous'
   const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "", type: null });
 
@@ -179,6 +180,27 @@ export default function InventoryRoomPanel() {
   const [divergenteAlertItem, setDivergenteAlertItem] = useState(null);
   const scannedSessionRef = useRef(new Set());
   const scanCooldownRef = useRef(new Map());
+  const cameraPreviewTimeoutRef = useRef(null);
+
+  const showCameraScanPreview = (numeroTombamento, nomeResumo) => {
+    setCameraScanPreview({
+      code: String(numeroTombamento || ""),
+      summary: String(nomeResumo || "Sem nome resumo cadastrado."),
+    });
+    if (cameraPreviewTimeoutRef.current) {
+      window.clearTimeout(cameraPreviewTimeoutRef.current);
+    }
+    cameraPreviewTimeoutRef.current = window.setTimeout(() => {
+      setCameraScanPreview(null);
+      cameraPreviewTimeoutRef.current = null;
+    }, 2000);
+  };
+
+  useEffect(() => () => {
+    if (cameraPreviewTimeoutRef.current) {
+      window.clearTimeout(cameraPreviewTimeoutRef.current);
+    }
+  }, []);
 
 
   useEffect(() => {
@@ -606,7 +628,7 @@ export default function InventoryRoomPanel() {
     });
   };
 
-  const handleScanValue = async (rawValue) => {
+  const handleScanValue = async (rawValue, options = {}) => {
     setUiError(null);
     setScanFeedback(null);
 
@@ -631,7 +653,7 @@ export default function InventoryRoomPanel() {
       return;
     }
 
-    await processScan(numeroTombamento);
+    await processScan(numeroTombamento, null, options);
   };
 
   const registerScan = async (event) => {
@@ -639,7 +661,7 @@ export default function InventoryRoomPanel() {
     await handleScanValue(scannerValue);
   };
 
-  const processScan = async (numeroTombamento, tipoBusca = null) => {
+  const processScan = async (numeroTombamento, tipoBusca = null, options = {}) => {
     setUiError(null);
     setScanFeedback(null);
     const unidadeEncontrada = Number(unidadeEncontradaId);
@@ -689,6 +711,7 @@ export default function InventoryRoomPanel() {
     }
 
     const finalTombamento = bem?.numeroTombamento || numeroTombamento;
+    const resumoLido = bem?.nomeResumo || bem?.descricao || bem?.descricaoComplementar || bem?.catalogoDescricao || "Sem nome resumo cadastrado.";
     const scanKey = [selectedEventoIdFinal, localEncontradoId || normalizeRoomKey(salaAtual), finalTombamento].join("|");
     const now = Date.now();
     const lastScanAt = scanCooldownRef.current.get(scanKey);
@@ -780,6 +803,9 @@ export default function InventoryRoomPanel() {
       kind: divergente ? "warn" : "success",
       message: `${finalTombamento} ${statusLabel}.`,
     });
+    if (options?.fromCamera) {
+      showCameraScanPreview(finalTombamento, resumoLido);
+    }
     if (!divergente) playSuccessBeep();
 
     setLastScans((prev) => [
@@ -985,6 +1011,7 @@ export default function InventoryRoomPanel() {
           {showScanner && (
             <BarcodeScanner
               continuous={scannerMode === "continuous"}
+              scanPreview={cameraScanPreview}
               onClose={() => setShowScanner(false)}
               onScan={(decodedText) => {
                 const cleaned = normalizeTombamentoInput(decodedText);
@@ -996,7 +1023,7 @@ export default function InventoryRoomPanel() {
 
                   // Wrap in a setTimeout so the state update resolves before we submit the scan
                   setTimeout(() => {
-                    handleScanValue(cleaned);
+                    handleScanValue(cleaned, { fromCamera: true });
                   }, 50);
                 } else if (scannerMode === "single") {
                   // Manteve a varredura se estiver contínuo
