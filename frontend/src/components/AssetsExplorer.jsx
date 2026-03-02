@@ -1147,7 +1147,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
       data_aquisicao: "Data aquisicao",
       valor_aquisicao: "Valor aquisicao",
       descricao: "Descricao catalogo",
-      grupo: "Grupo catalogo",
+      grupo: "Classificacao SIAFI",
       material_permanente: "Material permanente",
     };
     return map[field] || field;
@@ -1229,7 +1229,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <Row k="Material (SKU) id" v={catalogo?.id || imp.catalogoBemId} mono />
                     <Row k="Codigo material (SKU)" v={catalogo?.codigoCatalogo} />
                     <Row k="Descrição" v={catalogo?.descricao} />
-                    <Row k="Grupo" v={catalogo?.grupo} />
+                    <Row k="Classificacao SIAFI" v={catalogo?.grupo} />
                     <Row k="Material permanente" v={String(Boolean(catalogo?.materialPermanente))} />
                     <Row k="Foto (referência)" v={catalogo?.fotoReferenciaUrl} />
                   </dl>

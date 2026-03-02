@@ -53,7 +53,7 @@ A grade permite filtrar por colunas, incluindo:
 
 - codigo
 - descricao
-- grupo
+- classificacao SIAFI
 - permanente
 - quantidade de bens
 
