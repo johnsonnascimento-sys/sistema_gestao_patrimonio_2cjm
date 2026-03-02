@@ -124,6 +124,8 @@ Importante no modal:
 - Unidade (carga) e status aparecem bloqueados e exigem o fluxo proprio em Movimentacoes.
 - Nome Resumo e Descricao sao exibidos em modo leitura e devem ser alterados no menu Material (SKU).
 - A descricao exibida no modal vem da ficha do Material (SKU).
+- Responsavel patrimonial (perfilId UUID) indica posse operacional no dia a dia, sem cautela ativa.
+- Cautela e outro fluxo: fica registrada em Movimentacoes com detentor temporario e status EM_CAUTELA.
 
 ## Fotos (item e referencia do SKU)
 
@@ -148,6 +150,7 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
 
 - Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+
 
 
 

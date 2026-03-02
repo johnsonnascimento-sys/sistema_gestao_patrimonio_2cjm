@@ -1366,13 +1366,16 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Responsável (perfilId UUID)</span>
+                      <span className="text-xs text-slate-600">Responsavel patrimonial (perfilId UUID)</span>
                       <input
                         value={edit.responsavelPerfilId}
                         onChange={(e) => setEdit((p) => ({ ...p, responsavelPerfilId: e.target.value }))}
-                        placeholder="UUID do perfil responsável"
+                        placeholder="UUID do perfil responsavel"
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs"
                       />
+                      <p className="text-[11px] text-slate-500">
+                        Indica a posse operacional do bem no dia a dia (sem cautela ativa). Cautela e registrada em Movimentacoes.
+                      </p>
                     </label>
 
                     <label className="space-y-1">
@@ -1746,4 +1749,5 @@ function Row({ k, v, mono }) {
     </div>
   );
 }
+
 

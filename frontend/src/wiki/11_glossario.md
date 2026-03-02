@@ -4,7 +4,7 @@ Arquivo: frontend/src/wiki/11_glossario.md
 Funcao no sistema: glossario dos termos usados nas telas e documentos.
 -->
 
-# Glossário
+# Glossario
 
 ## Bem
 
@@ -22,13 +22,17 @@ Registro "o que e": descricao unica, marca/modelo e foto de referencia (quando e
 
 Unidade responsavel pelo bem no cadastro (propriedade/carga patrimonial).
 
+## Responsavel patrimonial (perfilId UUID)
+
+Pessoa vinculada ao bem para indicar posse operacional no dia a dia, sem cautela ativa.
+
 ## Local fisico / Sala
 
 Ambiente onde o bem esta (ou deveria estar) no predio.
 
-## Inventário (evento)
+## Inventario (evento)
 
-Período/atividade de conferência física. Enquanto `EM_ANDAMENTO`, há congelamento de transferências (Art. 183).
+Periodo/atividade de conferencia fisica. Enquanto `EM_ANDAMENTO`, ha congelamento de transferencias (Art. 183).
 
 ## Intruso / Local divergente
 
@@ -40,7 +44,7 @@ Item externo ao patrimonio STM em uso no predio. Deve ter controle segregado (Ar
 
 ## Cautela
 
-Saida fisica do bem sem mudar carga (detentor temporario, data de retorno).
+Saida fisica formal do bem sem mudar carga, registrada em Movimentacoes (detentor temporario e data de retorno).
 
 ## Transferencia
 
