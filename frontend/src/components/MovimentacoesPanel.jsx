@@ -20,6 +20,7 @@ import {
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CADASTRO_SALA_UI_STATE_KEY = "cjm_cadastro_sala_ui_v1";
+const TOMBAMENTO_4_DIGITS_RE = /^\d{4}$/;
 
 function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
@@ -130,6 +131,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [unidadeSalaId, setUnidadeSalaId] = useState("");
   const [localSalaId, setLocalSalaId] = useState("");
   const [scanInput, setScanInput] = useState("");
+  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "" });
   const [scannerMode, setScannerMode] = useState("continuous");
   const [showScanner, setShowScanner] = useState(false);
   const [cameraScanPreview, setCameraScanPreview] = useState(null);
@@ -406,9 +408,53 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   }, [showCadastroSala, scanInput]);
 
   const buscarEAdicionarTombo = async (rawTombo, options = {}) => {
-    const tombo = normalizeTombamentoInput(rawTombo);
+    const inputNormalizado = normalizeTombamentoInput(rawTombo);
+    let tombo = inputNormalizado;
+    let itemResolvido = options?.itemResolvido || null;
+
+    if (TOMBAMENTO_4_DIGITS_RE.test(inputNormalizado)) {
+      const tipoBusca = options?.tipoBusca || null;
+      if (!tipoBusca) {
+        setTagIdModal({ isOpen: true, value: inputNormalizado });
+        setScanInput(inputNormalizado);
+        focusScanInput();
+        return;
+      }
+      try {
+        const lookup = await listarBens({
+          numeroTombamento: inputNormalizado,
+          tipoBusca,
+          limit: 10,
+          offset: 0,
+        });
+        const lookupItems = lookup?.items || [];
+        if (!lookupItems.length) {
+          failScanInput(
+            `Nenhum bem encontrado para a etiqueta ${tipoBusca === "antigo" ? "antiga" : "nova"} "${inputNormalizado}".`,
+          );
+          return;
+        }
+        if (lookupItems.length > 1) {
+          const candidatos = lookupItems
+            .slice(0, 5)
+            .map((x) => x.numeroTombamento)
+            .filter(Boolean)
+            .join(", ");
+          failScanInput(
+            `Codigo "${inputNormalizado}" encontrou ${lookupItems.length} patrimonios (${candidatos}${lookupItems.length > 5 ? ", ..." : ""}). Informe os 10 digitos.`,
+          );
+          return;
+        }
+        itemResolvido = lookupItems[0] || null;
+        tombo = String(itemResolvido?.numeroTombamento || "");
+      } catch (error) {
+        failScanInput(formatApiError(error));
+        return;
+      }
+    }
+
     if (!/^\d{10}$/.test(tombo)) {
-      failScanInput("Informe tombamento GEAFIN com 10 digitos.");
+      failScanInput("Informe tombamento GEAFIN com 10 digitos ou etiqueta de 4 digitos.");
       return;
     }
     if (!selectedLocal) {
@@ -417,8 +463,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     }
     setLoteState((prev) => ({ ...prev, loading: true, error: null, info: null }));
     try {
-      const data = await listarBens({ numeroTombamento: tombo, limit: 20, offset: 0 });
-      const item = (data?.items || []).find((x) => String(x.numeroTombamento || "") === tombo);
+      let item = itemResolvido;
+      if (!item) {
+        const data = await listarBens({ numeroTombamento: tombo, limit: 20, offset: 0 });
+        item = (data?.items || []).find((x) => String(x.numeroTombamento || "") === tombo);
+      }
       if (!item) {
         setLoteState({ loading: false, response: null, error: `Tombo ${tombo} nao encontrado.`, info: null });
         return;
@@ -463,6 +512,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         showCameraScanPreview(item.numeroTombamento, item.nomeResumo || item.descricao || item.descricaoComplementar, scannerMode);
       }
       setScanInput("");
+      setTagIdModal({ isOpen: false, value: "" });
       focusScanInput();
     } catch (error) {
       setLoteState({ loading: false, response: null, error: formatApiError(error), info: null });
@@ -1183,7 +1233,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   onChange={(e) => setScanInput(normalizeTombamentoInput(e.target.value))}
                   onKeyDown={handleScanInputKeyDown}
                   className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  placeholder="Bipe ou digite tombamento (10 digitos)"
+                  placeholder="Bipe tombamento (10) ou etiqueta (4)"
                   autoComplete="off"
                   disabled={loteState.loading}
                 />
@@ -1325,6 +1375,54 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
             }
           }}
         />
+      ) : null}
+
+      {showCadastroSala && tagIdModal.isOpen ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl">
+            <h3 className="font-[Space_Grotesk] text-xl font-bold text-slate-900">Identificar Etiqueta</h3>
+            <p className="mt-4 text-slate-600">
+              O codigo <span className="font-mono font-bold text-violet-700">"{tagIdModal.value}"</span> possui 4 digitos. Como deseja consultar?
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setTagIdModal({ isOpen: false, value: "" });
+                  void buscarEAdicionarTombo(tagIdModal.value, { tipoBusca: "antigo" });
+                }}
+                className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
+              >
+                <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
+                <div className="text-xs text-slate-500">Busca por Cod2Aud da 2a Auditoria</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTagIdModal({ isOpen: false, value: "" });
+                  void buscarEAdicionarTombo(tagIdModal.value, { tipoBusca: "novo" });
+                }}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
+              >
+                <div className="font-bold text-emerald-700">Etiqueta Nova (Erro)</div>
+                <div className="text-xs text-slate-500">Busca pelo sufixo de 4 digitos no tombamento GEAFIN</div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTagIdModal({ isOpen: false, value: "" });
+                setScanInput("");
+                focusScanInput();
+              }}
+              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       ) : null}
     </section>
   );
