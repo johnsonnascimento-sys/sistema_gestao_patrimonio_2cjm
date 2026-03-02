@@ -1,0 +1,43 @@
+<!--
+Modulo: wiki
+Arquivo: frontend/src/wiki/20_material_sku.md
+Funcao no sistema: documentar o modulo Material (SKU).
+-->
+
+# Material (SKU)
+
+## Objetivo
+
+O modulo Material (SKU) centraliza o cadastro padrao do item de catalogo.
+
+Cada material pode ser associado a varios bens (tombamentos).
+
+## Operacoes principais
+
+- criar material
+- editar descricao e grupo
+- marcar material permanente
+- anexar foto de referencia (SKU)
+- consultar itens associados
+
+## Regras operacionais
+
+- O codigo do material deve seguir o cadastro oficial do GEAFIN para evitar divergencia.
+- Associacao de bens e feita por tombamento.
+- A foto do SKU e referencia visual do catalogo, nao substitui a foto do item fisico.
+
+## Filtros e consulta
+
+A grade permite filtrar por colunas, incluindo:
+
+- codigo
+- descricao
+- grupo
+- permanente
+- quantidade de bens
+
+## Boas praticas
+
+1. Padronizar descricao do SKU antes de associar bens.
+2. Evitar duplicar codigo de material.
+3. Confirmar se o codigo informado e o mesmo usado no GEAFIN.

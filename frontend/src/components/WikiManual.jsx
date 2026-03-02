@@ -30,16 +30,24 @@ import mdApiRef from "../wiki/15_referencia_api.md?raw";
 import mdMatrizCompliance from "../wiki/16_matriz_compliance.md?raw";
 import mdRegularizacaoPosInventario from "../wiki/17_regularizacao_pos_inventario.md?raw";
 import mdChecklistMigracoes from "../wiki/18_checklist_migracoes.md?raw";
+import mdDashboard from "../wiki/19_dashboard.md?raw";
+import mdMaterialSku from "../wiki/20_material_sku.md?raw";
+import mdGestaoNormas from "../wiki/21_gestao_normas.md?raw";
+import mdInventarioAdmin from "../wiki/22_inventario_administracao.md?raw";
 import { wikiMeta } from "../wiki/wikiMeta.generated.js";
 
 const WIKI_PAGES = [
   { id: "indice", title: "Índice", md: mdIndice },
   { id: "visao-geral", title: "Visão geral do sistema", md: mdVisaoGeral },
+  { id: "dashboard", title: "Dashboard", md: mdDashboard },
   { id: "perfis", title: "Perfis e acesso", md: mdPerfisAcesso },
   { id: "consulta-bens", title: "Consulta de bens", md: mdConsultaBens },
   { id: "importacao-geafin", title: "Importação GEAFIN (CSV)", md: mdImportacaoGeafin },
   { id: "movimentacoes", title: "Movimentações: cautela x transferência", md: mdMovimentacoes },
-  { id: "inventario", title: "Inventário sala a sala", md: mdInventario },
+  { id: "inventario-contagem", title: "Inventario - Contagem", md: mdInventario },
+  { id: "inventario-admin", title: "Inventario - Administracao", md: mdInventarioAdmin },
+  { id: "material-sku", title: "Material (SKU)", md: mdMaterialSku },
+  { id: "gestao-normas", title: "Gestao de Normas", md: mdGestaoNormas },
   { id: "intrusos-terceiros", title: "Intrusos e bens de terceiros", md: mdIntrusosTerceiros },
   { id: "regularizacao", title: "Regularização pós-inventário", md: mdRegularizacaoPosInventario },
   { id: "wizard-art141", title: "Wizard Art. 141 (inserviveis)", md: mdWizard141 },

@@ -20,11 +20,15 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 ## Paginas
 
 - Visão geral do sistema
+- Dashboard
 - Perfis e acesso
 - Consulta de bens
 - Importação GEAFIN (CSV)
 - Movimentações: cautela x transferência
-- Inventário sala a sala (modo agrupado/SKU)
+- Inventário - Contagem
+- Inventário - Administração
+- Material (SKU)
+- Gestão de Normas
 - Intrusos e bens de terceiros ("bem de terceiro")
 - Regularização pós-inventário (forasteiros)
 - Wizard Art. 141 (inserviveis)

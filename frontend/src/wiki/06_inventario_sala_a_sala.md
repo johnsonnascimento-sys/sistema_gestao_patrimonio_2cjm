@@ -1,5 +1,13 @@
 ﻿
 
+<!--
+Modulo: wiki
+Arquivo: frontend/src/wiki/06_inventario_sala_a_sala.md
+Funcao no sistema: orientar o fluxo de Inventario - Contagem (operacao de sala).
+-->
+
+# Inventario - Contagem
+
 ## Acompanhamento de Progresso por Sala
 
 ## Onde acessar no menu
