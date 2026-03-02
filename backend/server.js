@@ -2986,6 +2986,19 @@ app.patch("/catalogo-bens/:id", mustAdmin, async (req, res, next) => {
     if (!UUID_RE.test(id)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "id deve ser UUID.");
 
     const body = req.body || {};
+    // Gate adicional para reduzir risco operacional em edicao de Material (SKU).
+    // Exige dupla confirmacao textual + senha administrativa quando auth estiver ativa.
+    if (AUTH_ENABLED) {
+      const confirmText = String(body.confirmText || "").trim();
+      if (confirmText !== "CONFIRMAR_EDICAO_MATERIAL") {
+        throw new HttpError(
+          422,
+          "CONFIRMACAO_EDICAO_INVALIDA",
+          "confirmText deve ser CONFIRMAR_EDICAO_MATERIAL para editar Material (SKU).",
+        );
+      }
+      await ensureAdminPassword(req, body.adminPassword);
+    }
     const fields = [];
     const params = [];
     let i = 1;

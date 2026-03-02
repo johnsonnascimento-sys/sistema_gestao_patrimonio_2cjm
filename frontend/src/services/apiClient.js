@@ -613,7 +613,7 @@ export async function criarCatalogo(payload) {
 /**
  * Atualiza catalogo (SKU).
  * @param {string} id UUID do catalogo.
- * @param {{codigoCatalogo?: string, descricao?: string, grupo?: string|null, materialPermanente?: boolean}} patch Campos.
+ * @param {{codigoCatalogo?: string, descricao?: string, grupo?: string|null, materialPermanente?: boolean, confirmText?: string, adminPassword?: string}} patch Campos.
  * @returns {Promise<{requestId: string, catalogo: any}>}
  */
 export async function atualizarCatalogo(id, patch) {

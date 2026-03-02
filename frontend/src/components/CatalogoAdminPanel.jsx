@@ -70,6 +70,14 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
   const [nomeResumoPadrao, setNomeResumoPadrao] = useState("");
   const [nomeResumoState, setNomeResumoState] = useState({ loading: false, error: null, info: null });
+  const [editConfirmModal, setEditConfirmModal] = useState({
+    open: false,
+    loading: false,
+    adminPassword: "",
+    confirmText: "",
+    confirmed: false,
+    error: null,
+  });
   const [columnFilters, setColumnFilters] = useState({
     codigoCatalogo: "",
     descricao: "",
@@ -203,8 +211,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     setSortState({ key: "", dir: "asc" });
   };
 
-  const onSalvarCatalogo = async (event) => {
-    event.preventDefault();
+  const executeSalvarCatalogo = async (opts = {}) => {
     if (!canAdmin) {
       setFormState({ loading: false, response: null, error: "Operacao restrita ao perfil ADMIN." });
       return;
@@ -222,8 +229,14 @@ export default function CatalogoAdminPanel({ canAdmin }) {
 
     setFormState({ loading: true, response: null, error: null });
     try {
+      const editPayloadExtra = editId
+        ? {
+            confirmText: String(opts.confirmText || ""),
+            adminPassword: String(opts.adminPassword || ""),
+          }
+        : {};
       const data = editId
-        ? await atualizarCatalogo(String(editId), payload)
+        ? await atualizarCatalogo(String(editId), { ...payload, ...editPayloadExtra })
         : await criarCatalogo(payload);
       const savedCatalogoId = data?.catalogo?.id ? String(data.catalogo.id) : "";
       if (formFotoFile && savedCatalogoId) {
@@ -249,9 +262,33 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       }
       setFormFotoAtualUrl("");
       await loadCatalogos();
+      setEditConfirmModal({
+        open: false,
+        loading: false,
+        adminPassword: "",
+        confirmText: "",
+        confirmed: false,
+        error: null,
+      });
     } catch (error) {
       setFormState({ loading: false, response: null, error: formatApiError(error) });
     }
+  };
+
+  const onSalvarCatalogo = async (event) => {
+    event.preventDefault();
+    if (editId) {
+      setEditConfirmModal({
+        open: true,
+        loading: false,
+        adminPassword: "",
+        confirmText: "",
+        confirmed: false,
+        error: null,
+      });
+      return;
+    }
+    await executeSalvarCatalogo();
   };
 
   const onEditar = (catalogo) => {
@@ -283,6 +320,36 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     setFormFotoAtualUrl("");
     setFormState({ loading: false, response: null, error: null });
     setNomeResumoState({ loading: false, error: null, info: null });
+    setEditConfirmModal({
+      open: false,
+      loading: false,
+      adminPassword: "",
+      confirmText: "",
+      confirmed: false,
+      error: null,
+    });
+  };
+
+  const onConfirmarEdicao = async () => {
+    if (!editId) return;
+    if (!editConfirmModal.confirmed) {
+      setEditConfirmModal((prev) => ({ ...prev, error: "Marque a confirmacao operacional antes de continuar." }));
+      return;
+    }
+    if (String(editConfirmModal.confirmText || "").trim() !== "CONFIRMAR_EDICAO_MATERIAL") {
+      setEditConfirmModal((prev) => ({ ...prev, error: "Digite exatamente CONFIRMAR_EDICAO_MATERIAL." }));
+      return;
+    }
+    if (auth.authEnabled && !String(editConfirmModal.adminPassword || "").trim()) {
+      setEditConfirmModal((prev) => ({ ...prev, error: "Informe a senha administrativa." }));
+      return;
+    }
+    setEditConfirmModal((prev) => ({ ...prev, loading: true, error: null }));
+    await executeSalvarCatalogo({
+      confirmText: String(editConfirmModal.confirmText || "").trim(),
+      adminPassword: String(editConfirmModal.adminPassword || "").trim(),
+    });
+    setEditConfirmModal((prev) => ({ ...prev, loading: false }));
   };
 
   const onUploadFoto = async (catalogo, file, opts = {}) => {
@@ -945,6 +1012,73 @@ export default function CatalogoAdminPanel({ canAdmin }) {
           ) : null}
         </form>
       </div>
+      {editConfirmModal.open ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl">
+            <h4 className="text-lg font-semibold text-slate-900">Confirmar edicao de Material (SKU)</h4>
+            <p className="mt-2 text-sm text-slate-600">
+              Esta acao altera dados mestres do material e pode afetar operacao e relatorios.
+            </p>
+            <label className="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={Boolean(editConfirmModal.confirmed)}
+                onChange={(e) => setEditConfirmModal((prev) => ({ ...prev, confirmed: e.target.checked, error: null }))}
+                className="h-4 w-4 accent-violet-600"
+              />
+              Confirmo que revisei os dados e desejo editar este Material (SKU).
+            </label>
+            <label className="mt-3 block space-y-1">
+              <span className="text-xs text-slate-600">Digite CONFIRMAR_EDICAO_MATERIAL</span>
+              <input
+                value={editConfirmModal.confirmText}
+                onChange={(e) => setEditConfirmModal((prev) => ({ ...prev, confirmText: e.target.value, error: null }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                placeholder="CONFIRMAR_EDICAO_MATERIAL"
+              />
+            </label>
+            {auth.authEnabled ? (
+              <label className="mt-3 block space-y-1">
+                <span className="text-xs text-slate-600">Senha administrativa</span>
+                <input
+                  type="password"
+                  value={editConfirmModal.adminPassword}
+                  onChange={(e) => setEditConfirmModal((prev) => ({ ...prev, adminPassword: e.target.value, error: null }))}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  placeholder="Digite sua senha"
+                />
+              </label>
+            ) : null}
+            {editConfirmModal.error ? <p className="mt-3 text-sm text-rose-700">{editConfirmModal.error}</p> : null}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setEditConfirmModal({
+                    open: false,
+                    loading: false,
+                    adminPassword: "",
+                    confirmText: "",
+                    confirmed: false,
+                    error: null,
+                  })
+                }
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void onConfirmarEdicao()}
+                disabled={editConfirmModal.loading}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {editConfirmModal.loading ? "Aplicando..." : "Confirmar e salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

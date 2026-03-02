@@ -27,7 +27,11 @@ Cada material pode ser associado a varios bens (tombamentos).
 2. Informe o codigo do material e clique **Carregar para edicao**.
 3. Ajuste descricao/grupo/foto.
 4. Na mesma secao principal, preencha **Nome resumo (aplicar em lote no SKU)**.
-5. Clique em **Aplicar agora** (ou salve o Material para aplicar no mesmo fluxo).
+5. Para salvar edicao, confirme no modal de seguranca:
+   - marcar a confirmacao operacional;
+   - digitar `CONFIRMAR_EDICAO_MATERIAL`;
+   - informar senha administrativa.
+6. Clique em **Aplicar agora** (ou salve o Material para aplicar no mesmo fluxo).
 
 ## Regras operacionais
 
@@ -36,6 +40,7 @@ Cada material pode ser associado a varios bens (tombamentos).
 - A foto do SKU e referencia visual do catalogo, nao substitui a foto do item fisico.
 - O nome resumo pode ser aplicado em lote para todos os bens vinculados ao SKU selecionado.
 - A edicao do nome resumo fica na secao principal de criacao/edicao do Material (SKU), sem painel separado.
+- A edicao de Material (SKU) exige dupla confirmacao e senha administrativa.
 
 ## Filtros e consulta
 
