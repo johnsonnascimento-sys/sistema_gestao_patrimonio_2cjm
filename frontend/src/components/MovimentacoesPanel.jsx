@@ -148,6 +148,12 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     }, 0);
   };
 
+  const failScanInput = (message) => {
+    setLoteState({ loading: false, response: null, error: message, info: null });
+    setScanInput("");
+    focusScanInput();
+  };
+
   const selectedLocal = useMemo(
     () => (locaisState.data || []).find((l) => String(l.id) === String(localSalaId)) || null,
     [locaisState.data, localSalaId],
@@ -377,14 +383,36 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     focusScanInput();
   }, [showCadastroSala, showScanner]);
 
+  useEffect(() => {
+    if (!showCadastroSala) return undefined;
+    const onWindowKeyDown = (event) => {
+      const key = String(event.key || "").toLowerCase();
+      const isCtrlJ = event.ctrlKey && !event.altKey && !event.metaKey && key === "j";
+      if (!isCtrlJ) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.activeElement !== scanInputRef.current) {
+        focusScanInput();
+      }
+      const value = scanInputRef.current?.value ?? scanInput;
+      if (String(value || "").trim()) {
+        void buscarEAdicionarTombo(value);
+      }
+    };
+    window.addEventListener("keydown", onWindowKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onWindowKeyDown, true);
+    };
+  }, [showCadastroSala, scanInput]);
+
   const buscarEAdicionarTombo = async (rawTombo, options = {}) => {
     const tombo = normalizeTombamentoInput(rawTombo);
     if (!/^\d{10}$/.test(tombo)) {
-      setLoteState({ loading: false, response: null, error: "Informe tombamento GEAFIN com 10 digitos.", info: null });
+      failScanInput("Informe tombamento GEAFIN com 10 digitos.");
       return;
     }
     if (!selectedLocal) {
-      setLoteState({ loading: false, response: null, error: "Selecione primeiro a sala/local de destino.", info: null });
+      failScanInput("Selecione primeiro a sala/local de destino.");
       return;
     }
     setLoteState((prev) => ({ ...prev, loading: true, error: null, info: null }));

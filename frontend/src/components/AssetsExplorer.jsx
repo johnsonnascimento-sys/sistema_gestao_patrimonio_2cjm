@@ -249,6 +249,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
       }
     }
     await loadList(0, tipoBusca);
+    setFilters((prev) => ({ ...prev, numeroTombamento: "" }));
     focusTombamentoInput();
   };
 
@@ -756,7 +757,11 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
 
             <button
               type="button"
-              onClick={() => setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" })}
+              onClick={() => {
+                setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" });
+                setFilters((prev) => ({ ...prev, numeroTombamento: "" }));
+                focusTombamentoInput();
+              }}
               className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900"
             >
               Cancelar
