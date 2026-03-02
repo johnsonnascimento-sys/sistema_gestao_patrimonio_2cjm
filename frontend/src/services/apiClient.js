@@ -647,6 +647,24 @@ export async function associarBensCatalogo(id, payload) {
 }
 
 /**
+ * Aplica nome_resumo para todos os bens de um SKU (catalogo).
+ * @param {string} id UUID do catalogo.
+ * @param {{nomeResumo?: string}} payload Dados opcionais.
+ * @returns {Promise<{requestId:string,catalogoId:string,nomeResumoAplicado:string,atualizados:number}>}
+ */
+export async function aplicarNomeResumoCatalogo(id, payload = {}) {
+  const response = await safeFetch(`${API_BASE_URL}/catalogo-bens/${encodeURIComponent(id)}/aplicar-nome-resumo`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Busca perfis para selecao operacional (detentor de cautela).
  * Permite pesquisar por matricula, nome ou UUID.
  * @param {{q: string, limit?: number}} filters Filtros de busca.

@@ -3115,6 +3115,55 @@ app.post("/catalogo-bens/:id/associar-bens", mustAdmin, async (req, res, next) =
 });
 
 /**
+ * Aplica nome_resumo em todos os bens de um SKU (catalogo).
+ * Restrito a ADMIN (quando auth ativa).
+ */
+app.patch("/catalogo-bens/:id/aplicar-nome-resumo", mustAdmin, async (req, res, next) => {
+  try {
+    const catalogoId = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(catalogoId)) throw new HttpError(422, "CATALOGO_ID_INVALIDO", "id deve ser UUID.");
+
+    const body = req.body || {};
+    const nomeResumoBody = Object.prototype.hasOwnProperty.call(body, "nomeResumo")
+      ? String(body.nomeResumo || "").trim()
+      : "";
+
+    const cat = await pool.query(
+      `SELECT id, descricao
+       FROM catalogo_bens
+       WHERE id = $1
+       LIMIT 1;`,
+      [catalogoId],
+    );
+    if (!cat.rowCount) throw new HttpError(404, "CATALOGO_NAO_ENCONTRADO", "Catalogo nao encontrado.");
+
+    const nomeResumo = (nomeResumoBody || String(cat.rows[0].descricao || "").trim()).slice(0, 220);
+    if (!nomeResumo) {
+      throw new HttpError(422, "NOME_RESUMO_OBRIGATORIO", "Informe nomeResumo ou mantenha descricao valida no catalogo.");
+    }
+
+    const upd = await pool.query(
+      `UPDATE bens
+       SET nome_resumo = $2,
+           updated_at = NOW()
+       WHERE catalogo_bem_id = $1
+         AND eh_bem_terceiro = FALSE
+       RETURNING id;`,
+      [catalogoId, nomeResumo],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      catalogoId,
+      nomeResumoAplicado: nomeResumo,
+      atualizados: upd.rowCount || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * Estatisticas de locais (progresso de cadastro por sala).
  */
 app.get("/locais/estatisticas", mustAuth, async (req, res, next) => {

@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
+  aplicarNomeResumoCatalogo,
   associarBensCatalogo,
   atualizarCatalogo,
   criarCatalogo,
@@ -65,6 +66,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [formFotoInputKey, setFormFotoInputKey] = useState(0);
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
+  const [nomeResumoForm, setNomeResumoForm] = useState({ value: "", loading: false, error: null, info: null });
   const [columnFilters, setColumnFilters] = useState({
     codigoCatalogo: "",
     descricao: "",
@@ -320,6 +322,12 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const onVerBensAssociados = async (catalogo) => {
     if (!catalogo?.codigoCatalogo) return;
     setSelectedCatalogo(catalogo);
+    setNomeResumoForm({
+      value: String(catalogo?.descricao || ""),
+      loading: false,
+      error: null,
+      info: null,
+    });
     setBensState({ loading: true, items: [], error: null });
     try {
       const data = await listarBens({
@@ -330,6 +338,32 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       setBensState({ loading: false, items: data?.items || [], error: null });
     } catch (error) {
       setBensState({ loading: false, items: [], error: formatApiError(error) });
+    }
+  };
+
+  const onAplicarNomeResumoSku = async () => {
+    if (!canAdmin) {
+      setNomeResumoForm((prev) => ({ ...prev, error: "Operacao restrita ao perfil ADMIN.", info: null }));
+      return;
+    }
+    const catalogoId = String(selectedCatalogo?.id || "").trim();
+    if (!catalogoId) {
+      setNomeResumoForm((prev) => ({ ...prev, error: "Selecione um catalogo (SKU) antes de aplicar.", info: null }));
+      return;
+    }
+    const nomeResumo = String(nomeResumoForm.value || "").trim();
+    setNomeResumoForm((prev) => ({ ...prev, loading: true, error: null, info: null }));
+    try {
+      const data = await aplicarNomeResumoCatalogo(catalogoId, { nomeResumo });
+      setNomeResumoForm((prev) => ({
+        ...prev,
+        loading: false,
+        error: null,
+        info: `Nome resumo aplicado em ${Number(data?.atualizados || 0)} bem(ns).`,
+      }));
+      await onVerBensAssociados(selectedCatalogo);
+    } catch (error) {
+      setNomeResumoForm((prev) => ({ ...prev, loading: false, error: formatApiError(error), info: null }));
     }
   };
 
@@ -703,6 +737,33 @@ export default function CatalogoAdminPanel({ canAdmin }) {
         <p className="mt-1 text-[11px] text-slate-500">
           Use o botao <strong>Ver bens</strong> na lista de catalogo para carregar os itens associados e suas fotos.
         </p>
+        {selectedCatalogo ? (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+            <p className="text-xs font-semibold text-slate-800">Nome Resumo para todo o SKU</p>
+            <p className="mt-1 text-[11px] text-slate-600">
+              Define o campo <code>nomeResumo</code> para todos os bens vinculados a este material (SKU).
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                value={nomeResumoForm.value}
+                onChange={(e) => setNomeResumoForm((prev) => ({ ...prev, value: e.target.value }))}
+                className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                placeholder="Ex.: Notebook Dell Latitude 5420"
+                disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
+              />
+              <button
+                type="button"
+                onClick={() => void onAplicarNomeResumoSku()}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                disabled={nomeResumoForm.loading || (!canAdmin && auth.authEnabled)}
+              >
+                {nomeResumoForm.loading ? "Aplicando..." : "Aplicar nome resumo no SKU"}
+              </button>
+            </div>
+            {nomeResumoForm.error ? <p className="mt-2 text-sm text-rose-700">{nomeResumoForm.error}</p> : null}
+            {nomeResumoForm.info ? <p className="mt-2 text-sm text-emerald-700">{nomeResumoForm.info}</p> : null}
+          </div>
+        ) : null}
 
         {bensState.error ? <p className="mt-3 text-sm text-rose-700">{bensState.error}</p> : null}
         {bensState.loading ? <p className="mt-3 text-sm text-slate-600">Carregando bens associados...</p> : null}

@@ -19,12 +19,14 @@ Cada material pode ser associado a varios bens (tombamentos).
 - marcar material permanente
 - anexar foto de referencia (SKU)
 - consultar itens associados
+- aplicar nome resumo para todos os bens do mesmo SKU
 
 ## Regras operacionais
 
 - O codigo do material deve seguir o cadastro oficial do GEAFIN para evitar divergencia.
 - Associacao de bens e feita por tombamento.
 - A foto do SKU e referencia visual do catalogo, nao substitui a foto do item fisico.
+- O nome resumo pode ser aplicado em lote para todos os bens vinculados ao SKU selecionado.
 
 ## Filtros e consulta
 
@@ -41,3 +43,4 @@ A grade permite filtrar por colunas, incluindo:
 1. Padronizar descricao do SKU antes de associar bens.
 2. Evitar duplicar codigo de material.
 3. Confirmar se o codigo informado e o mesmo usado no GEAFIN.
+4. Ao definir um nome resumo padrao, aplicar em lote no SKU para manter consistencia de exibicao nas telas.
