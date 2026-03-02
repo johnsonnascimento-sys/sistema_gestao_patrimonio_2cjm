@@ -60,6 +60,10 @@ function buildMovPayload(payload) {
     cautelaExterno: payload.cautelaExterno ? true : undefined,
     dataPrevistaDevolucao: payload.dataPrevistaDevolucao || undefined,
     dataEfetivaDevolucao: payload.dataEfetivaDevolucao ? new Date(payload.dataEfetivaDevolucao).toISOString() : undefined,
+    manterResponsavelNoRetorno:
+      payload.tipoMovimentacao === "CAUTELA_RETORNO"
+        ? Boolean(payload.manterResponsavelNoRetorno)
+        : undefined,
   };
   return Object.fromEntries(Object.entries(clean).filter(([, value]) => value !== undefined));
 }
@@ -114,6 +118,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     cautelaExterno: false,
     dataPrevistaDevolucao: "",
     dataEfetivaDevolucao: "",
+    manterResponsavelNoRetorno: true,
     termoReferencia: "",
     justificativa: "",
   });
@@ -166,9 +171,9 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       return "Transferencia muda carga (Arts. 124 e 127). Requer unidade destino e termo.";
     }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela nao muda carga. Requer detentor temporario e local (Sala destino ou Externo); data prevista de devolucao e opcional.";
+      return "Cautela nao muda carga. Requer detentor temporario e local (Sala destino ou Externo); data prevista de devolucao e opcional. Ao registrar cautela, o responsavel patrimonial passa a ser o detentor.";
     }
-    return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional).";
+    return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional). Ao confirmar, o sistema pergunta se deve manter o mesmo responsavel patrimonial.";
   }, [movPayload.tipoMovimentacao]);
 
   useEffect(() => {
@@ -323,7 +328,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
     setMovState({ loading: true, response: null, error: null });
     try {
-      const payload = buildMovPayload(movPayload);
+      const payloadBase = { ...movPayload };
+      if (movPayload.tipoMovimentacao === "CAUTELA_RETORNO") {
+        const manter = window.confirm(
+          "Deseja manter o mesmo usuario da cautela como responsavel patrimonial do bem apos o retorno?"
+        );
+        payloadBase.manterResponsavelNoRetorno = manter;
+      }
+      const payload = buildMovPayload(payloadBase);
       const data = await movimentarBem(payload);
       setMovState({ loading: false, response: data, error: null });
     } catch (error) {

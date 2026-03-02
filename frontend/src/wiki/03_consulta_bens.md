@@ -123,8 +123,9 @@ No modal de detalhes, usuarios `ADMIN` podem editar os campos operacionais do be
 
 - Material (SKU) via busca por codigo
 - Sala/Local (padronizado) via tabela locais
-- Responsavel patrimonial por busca de matricula/nome (com dupla confirmacao na associacao)
+- Responsavel patrimonial por busca de matricula ou nome (com dupla confirmacao na associacao)
 - Contrato / data / valor de aquisicao
+- Observacoes (texto livre relacionado ao bem)
 - Fotos (item e referencia do SKU)
 
 Importante no modal:
@@ -132,8 +133,11 @@ Importante no modal:
 - Unidade (carga) e status aparecem bloqueados e exigem o fluxo proprio em Movimentacoes.
 - Nome Resumo e Descricao sao exibidos em modo leitura e devem ser alterados no menu Material (SKU).
 - A descricao exibida no modal vem da ficha do Material (SKU).
-- Responsavel patrimonial (perfilId UUID) indica posse operacional no dia a dia, sem cautela ativa.
+- Responsavel patrimonial indica posse operacional no dia a dia, sem cautela ativa.
+- Usuarios selecionados como responsavel devem estar cadastrados em Administracao do Painel -> Perfis e Acessos.
 - Cautela e outro fluxo: fica registrada em Movimentacoes com detentor temporario e status EM_CAUTELA.
+- Em CAUTELA_SAIDA, o responsavel patrimonial e preenchido automaticamente com o detentor da cautela.
+- Em CAUTELA_RETORNO, o sistema pergunta se deve manter o mesmo responsavel patrimonial.
 
 ## Fotos (item e referencia do SKU)
 

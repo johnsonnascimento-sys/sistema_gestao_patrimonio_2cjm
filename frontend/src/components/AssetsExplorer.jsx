@@ -933,6 +933,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     contratoReferencia: imp?.contratoReferencia || "",
     dataAquisicao: imp?.dataAquisicao ? String(imp.dataAquisicao).slice(0, 10) : "",
     valorAquisicao: imp?.valorAquisicao != null ? String(imp.valorAquisicao) : "",
+    observacoes: imp?.observacoes || "",
     localId: imp?.localId || "",
     fotoUrl: imp?.fotoUrl || "",
     fotoReferenciaUrl: catalogo?.fotoReferenciaUrl || "",
@@ -945,6 +946,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     imp?.fotoUrl,
     imp?.localId,
     imp?.nomeResumo,
+    imp?.observacoes,
     imp?.responsavelPerfilId,
     imp?.status,
     imp?.unidadeDonaId,
@@ -1070,6 +1072,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         contratoReferencia: normalize(obj.contratoReferencia),
         dataAquisicao: normalize(obj.dataAquisicao),
         valorAquisicao: normalize(obj.valorAquisicao),
+        observacoes: normalize(obj.observacoes),
         localId: normalize(obj.localId),
         fotoUrl: normalize(obj.fotoUrl),
         fotoReferenciaUrl: normalize(obj.fotoReferenciaUrl),
@@ -1171,6 +1174,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         contratoReferencia: edit.contratoReferencia || null,
         dataAquisicao: edit.dataAquisicao || null,
         valorAquisicao: edit.valorAquisicao !== "" ? Number(edit.valorAquisicao) : null,
+        observacoes: edit.observacoes ? String(edit.observacoes).slice(0, 2000) : null,
 
         localFisico: null,
         localId: edit.localId ? String(edit.localId) : null,
@@ -1370,6 +1374,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <Row k="Valor aquisição" v={imp.valorAquisicao} />
                     <Row k="Data aquisição" v={imp.dataAquisicao} />
                     <Row k="Contrato" v={imp.contratoReferencia} />
+                    <Row k="Observacoes" v={imp.observacoes} />
                     <Row k="Foto (item)" v={imp.fotoUrl} />
                     <Row k="Criado em" v={imp.createdAt} />
                     <Row k="Atualizado em" v={imp.updatedAt} />
@@ -1514,7 +1519,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-600">Responsavel patrimonial (buscar por matricula)</span>
+                      <span className="text-xs text-slate-600">Responsavel patrimonial (buscar por matricula ou nome)</span>
                       <div className="relative">
                         <input
                           value={responsavelBusca}
@@ -1558,6 +1563,9 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       <p className="text-[11px] text-slate-500">
                         Associa posse operacional (sem cautela). Exige dupla confirmacao para vincular responsavel.
                       </p>
+                      <p className="text-[11px] text-slate-500">
+                        Usuarios precisam estar cadastrados no menu Perfis e Acessos.
+                      </p>
                       <p className="text-[11px] text-emerald-700">
                         Atual: {responsavelSelecionado?.matricula || "-"}{responsavelSelecionado?.nome ? ` - ${responsavelSelecionado.nome}` : ""}
                       </p>
@@ -1594,6 +1602,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       />
                     </label>
 
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-slate-600">Observacoes</span>
+                      <textarea
+                        value={edit.observacoes || ""}
+                        onChange={(e) => setEdit((p) => ({ ...p, observacoes: e.target.value }))}
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="Texto livre relacionado ao bem"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">

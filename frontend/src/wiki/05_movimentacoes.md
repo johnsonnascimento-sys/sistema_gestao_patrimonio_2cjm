@@ -56,13 +56,16 @@ Quando usar:
 
 Efeito no sistema:
 
-- Mantém `unidade_dona_id` intacto.
-- Registra detentor temporário e datas (saída/retorno), com data prevista opcional.
+- Mantem `unidade_dona_id` intacto.
+- Registra detentor temporario e datas (saida/retorno), com data prevista opcional.
 - Em `CAUTELA_SAIDA`, exige informar **Sala destino** ou marcar **Externo**.
+- Em `CAUTELA_SAIDA`, o responsavel patrimonial do bem passa automaticamente a ser o detentor temporario selecionado.
+- Em `CAUTELA_RETORNO`, o sistema pergunta se deve manter o mesmo responsavel patrimonial (se nao, limpa o responsavel do bem).
 
 Detentor temporário (UX):
 
 - O campo aceita busca por `matricula`, `nome` ou `perfilId UUID`.
+- Para aparecer na busca, a pessoa precisa estar cadastrada em `Administracao do Painel -> Perfis e Acessos`.
 - Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleção.
 - Ao selecionar, o sistema envia o `detentorTemporarioPerfilId` correto no payload.
 

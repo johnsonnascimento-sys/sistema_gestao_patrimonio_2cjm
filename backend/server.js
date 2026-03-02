@@ -1294,6 +1294,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          b.nome_resumo AS "nomeResumo",
          b.identificador_externo AS "identificadorExterno",
          b.descricao_complementar AS "descricaoComplementar",
+         b.observacoes AS "observacoes",
          b.unidade_dona_id AS "unidadeDonaId",
          b.responsavel_perfil_id AS "responsavelPerfilId",
          b.local_fisico AS "localFisico",
@@ -1406,6 +1407,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         nomeResumo: row.nomeResumo,
         identificadorExterno: row.identificadorExterno,
         descricaoComplementar: row.descricaoComplementar,
+        observacoes: row.observacoes,
         unidadeDonaId: row.unidadeDonaId,
         responsavelPerfilId: row.responsavelPerfilId,
         localFisico: row.localFisico,
@@ -3882,6 +3884,9 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(body, "fotoUrl")) {
       patch.fotoUrl = body.fotoUrl != null ? String(body.fotoUrl).trim().slice(0, 2000) : null;
     }
+    if (Object.prototype.hasOwnProperty.call(body, "observacoes")) {
+      patch.observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
+    }
 
     const fields = [];
     const params = [];
@@ -3948,6 +3953,11 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
         deleteLocalFoto(currentFoto.rows[0].foto_url);
       }
     }
+    if (patch.observacoes !== undefined) {
+      fields.push(`observacoes = $${i} `);
+      params.push(patch.observacoes);
+      i += 1;
+    }
 
     if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
 
@@ -3970,7 +3980,8 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
                       tipo_inservivel::text AS "tipoInservivel",
                         contrato_referencia AS "contratoReferencia",
                           data_aquisicao AS "dataAquisicao",
-                            valor_aquisicao AS "valorAquisicao",
+                          valor_aquisicao AS "valorAquisicao",
+                            observacoes AS "observacoes",
                               foto_url AS "fotoUrl",
                                 updated_at AS "updatedAt"; `,
       [...params, id],
@@ -4479,6 +4490,7 @@ function validateMov(body, opts) {
   let executadaPorPerfilId = body.executadaPorPerfilId ? String(body.executadaPorPerfilId).trim() : null;
   const dataPrevistaDevolucao = parseDateOnly(body.dataPrevistaDevolucao);
   const dataEfetivaDevolucao = parseDateTime(body.dataEfetivaDevolucao) || new Date();
+  const manterResponsavelNoRetorno = parseBool(body.manterResponsavelNoRetorno, true);
   const justificativa = body.justificativa ? String(body.justificativa).trim() : null;
 
   if (!executadaPorPerfilId && defaultPerfilIdFinal) executadaPorPerfilId = defaultPerfilIdFinal;
@@ -4511,6 +4523,7 @@ function validateMov(body, opts) {
     cautelaExterno,
     dataPrevistaDevolucao,
     dataEfetivaDevolucao,
+    manterResponsavelNoRetorno,
     autorizadaPorPerfilId,
     executadaPorPerfilId,
     justificativa,
@@ -4770,20 +4783,34 @@ async function executeMov(client, bem, p) {
     // Regra legal: Cautela nao altera carga, apenas detencao temporaria.
     // Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
     const q = await client.query(
-      `UPDATE bens SET status = 'EM_CAUTELA', updated_at = NOW()
+      `UPDATE bens
+       SET status = 'EM_CAUTELA',
+           responsavel_perfil_id = $2,
+           updated_at = NOW()
        WHERE id = $1
        RETURNING id, numero_tombamento, unidade_dona_id, status`,
-      [bem.id],
+      [bem.id, p.detentorTemporarioPerfilId || null],
     );
     bemAtualizado = q.rows[0];
   } else {
     if (bem.status !== "EM_CAUTELA") throw new HttpError(422, "RETORNO_INVALIDO", "CAUTELA_RETORNO exige bem em EM_CAUTELA.");
-    const q = await client.query(
-      `UPDATE bens SET status = 'OK', updated_at = NOW()
-       WHERE id = $1
-       RETURNING id, numero_tombamento, unidade_dona_id, status`,
-      [bem.id],
-    );
+    const q = p.manterResponsavelNoRetorno
+      ? await client.query(
+        `UPDATE bens
+         SET status = 'OK', updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, numero_tombamento, unidade_dona_id, status`,
+        [bem.id],
+      )
+      : await client.query(
+        `UPDATE bens
+         SET status = 'OK',
+             responsavel_perfil_id = NULL,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, numero_tombamento, unidade_dona_id, status`,
+        [bem.id],
+      );
     bemAtualizado = q.rows[0];
   }
 
