@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -35,6 +35,43 @@ function createInventarioController(deps) {
   const normalizeRoomLabel = (raw) => String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
   const csvEsc = (raw) => `"${String(raw == null ? "" : raw).replace(/"/g, "\"\"")}"`;
   const unitLabel = (unitId) => (unitId == null ? "GERAL" : String(unitId));
+  const VALID_CICLOS = new Set(["SEMANAL", "MENSAL", "ANUAL", "ADHOC"]);
+  const VALID_ESCOPO = new Set(["GERAL", "UNIDADE", "LOCAIS"]);
+  let _invSchemaCaps = null;
+
+  async function getInvSchemaCaps() {
+    if (_invSchemaCaps) return _invSchemaCaps;
+    const q = await pool.query(
+      `SELECT
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='eventos_inventario' AND column_name='tipo_ciclo'
+         ) AS "hasTipoCiclo",
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='eventos_inventario' AND column_name='escopo_tipo'
+         ) AS "hasEscopoTipo",
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='locais' AND column_name='data_ultima_contagem'
+         ) AS "hasDataUltimaContagem",
+         EXISTS (
+           SELECT 1
+           FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='eventos_inventario_locais'
+         ) AS "hasEventosLocais";`,
+    );
+    _invSchemaCaps = q.rows[0] || {
+      hasTipoCiclo: false,
+      hasEscopoTipo: false,
+      hasDataUltimaContagem: false,
+      hasEventosLocais: false,
+    };
+    return _invSchemaCaps;
+  }
 
   /**
    * Lista eventos de inventario, com filtro opcional por status.
@@ -44,6 +81,7 @@ function createInventarioController(deps) {
    */
   async function getEventos(req, res, next) {
     try {
+      const caps = await getInvSchemaCaps();
       const status = req.query?.status ? String(req.query.status).trim().toUpperCase() : null;
       const limit = req.query?.limit ? Number(req.query.limit) : 50;
       const limitFinal = Number.isInteger(limit) ? Math.max(1, Math.min(200, limit)) : 50;
@@ -59,11 +97,32 @@ function createInventarioController(deps) {
       }
 
       const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+      const escopoLocaisSql = caps.hasEventosLocais
+        ? `(
+            SELECT COALESCE(
+              json_agg(
+                json_build_object(
+                  'localId', l.id,
+                  'nome', l.nome,
+                  'unidadeId', l.unidade_id
+                )
+                ORDER BY l.nome
+              ),
+              '[]'::json
+            )
+            FROM eventos_inventario_locais eil
+            JOIN locais l ON l.id = eil.local_id
+            WHERE eil.evento_inventario_id = e.id
+          )`
+        : `'[]'::json`;
       const r = await pool.query(
         `SELECT
            e.id,
            e.codigo_evento AS "codigoEvento",
            e.unidade_inventariada_id AS "unidadeInventariadaId",
+           COALESCE((to_jsonb(e)->>'tipo_ciclo'), 'ADHOC') AS "tipoCiclo",
+           COALESCE((to_jsonb(e)->>'escopo_tipo'), CASE WHEN e.unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo",
+           ${escopoLocaisSql} AS "escopoLocais",
            e.status::text AS "status",
            e.iniciado_em AS "iniciadoEm",
            e.encerrado_em AS "encerradoEm",
@@ -426,6 +485,106 @@ function createInventarioController(deps) {
   }
 
   /**
+   * Lista sugestoes de ciclo por sala/local.
+   * Prioridade: mais tempo sem contagem (data_ultima_contagem antiga) e maior volume de bens ativos.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getSugestoesCiclo(req, res, next) {
+    try {
+      const caps = await getInvSchemaCaps();
+      if (!caps.hasDataUltimaContagem) {
+        throw new HttpError(
+          422,
+          "MIGRACAO_INVENTARIO_CICLICO_OBRIGATORIA",
+          "Banco ainda nao possui locais.data_ultima_contagem. Aplique a migration 017_inventario_ciclico_escopo.sql."
+        );
+      }
+
+      const unidadeRaw = req.query?.unidadeId != null && String(req.query.unidadeId).trim() !== ""
+        ? Number(req.query.unidadeId)
+        : null;
+      if (unidadeRaw != null && (!Number.isInteger(unidadeRaw) || !VALID_UNIDADES.has(unidadeRaw))) {
+        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+      }
+
+      const somenteAtivos = String(req.query?.somenteAtivos || "true").trim().toLowerCase() !== "false";
+      const limit = Math.max(1, Math.min(100, Number(req.query?.limit) || 20));
+      const offset = Math.max(0, Number(req.query?.offset) || 0);
+
+      const where = [];
+      const params = [];
+      let i = 1;
+
+      if (unidadeRaw != null) {
+        where.push(`l.unidade_id = $${i}`);
+        params.push(unidadeRaw);
+        i += 1;
+      }
+      if (somenteAtivos) where.push(`COALESCE(l.ativo, TRUE) = TRUE`);
+      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+      const totalR = await pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM locais l
+         ${whereSql};`,
+        params,
+      );
+
+      const r = await pool.query(
+        `SELECT
+           l.id AS "localId",
+           l.nome,
+           l.unidade_id AS "unidadeId",
+           l.data_ultima_contagem AS "dataUltimaContagem",
+           CASE
+             WHEN l.data_ultima_contagem IS NULL THEN 999999
+             ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - l.data_ultima_contagem))/86400))::int
+           END AS "diasSemContagem",
+           COALESCE(bx.qtd_bens_ativos, 0)::int AS "qtdBensAtivos",
+           COALESCE(dx.qtd_divergencias_pendentes, 0)::int AS "qtdDivergenciasPendentes",
+           (
+             CASE
+               WHEN l.data_ultima_contagem IS NULL THEN 1000000
+               ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - l.data_ultima_contagem))/86400))::int
+             END * 1000
+           ) + COALESCE(bx.qtd_bens_ativos, 0)::int AS "scorePrioridade"
+         FROM locais l
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS qtd_bens_ativos
+           FROM bens b
+           WHERE b.local_id = l.id
+             AND b.eh_bem_terceiro = FALSE
+             AND b.status <> 'BAIXADO'::public.status_bem
+         ) bx ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS qtd_divergencias_pendentes
+           FROM contagens c
+           JOIN bens b ON b.id = c.bem_id
+           WHERE c.regularizacao_pendente = TRUE
+             AND b.local_id = l.id
+         ) dx ON TRUE
+         ${whereSql}
+         ORDER BY
+           l.data_ultima_contagem ASC NULLS FIRST,
+           COALESCE(bx.qtd_bens_ativos, 0) DESC,
+           l.nome ASC
+         LIMIT $${i} OFFSET $${i + 1};`,
+        [...params, limit, offset],
+      );
+
+      res.json({
+        requestId: req.requestId,
+        paging: { limit, offset, total: totalR.rows[0]?.total || 0 },
+        items: r.rows,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Exporta o relatorio de encerramento em CSV editavel.
    * @param {import("express").Request} req Request.
    * @param {import("express").Response} res Response.
@@ -702,39 +861,92 @@ function createInventarioController(deps) {
    */
   async function postEvento(req, res, next) {
     try {
+      const caps = await getInvSchemaCaps();
       const body = req.body || {};
       const codigoEvento = String(body.codigoEvento || "").trim();
       if (!codigoEvento) throw new HttpError(422, "CODIGO_EVENTO_OBRIGATORIO", "codigoEvento e obrigatorio.");
       if (codigoEvento.length > 60) throw new HttpError(422, "CODIGO_EVENTO_TAMANHO", "codigoEvento excede 60 caracteres.");
 
-      const unidadeInventariadaId = body.unidadeInventariadaId == null || String(body.unidadeInventariadaId).trim() === ""
+      let unidadeInventariadaId = body.unidadeInventariadaId == null || String(body.unidadeInventariadaId).trim() === ""
         ? null
         : Number(body.unidadeInventariadaId);
       if (unidadeInventariadaId != null && (!Number.isInteger(unidadeInventariadaId) || !VALID_UNIDADES.has(unidadeInventariadaId))) {
         throw new HttpError(422, "UNIDADE_INVENTARIADA_INVALIDA", "unidadeInventariadaId deve ser 1..4 ou null (inventario geral).");
       }
 
-      const conflito = unidadeInventariadaId == null
-        ? await pool.query(
-          `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId"
-           FROM eventos_inventario
-           WHERE e.status = 'EM_ANDAMENTO'
-           LIMIT 1;`,
-        )
-        : await pool.query(
-          `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId"
-           FROM eventos_inventario
-           WHERE status = 'EM_ANDAMENTO'
-             AND (unidade_inventariada_id IS NULL OR unidade_inventariada_id = $1)
-           LIMIT 1;`,
-          [unidadeInventariadaId],
+      const tipoCiclo = String(body.tipoCiclo || body.periodicidade || "ADHOC").trim().toUpperCase();
+      if (!VALID_CICLOS.has(tipoCiclo)) {
+        throw new HttpError(422, "TIPO_CICLO_INVALIDO", "tipoCiclo deve ser: SEMANAL, MENSAL, ANUAL ou ADHOC.");
+      }
+
+      let escopoTipo = String(body.escopoTipo || "").trim().toUpperCase();
+      if (!escopoTipo) escopoTipo = unidadeInventariadaId == null ? "GERAL" : "UNIDADE";
+      if (!VALID_ESCOPO.has(escopoTipo)) {
+        throw new HttpError(422, "ESCOPO_TIPO_INVALIDO", "escopoTipo deve ser: GERAL, UNIDADE ou LOCAIS.");
+      }
+
+      const escopoLocalIds = Array.isArray(body.escopoLocalIds)
+        ? Array.from(new Set(body.escopoLocalIds.map((x) => String(x || "").trim()).filter(Boolean)))
+        : [];
+      if (escopoTipo === "LOCAIS") {
+        if (!caps.hasEventosLocais || !caps.hasEscopoTipo || !caps.hasTipoCiclo) {
+          throw new HttpError(
+            422,
+            "MIGRACAO_INVENTARIO_CICLICO_OBRIGATORIA",
+            "Banco ainda nao possui suporte a escopo LOCAIS. Aplique a migration 017_inventario_ciclico_escopo.sql."
+          );
+        }
+        if (!escopoLocalIds.length) {
+          throw new HttpError(422, "ESCOPO_LOCAIS_OBRIGATORIO", "escopoLocalIds e obrigatorio quando escopoTipo=LOCAIS.");
+        }
+        if (!escopoLocalIds.every((id) => UUID_RE.test(id))) {
+          throw new HttpError(422, "ESCOPO_LOCAL_ID_INVALIDO", "Todos escopoLocalIds devem ser UUID.");
+        }
+        const locaisR = await pool.query(
+          `SELECT id, unidade_id AS "unidadeId"
+           FROM locais
+           WHERE id = ANY($1::uuid[]);`,
+          [escopoLocalIds],
         );
+        if (locaisR.rowCount !== escopoLocalIds.length) {
+          throw new HttpError(422, "ESCOPO_LOCAL_NAO_ENCONTRADO", "Um ou mais locais informados nao existem.");
+        }
+        const unidades = Array.from(new Set(locaisR.rows.map((x) => Number(x.unidadeId || 0)).filter((u) => VALID_UNIDADES.has(u))));
+        if (unidades.length !== 1) {
+          throw new HttpError(422, "ESCOPO_LOCAIS_UNIDADE_MISTA", "escopoLocalIds deve conter locais de uma unica unidade.");
+        }
+        const unidadeDosLocais = unidades[0];
+        if (unidadeInventariadaId != null && unidadeInventariadaId !== unidadeDosLocais) {
+          throw new HttpError(422, "UNIDADE_DIVERGENTE_ESCOPO", "unidadeInventariadaId diverge da unidade dos locais informados.");
+        }
+        unidadeInventariadaId = unidadeDosLocais;
+      }
+      if (escopoTipo === "UNIDADE" && unidadeInventariadaId == null) {
+        throw new HttpError(422, "UNIDADE_INVENTARIADA_OBRIGATORIA", "unidadeInventariadaId e obrigatoria para escopo UNIDADE.");
+      }
+      if (escopoTipo === "GERAL") {
+        unidadeInventariadaId = null;
+      }
+
+      const conflito = await pool.query(
+        `SELECT id, codigo_evento AS "codigoEvento", unidade_inventariada_id AS "unidadeInventariadaId",
+                COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo"
+         FROM eventos_inventario
+         WHERE status = 'EM_ANDAMENTO'
+           AND (
+             $1 = 'GERAL'
+             OR COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) = 'GERAL'
+             OR ($1 IN ('UNIDADE', 'LOCAIS') AND unidade_inventariada_id = $2)
+           )
+         LIMIT 1;`,
+        [escopoTipo, unidadeInventariadaId],
+      );
       if (conflito.rowCount) {
         const c = conflito.rows[0];
         throw new HttpError(
           409,
           "EVENTO_ATIVO_EXISTENTE",
-          `Ja existe inventario EM_ANDAMENTO em escopo conflitante (evento=${c.codigoEvento || c.id}, unidade=${unitLabel(c.unidadeInventariadaId)}).`
+          `Ja existe inventario EM_ANDAMENTO em escopo conflitante (evento=${c.codigoEvento || c.id}, escopo=${c.escopoTipo || "UNIDADE"}, unidade=${unitLabel(c.unidadeInventariadaId)}).`
         );
       }
 
@@ -748,22 +960,75 @@ function createInventarioController(deps) {
       const observacoesRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
       const observacoes = observacoesRaw ? observacoesRaw.slice(0, 2000) : null;
 
-      const r = await pool.query(
-        `INSERT INTO eventos_inventario (
-           codigo_evento, unidade_inventariada_id, status, iniciado_em, aberto_por_perfil_id, observacoes
-         ) VALUES ($1,$2,'EM_ANDAMENTO',NOW(),$3,$4)
-         RETURNING
-           id,
-           codigo_evento AS "codigoEvento",
-           unidade_inventariada_id AS "unidadeInventariadaId",
-           status::text AS "status",
-           iniciado_em AS "iniciadoEm",
-           aberto_por_perfil_id AS "abertoPorPerfilId",
-           observacoes;`,
-        [codigoEvento, unidadeInventariadaId, abertoPorPerfilId, observacoes],
-      );
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        let r;
+        if (caps.hasTipoCiclo && caps.hasEscopoTipo) {
+          r = await client.query(
+            `INSERT INTO eventos_inventario (
+               codigo_evento, unidade_inventariada_id, tipo_ciclo, escopo_tipo, status, iniciado_em, aberto_por_perfil_id, observacoes
+             ) VALUES ($1,$2,$3,$4,'EM_ANDAMENTO',NOW(),$5,$6)
+             RETURNING
+               id,
+               codigo_evento AS "codigoEvento",
+               unidade_inventariada_id AS "unidadeInventariadaId",
+               COALESCE((to_jsonb(eventos_inventario)->>'tipo_ciclo'), 'ADHOC') AS "tipoCiclo",
+               COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo",
+               status::text AS "status",
+               iniciado_em AS "iniciadoEm",
+               aberto_por_perfil_id AS "abertoPorPerfilId",
+               observacoes;`,
+            [codigoEvento, unidadeInventariadaId, tipoCiclo, escopoTipo, abertoPorPerfilId, observacoes],
+          );
+        } else {
+          r = await client.query(
+            `INSERT INTO eventos_inventario (
+               codigo_evento, unidade_inventariada_id, status, iniciado_em, aberto_por_perfil_id, observacoes
+             ) VALUES ($1,$2,'EM_ANDAMENTO',NOW(),$3,$4)
+             RETURNING
+               id,
+               codigo_evento AS "codigoEvento",
+               unidade_inventariada_id AS "unidadeInventariadaId",
+               'ADHOC' AS "tipoCiclo",
+               CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END AS "escopoTipo",
+               status::text AS "status",
+               iniciado_em AS "iniciadoEm",
+               aberto_por_perfil_id AS "abertoPorPerfilId",
+               observacoes;`,
+            [codigoEvento, unidadeInventariadaId, abertoPorPerfilId, observacoes],
+          );
+        }
 
-      res.status(201).json({ requestId: req.requestId, evento: r.rows[0] });
+        const created = r.rows[0];
+        if (caps.hasEventosLocais && escopoTipo === "LOCAIS" && escopoLocalIds.length) {
+          await client.query(
+            `INSERT INTO eventos_inventario_locais (evento_inventario_id, local_id)
+             SELECT $1, x::uuid
+             FROM unnest($2::text[]) AS x
+             ON CONFLICT DO NOTHING;`,
+            [created.id, escopoLocalIds],
+          );
+          const escopoLocaisR = await client.query(
+            `SELECT l.id AS "localId", l.nome, l.unidade_id AS "unidadeId"
+             FROM eventos_inventario_locais eil
+             JOIN locais l ON l.id = eil.local_id
+             WHERE eil.evento_inventario_id = $1
+             ORDER BY l.nome;`,
+            [created.id],
+          );
+          created.escopoLocais = escopoLocaisR.rows;
+        } else {
+          created.escopoLocais = [];
+        }
+        await client.query("COMMIT");
+        res.status(201).json({ requestId: req.requestId, evento: created });
+      } catch (error) {
+        await safeRollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
     } catch (error) {
       next(error);
     }
@@ -811,7 +1076,7 @@ function createInventarioController(deps) {
           `SELECT e.id, e.codigo_evento AS "codigoEvento", e.unidade_inventariada_id AS "unidadeInventariadaId"
            FROM eventos_inventario e
            JOIN eventos_inventario alvo ON alvo.id = $1
-           WHERE status = 'EM_ANDAMENTO'
+           WHERE e.status = 'EM_ANDAMENTO'
              AND e.id <> $1
              AND (
                alvo.unidade_inventariada_id IS NULL
@@ -1029,8 +1294,13 @@ function createInventarioController(deps) {
 
       await client.query("BEGIN");
 
+      const caps = await getInvSchemaCaps();
       const ev = await client.query(
-        `SELECT id, status::text AS status, unidade_inventariada_id AS "unidadeInventariadaId"
+        `SELECT
+           id,
+           status::text AS status,
+           unidade_inventariada_id AS "unidadeInventariadaId",
+           COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo"
          FROM eventos_inventario
          WHERE id = $1`,
         [eventoInventarioId],
@@ -1039,6 +1309,7 @@ function createInventarioController(deps) {
       if (ev.rows[0].status !== "EM_ANDAMENTO") {
         throw new HttpError(409, "EVENTO_NAO_ATIVO", "Evento de inventario nao esta EM_ANDAMENTO.");
       }
+      const escopoTipoEvento = String(ev.rows[0].escopoTipo || "GERAL").toUpperCase();
       const eventoUnidade = ev.rows[0].unidadeInventariadaId != null ? Number(ev.rows[0].unidadeInventariadaId) : null;
       if (eventoUnidade != null && eventoUnidade !== unidadeEncontradaId) {
         throw new HttpError(
@@ -1046,6 +1317,33 @@ function createInventarioController(deps) {
           "UNIDADE_FORA_ESCOPO_EVENTO",
           `Este evento esta em escopo da unidade ${unitLabel(eventoUnidade)}. Selecione unidade encontrada ${unitLabel(eventoUnidade)} ou use o evento correto.`
         );
+      }
+      if (escopoTipoEvento === "LOCAIS") {
+        if (!caps.hasEventosLocais) {
+          throw new HttpError(
+            422,
+            "MIGRACAO_INVENTARIO_CICLICO_OBRIGATORIA",
+            "Banco ainda nao possui eventos_inventario_locais. Aplique a migration 017_inventario_ciclico_escopo.sql."
+          );
+        }
+        if (!localEncontradoId) {
+          throw new HttpError(422, "LOCAL_ENCONTRADO_OBRIGATORIO", "localEncontradoId e obrigatorio para evento com escopo LOCAIS.");
+        }
+        const evLocal = await client.query(
+          `SELECT 1
+           FROM eventos_inventario_locais
+           WHERE evento_inventario_id = $1
+             AND local_id = $2
+           LIMIT 1;`,
+          [eventoInventarioId, localEncontradoId],
+        );
+        if (!evLocal.rowCount) {
+          throw new HttpError(
+            409,
+            "LOCAL_FORA_ESCOPO_EVENTO",
+            "localEncontradoId nao pertence ao escopo de salas deste evento."
+          );
+        }
       }
 
       const summary = {
@@ -1144,6 +1442,15 @@ function createInventarioController(deps) {
           if (up.rows[0]?.inserted) summary.inseridas += 1;
           else summary.atualizadas += 1;
           if (divergente) summary.divergentes += 1;
+
+          if (caps.hasDataUltimaContagem && localEncontradoId) {
+            await client.query(
+              `UPDATE locais
+               SET data_ultima_contagem = GREATEST(COALESCE(data_ultima_contagem, $2::timestamptz), $2::timestamptz)
+               WHERE id = $1;`,
+              [localEncontradoId, encontradoEm.toISOString()],
+            );
+          }
         } catch (error) {
           await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
           summary.erros.push({ item: rowNo, tombamento: numeroTombamento, erro: dbError(error) });
@@ -1654,6 +1961,7 @@ function createInventarioController(deps) {
     getProgresso,
     getRelatorioEncerramento,
     exportRelatorioEncerramentoCsv,
+    getSugestoesCiclo,
     getForasteiros,
     getBensTerceiros,
     postEvento,

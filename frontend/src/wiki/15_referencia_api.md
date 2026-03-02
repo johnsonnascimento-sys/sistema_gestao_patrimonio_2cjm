@@ -105,3 +105,89 @@ Erros:
 | 422 | `SENHA_ADMIN_OBRIGATORIA` | `adminPassword` nao foi enviado |
 
 Filtros aplicados internamente: `eh_bem_terceiro = FALSE` e `status != 'BAIXADO'` â€” bens baixados e de terceiros nao sao afetados.
+
+---
+
+## Inventario ciclico - novos contratos
+
+### POST `/inventario/eventos`
+
+Uso: cria evento de inventario (inclusive micro-inventario ciclico).
+
+Body (campos novos):
+
+```json
+{
+  "codigoEvento": "INV_2026_03_02_1015_ALMOX",
+  "unidadeInventariadaId": 4,
+  "tipoCiclo": "SEMANAL",
+  "escopoTipo": "LOCAIS",
+  "escopoLocalIds": ["uuid-local-1", "uuid-local-2"],
+  "observacoes": "Ciclo semanal do almoxarifado",
+  "abertoPorPerfilId": "uuid-perfil"
+}
+```
+
+Regras:
+
+- `escopoTipo=GERAL` -> `unidadeInventariadaId` deve ser `null`.
+- `escopoTipo=UNIDADE` -> exige `unidadeInventariadaId`.
+- `escopoTipo=LOCAIS` -> exige `escopoLocalIds` (UUIDs validos) e mesma unidade para todos os locais.
+
+Possiveis erros:
+
+| HTTP | Codigo | Motivo |
+|---|---|---|
+| 409 | `EVENTO_ATIVO_EXISTENTE` | Conflito de escopo com evento ativo |
+| 422 | `ESCOPO_TIPO_INVALIDO` | `escopoTipo` fora dos valores aceitos |
+| 422 | `ESCOPO_LOCAIS_OBRIGATORIO` | `escopoLocalIds` ausente para `LOCAIS` |
+| 422 | `ESCOPO_LOCAIS_UNIDADE_MISTA` | Lista de locais com unidades diferentes |
+| 422 | `MIGRACAO_INVENTARIO_CICLICO_OBRIGATORIA` | Banco sem schema ciclico |
+
+### GET `/inventario/sugestoes-ciclo`
+
+Uso: listar salas recomendadas para proximo ciclo.
+
+Query:
+
+| Parametro | Tipo | Obrigatorio | Descricao |
+|---|---|---|---|
+| `unidadeId` | int 1..4 | Nao | Filtra por unidade |
+| `somenteAtivos` | bool | Nao | Default `true` |
+| `limit` | int 1..100 | Nao | Default 20 |
+| `offset` | int >= 0 | Nao | Default 0 |
+
+Resposta:
+
+```json
+{
+  "requestId": "...",
+  "paging": { "limit": 20, "offset": 0, "total": 120 },
+  "items": [
+    {
+      "localId": "uuid",
+      "nome": "MEZANINO",
+      "unidadeId": 4,
+      "dataUltimaContagem": "2026-02-01T12:00:00.000Z",
+      "diasSemContagem": 30,
+      "qtdBensAtivos": 486,
+      "qtdDivergenciasPendentes": 12,
+      "scorePrioridade": 30486
+    }
+  ]
+}
+```
+
+### POST `/inventario/sync` (reforco de escopo)
+
+Novas validacoes de escopo no evento:
+
+- `UNIDADE`: `unidadeEncontradaId` deve ser compativel.
+- `LOCAIS`: `localEncontradoId` deve pertencer ao conjunto do evento.
+
+Possiveis erros:
+
+| HTTP | Codigo | Motivo |
+|---|---|---|
+| 409 | `UNIDADE_FORA_ESCOPO_EVENTO` | unidade encontrada fora do escopo |
+| 409 | `LOCAL_FORA_ESCOPO_EVENTO` | local encontrado fora do escopo |

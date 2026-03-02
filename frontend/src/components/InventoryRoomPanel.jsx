@@ -307,17 +307,40 @@ export default function InventoryRoomPanel() {
     },
   });
 
+  const localIdsPermitidosEvento = useMemo(() => {
+    const escopoTipo = String(eventoAtivo?.escopoTipo || "").toUpperCase();
+    if (escopoTipo !== "LOCAIS") return null;
+    const ids = (eventoAtivo?.escopoLocais || [])
+      .map((x) => String(x?.localId || "").trim())
+      .filter(Boolean);
+    return new Set(ids);
+  }, [eventoAtivo?.escopoLocais, eventoAtivo?.escopoTipo]);
+
+  const locaisOptions = useMemo(() => {
+    const rows = locaisQuery.data || [];
+    if (!localIdsPermitidosEvento) return rows;
+    return rows.filter((l) => localIdsPermitidosEvento.has(String(l.id)));
+  }, [locaisQuery.data, localIdsPermitidosEvento]);
+
+  useEffect(() => {
+    if (!selectedLocalId) return;
+    if (!localIdsPermitidosEvento) return;
+    if (localIdsPermitidosEvento.has(String(selectedLocalId))) return;
+    setSelectedLocalId("");
+    setSalaEncontrada("");
+  }, [localIdsPermitidosEvento, selectedLocalId]);
+
   useEffect(() => {
     // Mantem salaEncontrada coerente com o local selecionado (evita texto "solto" no estado).
     if (!selectedLocalId) {
       if (salaEncontrada) setSalaEncontrada("");
       return;
     }
-    const local = (locaisQuery.data || []).find((l) => String(l.id) === String(selectedLocalId));
+    const local = (locaisOptions || []).find((l) => String(l.id) === String(selectedLocalId));
     if (local?.nome && String(local.nome) !== String(salaEncontrada || "")) {
       setSalaEncontrada(String(local.nome));
     }
-  }, [locaisQuery.data, salaEncontrada, selectedLocalId]);
+  }, [locaisOptions, salaEncontrada, selectedLocalId]);
 
   const contagensSalaQuery = useQuery({
     queryKey: ["inventarioContagens", selectedEventoIdFinal, salaEncontrada],
@@ -498,7 +521,8 @@ export default function InventoryRoomPanel() {
     String(selectedLocalId).trim() !== "" &&
     unidadeEncontradaId &&
     Number(unidadeEncontradaId) >= 1 &&
-    Number(unidadeEncontradaId) <= 4,
+    Number(unidadeEncontradaId) <= 4 &&
+    (!localIdsPermitidosEvento || localIdsPermitidosEvento.has(String(selectedLocalId))),
   );
 
   const canRegisterTerceiro = Boolean(
@@ -844,14 +868,14 @@ export default function InventoryRoomPanel() {
                 </option>
                 {(eventosQuery.data || []).map((ev) => (
                   <option key={ev.id} value={ev.id}>
-                    {`${ev.codigoEvento || ev.id} - Unidade ${ev.unidadeInventariadaId ?? "GERAL"}`}
+                    {`${ev.codigoEvento || ev.id} - ${ev.escopoTipo || "UNIDADE"} - Unidade ${ev.unidadeInventariadaId ?? "GERAL"}`}
                   </option>
                 ))}
               </select>
               {selectedEventoIdFinal ? (
                 <p className="text-[11px] text-slate-500">
                   Evento aplicado: <strong>{eventoAtivo?.codigoEvento || selectedEventoIdFinal}</strong>{" "}
-                  (unidade {eventoAtivo?.unidadeInventariadaId ?? "GERAL"}).
+                  ({eventoAtivo?.escopoTipo || "UNIDADE"} / unidade {eventoAtivo?.unidadeInventariadaId ?? "GERAL"}).
                 </p>
               ) : (
                 <p className="text-[11px] text-amber-700">
@@ -885,10 +909,10 @@ export default function InventoryRoomPanel() {
                 onChange={(e) => {
                   const id = e.target.value;
                   setSelectedLocalId(id);
-                  const local = (locaisQuery.data || []).find((l) => String(l.id) === String(id));
+                  const local = (locaisOptions || []).find((l) => String(l.id) === String(id));
                   if (local?.nome) setSalaEncontrada(String(local.nome));
                 }}
-                disabled={!unidadeEncontradaId || locaisQuery.isFetching}
+                disabled={!unidadeEncontradaId || locaisQuery.isFetching || !!(localIdsPermitidosEvento && !locaisOptions.length)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:opacity-50"
               >
                 <option value="">
@@ -898,7 +922,7 @@ export default function InventoryRoomPanel() {
                       ? "Carregando locais..."
                       : "Selecione um local"}
                 </option>
-                {(locaisQuery.data || []).map((l) => (
+                {(locaisOptions || []).map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.nome}
                   </option>
@@ -907,6 +931,11 @@ export default function InventoryRoomPanel() {
               <p className="mt-1 text-[11px] text-slate-500">
                 Este campo nao e texto livre. O Admin cadastra os locais em "Operacoes API" (secao Locais).
               </p>
+              {localIdsPermitidosEvento ? (
+                <p className="mt-1 text-[11px] text-amber-700">
+                  Este evento esta em escopo LOCAIS: apenas as salas selecionadas no evento podem ser usadas.
+                </p>
+              ) : null}
             </label>
           </div>
 

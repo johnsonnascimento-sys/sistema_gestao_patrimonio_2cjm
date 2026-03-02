@@ -1146,8 +1146,8 @@ export async function getProgressoInventario(eventoId) {
 }
 
 /**
- * Cria um evento de inventario (EM_ANDAMENTO).
- * @param {{codigoEvento: string, unidadeInventariadaId: number|null, abertoPorPerfilId: string, observacoes?: string}} payload Payload.
+ * Cria um evento de inventario (EM_ANDAMENTO), incluindo modo ciclico opcional.
+ * @param {{codigoEvento: string, unidadeInventariadaId?: number|null, tipoCiclo?: "SEMANAL"|"MENSAL"|"ANUAL"|"ADHOC", escopoTipo?: "GERAL"|"UNIDADE"|"LOCAIS", escopoLocalIds?: string[], abertoPorPerfilId: string, observacoes?: string}} payload Payload.
  * @returns {Promise<object>} Evento criado.
  */
 export async function criarEventoInventario(payload) {
@@ -1158,6 +1158,25 @@ export async function criarEventoInventario(payload) {
       Accept: "application/json",
     },
     body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Sugestoes de salas para proximo ciclo de inventario.
+ * @param {{unidadeId?: number, somenteAtivos?: boolean, limit?: number, offset?: number}} params Parametros.
+ * @returns {Promise<{requestId: string, paging: {limit:number, offset:number, total:number}, items: any[]}>}
+ */
+export async function listarSugestoesCicloInventario(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.unidadeId) usp.set("unidadeId", String(params.unidadeId));
+  if (params.somenteAtivos === false) usp.set("somenteAtivos", "false");
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  if (params.offset != null) usp.set("offset", String(params.offset));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inventario/sugestoes-ciclo${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
   });
   return parseResponse(response);
 }

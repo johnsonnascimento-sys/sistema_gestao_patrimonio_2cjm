@@ -8,6 +8,8 @@ import {
     getFotoUrl,
     getRelatorioEncerramentoInventario,
     listarEventosInventario,
+    listarLocais,
+    listarSugestoesCicloInventario,
     excluirEventoInventario,
     atualizarEventoInventario
 } from "../services/apiClient.js";
@@ -42,6 +44,9 @@ export default function InventoryAdminPanel() {
     const [perfilId, setPerfilId] = useState("");
     const [selectedEventoId, setSelectedEventoId] = useState("");
     const [unidadeInventariadaId, setUnidadeInventariadaId] = useState("");
+    const [tipoCiclo, setTipoCiclo] = useState("ADHOC");
+    const [escopoTipo, setEscopoTipo] = useState("GERAL");
+    const [escopoLocalIds, setEscopoLocalIds] = useState([]);
     const [encerramentoObs, setEncerramentoObs] = useState("");
     const [uiError, setUiError] = useState(null);
     const [uiInfo, setUiInfo] = useState(null);
@@ -55,6 +60,10 @@ export default function InventoryAdminPanel() {
         if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
     }, [auth?.perfil?.id, perfilId]);
 
+    useEffect(() => {
+        if (escopoTipo !== "LOCAIS") setEscopoLocalIds([]);
+    }, [escopoTipo]);
+
     const eventosQuery = useQuery({
         queryKey: ["inventarioEventos", "EM_ANDAMENTO"],
         queryFn: async () => {
@@ -67,6 +76,24 @@ export default function InventoryAdminPanel() {
         queryKey: ["inventarioEventos", "TODOS"],
         queryFn: async () => {
             const data = await listarEventosInventario();
+            return data.items || [];
+        },
+    });
+
+    const locaisEscopoQuery = useQuery({
+        queryKey: ["inventarioLocaisEscopo", unidadeInventariadaId],
+        queryFn: async () => {
+            const unidade = unidadeInventariadaId ? Number(unidadeInventariadaId) : undefined;
+            const data = await listarLocais(unidade ? { unidadeId: unidade } : {});
+            return data.items || [];
+        },
+    });
+
+    const sugestoesCicloQuery = useQuery({
+        queryKey: ["inventarioSugestoesCiclo", unidadeInventariadaId],
+        queryFn: async () => {
+            const unidade = unidadeInventariadaId ? Number(unidadeInventariadaId) : undefined;
+            const data = await listarSugestoesCicloInventario({ unidadeId: unidade, limit: 20, offset: 0, somenteAtivos: true });
             return data.items || [];
         },
     });
@@ -228,14 +255,32 @@ export default function InventoryAdminPanel() {
             return;
         }
 
-        const unidadeFinal = unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId);
+        let unidadeFinal = unidadeInventariadaId.trim() === "" ? null : Number(unidadeInventariadaId);
+        if (escopoTipo === "UNIDADE" && !unidadeFinal) {
+            setUiError("Selecione a unidade para escopo UNIDADE.");
+            return;
+        }
+        if (escopoTipo === "LOCAIS" && !escopoLocalIds.length) {
+            setUiError("Selecione ao menos uma sala para escopo LOCAIS.");
+            return;
+        }
+        if (escopoTipo === "GERAL") unidadeFinal = null;
         const codigo = generateCodigoEvento(unidadeFinal);
 
         criarEventoMut.mutate({
             codigoEvento: codigo,
             unidadeInventariadaId: unidadeFinal,
+            tipoCiclo,
+            escopoTipo,
+            escopoLocalIds: escopoTipo === "LOCAIS" ? escopoLocalIds : undefined,
             abertoPorPerfilId: perfilIdFinal,
         });
+    };
+
+    const toggleEscopoLocal = (localId) => {
+        const id = String(localId || "");
+        if (!id) return;
+        setEscopoLocalIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
 
     const onUpdateStatus = async (status, eventoId = selectedEventoIdFinal) => {
@@ -364,7 +409,7 @@ export default function InventoryAdminPanel() {
                                         >
                                             {(eventosQuery.data || []).map((ev) => (
                                                 <option key={ev.id} value={ev.id}>
-                                                    {ev.codigoEvento} (unidade={ev.unidadeInventariadaId ?? "geral"})
+                                                    {ev.codigoEvento} ({ev.escopoTipo || "UNIDADE"} / unidade={ev.unidadeInventariadaId ?? "geral"})
                                                 </option>
                                             ))}
                                         </select>
@@ -437,6 +482,106 @@ export default function InventoryAdminPanel() {
                                     </button>
                                 </form>
                             )}
+
+                            <form onSubmit={onCreateEvento} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-sm font-semibold text-slate-900">Novo micro-inventario ciclico</p>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                    <button type="button" onClick={() => { setTipoCiclo("SEMANAL"); setEscopoTipo("UNIDADE"); setUnidadeInventariadaId("4"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100">
+                                        Ciclo semanal - Almox
+                                    </button>
+                                    <button type="button" onClick={() => { setTipoCiclo("SEMANAL"); setEscopoTipo("UNIDADE"); setUnidadeInventariadaId("3"); }} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100">
+                                        Ciclo semanal - Foro
+                                    </button>
+                                </div>
+
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    <label className="block space-y-1">
+                                        <span className="text-xs text-slate-600">Tipo de ciclo</span>
+                                        <select value={tipoCiclo} onChange={(e) => setTipoCiclo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                            <option value="ADHOC">ADHOC</option>
+                                            <option value="SEMANAL">SEMANAL</option>
+                                            <option value="MENSAL">MENSAL</option>
+                                            <option value="ANUAL">ANUAL</option>
+                                        </select>
+                                    </label>
+                                    <label className="block space-y-1">
+                                        <span className="text-xs text-slate-600">Escopo</span>
+                                        <select value={escopoTipo} onChange={(e) => setEscopoTipo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                            <option value="GERAL">GERAL</option>
+                                            <option value="UNIDADE">UNIDADE</option>
+                                            <option value="LOCAIS">LOCAIS</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <label className="block space-y-1">
+                                    <span className="text-xs text-slate-600">Unidade inventariada</span>
+                                    <select
+                                        value={unidadeInventariadaId}
+                                        onChange={(e) => setUnidadeInventariadaId(e.target.value)}
+                                        disabled={escopoTipo === "GERAL"}
+                                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:opacity-50"
+                                    >
+                                        <option value="">(geral)</option>
+                                        <option value="1">{formatUnidade(1)}</option>
+                                        <option value="2">{formatUnidade(2)}</option>
+                                        <option value="3">{formatUnidade(3)}</option>
+                                        <option value="4">{formatUnidade(4)}</option>
+                                    </select>
+                                </label>
+
+                                {escopoTipo === "LOCAIS" ? (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-600">Salas do escopo</p>
+                                        <div className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-2">
+                                            {(locaisEscopoQuery.data || []).map((l) => (
+                                                <label key={l.id} className="flex items-center gap-2 py-1 text-xs text-slate-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={escopoLocalIds.includes(String(l.id))}
+                                                        onChange={() => toggleEscopoLocal(l.id)}
+                                                        className="h-4 w-4 accent-violet-600"
+                                                    />
+                                                    <span>{l.nome}</span>
+                                                </label>
+                                            ))}
+                                            {!(locaisEscopoQuery.data || []).length ? <p className="text-xs text-slate-500">Nenhuma sala encontrada para a unidade selecionada.</p> : null}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                <button
+                                    type="submit"
+                                    disabled={criarEventoMut.isPending}
+                                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                                >
+                                    {criarEventoMut.isPending ? "Abrindo..." : "Abrir micro-inventario"}
+                                </button>
+                            </form>
+
+                            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-sm font-semibold text-slate-900">Sugestoes de ciclo</p>
+                                <p className="text-[11px] text-slate-600">Prioridade por mais tempo sem contagem.</p>
+                                <div className="mt-2 max-h-44 overflow-auto space-y-2">
+                                    {(sugestoesCicloQuery.data || []).map((s) => (
+                                        <button
+                                            key={s.localId}
+                                            type="button"
+                                            onClick={() => {
+                                                setEscopoTipo("LOCAIS");
+                                                setTipoCiclo("SEMANAL");
+                                                setUnidadeInventariadaId(String(s.unidadeId || ""));
+                                                setEscopoLocalIds([String(s.localId)]);
+                                            }}
+                                            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-left text-xs hover:bg-slate-100"
+                                        >
+                                            <div className="font-semibold text-slate-900">{s.nome}</div>
+                                            <div className="text-slate-600">Unid {s.unidadeId} | {s.diasSemContagem} dias | bens {s.qtdBensAtivos}</div>
+                                        </button>
+                                    ))}
+                                    {!(sugestoesCicloQuery.data || []).length ? <p className="text-xs text-slate-500">Sem sugestoes no momento.</p> : null}
+                                </div>
+                            </div>
                         </div>
                     </div>
 

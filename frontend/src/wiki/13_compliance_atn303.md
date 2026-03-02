@@ -13,8 +13,11 @@ Este sistema implementa regras de compliance como comportamento verificavel. As 
 ## Regra 1: Congelamento no inventario
 
 - Base legal: Art. 183 (AN303_Art183)
-- Regra: durante inventario `EM_ANDAMENTO`, e vedada movimentacao de bens (mudanca de carga).
-- Implementacao: bloqueio no banco para alteracao de `bens.unidade_dona_id` durante evento ativo.
+- Regra: durante inventario `EM_ANDAMENTO`, e vedada movimentacao de bens (mudanca de carga) no escopo ativo.
+- Implementacao: bloqueio no banco para alteracao de `bens.unidade_dona_id` durante evento ativo com escopo:
+  - `GERAL` (global)
+  - `UNIDADE` (unidade especifica)
+  - `LOCAIS` (lista de salas)
 
 ## Regra 2: Intrusos (local divergente) não mudam dono automaticamente
 

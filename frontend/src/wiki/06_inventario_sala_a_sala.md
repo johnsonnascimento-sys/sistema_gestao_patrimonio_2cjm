@@ -144,3 +144,47 @@ Para inventariar unidades em paralelo com governanca:
 - A `unidade encontrada` deve ser compativel com o escopo do evento.
 - Se evento for de unidade especifica, `POST /inventario/sync` rejeita unidade divergente (`UNIDADE_FORA_ESCOPO_EVENTO`).
 - Evento `GERAL` aceita contagens de qualquer unidade.
+
+---
+
+## Inventario ciclico (rotativo)
+
+O inventario ciclico permite contagens frequentes por recortes menores (micro-inventarios), sem parar toda a operacao da unidade.
+
+### Tipos de ciclo
+
+- `SEMANAL`
+- `MENSAL`
+- `ANUAL`
+- `ADHOC` (pontual)
+
+### Escopos de evento
+
+- `GERAL`: cobre toda a base.
+- `UNIDADE`: cobre apenas uma unidade (1..4).
+- `LOCAIS`: cobre apenas uma lista de salas cadastradas (`local_id`), dentro de uma mesma unidade.
+
+### Regras de conflito de eventos ativos
+
+- Evento `GERAL` conflita com qualquer outro evento ativo.
+- Evento `UNIDADE` conflita com `GERAL` e com eventos ativos da mesma unidade.
+- Evento `LOCAIS` conflita com:
+  - `GERAL`
+  - eventos ativos da mesma unidade
+  - eventos `LOCAIS` com sobreposicao de salas.
+
+### Sugestoes de ciclo
+
+A administracao passa a ter a consulta:
+
+- `GET /inventario/sugestoes-ciclo`
+
+Ordenacao prioritaria:
+
+1. locais ha mais tempo sem contagem (`data_ultima_contagem` mais antiga)
+2. maior volume de bens ativos na sala (desempate)
+
+### Atualizacao de ultima contagem
+
+- Em cada `POST /inventario/sync` valido, quando houver `localEncontradoId`, o sistema atualiza `locais.data_ultima_contagem`.
+- Isso alimenta automaticamente as sugestoes do proximo ciclo.
