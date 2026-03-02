@@ -886,13 +886,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   });
 
   const locaisOptions = useMemo(() => {
-    const unidade = imp?.unidadeDonaId != null ? Number(imp.unidadeDonaId) : null;
-    return (locaisQuery.data || []).filter((l) => {
-      if (l.ativo === false) return false;
-      if (unidade == null) return true;
-      return l.unidadeId == null || Number(l.unidadeId) === unidade;
-    });
-  }, [locaisQuery.data, imp?.unidadeDonaId]);
+    return (locaisQuery.data || [])
+      .filter((l) => l.ativo !== false)
+      .sort((a, b) => {
+        const ua = Number(a?.unidadeId || 0);
+        const ub = Number(b?.unidadeId || 0);
+        if (ua !== ub) return ua - ub;
+        return String(a?.nome || "").localeCompare(String(b?.nome || ""), "pt-BR", {
+          sensitivity: "base",
+        });
+      });
+  }, [locaisQuery.data]);
   const cautelaDestinoAtual = useMemo(
     () => extractCautelaDestino(cautelaAtual?.justificativa),
     [cautelaAtual?.justificativa],
@@ -1332,10 +1336,13 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                         <option value="">(nenhum)</option>
                         {locaisOptions.map((l) => (
                           <option key={l.id} value={l.id}>
-                            {l.nome}
+                            {`${l.nome} (${formatUnidade(Number(l.unidadeId))})`}
                           </option>
                         ))}
                       </select>
+                      <p className="text-[11px] text-slate-500">
+                        Lista completa de salas ativas (todas as unidades).
+                      </p>
                       {locaisQuery.isLoading ? (
                         <p className="text-[11px] text-slate-500">Carregando locais cadastrados...</p>
                       ) : null}

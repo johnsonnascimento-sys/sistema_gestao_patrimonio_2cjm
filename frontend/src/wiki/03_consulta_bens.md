@@ -151,3 +151,4 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 
 - Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
 
+
