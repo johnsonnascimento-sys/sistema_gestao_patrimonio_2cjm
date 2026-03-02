@@ -109,6 +109,11 @@ Fluxo:
 2. Bipe os tombos (teclado/scanner/camera com modo simples ou continuo).
 3. Revise a fila e clique **Salvar lote na sala**.
 
+Feedback de leitura por camera:
+
+- Modo simples: o card com tombamento + nome resumo aparece por ~2 segundos.
+- Modo continuo: o card permanece visivel ate a proxima leitura (substitui o item anterior).
+
 Comportamento de divergencia:
 
 - Se um bem for de outra unidade, o sistema alerta e pergunta se voce deseja manter o item na sala escolhida.

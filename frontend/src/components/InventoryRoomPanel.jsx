@@ -182,13 +182,17 @@ export default function InventoryRoomPanel() {
   const scanCooldownRef = useRef(new Map());
   const cameraPreviewTimeoutRef = useRef(null);
 
-  const showCameraScanPreview = (numeroTombamento, nomeResumo) => {
+  const showCameraScanPreview = (numeroTombamento, nomeResumo, mode = "single") => {
     setCameraScanPreview({
       code: String(numeroTombamento || ""),
       summary: String(nomeResumo || "Sem nome resumo cadastrado."),
     });
     if (cameraPreviewTimeoutRef.current) {
       window.clearTimeout(cameraPreviewTimeoutRef.current);
+      cameraPreviewTimeoutRef.current = null;
+    }
+    if (mode === "continuous") {
+      return;
     }
     cameraPreviewTimeoutRef.current = window.setTimeout(() => {
       setCameraScanPreview(null);
@@ -804,7 +808,7 @@ export default function InventoryRoomPanel() {
       message: `${finalTombamento} ${statusLabel}.`,
     });
     if (options?.fromCamera) {
-      showCameraScanPreview(finalTombamento, resumoLido);
+      showCameraScanPreview(finalTombamento, resumoLido, scannerMode);
     }
     if (!divergente) playSuccessBeep();
 

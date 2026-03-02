@@ -207,12 +207,16 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
 
   const items = list.data?.items || [];
 
-  const showCameraPreview = (code, summary) => {
+  const showCameraPreview = (code, summary, mode = "single") => {
     setCameraScanPreview({
       code: String(code || ""),
       summary: String(summary || "Sem nome resumo cadastrado."),
     });
-    if (cameraPreviewTimeoutRef.current) window.clearTimeout(cameraPreviewTimeoutRef.current);
+    if (cameraPreviewTimeoutRef.current) {
+      window.clearTimeout(cameraPreviewTimeoutRef.current);
+      cameraPreviewTimeoutRef.current = null;
+    }
+    if (mode === "continuous") return;
     cameraPreviewTimeoutRef.current = window.setTimeout(() => {
       setCameraScanPreview(null);
       cameraPreviewTimeoutRef.current = null;
@@ -234,7 +238,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     setPaging((prev) => ({ ...prev, offset: 0 }));
 
     if (normalized.length === 4) {
-      showCameraPreview(normalized, "Etiqueta de 4 digitos lida. Selecione o tipo de busca.");
+      showCameraPreview(normalized, "Etiqueta de 4 digitos lida. Selecione o tipo de busca.", scannerMode);
       setTagIdModal({ isOpen: true, value: normalized });
       if (scannerMode === "single") setShowScanner(false);
       return;
@@ -249,9 +253,9 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
       const data = await listarBens({ numeroTombamento: normalized, limit: 1, offset: 0 });
       const bem = (data?.items || [])[0];
       const nomeResumo = bem?.nomeResumo || bem?.descricao || bem?.descricaoComplementar || "Sem nome resumo cadastrado.";
-      showCameraPreview(normalized, nomeResumo);
+      showCameraPreview(normalized, nomeResumo, scannerMode);
     } catch (_error) {
-      showCameraPreview(normalized, "Tombamento lido. Falha ao carregar nome resumo.");
+      showCameraPreview(normalized, "Tombamento lido. Falha ao carregar nome resumo.", scannerMode);
     }
 
     await loadList(0, undefined, nextFilters);

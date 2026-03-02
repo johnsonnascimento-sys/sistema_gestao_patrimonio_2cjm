@@ -145,6 +145,11 @@ Para inventariar unidades em paralelo com governanca:
 - Se evento for de unidade especifica, `POST /inventario/sync` rejeita unidade divergente (`UNIDADE_FORA_ESCOPO_EVENTO`).
 - Evento `GERAL` aceita contagens de qualquer unidade.
 
+Feedback de leitura por camera no Modo Inventario:
+
+- Modo simples: mostra tombamento + nome resumo por ~2 segundos.
+- Modo continuo: o feedback permanece na tela ate a proxima leitura.
+
 ---
 
 ## Inventario ciclico (rotativo)
