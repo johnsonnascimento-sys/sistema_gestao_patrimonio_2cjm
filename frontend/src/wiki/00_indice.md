@@ -51,7 +51,36 @@ Estrutura principal da sidebar:
 Submenus relevantes:
 
 - Operacoes Patrimoniais -> Cadastrar Bens por Sala
+- Operacoes Patrimoniais -> Inventario - Contagem
+- Operacoes Patrimoniais -> Inventario - Administracao
 - Operacoes Patrimoniais -> Material (SKU)
 - Operacoes Patrimoniais -> Gestao de Normas
 - Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
 - Administracao do Painel -> Locais (salas) cadastrados
+
+## Menu atual do sistema (referencia rapida)
+
+### Operacoes Patrimoniais
+
+- Consulta de Bens
+- Movimentacoes
+- Cadastrar Bens por Sala
+- Inventario - Contagem
+- Inventario - Administracao
+- Wizard Art. 141
+- Material (SKU)
+- Gestao de Normas
+- Importacao GEAFIN (CSV Latin1)
+
+### Auditoria e Logs
+
+- Log Geral de Alteracoes
+- Auditoria Patrimonial (Global)
+- Log de Erros Runtime
+
+### Administracao do Painel
+
+- Locais (salas) cadastrados
+- Backup e Restore
+- Conectividade Backend
+- Perfis e Acessos

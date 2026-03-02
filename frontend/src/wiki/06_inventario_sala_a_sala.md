@@ -2,6 +2,14 @@
 
 ## Acompanhamento de Progresso por Sala
 
+## Onde acessar no menu
+
+No grupo **Operacoes Patrimoniais**:
+
+- `Inventario - Contagem`: tela operacional de leitura e registro.
+- `Inventario - Administracao`: tela de gestao de eventos e ciclo.
+- `Cadastrar Bens por Sala`: regularizacao em lote de localizacao (sem transferir carga).
+
 Ao acessar a aba **Cadastrar bens por sala (regularizacao em lote)**, o sistema exibe um **Card de Progresso** acima do formulario de selecao de sala.
 
 ### O que e exibido

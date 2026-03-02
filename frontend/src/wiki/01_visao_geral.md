@@ -93,3 +93,12 @@ Distribuicao de modulos:
 - Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
 - Administracao do Painel: backup, conectividade, perfis e locais (salas) cadastrados.
 - Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.
+
+## Menu atual - inventario
+
+No grupo **Operacoes Patrimoniais**, o inventario esta dividido em dois menus:
+
+- `Inventario - Contagem`: execucao operacional (leitura, contagens, divergencias, offline-first).
+- `Inventario - Administracao`: abertura/encerramento/reabertura de eventos, micro-ciclos e relatorios.
+
+Essa separacao existe para evitar mistura de funcoes entre operador de sala e administrador do evento.

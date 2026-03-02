@@ -163,7 +163,7 @@ export default function InventoryRoomPanel() {
   const [showScanner, setShowScanner] = useState(false);
   const [cameraScanPreview, setCameraScanPreview] = useState(null);
   const [scannerMode, setScannerMode] = useState("single"); // 'single' ou 'continuous'
-  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "", type: null });
+  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "", type: null, fromCamera: false });
 
   // Registro segregado: bem de terceiro (sem tombamento GEAFIN).
   const [terceiroDescricao, setTerceiroDescricao] = useState("");
@@ -648,7 +648,7 @@ export default function InventoryRoomPanel() {
     const numeroTombamento = normalizeTombamentoInput(rawValue);
 
     if (TOMBAMENTO_4_DIGITS_RE.test(numeroTombamento)) {
-      setTagIdModal({ isOpen: true, value: numeroTombamento, type: null });
+      setTagIdModal({ isOpen: true, value: numeroTombamento, type: null, fromCamera: Boolean(options?.fromCamera) });
       return;
     }
 
@@ -1439,8 +1439,8 @@ export default function InventoryRoomPanel() {
               <button
                 type="button"
                 onClick={() => {
-                  processScan(tagIdModal.value, "antigo");
-                  setTagIdModal({ isOpen: false, value: "", type: null });
+                  processScan(tagIdModal.value, "antigo", tagIdModal.fromCamera ? { fromCamera: true } : {});
+                  setTagIdModal({ isOpen: false, value: "", type: null, fromCamera: false });
                 }}
                 className="flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
               >
@@ -1458,8 +1458,8 @@ export default function InventoryRoomPanel() {
               <button
                 type="button"
                 onClick={() => {
-                  processScan(tagIdModal.value, "novo");
-                  setTagIdModal({ isOpen: false, value: "", type: null });
+                  processScan(tagIdModal.value, "novo", tagIdModal.fromCamera ? { fromCamera: true } : {});
+                  setTagIdModal({ isOpen: false, value: "", type: null, fromCamera: false });
                 }}
                 className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
               >
@@ -1478,7 +1478,7 @@ export default function InventoryRoomPanel() {
             <button
               type="button"
               onClick={() => {
-                setTagIdModal({ isOpen: false, value: "", type: null });
+                setTagIdModal({ isOpen: false, value: "", type: null, fromCamera: false });
                 setScannerValue("");
               }}
               className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"

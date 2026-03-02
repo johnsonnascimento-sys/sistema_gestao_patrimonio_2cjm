@@ -43,7 +43,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   const [list, setList] = useState({ loading: false, data: null, error: null });
   const [formError, setFormError] = useState(null);
   const [tipoBusca4Digitos, setTipoBusca4Digitos] = useState(null);
-  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "" });
+  const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "", fromCamera: false, mode: "single" });
   const [detail, setDetail] = useState({ open: false, loading: false, data: null, error: null });
   const [filters, setFilters] = useState({
     numeroTombamento: "",
@@ -179,7 +179,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
       return;
     }
     if (/^\d{4}$/.test(tombo) && !tipoBusca4Digitos) {
-      setTagIdModal({ isOpen: true, value: tombo });
+      setTagIdModal({ isOpen: true, value: tombo, fromCamera: false, mode: "single" });
       return;
     }
     if (/^\d{10}$/.test(tombo) && tipoBusca4Digitos) {
@@ -191,17 +191,40 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   const onClear = () => {
     setFormError(null);
     setTipoBusca4Digitos(null);
-    setTagIdModal({ isOpen: false, value: "" });
+    setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" });
     const clearedFilters = { numeroTombamento: "", codigoCatalogo: "", q: "", localId: "", unidadeDonaId: "", status: "" };
     setFilters(clearedFilters);
     setPaging((prev) => ({ ...prev, offset: 0 }));
     setTimeout(() => loadList(0, undefined, clearedFilters), 0);
   };
 
-  const onSelectTipoBusca = async (tipoBusca) => {
+  const onSelectTipoBusca = async (tipoBusca, options = {}) => {
+    const value4 = String(options?.value ?? tagIdModal.value ?? filters.numeroTombamento ?? "").trim();
+    const fromCamera = Boolean(options?.fromCamera);
+    const previewMode = options?.mode || scannerMode;
     setFormError(null);
     setTipoBusca4Digitos(tipoBusca);
-    setTagIdModal({ isOpen: false, value: "" });
+    setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" });
+    if (fromCamera && /^\d{4}$/.test(value4)) {
+      try {
+        const data = await listarBens({
+          numeroTombamento: value4,
+          tipoBusca,
+          limit: 1,
+          offset: 0,
+        });
+        const bem = (data?.items || [])[0] || null;
+        if (bem) {
+          const tombamentoResolvido = String(bem.numeroTombamento || value4);
+          const nomeResumo = bem?.nomeResumo || bem?.descricao || bem?.descricaoComplementar || "Sem nome resumo cadastrado.";
+          showCameraPreview(tombamentoResolvido, nomeResumo, previewMode);
+        } else {
+          showCameraPreview(value4, "Nenhum bem encontrado para este codigo de 4 digitos.", previewMode);
+        }
+      } catch (_error) {
+        showCameraPreview(value4, "Falha ao resolver etiqueta de 4 digitos.", previewMode);
+      }
+    }
     await loadList(0, tipoBusca);
   };
 
@@ -239,7 +262,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
 
     if (normalized.length === 4) {
       showCameraPreview(normalized, "Etiqueta de 4 digitos lida. Selecione o tipo de busca.", scannerMode);
-      setTagIdModal({ isOpen: true, value: normalized });
+      setTagIdModal({ isOpen: true, value: normalized, fromCamera: true, mode: scannerMode });
       if (scannerMode === "single") setShowScanner(false);
       return;
     }
@@ -267,7 +290,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     if (!codigo) return;
     setFormError(null);
     setTipoBusca4Digitos(null);
-    setTagIdModal({ isOpen: false, value: "" });
+    setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" });
     const nextFilters = {
       ...filters,
       numeroTombamento: "",
@@ -688,7 +711,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
-                onClick={() => onSelectTipoBusca("antigo")}
+                onClick={() => onSelectTipoBusca("antigo", { fromCamera: tagIdModal.fromCamera, mode: tagIdModal.mode, value: tagIdModal.value })}
                 className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
               >
                 <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
@@ -696,7 +719,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
               </button>
               <button
                 type="button"
-                onClick={() => onSelectTipoBusca("novo")}
+                onClick={() => onSelectTipoBusca("novo", { fromCamera: tagIdModal.fromCamera, mode: tagIdModal.mode, value: tagIdModal.value })}
                 className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
               >
                 <div className="font-bold text-emerald-700">Etiqueta Nova (Erro)</div>
@@ -706,7 +729,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
 
             <button
               type="button"
-              onClick={() => setTagIdModal({ isOpen: false, value: "" })}
+              onClick={() => setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" })}
               className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900"
             >
               Cancelar
