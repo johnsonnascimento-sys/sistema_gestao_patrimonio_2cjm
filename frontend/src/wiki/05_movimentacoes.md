@@ -143,5 +143,8 @@ Motivo:
 No campo de bipagem de tombamento da tela **Cadastrar bens por sala**:
 
 - Leitor fisico em modo teclado pode operar em sequencia continua.
-- O termino da leitura com Enter **ou** Tab adiciona o item na fila automaticamente.
+- O termino da leitura com Enter, Tab **ou** Ctrl+J adiciona o item na fila automaticamente.
 - Apos adicionar/validar o item, o foco retorna para o campo para a proxima leitura.
+
+- Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+

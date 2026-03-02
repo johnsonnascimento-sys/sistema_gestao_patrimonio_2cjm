@@ -1,4 +1,4 @@
-﻿
+
 
 <!--
 Modulo: wiki
@@ -22,10 +22,10 @@ Ao acessar a aba **Cadastrar bens por sala (regularizacao em lote)**, o sistema 
 
 ### O que e exibido
 
-- **Total** â€” quantidade total de bens proprios, nao baixados.
-- **Atualizados** â€” bens que ja possuem `local_id` vinculado (sala fisica cadastrada).
-- **Pendentes** â€” bens sem sala atribuida (`local_id IS NULL`).
-- **Barra de progresso** â€” percentual visual de bens atualizados sobre o total.
+- **Total** — quantidade total de bens proprios, nao baixados.
+- **Atualizados** — bens que ja possuem `local_id` vinculado (sala fisica cadastrada).
+- **Pendentes** — bens sem sala atribuida (`local_id IS NULL`).
+- **Barra de progresso** — percentual visual de bens atualizados sobre o total.
 
 ### Comportamento por contexto
 
@@ -37,7 +37,7 @@ Ao acessar a aba **Cadastrar bens por sala (regularizacao em lote)**, o sistema 
 
 ### Endpoint que alimenta o card
 
-`GET /locais/estatisticas` â€” retorna `{ total, comLocal, semLocal }`.
+`GET /locais/estatisticas` — retorna `{ total, comLocal, semLocal }`.
 
 ---
 
@@ -88,7 +88,7 @@ Resposta:
 
 ## Reset de Localizacao Fisica (Pre-Inventario Livre)
 
-Operacao administrativa que limpa o vinculo `local_id` de todos os bens (ou de uma unidade especifica), permitindo comecar o mapeamento fisico do zero â€” sem as exigencias formais de um inventario.
+Operacao administrativa que limpa o vinculo `local_id` de todos os bens (ou de uma unidade especifica), permitindo comecar o mapeamento fisico do zero — sem as exigencias formais de um inventario.
 
 > [!CAUTION]
 > Esta operacao apaga o vinculo de sala de todos os bens do escopo selecionado. E irreversivel sem refazer o cadastro por sala. Os **locais cadastrados** (tabela `locais`) NAO sao apagados.
@@ -97,7 +97,7 @@ Operacao administrativa que limpa o vinculo `local_id` de todos os bens (ou de u
 
 1. Clicar no botao vermelho **Resetar localizacao** na aba *Cadastrar bens por sala*.
 2. No modal:
-   - **Selecionar o escopo**: "Todas as unidades" ou uma unidade especifica (1 a 4) â€” independente do dropdown de sala.
+   - **Selecionar o escopo**: "Todas as unidades" ou uma unidade especifica (1 a 4) — independente do dropdown de sala.
    - **Informar a senha de administrador** (campo texto, validado via bcrypt no banco).
    - **Digitar `RESETAR`** no campo de confirmacao de texto.
 3. O botao **Confirmar reset** so fica ativo quando os tres campos estao preenchidos e validos.
@@ -108,8 +108,8 @@ Operacao administrativa que limpa o vinculo `local_id` de todos os bens (ou de u
 | Verificacao | Mecanismo |
 |---|---|
 | Autenticacao JWT valida | `mustAdmin` middleware |
-| Perfil com role de administrador | `requireAdmin` â€” checa `role` no token |
-| Senha correta do proprio usuario | `ensureAdminPassword` â€” bcrypt vs `perfis.senha_hash` |
+| Perfil com role de administrador | `requireAdmin` — checa `role` no token |
+| Senha correta do proprio usuario | `ensureAdminPassword` — bcrypt vs `perfis.senha_hash` |
 | Confirmacao de texto obrigatoria | Frontend habilita o botao apenas se `confirmText === "RESETAR"` |
 
 ### Endpoint
@@ -221,6 +221,9 @@ Observacao de UX:
 No campo de leitura de tombamento da tela **Inventario - Contagem**:
 
 - O leitor de codigo de barras em modo teclado funciona em ciclo continuo.
-- Leitura finalizada com Enter **ou** Tab registra automaticamente.
+- Leitura finalizada com Enter, Tab **ou** Ctrl+J registra automaticamente.
 - O campo volta a receber foco apos cada tentativa de registro (sucesso, alerta ou validacao), acelerando operacao em sequencia.
 - Para etiquetas de 4 digitos (azul/erro), o modal de identificacao continua obrigatorio para escolher o tipo de busca.
+
+- Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+

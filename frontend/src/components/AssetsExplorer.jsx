@@ -192,8 +192,23 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     if (/^\d{10}$/.test(tombo) && tipoBusca4Digitos) {
       setTipoBusca4Digitos(null);
     }
-    loadList(0);
+    const nextFilters = { ...filters };
+    loadList(0, undefined, nextFilters);
+    if (tombo) {
+      setFilters((prev) => ({ ...prev, numeroTombamento: "" }));
+    }
     focusTombamentoInput();
+  };
+
+  const handleTombamentoInputKeyDown = (event) => {
+    const key = String(event.key || "");
+    const lower = key.toLowerCase();
+    const isCtrlJ = event.ctrlKey && !event.altKey && !event.metaKey && lower === "j";
+    const isSubmitKey = key === "Enter" || key === "Tab" || isCtrlJ;
+    if (!isSubmitKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSubmit(event);
   };
 
   const onClear = () => {
@@ -404,11 +419,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                 }
                 setFormError(null);
               }}
-              onKeyDown={(e) => {
-                if (e.key !== "Tab") return;
-                e.preventDefault();
-                onSubmit(e);
-              }}
+              onKeyDown={handleTombamentoInputKeyDown}
               placeholder="Ex.: 1290001788 ou 2657"
               inputMode="numeric"
               maxLength={10}

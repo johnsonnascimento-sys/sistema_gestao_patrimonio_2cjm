@@ -448,6 +448,17 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     focusScanInput();
   };
 
+  const handleScanInputKeyDown = (event) => {
+    const key = String(event.key || "");
+    const lower = key.toLowerCase();
+    const isCtrlJ = event.ctrlKey && !event.altKey && !event.metaKey && lower === "j";
+    const isSubmitKey = key === "Enter" || key === "Tab" || isCtrlJ;
+    if (!isSubmitKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void onAdicionarTombo(event);
+  };
+
   const onSalvarLote = async () => {
     if (!canAdmin) {
       setLoteState({ loading: false, response: null, error: "Regularizacao por sala restrita ao perfil ADMIN.", info: null });
@@ -1142,11 +1153,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   ref={scanInputRef}
                   value={scanInput}
                   onChange={(e) => setScanInput(normalizeTombamentoInput(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Tab") return;
-                    e.preventDefault();
-                    void onAdicionarTombo(e);
-                  }}
+                  onKeyDown={handleScanInputKeyDown}
                   className="min-w-[260px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   placeholder="Bipe ou digite tombamento (10 digitos)"
                   autoComplete="off"

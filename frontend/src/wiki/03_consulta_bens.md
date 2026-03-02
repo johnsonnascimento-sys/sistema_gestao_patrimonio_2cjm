@@ -146,5 +146,8 @@ OBS: O sistema armazena as fotos localmente no servidor para maior performance e
 No campo **Tombamento (10) ou Etiqueta (4)**:
 
 - O sistema aceita leitura continua por scanner de bancada/pistola (modo teclado).
-- O sufixo de leitura com Enter **ou** Tab dispara a consulta automaticamente.
+- O sufixo de leitura com Enter, Tab **ou** Ctrl+J dispara a consulta automaticamente.
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
+
+- Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+

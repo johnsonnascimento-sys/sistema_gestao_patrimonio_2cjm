@@ -678,6 +678,17 @@ export default function InventoryRoomPanel() {
     focusScannerInput();
   };
 
+  const handleScannerInputKeyDown = (event) => {
+    const key = String(event.key || "");
+    const lower = key.toLowerCase();
+    const isCtrlJ = event.ctrlKey && !event.altKey && !event.metaKey && lower === "j";
+    const isSubmitKey = key === "Enter" || key === "Tab" || isCtrlJ;
+    if (!isSubmitKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void registerScan(event);
+  };
+
   const processScan = async (numeroTombamento, tipoBusca = null, options = {}) => {
     setUiError(null);
     setScanFeedback(null);
@@ -990,11 +1001,7 @@ export default function InventoryRoomPanel() {
                   ref={scannerInputRef}
                   value={scannerValue}
                   onChange={(e) => setScannerValue(normalizeTombamentoInput(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Tab") return;
-                    e.preventDefault();
-                    void registerScan(e);
-                  }}
+                  onKeyDown={handleScannerInputKeyDown}
                   placeholder="Ex: 1290001788"
                   inputMode="numeric"
                   maxLength={10}
