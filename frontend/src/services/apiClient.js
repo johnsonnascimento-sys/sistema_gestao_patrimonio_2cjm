@@ -647,6 +647,60 @@ export async function associarBensCatalogo(id, payload) {
 }
 
 /**
+ * Lista classificacoes SIAFI.
+ * @param {{q?: string, ativo?: boolean, limit?: number, offset?: number}} filters Filtros.
+ * @returns {Promise<{requestId:string,paging:{limit:number,offset:number,total:number},items:any[]}>}
+ */
+export async function listarClassificacoesSiafi(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", String(filters.q));
+  if (filters.ativo != null) params.set("ativo", String(Boolean(filters.ativo)));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/classificacoes-siafi${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cria classificacao SIAFI.
+ * @param {{codigoClassificacao: string, descricaoSiafi: string}} payload Dados.
+ * @returns {Promise<{requestId:string,classificacao:any}>}
+ */
+export async function criarClassificacaoSiafi(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/classificacoes-siafi`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza classificacao SIAFI.
+ * @param {string} id UUID.
+ * @param {{codigoClassificacao?: string, descricaoSiafi?: string, ativo?: boolean}} patch Campos.
+ * @returns {Promise<{requestId:string,classificacao:any}>}
+ */
+export async function atualizarClassificacaoSiafi(id, patch) {
+  const response = await safeFetch(`${API_BASE_URL}/classificacoes-siafi/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(patch || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Aplica nome_resumo para todos os bens de um SKU (catalogo).
  * @param {string} id UUID do catalogo.
  * @param {{nomeResumo?: string}} payload Dados opcionais.

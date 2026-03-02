@@ -2864,6 +2864,153 @@ app.get("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
 });
 
 /**
+ * Lista classificacoes SIAFI.
+ */
+app.get("/classificacoes-siafi", mustAuth, async (req, res, next) => {
+  try {
+    const q = req.query?.q != null ? String(req.query.q).trim().slice(0, 120) : "";
+    const ativoRaw = req.query?.ativo != null ? String(req.query.ativo).trim().toLowerCase() : "";
+    const onlyAtivos = ativoRaw === "true" || ativoRaw === "1" || ativoRaw === "sim";
+    const limit = Math.max(1, Math.min(500, parseIntOrDefault(req.query?.limit, 200)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+
+    const where = [];
+    const params = [];
+    let i = 1;
+    if (q) {
+      where.push(`(cs.codigo_classificacao ILIKE $${i} OR cs.descricao_siafi ILIKE $${i})`);
+      params.push(`%${q}%`);
+      i += 1;
+    }
+    if (onlyAtivos) {
+      where.push(`cs.ativo = TRUE`);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const count = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM classificacoes_siafi cs ${whereSql};`,
+      params,
+    );
+
+    const list = await pool.query(
+      `SELECT
+         cs.id,
+         cs.codigo_classificacao AS "codigoClassificacao",
+         cs.descricao_siafi AS "descricaoSiafi",
+         cs.ativo,
+         cs.created_at AS "createdAt",
+         cs.updated_at AS "updatedAt"
+       FROM classificacoes_siafi cs
+       ${whereSql}
+       ORDER BY cs.codigo_classificacao ASC
+       LIMIT $${i} OFFSET $${i + 1};`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      paging: { limit, offset, total: count.rows[0]?.total ?? 0 },
+      items: list.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Cria classificacao SIAFI.
+ */
+app.post("/classificacoes-siafi", mustAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const codigoClassificacao = String(body.codigoClassificacao || "").trim().slice(0, 30);
+    const descricaoSiafi = String(body.descricaoSiafi || "").trim().slice(0, 220);
+    if (!codigoClassificacao) {
+      throw new HttpError(422, "CODIGO_CLASSIFICACAO_OBRIGATORIO", "codigoClassificacao e obrigatorio.");
+    }
+    if (!descricaoSiafi) {
+      throw new HttpError(422, "DESCRICAO_SIAFI_OBRIGATORIA", "descricaoSiafi e obrigatoria.");
+    }
+    const r = await pool.query(
+      `INSERT INTO classificacoes_siafi (codigo_classificacao, descricao_siafi, ativo)
+       VALUES ($1, $2, TRUE)
+       RETURNING
+         id,
+         codigo_classificacao AS "codigoClassificacao",
+         descricao_siafi AS "descricaoSiafi",
+         ativo,
+         created_at AS "createdAt",
+         updated_at AS "updatedAt";`,
+      [codigoClassificacao, descricaoSiafi],
+    );
+    res.status(201).json({ requestId: req.requestId, classificacao: r.rows[0] });
+  } catch (error) {
+    if (error?.code === "23505") {
+      next(new HttpError(409, "CLASSIFICACAO_SIAFI_DUPLICADA", "Ja existe classificacao SIAFI com este codigo."));
+      return;
+    }
+    next(error);
+  }
+});
+
+/**
+ * Atualiza classificacao SIAFI.
+ */
+app.patch("/classificacoes-siafi/:id", mustAdmin, async (req, res, next) => {
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "CLASSIFICACAO_ID_INVALIDO", "id deve ser UUID.");
+    const body = req.body || {};
+    const fields = [];
+    const params = [];
+    let i = 1;
+
+    if (Object.prototype.hasOwnProperty.call(body, "codigoClassificacao")) {
+      const codigo = String(body.codigoClassificacao || "").trim().slice(0, 30);
+      if (!codigo) throw new HttpError(422, "CODIGO_CLASSIFICACAO_OBRIGATORIO", "codigoClassificacao e obrigatorio.");
+      fields.push(`codigo_classificacao = $${i}`);
+      params.push(codigo);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "descricaoSiafi")) {
+      const descricao = String(body.descricaoSiafi || "").trim().slice(0, 220);
+      if (!descricao) throw new HttpError(422, "DESCRICAO_SIAFI_OBRIGATORIA", "descricaoSiafi e obrigatoria.");
+      fields.push(`descricao_siafi = $${i}`);
+      params.push(descricao);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "ativo")) {
+      fields.push(`ativo = $${i}`);
+      params.push(parseBool(body.ativo, true));
+      i += 1;
+    }
+    if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
+
+    const r = await pool.query(
+      `UPDATE classificacoes_siafi
+       SET ${fields.join(", ")}, updated_at = NOW()
+       WHERE id = $${i}
+       RETURNING
+         id,
+         codigo_classificacao AS "codigoClassificacao",
+         descricao_siafi AS "descricaoSiafi",
+         ativo,
+         created_at AS "createdAt",
+         updated_at AS "updatedAt";`,
+      [...params, id],
+    );
+    if (!r.rowCount) throw new HttpError(404, "CLASSIFICACAO_NAO_ENCONTRADA", "Classificacao SIAFI nao encontrada.");
+    res.json({ requestId: req.requestId, classificacao: r.rows[0] });
+  } catch (error) {
+    if (error?.code === "23505") {
+      next(new HttpError(409, "CLASSIFICACAO_SIAFI_DUPLICADA", "Ja existe classificacao SIAFI com este codigo."));
+      return;
+    }
+    next(error);
+  }
+});
+
+/**
  * Lista catalogos (SKU) com filtros e paginacao.
  */
 app.get("/catalogo-bens", mustAuth, async (req, res, next) => {
@@ -2943,13 +3090,26 @@ app.post("/catalogo-bens", mustAdmin, async (req, res, next) => {
     const body = req.body || {};
     const codigoCatalogo = String(body.codigoCatalogo || "").trim().slice(0, 120);
     const descricao = String(body.descricao || "").trim().slice(0, 500);
-    const grupo = body.grupo != null ? String(body.grupo).trim().slice(0, 120) : null;
+    const grupo = body.grupo != null ? String(body.grupo).trim().slice(0, 120) : "";
     const materialPermanente = Object.prototype.hasOwnProperty.call(body, "materialPermanente")
       ? parseBool(body.materialPermanente, false)
       : false;
 
     if (!codigoCatalogo) throw new HttpError(422, "CODIGO_CATALOGO_OBRIGATORIO", "codigoCatalogo e obrigatorio.");
     if (!descricao) throw new HttpError(422, "DESCRICAO_OBRIGATORIA", "descricao e obrigatoria.");
+    if (!grupo) throw new HttpError(422, "CLASSIFICACAO_SIAFI_OBRIGATORIA", "Classificacao SIAFI e obrigatoria.");
+
+    const classificacao = await pool.query(
+      `SELECT id
+       FROM classificacoes_siafi
+       WHERE codigo_classificacao = $1
+         AND ativo = TRUE
+       LIMIT 1;`,
+      [grupo],
+    );
+    if (!classificacao.rowCount) {
+      throw new HttpError(422, "CLASSIFICACAO_SIAFI_INVALIDA", "Classificacao SIAFI nao encontrada/ativa.");
+    }
 
     const r = await pool.query(
       `INSERT INTO catalogo_bens (codigo_catalogo, descricao, grupo, material_permanente)
@@ -3018,8 +3178,23 @@ app.patch("/catalogo-bens/:id", mustAdmin, async (req, res, next) => {
       i += 1;
     }
     if (Object.prototype.hasOwnProperty.call(body, "grupo")) {
+      const codigoClassificacao = body.grupo != null ? String(body.grupo).trim().slice(0, 120) : "";
+      if (!codigoClassificacao) {
+        throw new HttpError(422, "CLASSIFICACAO_SIAFI_OBRIGATORIA", "Classificacao SIAFI e obrigatoria.");
+      }
+      const classificacao = await pool.query(
+        `SELECT id
+         FROM classificacoes_siafi
+         WHERE codigo_classificacao = $1
+           AND ativo = TRUE
+         LIMIT 1;`,
+        [codigoClassificacao],
+      );
+      if (!classificacao.rowCount) {
+        throw new HttpError(422, "CLASSIFICACAO_SIAFI_INVALIDA", "Classificacao SIAFI nao encontrada/ativa.");
+      }
       fields.push(`grupo = $${i}`);
-      params.push(body.grupo != null ? String(body.grupo).trim().slice(0, 120) : null);
+      params.push(codigoClassificacao);
       i += 1;
     }
     if (Object.prototype.hasOwnProperty.call(body, "materialPermanente")) {

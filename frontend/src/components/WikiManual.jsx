@@ -35,6 +35,7 @@ import mdMaterialSku from "../wiki/20_material_sku.md?raw";
 import mdGestaoNormas from "../wiki/21_gestao_normas.md?raw";
 import mdInventarioAdmin from "../wiki/22_inventario_administracao.md?raw";
 import mdAnaliseCobertura from "../wiki/23_analise_cobertura_menu_wiki.md?raw";
+import mdClassificacaoSiafi from "../wiki/24_classificacao_siafi.md?raw";
 import { wikiMeta } from "../wiki/wikiMeta.generated.js";
 
 const WIKI_PAGES = [
@@ -49,6 +50,7 @@ const WIKI_PAGES = [
   { id: "inventario-admin", title: "Inventario - Administracao", md: mdInventarioAdmin },
   { id: "analise-cobertura", title: "Analise de cobertura menu x wiki (faseada)", md: mdAnaliseCobertura },
   { id: "material-sku", title: "Material (SKU)", md: mdMaterialSku },
+  { id: "classificacao-siafi", title: "Classificacao SIAFI", md: mdClassificacaoSiafi },
   { id: "gestao-normas", title: "Gestao de Normas", md: mdGestaoNormas },
   { id: "intrusos-terceiros", title: "Intrusos e bens de terceiros", md: mdIntrusosTerceiros },
   { id: "regularizacao", title: "Regularização pós-inventário", md: mdRegularizacaoPosInventario },

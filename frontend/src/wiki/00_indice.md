@@ -28,6 +28,7 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Inventário - Contagem
 - Inventário - Administração
 - Material (SKU)
+- Classificacao SIAFI
 - Gestão de Normas
 - Intrusos e bens de terceiros ("bem de terceiro")
 - Regularização pós-inventário (forasteiros)
@@ -59,6 +60,7 @@ Submenus relevantes:
 - Operacoes Patrimoniais -> Inventario - Contagem
 - Operacoes Patrimoniais -> Inventario - Administracao
 - Operacoes Patrimoniais -> Material (SKU)
+- Operacoes Patrimoniais -> Classificacao SIAFI
 - Operacoes Patrimoniais -> Gestao de Normas
 - Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
 - Administracao do Painel -> Locais (salas) cadastrados
@@ -74,6 +76,7 @@ Submenus relevantes:
 - Inventario - Administracao
 - Wizard Art. 141
 - Material (SKU)
+- Classificacao SIAFI
 - Gestao de Normas
 - Importacao GEAFIN (CSV Latin1)
 
@@ -89,3 +92,4 @@ Submenus relevantes:
 - Backup e Restore
 - Conectividade Backend
 - Perfis e Acessos
+

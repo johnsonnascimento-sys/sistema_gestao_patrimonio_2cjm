@@ -17,6 +17,7 @@ import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
 import NormsPage from "./components/NormsPage.jsx";
 import OperationsPanel from "./components/OperationsPanel.jsx";
 import CatalogoAdminPanel from "./components/CatalogoAdminPanel.jsx";
+import ClassificacaoSiafiPanel from "./components/ClassificacaoSiafiPanel.jsx";
 import WikiManual from "./components/WikiManual.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import {
@@ -41,6 +42,7 @@ const NAV_STRUCTURE = [
       { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
+      { id: "classificacoes-siafi", label: "Classificacao SIAFI", short: "SIAFI" },
       { id: "normas", label: "Gestao de Normas", short: "Normas" },
       { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
@@ -138,7 +140,7 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "catalogo-material") {
+  if (id === "catalogo-material" || id === "classificacoes-siafi") {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -675,6 +677,7 @@ function AppShell() {
               {tab === "movimentacoes" && <MovimentacoesPanel />}
               {tab === "operacoes-cadastro-sala" && <MovimentacoesPanel section="cadastro-sala" />}
               {tab === "catalogo-material" && <CatalogoAdminPanel canAdmin={canAdmin} />}
+              {tab === "classificacoes-siafi" && <ClassificacaoSiafiPanel canAdmin={canAdmin} />}
               {tab === "importacoes-geafin" && <ImportacoesPanel canAdmin={canAdmin} />}
 
               {tab === "classificacao" && (

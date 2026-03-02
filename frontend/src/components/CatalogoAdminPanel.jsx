@@ -12,6 +12,7 @@ import {
   criarCatalogo,
   getFotoUrl,
   listarBens,
+  listarClassificacoesSiafi,
   listarCatalogos,
   uploadFoto,
 } from "../services/apiClient.js";
@@ -67,6 +68,8 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [selectedCatalogo, setSelectedCatalogo] = useState(null);
   const [editLookupCodigo, setEditLookupCodigo] = useState("");
   const [editLookupMsg, setEditLookupMsg] = useState(null);
+  const [editOriginalCodigo, setEditOriginalCodigo] = useState("");
+  const [classificacoesState, setClassificacoesState] = useState({ loading: false, items: [], error: null });
   const [bensState, setBensState] = useState({ loading: false, items: [], error: null });
   const [nomeResumoPadrao, setNomeResumoPadrao] = useState("");
   const [nomeResumoState, setNomeResumoState] = useState({ loading: false, error: null, info: null });
@@ -88,6 +91,10 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const [sortState, setSortState] = useState({ key: "", dir: "asc" });
   const totalServerItems = Array.isArray(listState.data?.items) ? listState.data.items.length : 0;
   const catalogosOptions = Array.isArray(listState.data?.items) ? listState.data.items : [];
+  const classificacoesOptions = Array.isArray(classificacoesState.items) ? classificacoesState.items : [];
+  const classificacaoAtualForaDaLista = form.grupo
+    ? !classificacoesOptions.some((c) => String(c.codigoClassificacao) === String(form.grupo))
+    : false;
 
   const loadCatalogos = async () => {
     if (!canAdmin) return;
@@ -135,6 +142,22 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   useEffect(() => {
     if (!canAdmin) return;
     void loadCatalogos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAdmin]);
+
+  const loadClassificacoes = async () => {
+    setClassificacoesState({ loading: true, items: [], error: null });
+    try {
+      const data = await listarClassificacoesSiafi({ ativo: true, limit: 500, offset: 0 });
+      setClassificacoesState({ loading: false, items: data?.items || [], error: null });
+    } catch (error) {
+      setClassificacoesState({ loading: false, items: [], error: formatApiError(error) });
+    }
+  };
+
+  useEffect(() => {
+    if (!canAdmin) return;
+    void loadClassificacoes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAdmin]);
 
@@ -219,11 +242,11 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     const payload = {
       codigoCatalogo: String(form.codigoCatalogo || "").trim(),
       descricao: String(form.descricao || "").trim(),
-      grupo: String(form.grupo || "").trim() || null,
+      grupo: String(form.grupo || "").trim(),
       materialPermanente: Boolean(form.materialPermanente),
     };
-    if (!payload.codigoCatalogo || !payload.descricao) {
-      setFormState({ loading: false, response: null, error: "Preencha codigoCatalogo e descricao." });
+    if (!payload.codigoCatalogo || !payload.descricao || !payload.grupo) {
+      setFormState({ loading: false, response: null, error: "Preencha codigoCatalogo, descricao e Classificacao SIAFI." });
       return;
     }
 
@@ -257,6 +280,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
       setFormState({ loading: false, response: data, error: null });
       if (editId) {
         setEditId("");
+        setEditOriginalCodigo("");
       } else {
         setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
       }
@@ -295,6 +319,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
     if (!catalogo?.id) return;
     setEditId(String(catalogo.id));
     setEditLookupCodigo(String(catalogo.codigoCatalogo || ""));
+    setEditOriginalCodigo(String(catalogo.codigoCatalogo || ""));
     setEditLookupMsg(`Material (SKU) ${String(catalogo.codigoCatalogo || "")} carregado para edicao.`);
     setForm({
       codigoCatalogo: String(catalogo.codigoCatalogo || ""),
@@ -313,6 +338,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
   const onCancelarEdicao = () => {
     setEditId("");
     setEditLookupMsg(null);
+    setEditOriginalCodigo("");
     setForm({ codigoCatalogo: "", descricao: "", grupo: "", materialPermanente: false });
     setNomeResumoPadrao("");
     setFormFotoFile(null);
@@ -533,30 +559,11 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                 placeholder="Ex.: 49581"
                 disabled={!canAdmin && auth.authEnabled}
               />
-              <p className="text-[11px] text-amber-700">
-                Importante: o numero do catalogo deve ser o mesmo do GEAFIN (codigo do material) para evitar divergencias na importacao.
-                Exemplo: MESA DE SOM MIXER, MODELO: XENYX 2222 UDB, MARCA: BEHRINGER -&gt; codigo GEAFIN <strong>49581</strong>.
-              </p>
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">Descricao</span>
-              <input
-                value={form.descricao}
-                onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                placeholder="Descricao canonica do item"
-                disabled={!canAdmin && auth.authEnabled}
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">Grupo (opcional)</span>
-              <input
-                value={form.grupo}
-                onChange={(e) => setForm((p) => ({ ...p, grupo: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                placeholder="Ex.: INFORMATICA"
-                disabled={!canAdmin && auth.authEnabled}
-              />
+              {(editId && String(form.codigoCatalogo || "").trim() !== String(editOriginalCodigo || "").trim()) ? (
+                <p className="text-[11px] text-amber-700">
+                  o código do material (SKU) deve ser o mesmo do GEAFIN para evitar divergencias na importacao. Exemplo: MESA DE SOM MIXER, MODELO: XENYX 2222 UDB, MARCA: BEHRINGER {"->"} codigo GEAFIN 49581.
+                </p>
+              ) : null}
             </label>
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Nome resumo (aplicar em lote no SKU)</span>
@@ -580,6 +587,39 @@ export default function CatalogoAdminPanel({ canAdmin }) {
               <p className="text-[11px] text-slate-500">
                 Ao salvar o Material (SKU), este nome resumo tambem pode ser aplicado automaticamente nos bens associados.
               </p>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">Descricao</span>
+              <input
+                value={form.descricao}
+                onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                placeholder="Descricao canonica do item"
+                disabled={!canAdmin && auth.authEnabled}
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-slate-600">Classificacao SIAFI (obrigatorio)</span>
+              <select
+                value={form.grupo}
+                onChange={(e) => setForm((p) => ({ ...p, grupo: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                disabled={!canAdmin && auth.authEnabled}
+              >
+                <option value="">Selecione...</option>
+                {classificacaoAtualForaDaLista ? (
+                  <option value={form.grupo}>{form.grupo} - (nao cadastrado na lista ativa)</option>
+                ) : null}
+                {classificacoesOptions.map((c) => (
+                  <option key={c.id} value={c.codigoClassificacao}>
+                    {c.codigoClassificacao} - {c.descricaoSiafi}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-amber-700">
+                A Classificacao SIAFI deve ser a mesma cadastrada no GEAFIN para evitar divergencias.
+              </p>
+              {classificacoesState.error ? <span className="text-[11px] text-rose-700">{classificacoesState.error}</span> : null}
             </label>
             <label className="inline-flex items-center gap-2 text-sm text-slate-700">
               <input
@@ -668,7 +708,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
               value={filtros.q}
               onChange={(e) => setFiltros((p) => ({ ...p, q: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              placeholder="Buscar por codigo, descricao ou grupo"
+              placeholder="Buscar por codigo, descricao ou Classificacao SIAFI"
             />
             <input
               value={filtros.codigoCatalogo}
@@ -680,7 +720,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
               value={filtros.grupo}
               onChange={(e) => setFiltros((p) => ({ ...p, grupo: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              placeholder="Filtrar por grupo"
+              placeholder="Filtrar por Classificacao SIAFI"
             />
             <button
               type="button"
@@ -726,7 +766,7 @@ export default function CatalogoAdminPanel({ canAdmin }) {
                 </th>
                 <th className="px-3 py-2">
                   <button type="button" onClick={() => toggleSort("grupo")} className="inline-flex items-center gap-1 hover:text-slate-900">
-                    Grupo {sortState.key === "grupo" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
+                    Classificacao SIAFI {sortState.key === "grupo" ? (sortState.dir === "asc" ? "▲" : "▼") : ""}
                   </button>
                 </th>
                 <th className="px-3 py-2">

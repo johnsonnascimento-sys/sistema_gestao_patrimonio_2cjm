@@ -25,8 +25,12 @@ Cada material pode ser associado a varios bens (tombamentos).
 
 1. Em **Criar/editar Material (SKU)**, use **Edicao rapida por codigo**.
 2. Informe o codigo do material e clique **Carregar para edicao**.
-3. Ajuste descricao/grupo/foto.
-4. Na mesma secao principal, preencha **Nome resumo (aplicar em lote no SKU)**.
+3. Ajuste os campos na ordem:
+   - Nome resumo (aplicar em lote no SKU)
+   - Descricao
+   - Classificacao SIAFI (obrigatorio)
+4. Ao alterar o codigo do material (SKU), o sistema alerta:
+   - "o código do material (SKU) deve ser o mesmo do GEAFIN para evitar divergencias na importacao. Exemplo: MESA DE SOM MIXER, MODELO: XENYX 2222 UDB, MARCA: BEHRINGER -> codigo GEAFIN 49581."
 5. Para salvar edicao, confirme no modal de seguranca:
    - marcar a confirmacao operacional;
    - digitar `CONFIRMAR_EDICAO_MATERIAL`;
@@ -41,6 +45,7 @@ Cada material pode ser associado a varios bens (tombamentos).
 - O nome resumo pode ser aplicado em lote para todos os bens vinculados ao SKU selecionado.
 - A edicao do nome resumo fica na secao principal de criacao/edicao do Material (SKU), sem painel separado.
 - A edicao de Material (SKU) exige dupla confirmacao e senha administrativa.
+- A Classificacao SIAFI e obrigatoria e deve existir no cadastro dedicado de Classificacao SIAFI.
 
 ## Filtros e consulta
 

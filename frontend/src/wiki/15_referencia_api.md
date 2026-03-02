@@ -197,3 +197,111 @@ Possiveis erros:
 |---|---|---|
 | 409 | `UNIDADE_FORA_ESCOPO_EVENTO` | unidade encontrada fora do escopo |
 | 409 | `LOCAL_FORA_ESCOPO_EVENTO` | local encontrado fora do escopo |
+
+---
+
+## Classificacao SIAFI e Material (SKU)
+
+### GET `/classificacoes-siafi`
+
+Uso: listar classificacoes SIAFI para preencher o campo obrigatorio no Material (SKU).
+
+Autenticacao: `mustAuth`.
+
+Query (opcional):
+
+| Parametro | Tipo | Obrigatorio | Descricao |
+|---|---|---|---|
+| `q` | string | Nao | Busca em `codigoClassificacao` e `descricaoSiafi` |
+| `ativo` | bool/string | Nao | Filtra somente ativos (`true`, `1`, `sim`) |
+| `limit` | int 1..500 | Nao | Padrao: 200 |
+| `offset` | int >= 0 | Nao | Padrao: 0 |
+
+Resposta JSON:
+
+```json
+{
+  "requestId": "...",
+  "paging": { "limit": 200, "offset": 0, "total": 1 },
+  "items": [
+    {
+      "id": "uuid",
+      "codigoClassificacao": "12311.02.01",
+      "descricaoSiafi": "EQUIP DE TECNOLOG DA INFOR E COMUNICACAO/TIC",
+      "ativo": true,
+      "createdAt": "2026-03-02T22:18:00.000Z",
+      "updatedAt": "2026-03-02T22:18:00.000Z"
+    }
+  ]
+}
+```
+
+### POST `/classificacoes-siafi`
+
+Uso: criar classificacao SIAFI.
+
+Autenticacao: `mustAdmin`.
+
+Body JSON:
+
+```json
+{
+  "codigoClassificacao": "12311.02.01",
+  "descricaoSiafi": "EQUIP DE TECNOLOG DA INFOR E COMUNICACAO/TIC",
+  "ativo": true
+}
+```
+
+Erros:
+
+| HTTP | Codigo | Motivo |
+|---|---|---|
+| 409 | `CLASSIFICACAO_SIAFI_DUPLICADA` | Codigo ja cadastrado |
+| 422 | `CODIGO_CLASSIFICACAO_OBRIGATORIO` | Codigo ausente |
+| 422 | `DESCRICAO_SIAFI_OBRIGATORIA` | Descricao ausente |
+
+### PATCH `/classificacoes-siafi/:id`
+
+Uso: editar classificacao SIAFI existente (codigo, descricao e/ou ativo).
+
+Autenticacao: `mustAdmin`.
+
+Erros:
+
+| HTTP | Codigo | Motivo |
+|---|---|---|
+| 404 | `CLASSIFICACAO_NAO_ENCONTRADA` | Registro nao encontrado |
+| 409 | `CLASSIFICACAO_SIAFI_DUPLICADA` | Codigo em uso por outro registro |
+| 422 | `CLASSIFICACAO_ID_INVALIDO` | ID invalido |
+| 422 | `PATCH_VAZIO` | Nenhum campo enviado |
+
+### POST `/catalogo-bens`
+
+Atualizacao de contrato:
+
+- `grupo` passou a representar `Classificacao SIAFI` e agora e obrigatorio.
+- O backend valida se o valor existe e esta ativo em `classificacoes_siafi`.
+
+Erros novos/mais relevantes:
+
+| HTTP | Codigo | Motivo |
+|---|---|---|
+| 422 | `CLASSIFICACAO_SIAFI_OBRIGATORIA` | Campo `grupo` vazio |
+| 422 | `CLASSIFICACAO_SIAFI_INVALIDA` | Classificacao inexistente/inativa |
+
+### PATCH `/catalogo-bens/:id`
+
+Atualizacao de contrato:
+
+- Em edicao, quando `grupo` for enviado, ele deve ser uma `Classificacao SIAFI` ativa.
+- Mantem gate operacional de dupla confirmacao para editar Material (SKU):
+  - `confirmText` deve ser `CONFIRMAR_EDICAO_MATERIAL`;
+  - `adminPassword` obrigatoria quando `AUTH_ENABLED`.
+
+Erros novos/mais relevantes:
+
+| HTTP | Codigo | Motivo |
+|---|---|---|
+| 422 | `CONFIRMACAO_EDICAO_INVALIDA` | `confirmText` invalido |
+| 422 | `CLASSIFICACAO_SIAFI_OBRIGATORIA` | Campo `grupo` vazio |
+| 422 | `CLASSIFICACAO_SIAFI_INVALIDA` | Classificacao inexistente/inativa |
