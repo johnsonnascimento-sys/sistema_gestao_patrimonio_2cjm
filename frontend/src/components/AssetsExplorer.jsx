@@ -645,11 +645,13 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-900">
-                      {item.catalogoDescricao || item.descricao || item.nomeResumo || "-"}
+                      {item.nomeResumo || item.catalogoDescricao || item.descricao || "-"}
                     </div>
-                    {item.nomeResumo && item.nomeResumo !== item.catalogoDescricao && (
+                    {(item.catalogoDescricao || item.descricao) &&
+                      (item.catalogoDescricao || item.descricao) !==
+                        (item.nomeResumo || item.catalogoDescricao || item.descricao) && (
                       <div className="text-[10px] text-slate-500 italic">
-                        {item.nomeResumo}
+                        {item.catalogoDescricao || item.descricao}
                       </div>
                     )}
                   </td>
