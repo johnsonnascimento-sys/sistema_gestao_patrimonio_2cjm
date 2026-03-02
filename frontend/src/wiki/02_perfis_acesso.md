@@ -6,6 +6,10 @@ Funcao no sistema: orientar criacao e uso de perfis (matricula), e como isso ent
 
 # Perfis e acesso
 
+## Onde acessar no menu
+
+- `Administracao do Painel -> Perfis e Acessos`
+
 ## O que e um "perfil"
 
 Um **perfil** representa uma pessoa que opera o sistema (servidor/usuário), com:

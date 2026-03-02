@@ -41,6 +41,7 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Matriz de compliance (ATN 303/2008)
 - Admin: operação na VPS (Docker/Nginx)
 - Referência rápida da API
+- Analise de cobertura menu x wiki (faseada)
 
 ## Atualizacao 2026-02-26 - Navegacao principal
 

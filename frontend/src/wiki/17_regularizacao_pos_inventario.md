@@ -41,11 +41,12 @@ Na prática:
 
 ## 3) Onde fazer no sistema
 
-Use a aba:
+Use o caminho:
 
-- **Regularização**
+- **Operacoes Patrimoniais -> Inventario - Administracao**
+- Secao interna: **Regularizacao pos-inventario (Divergencias)**
 
-Ela lista os "forasteiros" pendentes (divergências) e oferece ações determinísticas.
+Ela lista os "forasteiros" pendentes (divergencias) e oferece acoes deterministicas.
 
 Importante:
 
@@ -122,7 +123,7 @@ Regra legal:
 ## 5) Passo a passo (operacional)
 
 1. No inventário, encerre o evento (status `ENCERRADO`).
-2. Abra a aba **Regularização**.
+2. Abra **Operacoes Patrimoniais -> Inventario - Administracao** e role ate a secao **Regularizacao pos-inventario (Divergencias)**.
 3. Informe o `perfilId` (UUID) do executor da regularização.
 4. Se for transferir carga, informe também o `termoReferencia`.
 5. Use filtros por **evento** e **sala** para localizar as divergências.

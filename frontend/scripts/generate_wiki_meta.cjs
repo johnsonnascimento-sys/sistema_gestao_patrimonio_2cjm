@@ -32,7 +32,7 @@ const PAGES = [
   { id: "consulta-bens", filename: "03_consulta_bens.md" },
   { id: "importacao-geafin", filename: "04_importacao_geafin.md" },
   { id: "movimentacoes", filename: "05_movimentacoes.md" },
-  { id: "inventario", filename: "06_inventario_sala_a_sala.md" },
+  { id: "inventario-contagem", filename: "06_inventario_sala_a_sala.md" },
   { id: "intrusos-terceiros", filename: "07_intrusos_bens_de_terceiros.md" },
   { id: "wizard-art141", filename: "08_wizard_art141.md" },
   { id: "relatorios-auditoria", filename: "09_relatorios_auditoria.md" },
@@ -45,6 +45,11 @@ const PAGES = [
   { id: "matriz-compliance", filename: "16_matriz_compliance.md" },
   { id: "regularizacao", filename: "17_regularizacao_pos_inventario.md" },
   { id: "checklist-migracoes", filename: "18_checklist_migracoes.md" },
+  { id: "dashboard", filename: "19_dashboard.md" },
+  { id: "material-sku", filename: "20_material_sku.md" },
+  { id: "gestao-normas", filename: "21_gestao_normas.md" },
+  { id: "inventario-admin", filename: "22_inventario_administracao.md" },
+  { id: "analise-cobertura", filename: "23_analise_cobertura_menu_wiki.md" },
 ];
 
 function toGitPath(p) {
