@@ -120,7 +120,8 @@ No modal de detalhes, usuários `ADMIN` podem editar os campos operacionais do b
 - Responsável (perfilId)
 - Contrato / data / valor de aquisição
 - Local físico (texto legado do GEAFIN)
-- Sala/Local (padronizado) via tabela `locais`
+- Sala/Local (padronizado) via tabela locais 
+- Nome Resumo e Descricao complementar nao sao editaveis neste modal; ajuste no menu Material (SKU).
 
 Importante:
 
@@ -150,5 +151,6 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
 
 - Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+
 
 

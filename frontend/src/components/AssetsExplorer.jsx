@@ -645,11 +645,11 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-900">
-                      {item.nomeResumo || item.catalogoDescricao || item.descricao || "-"}
+                      {item.catalogoDescricao || item.descricao || item.nomeResumo || "-"}
                     </div>
                     {item.nomeResumo && item.nomeResumo !== item.catalogoDescricao && (
                       <div className="text-[10px] text-slate-500 italic">
-                        {item.catalogoDescricao}
+                        {item.nomeResumo}
                       </div>
                     )}
                   </td>
@@ -1019,8 +1019,6 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
       const bemUpdated = await atualizarBem(imp.id, {
         catalogoBemId: edit.catalogoBemId ? String(edit.catalogoBemId).trim() : undefined,
-        nomeResumo: edit.nomeResumo || null,
-        descricaoComplementar: edit.descricaoComplementar || null,
         responsavelPerfilId: edit.responsavelPerfilId || null,
         contratoReferencia: edit.contratoReferencia || null,
         dataAquisicao: edit.dataAquisicao || null,
@@ -1350,22 +1348,19 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
 
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-slate-600">Nome Resumo</span>
-                      <input
-                        value={edit.nomeResumo}
-                        onChange={(e) => setEdit((p) => ({ ...p, nomeResumo: e.target.value }))}
-                        placeholder="Resumo curto para exibição em listas"
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                      />
+                      <p className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                        {imp?.nomeResumo || "-"}
+                      </p>
                     </label>
 
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-slate-600">Descrição complementar (item)</span>
-                      <input
-                        value={edit.descricaoComplementar}
-                        onChange={(e) => setEdit((p) => ({ ...p, descricaoComplementar: e.target.value }))}
-                        placeholder="Ex.: Cadeira com avaria no braço direito..."
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                      />
+                      <p className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                        {imp?.descricaoComplementar || catalogo?.descricao || "-"}
+                      </p>
+                      <p className="text-[11px] text-amber-700">
+                        Para alterar Nome Resumo e Descricao, use o menu Material (SKU).
+                      </p>
                     </label>
 
                     <label className="space-y-1">
