@@ -18,6 +18,7 @@ import {
   registrarBemTerceiroInventario,
   registrarBemNaoIdentificadoInventario,
   getFotoUrl,
+  getMinhaSessaoContagemInventario,
 } from "../services/apiClient.js";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import InventoryProgress from "./InventoryProgress.jsx";
@@ -25,6 +26,7 @@ const TOMBAMENTO_RE = /^\d{10}$/;
 const TOMBAMENTO_4_DIGITS_RE = /^\d{4}$/;
 const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v2|";
 const INVENTORY_UI_KEY = "cjm_inventory_ui_v1";
+const INVENTARIO_REDUCED_MODE_KEY = "cjm_inventario_reduced_mode_v1";
 
 function normalizeRoomKey(raw) {
   if (raw == null) return "";
@@ -164,6 +166,7 @@ export default function InventoryRoomPanel() {
   const [cameraScanPreview, setCameraScanPreview] = useState(null);
   const [scannerMode, setScannerMode] = useState("single"); // 'single' ou 'continuous'
   const [tagIdModal, setTagIdModal] = useState({ isOpen: false, value: "", type: null, fromCamera: false });
+  const [rodadaSelecionada, setRodadaSelecionada] = useState("A");
 
   // Registro segregado: bem de terceiro (sem tombamento GEAFIN).
   const [terceiroDescricao, setTerceiroDescricao] = useState("");
@@ -260,8 +263,20 @@ export default function InventoryRoomPanel() {
     }
     return items[0];
   }, [eventosQuery.data, selectedEventoId, unidadeEncontradaId]);
+  const modoContagemEvento = String(eventoAtivo?.modoContagem || "PADRAO").toUpperCase();
 
   const selectedEventoIdFinal = eventoAtivo?.id || "";
+  const sessaoContagemQuery = useQuery({
+    queryKey: ["inventarioSessaoContagem", selectedEventoIdFinal],
+    enabled: Boolean(selectedEventoIdFinal && navigator.onLine),
+    queryFn: async () => getMinhaSessaoContagemInventario(selectedEventoIdFinal),
+  });
+  const sessaoContagem = sessaoContagemQuery.data || null;
+  const uiReduzida = Boolean(sessaoContagem?.uiReduzida);
+  const blindCountMode = modoContagemEvento === "CEGO" || modoContagemEvento === "DUPLO_CEGO";
+  // Fail-closed: em modo cego, se a sessão não estiver disponível ainda, não exibir dados esperados.
+  const shouldHideExpectedData = blindCountMode && (uiReduzida || !sessaoContagem);
+  const rodadasPermitidas = Array.isArray(sessaoContagem?.rodadasPermitidas) ? sessaoContagem.rodadasPermitidas : ["A"];
   const eventoSelecionadoIncompativel = useMemo(() => {
     if (!eventoAtivo) return false;
     const unidade = Number(unidadeEncontradaId);
@@ -274,6 +289,32 @@ export default function InventoryRoomPanel() {
     if (!selectedEventoIdFinal) return;
     setSelectedEventoId(String(selectedEventoIdFinal));
   }, [selectedEventoIdFinal]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!selectedEventoIdFinal) {
+      window.localStorage.removeItem(INVENTARIO_REDUCED_MODE_KEY);
+      return;
+    }
+    if (uiReduzida && sessaoContagem?.designado) {
+      const payload = {
+        active: true,
+        eventoId: selectedEventoIdFinal,
+        modoContagem: modoContagemEvento,
+        updatedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(INVENTARIO_REDUCED_MODE_KEY, JSON.stringify(payload));
+      return;
+    }
+    window.localStorage.removeItem(INVENTARIO_REDUCED_MODE_KEY);
+  }, [modoContagemEvento, selectedEventoIdFinal, sessaoContagem?.designado, uiReduzida]);
+
+  useEffect(() => {
+    const prefer = (rodadasPermitidas || []).includes(rodadaSelecionada)
+      ? rodadaSelecionada
+      : (rodadasPermitidas[0] || "A");
+    if (prefer !== rodadaSelecionada) setRodadaSelecionada(prefer);
+  }, [rodadaSelecionada, rodadasPermitidas]);
 
   useEffect(() => {
     setScanFeedback(null);
@@ -316,7 +357,7 @@ export default function InventoryRoomPanel() {
 
   const bensSalaQuery = useQuery({
     queryKey: ["bensSala", selectedLocalId],
-    enabled: Boolean(selectedLocalId && String(selectedLocalId).trim() !== ""),
+    enabled: Boolean(selectedLocalId && String(selectedLocalId).trim() !== "" && !shouldHideExpectedData),
     queryFn: async () => {
       const localId = String(selectedLocalId || "").trim();
       if (!localId) return [];
@@ -560,7 +601,8 @@ export default function InventoryRoomPanel() {
     unidadeEncontradaId &&
     Number(unidadeEncontradaId) >= 1 &&
     Number(unidadeEncontradaId) <= 4 &&
-    (!localIdsPermitidosEvento || localIdsPermitidosEvento.has(String(selectedLocalId))),
+    (!localIdsPermitidosEvento || localIdsPermitidosEvento.has(String(selectedLocalId))) &&
+    (modoContagemEvento === "PADRAO" || Boolean(sessaoContagem?.designado || (rodadaSelecionada === "DESEMPATE" && sessaoContagem?.podeDesempate))),
   );
 
   const canRegisterTerceiro = Boolean(
@@ -695,11 +737,12 @@ export default function InventoryRoomPanel() {
     const unidadeEncontrada = Number(unidadeEncontradaId);
     const localEncontradoId = selectedLocalId ? String(selectedLocalId).trim() : "";
     const salaAtual = salaEncontrada.trim();
-    let bem = bemByTombamento.get(numeroTombamento) || null;
+    let bem = shouldHideExpectedData ? null : (bemByTombamento.get(numeroTombamento) || null);
     let lookupItems = [];
 
     // Scanner hibrido: se o tombo nao estiver no catalogo da sala carregado, tenta lookup rapido no backend (quando online).
-    if (!bem && navigator.onLine) {
+    const shouldLookupBem = navigator.onLine && (!shouldHideExpectedData || Boolean(tipoBusca));
+    if (!bem && shouldLookupBem) {
       try {
         const lookup = await listarBens({
           numeroTombamento,
@@ -740,7 +783,8 @@ export default function InventoryRoomPanel() {
 
     const finalTombamento = bem?.numeroTombamento || numeroTombamento;
     const resumoLido = bem?.nomeResumo || bem?.descricao || bem?.descricaoComplementar || bem?.catalogoDescricao || "Sem nome resumo cadastrado.";
-    const scanKey = [selectedEventoIdFinal, localEncontradoId || normalizeRoomKey(salaAtual), finalTombamento].join("|");
+    const rodadaSync = modoContagemEvento === "PADRAO" ? "A" : (rodadaSelecionada || "A");
+    const scanKey = [selectedEventoIdFinal, rodadaSync, localEncontradoId || normalizeRoomKey(salaAtual), finalTombamento].join("|");
     const now = Date.now();
     const lastScanAt = scanCooldownRef.current.get(scanKey);
     if (lastScanAt && now - lastScanAt < 1200) {
@@ -772,17 +816,23 @@ export default function InventoryRoomPanel() {
     const localEsperadoNome = localEsperadoId
       ? (locaisQuery.data || []).find((l) => String(l.id) === localEsperadoId)?.nome || bem?.localFisico || null
       : bem?.localFisico || null;
-    const divergenciaUnidade = Number.isInteger(unidadeDonaId) ? unidadeDonaId !== unidadeEncontrada : false;
-    const divergenciaSala = localEsperadoId && localEncontradoId
-      ? localEsperadoId !== localEncontradoId
-      : normalizeRoomLabel(localEsperadoNome) !== "" && normalizeRoomLabel(salaAtual) !== ""
-        ? normalizeRoomLabel(localEsperadoNome) !== normalizeRoomLabel(salaAtual)
-        : false;
+    const divergenciaUnidade = shouldHideExpectedData
+      ? false
+      : (Number.isInteger(unidadeDonaId) ? unidadeDonaId !== unidadeEncontrada : false);
+    const divergenciaSala = shouldHideExpectedData
+      ? false
+      : (
+        localEsperadoId && localEncontradoId
+          ? localEsperadoId !== localEncontradoId
+          : normalizeRoomLabel(localEsperadoNome) !== "" && normalizeRoomLabel(salaAtual) !== ""
+            ? normalizeRoomLabel(localEsperadoNome) !== normalizeRoomLabel(salaAtual)
+            : false
+      );
     const divergente = divergenciaUnidade || divergenciaSala;
 
     // Regra legal: divergencia de local deve gerar ocorrencia sem trocar carga no inventario.
     // Art. 185 (AN303_Art185).
-    if (divergente) {
+    if (divergente && !shouldHideExpectedData) {
       playAlertBeep();
       setDivergenteAlertItem({
         numeroTombamento: finalTombamento,
@@ -795,7 +845,7 @@ export default function InventoryRoomPanel() {
       });
     }
 
-    const observacoes = divergente
+    const observacoes = (!shouldHideExpectedData && divergente)
       ? [
         divergenciaUnidade ? "Divergencia de unidade detectada na leitura." : null,
         divergenciaSala ? "Divergencia de sala detectada na leitura." : null,
@@ -804,6 +854,7 @@ export default function InventoryRoomPanel() {
     const payload = {
       id: crypto.randomUUID(),
       eventoInventarioId: selectedEventoIdFinal,
+      rodada: rodadaSync,
       unidadeEncontradaId: unidadeEncontrada,
       salaEncontrada: salaAtual,
       localEncontradoId: localEncontradoId || undefined,
@@ -824,28 +875,30 @@ export default function InventoryRoomPanel() {
       selectedLocalId,
       selectedEventoId: selectedEventoIdFinal,
     });
-    const statusLabel = divergente
-      ? `Divergente${divergenciaSala ? " de sala" : ""}${divergenciaUnidade ? `${divergenciaSala ? " e" : " de"} unidade` : ""}`
-      : "Conforme";
+    const statusLabel = shouldHideExpectedData
+      ? "Registrado"
+      : divergente
+        ? `Divergente${divergenciaSala ? " de sala" : ""}${divergenciaUnidade ? `${divergenciaSala ? " e" : " de"} unidade` : ""}`
+        : "Conforme";
     setScanFeedback({
-      kind: divergente ? "warn" : "success",
-      message: `${finalTombamento} ${statusLabel}.`,
+      kind: shouldHideExpectedData ? "success" : (divergente ? "warn" : "success"),
+      message: shouldHideExpectedData ? `${finalTombamento} registrado.` : `${finalTombamento} ${statusLabel}.`,
     });
     if (options?.fromCamera) {
       showCameraScanPreview(finalTombamento, resumoLido, scannerMode);
     }
-    if (!divergente) playSuccessBeep();
+    if (shouldHideExpectedData || !divergente) playSuccessBeep();
 
     setLastScans((prev) => [
       {
         id: payload.id,
         numeroTombamento: finalTombamento,
-        divergente,
-        divergenciaSala,
-        divergenciaUnidade,
+        divergente: shouldHideExpectedData ? false : divergente,
+        divergenciaSala: shouldHideExpectedData ? false : divergenciaSala,
+        divergenciaUnidade: shouldHideExpectedData ? false : divergenciaUnidade,
         unidadeDonaId: bem?.unidadeDonaId || null,
         unidadeEncontradaId: unidadeEncontrada,
-        salaEsperada: localEsperadoNome,
+        salaEsperada: shouldHideExpectedData ? null : localEsperadoNome,
         statusLabel,
         when: new Date().toLocaleString(),
       },
@@ -922,14 +975,14 @@ export default function InventoryRoomPanel() {
                 </option>
                 {(eventosQuery.data || []).map((ev) => (
                   <option key={ev.id} value={ev.id}>
-                    {`${ev.codigoEvento || ev.id} - ${ev.escopoTipo || "UNIDADE"} - Unidade ${ev.unidadeInventariadaId ?? "GERAL"}`}
+                    {`${ev.codigoEvento || ev.id} - ${ev.modoContagem || "PADRAO"} - ${ev.escopoTipo || "UNIDADE"} - Unidade ${ev.unidadeInventariadaId ?? "GERAL"}`}
                   </option>
                 ))}
               </select>
               {selectedEventoIdFinal ? (
                 <p className="text-[11px] text-slate-500">
                   Evento aplicado: <strong>{eventoAtivo?.codigoEvento || selectedEventoIdFinal}</strong>{" "}
-                  ({eventoAtivo?.escopoTipo || "UNIDADE"} / unidade {eventoAtivo?.unidadeInventariadaId ?? "GERAL"}).
+                  ({eventoAtivo?.modoContagem || "PADRAO"} / {eventoAtivo?.escopoTipo || "UNIDADE"} / unidade {eventoAtivo?.unidadeInventariadaId ?? "GERAL"}).
                 </p>
               ) : (
                 <p className="text-[11px] text-amber-700">
@@ -941,7 +994,27 @@ export default function InventoryRoomPanel() {
                   Evento incompatível com a unidade encontrada selecionada. Escolha o evento da mesma unidade ou um evento GERAL.
                 </p>
               ) : null}
+              {modoContagemEvento !== "PADRAO" && !sessaoContagemQuery.isLoading && !sessaoContagem?.designado ? (
+                <p className="text-[11px] text-rose-700">
+                  Usuario nao designado para este evento em modo {modoContagemEvento}. Solicite ao admin sua designacao.
+                </p>
+              ) : null}
             </label>
+            {modoContagemEvento !== "PADRAO" ? (
+              <label className="space-y-1">
+                <span className="text-xs text-slate-600">Rodada</span>
+                <select
+                  value={rodadaSelecionada}
+                  onChange={(e) => setRodadaSelecionada(String(e.target.value || "A"))}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  {rodadasPermitidas.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                  {sessaoContagem?.podeDesempate ? <option value="DESEMPATE">DESEMPATE</option> : null}
+                </select>
+              </label>
+            ) : null}
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Unidade encontrada (1..4)</span>
               <select
@@ -1089,7 +1162,7 @@ export default function InventoryRoomPanel() {
           )}
         </article>
         <div className="flex flex-col gap-4">
-          <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
+          {!uiReduzida ? <InventoryProgress eventoInventarioId={selectedEventoIdFinal} /> : null}
         </div>
       </div>
 
@@ -1283,14 +1356,17 @@ export default function InventoryRoomPanel() {
         </details>
       </div>
 
-      <DivergencesPanel
-        salaEncontrada={salaEncontrada}
-        contagens={contagensSalaQuery.data || []}
-        offlineItems={offline.items || []}
-        bensSala={bensSalaQuery.data || []}
-        eventoInventarioId={selectedEventoIdFinal}
-      />
+      {!uiReduzida ? (
+        <DivergencesPanel
+          salaEncontrada={salaEncontrada}
+          contagens={contagensSalaQuery.data || []}
+          offlineItems={offline.items || []}
+          bensSala={bensSalaQuery.data || []}
+          eventoInventarioId={selectedEventoIdFinal}
+        />
+      ) : null}
 
+      {!shouldHideExpectedData ? (
       <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
         <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
           <span>Bens da sala (agrupado por catálogo)</span>
@@ -1452,6 +1528,7 @@ export default function InventoryRoomPanel() {
           </div>
         </div>
       </details>
+      ) : null}
 
       {/* Modal Identificação Etiqueta 4 Dígitos */}
       {tagIdModal.isOpen && (
