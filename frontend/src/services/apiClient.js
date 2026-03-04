@@ -172,6 +172,18 @@ export async function authMe() {
   return parseResponse(response);
 }
 
+/**
+ * Consulta ACL (roles/permissoes/menu) do usuario autenticado.
+ * @returns {Promise<{requestId:string, authEnabled:boolean, perfilId:string|null, roles:string[], permissions:string[], menuPermissions:string[], source:string}>}
+ */
+export async function authAcl() {
+  const response = await safeFetch(`${API_BASE_URL}/auth/acl`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
 export function logout() {
   clearAuthToken();
 }
@@ -760,6 +772,24 @@ export async function atualizarPerfil(id, patch) {
 }
 
 /**
+ * Atualiza role ACL principal do perfil (ADMIN).
+ * @param {string} id UUID do perfil.
+ * @param {string} roleCodigo Codigo da role RBAC.
+ * @returns {Promise<{requestId:string,perfil:any}>}
+ */
+export async function atualizarPerfilRoleAcesso(id, roleCodigo) {
+  const response = await safeFetch(`${API_BASE_URL}/perfis/${encodeURIComponent(id)}/role-acesso`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ roleCodigo }),
+  });
+  return parseResponse(response);
+}
+
+/**
  * Reseta senha (hash) do perfil (ADMIN), habilitando "Primeiro acesso" novamente.
  * @param {string} id UUID do perfil.
  * @returns {Promise<{requestId: string, perfil: any}>} Perfil atualizado.
@@ -1222,8 +1252,8 @@ export async function getProgressoInventario(eventoId) {
 }
 
 /**
- * Cria um evento de inventario (EM_ANDAMENTO), incluindo modo ciclico opcional.
- * @param {{codigoEvento: string, unidadeInventariadaId?: number|null, tipoCiclo?: "SEMANAL"|"MENSAL"|"ANUAL"|"ADHOC", escopoTipo?: "GERAL"|"UNIDADE"|"LOCAIS", escopoLocalIds?: string[], abertoPorPerfilId: string, observacoes?: string}} payload Payload.
+ * Cria um evento de inventario (EM_ANDAMENTO), incluindo modo ciclico e modo de contagem.
+ * @param {{codigoEvento: string, unidadeInventariadaId?: number|null, tipoCiclo?: "SEMANAL"|"MENSAL"|"ANUAL"|"ADHOC", escopoTipo?: "GERAL"|"UNIDADE"|"LOCAIS", escopoLocalIds?: string[], modoContagem?: "PADRAO"|"CEGO"|"DUPLO_CEGO", operadoresDesignados?: Array<{perfilId:string,papelContagem:"OPERADOR_UNICO"|"OPERADOR_A"|"OPERADOR_B",permiteDesempate?:boolean}>, abertoPorPerfilId: string, observacoes?: string}} payload Payload.
  * @returns {Promise<object>} Evento criado.
  */
 export async function criarEventoInventario(payload) {
@@ -1234,6 +1264,134 @@ export async function criarEventoInventario(payload) {
       Accept: "application/json",
     },
     body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista solicitacoes de aprovacao administrativa.
+ * @param {{status?:string, tipoAcao?:string, solicitantePerfilId?:string, limit?:number, offset?:number}} filters Filtros.
+ * @returns {Promise<{requestId:string, paging:{limit:number,offset:number,total:number}, items:any[]}>}
+ */
+export async function listarSolicitacoesAprovacao(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set("status", String(filters.status));
+  if (filters.tipoAcao) params.set("tipoAcao", String(filters.tipoAcao));
+  if (filters.solicitantePerfilId) params.set("solicitantePerfilId", String(filters.solicitantePerfilId));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/aprovacoes/solicitacoes${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista roles de acesso RBAC (ADMIN).
+ * @returns {Promise<{requestId:string,items:{id:string,codigo:string,nome:string,nivel:number,ativo:boolean}[]}>}
+ */
+export async function listarRolesAcesso() {
+  const response = await safeFetch(`${API_BASE_URL}/roles-acesso`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Consulta matriz RBAC (roles, permissoes e vinculos role-permissao).
+ * @returns {Promise<{requestId:string,roles:any[],permissions:any[],rolePermissions:Record<string,string[]>}>}
+ */
+export async function listarAclMatriz() {
+  const response = await safeFetch(`${API_BASE_URL}/acl/matriz`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza permissoes de uma role RBAC (ADMIN + senha).
+ * @param {string} roleCodigo Codigo da role.
+ * @param {string[]} permissions Lista de codigos de permissao.
+ * @param {string} adminPassword Senha do administrador autenticado.
+ * @returns {Promise<{requestId:string,roleCodigo:string,permissions:string[],message:string}>}
+ */
+export async function atualizarRolePermissoes(roleCodigo, permissions, adminPassword) {
+  const response = await safeFetch(`${API_BASE_URL}/roles-acesso/${encodeURIComponent(roleCodigo)}/permissoes`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      permissions: Array.isArray(permissions) ? permissions : [],
+      adminPassword: adminPassword || "",
+    }),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Aprova solicitacao pendente.
+ * @param {string} id UUID da solicitacao.
+ * @param {{adminPassword:string, justificativaAdmin?:string}} payload Dados de aprovacao.
+ * @returns {Promise<object>}
+ */
+export async function aprovarSolicitacaoAprovacao(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/aprovacoes/solicitacoes/${encodeURIComponent(id)}/aprovar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Reprova solicitacao pendente.
+ * @param {string} id UUID da solicitacao.
+ * @param {{adminPassword:string, justificativaAdmin:string}} payload Dados de reprovacao.
+ * @returns {Promise<object>}
+ */
+export async function reprovarSolicitacaoAprovacao(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/aprovacoes/solicitacoes/${encodeURIComponent(id)}/reprovar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Consulta contexto de contagem para o usuario autenticado em um evento.
+ * @param {string} eventoId UUID do evento.
+ * @returns {Promise<{modoContagem:string, papel:string|null, rodadasPermitidas:string[], podeDesempate:boolean, uiReduzida:boolean, designado:boolean}>}
+ */
+export async function getMinhaSessaoContagemInventario(eventoId) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${encodeURIComponent(eventoId)}/minha-sessao-contagem`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Painel administrativo de monitoramento da contagem.
+ * @param {string} eventoId UUID do evento.
+ * @returns {Promise<object>} Dados consolidados por sala/rodada.
+ */
+export async function getMonitoramentoContagemInventario(eventoId) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${encodeURIComponent(eventoId)}/monitoramento-contagem`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
   });
   return parseResponse(response);
 }
@@ -1389,6 +1547,29 @@ export async function listarForasteirosInventario(params = {}) {
 
   const suffix = usp.toString() ? `?${usp.toString()}` : "";
   const response = await safeFetch(`${API_BASE_URL}/inventario/forasteiros${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista divergencias interunidades em tempo real para monitoramento da administracao.
+ * @param {{statusInventario?: "EM_ANDAMENTO"|"ENCERRADO"|"TODOS", eventoInventarioId?: string, unidadeDonaId?: number, unidadeEncontradaId?: number, unidadeRelacionadaId?: number, limit?: number, offset?: number}} params Filtros opcionais.
+ * @returns {Promise<object>} Lista de divergencias com contexto do inventario e regularizacao.
+ */
+export async function listarDivergenciasInterunidades(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.statusInventario) usp.set("statusInventario", String(params.statusInventario));
+  if (params.eventoInventarioId) usp.set("eventoInventarioId", String(params.eventoInventarioId));
+  if (params.unidadeDonaId != null) usp.set("unidadeDonaId", String(params.unidadeDonaId));
+  if (params.unidadeEncontradaId != null) usp.set("unidadeEncontradaId", String(params.unidadeEncontradaId));
+  if (params.unidadeRelacionadaId != null) usp.set("unidadeRelacionadaId", String(params.unidadeRelacionadaId));
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  if (params.offset != null) usp.set("offset", String(params.offset));
+
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inventario/divergencias-interunidades${suffix}`, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
