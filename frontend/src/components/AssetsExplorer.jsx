@@ -1509,7 +1509,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-600">Descrição (Material SKU)</span>
+                      <span className="text-xs text-slate-600">Descriï¿½ï¿½o (Material SKU)</span>
                       <p className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
                         {catalogo?.descricao || imp?.descricaoComplementar || "-"}
                       </p>

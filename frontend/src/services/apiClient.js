@@ -221,8 +221,8 @@ export async function getEstatisticasLocais(params = {}) {
 }
 
 /**
- * Reseta o local_id de todos os bens (ou de uma unidade), limpando o mapeamento de sala.
- * @param {{ unidadeId?: number, adminPassword?: string }} params Filtros + confirmacao.
+ * Reseta o local_id de bens, limpando o mapeamento de sala (todas, unidade ou salas selecionadas).
+ * @param {{ unidadeId?: number, localIds?: string[], adminPassword?: string }} params Filtros + confirmacao.
  * @returns {Promise<{ afetados: number }>}
  */
 export async function resetLocais(params = {}) {
@@ -237,6 +237,7 @@ export async function resetLocais(params = {}) {
     },
     body: JSON.stringify({
       adminPassword: params.adminPassword || "",
+      localIds: Array.isArray(params.localIds) ? params.localIds : [],
     }),
   });
   return parseResponse(response);
@@ -1258,6 +1259,23 @@ export async function getProgressoInventario(eventoId) {
  */
 export async function criarEventoInventario(payload) {
   const response = await safeFetch(`${API_BASE_URL}/inventario/eventos`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Solicita movimentacao em lote no backend.
+ * @param {object} payload Payload conforme contrato de /movimentar/lote.
+ * @returns {Promise<object>} Resultado consolidado do lote.
+ */
+export async function movimentarBemLote(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/movimentar/lote`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

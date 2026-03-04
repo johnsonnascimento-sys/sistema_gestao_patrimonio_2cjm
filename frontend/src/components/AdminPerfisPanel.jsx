@@ -45,10 +45,23 @@ function buildCargoValue(form) {
   return String(form.cargoOutro || "").trim();
 }
 
+const PERMISSION_LABEL_OVERRIDES = {
+  "action.bem.alterar_responsavel.execute":
+    "Executar ação com responsável patrimonial (modal do bem; também usado em Transferência/Cautela)",
+  "action.bem.alterar_responsavel.request":
+    "Solicitar ação com responsável patrimonial (modal do bem; também usado em Transferência/Cautela)",
+  "action.bem.alterar_status.execute":
+    "Executar alteração de status do bem (usado em Cautela saída/retorno)",
+  "action.bem.alterar_status.request":
+    "Solicitar alteração de status do bem (usado em Cautela saída/retorno)",
+};
+
 function toHumanPermissionLabel(permission) {
+  const code = String(permission?.codigo || "").trim();
+  const override = PERMISSION_LABEL_OVERRIDES[code];
+  if (override) return override;
   const descricao = String(permission?.descricao || "").trim();
   if (descricao) return descricao;
-  const code = String(permission?.codigo || "").trim();
   if (!code) return "Permissao";
   return code
     .replace(/^menu\./i, "")
@@ -823,6 +836,21 @@ export default function AdminPerfisPanel({ canAdmin }) {
 
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Acoes</h5>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Em “responsável”, a permissão trata do responsável patrimonial (posse operacional), não de transferência de carga.
+            </p>
+            <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
+              <p className="font-semibold text-slate-800">Mapa de Movimentações (menu Movimentações)</p>
+              <p className="mt-1">
+                <strong>Transferência (muda carga):</strong> requer permissão de <em>responsável</em>.
+              </p>
+              <p>
+                <strong>Cautela saída:</strong> requer <em>status</em> + <em>responsável</em>.
+              </p>
+              <p>
+                <strong>Cautela retorno:</strong> requer <em>status</em> e, se limpar responsável, também <em>responsável</em>.
+              </p>
+            </div>
             <div className="mt-2 max-h-64 space-y-1 overflow-auto pr-1">
               {actionPermissions.map((perm) => {
                 const code = String(perm.codigo || "");

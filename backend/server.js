@@ -105,6 +105,7 @@ const SOLICITACAO_TIPO_ACAO = Object.freeze({
   BEM_PATCH_OPERACIONAL: "BEM_PATCH_OPERACIONAL",
   BEM_PATCH: "BEM_PATCH",
   BEM_VINCULAR_LOCAL_LOTE: "BEM_VINCULAR_LOCAL_LOTE",
+  MOVIMENTACAO: "MOVIMENTACAO",
 });
 const GEAFIN_MODES = new Set(["INCREMENTAL", "TOTAL"]);
 const GEAFIN_SCOPE_TYPES = new Set(["GERAL", "UNIDADE"]);
@@ -1111,7 +1112,8 @@ app.post("/aprovacoes/solicitacoes/:id/aprovar", mustAuth, requirePermission("ac
          entidade_tipo AS "entidadeTipo",
          entidade_id AS "entidadeId",
          status::text AS status,
-         payload
+         payload,
+         solicitante_perfil_id AS "solicitantePerfilId"
        FROM solicitacoes_aprovacao
        WHERE id = $1
        FOR UPDATE;`,
@@ -3219,11 +3221,50 @@ app.post("/movimentar", mustAuth, async (req, res, next) => {
       throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para executar esta movimentacao.");
     }
     if (!canExecuteMov && canRequestMov) {
-      throw new HttpError(
-        403,
-        "APROVACAO_OBRIGATORIA",
-        "Seu perfil exige aprovacao administrativa para este tipo de movimentacao.",
-      );
+      const caps = await getAclSchemaCaps();
+      if (!caps.hasSolicitacoesAprovacao || !caps.hasSolicitacoesEventos) {
+        throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+      }
+      const justificativaSolicitante = p.justificativa != null
+        ? String(p.justificativa).trim().slice(0, 2000)
+        : "";
+      if (!justificativaSolicitante) {
+        throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+      }
+      await client.query("BEGIN");
+      const bem = await lockBem(client, p);
+      if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+      const snapshotBefore = {
+        id: bem.id,
+        numeroTombamento: bem.numeroTombamento,
+        unidadeDonaId: bem.unidadeDonaId,
+        status: bem.status,
+        responsavelPerfilId: bem.responsavelPerfilId,
+        localFisico: bem.localFisico,
+        localId: bem.localId,
+      };
+      const solicitacao = await createSolicitacaoAprovacao(client, {
+        tipoAcao: SOLICITACAO_TIPO_ACAO.MOVIMENTACAO,
+        entidadeTipo: "BEM",
+        entidadeId: bem.id,
+        payload: {
+          bemId: bem.id,
+          numeroTombamento: bem.numeroTombamento,
+          movimentacao: p,
+        },
+        solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+        justificativaSolicitante,
+        snapshotBefore,
+        expiraEm: nowPlusDays(15),
+      });
+      await client.query("COMMIT");
+      res.status(202).json({
+        requestId: req.requestId,
+        status: "PENDENTE_APROVACAO",
+        solicitacaoId: solicitacao.id,
+        message: "Acao enviada para aprovacao administrativa.",
+      });
+      return;
     }
 
     // Regra operacional (controle de acesso real):
@@ -3257,6 +3298,167 @@ app.post("/movimentar", mustAuth, async (req, res, next) => {
       next(new HttpError(409, "MOVIMENTACAO_BLOQUEADA_INVENTARIO", "Movimentacao bloqueada por inventario em andamento.", { baseLegal: "Art. 183 (AN303_Art183)" }));
       return;
     }
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/movimentar/lote", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const base = req.body && typeof req.body === "object" ? req.body : {};
+    const itensRaw = Array.isArray(base.itens) ? base.itens : [];
+    if (!itensRaw.length) {
+      throw new HttpError(422, "ITENS_LOTE_OBRIGATORIOS", "Envie ao menos um item em itens.");
+    }
+    if (itensRaw.length > 300) {
+      throw new HttpError(422, "LIMITE_ITENS_EXCEDIDO", "Limite de 300 itens por lote.");
+    }
+
+    const basePayload = { ...base };
+    delete basePayload.itens;
+    delete basePayload.numeroTombamento;
+    delete basePayload.bemId;
+    const tipoMovimentacaoRaw = String(basePayload.tipoMovimentacao || basePayload.tipo || "")
+      .trim()
+      .toUpperCase();
+    const tipoMovimentacao = tipoMovimentacaoRaw === "CAUTELA" ? "CAUTELA_SAIDA" : tipoMovimentacaoRaw;
+    if (!VALID_MOV.has(tipoMovimentacao)) {
+      throw new HttpError(422, "TIPO_MOVIMENTACAO_INVALIDO", "tipoMovimentacao deve ser TRANSFERENCIA, CAUTELA_SAIDA ou CAUTELA_RETORNO.");
+    }
+    const movAcl = classifyMovPermissions({ tipoMovimentacao });
+    const canExecuteMov = movAcl.executePermissions.length
+      ? movAcl.executePermissions.every((perm) => userHasPermission(req.user, perm))
+      : false;
+    const canRequestMov = movAcl.requestPermissions.length
+      ? movAcl.requestPermissions.every((perm) => userHasPermission(req.user, perm))
+      : false;
+    if (!canExecuteMov && !canRequestMov) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para executar esta movimentacao.");
+    }
+    if (!canExecuteMov) {
+      const justificativaSolicitante = basePayload.justificativa != null
+        ? String(basePayload.justificativa).trim().slice(0, 2000)
+        : "";
+      if (!justificativaSolicitante) {
+        throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+      }
+    }
+
+    const results = [];
+    let sucessos = 0;
+    let pendentes = 0;
+    let falhas = 0;
+
+    for (let idx = 0; idx < itensRaw.length; idx += 1) {
+      const itemRaw = itensRaw[idx] && typeof itensRaw[idx] === "object"
+        ? itensRaw[idx]
+        : { numeroTombamento: itensRaw[idx] };
+      const numeroTombamento = itemRaw?.numeroTombamento != null ? String(itemRaw.numeroTombamento) : "";
+      const bemId = itemRaw?.bemId != null ? String(itemRaw.bemId) : "";
+      const pItem = validateMov(
+        {
+          ...basePayload,
+          numeroTombamento: numeroTombamento || undefined,
+          bemId: bemId || undefined,
+        },
+        { defaultPerfilId: req.user?.id || "" },
+      );
+
+      try {
+        await client.query("BEGIN");
+        await setDbContext(client, {
+          changeOrigin: "APP",
+          currentUserId: req.user?.id || pItem.executadaPorPerfilId || pItem.autorizadaPorPerfilId || "",
+        });
+
+        const bem = await lockBem(client, pItem);
+        if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+        if (canExecuteMov) {
+          if (AUTH_ENABLED && req.user?.id) {
+            pItem.executadaPorPerfilId = String(req.user.id).trim();
+            if (!pItem.autorizadaPorPerfilId) pItem.autorizadaPorPerfilId = pItem.executadaPorPerfilId;
+          }
+          const out = await executeMov(client, bem, pItem);
+          await client.query("COMMIT");
+          sucessos += 1;
+          results.push({
+            index: idx,
+            status: "EXECUTADO",
+            bemId: out?.bem?.id || bem.id,
+            numeroTombamento: out?.bem?.numeroTombamento || bem.numeroTombamento || null,
+            movimentacaoId: out?.mov?.id || null,
+          });
+        } else {
+          const solicitacao = await createSolicitacaoAprovacao(client, {
+            tipoAcao: SOLICITACAO_TIPO_ACAO.MOVIMENTACAO,
+            entidadeTipo: "BEM",
+            entidadeId: bem.id,
+            payload: {
+              bemId: bem.id,
+              numeroTombamento: bem.numeroTombamento,
+              movimentacao: pItem,
+            },
+            solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+            justificativaSolicitante: String(pItem.justificativa || "").trim().slice(0, 2000),
+            snapshotBefore: {
+              id: bem.id,
+              numeroTombamento: bem.numeroTombamento,
+              unidadeDonaId: bem.unidadeDonaId,
+              status: bem.status,
+              responsavelPerfilId: bem.responsavelPerfilId,
+              localFisico: bem.localFisico,
+              localId: bem.localId,
+            },
+            expiraEm: nowPlusDays(15),
+          });
+          await client.query("COMMIT");
+          pendentes += 1;
+          results.push({
+            index: idx,
+            status: "PENDENTE_APROVACAO",
+            bemId: bem.id,
+            numeroTombamento: bem.numeroTombamento || null,
+            solicitacaoId: solicitacao.id,
+          });
+        }
+      } catch (itemError) {
+        await safeRollback(client);
+        falhas += 1;
+        const isInventario = itemError?.code === "P0001";
+        results.push({
+          index: idx,
+          status: "ERRO",
+          bemId: null,
+          numeroTombamento: numeroTombamento || null,
+          errorCode: isInventario ? "MOVIMENTACAO_BLOQUEADA_INVENTARIO" : (itemError?.code || "ERRO"),
+          message: isInventario
+            ? "Movimentacao bloqueada por inventario em andamento."
+            : String(itemError?.message || "Falha ao processar item."),
+        });
+      }
+    }
+
+    const hasPendentes = pendentes > 0;
+    const statusCode = hasPendentes ? 202 : 200;
+    res.status(statusCode).json({
+      requestId: req.requestId,
+      status: hasPendentes ? "PENDENTE_APROVACAO" : "PROCESSADO",
+      summary: {
+        total: itensRaw.length,
+        executados: sucessos,
+        pendentesAprovacao: pendentes,
+        falhas,
+      },
+      items: results,
+      message: hasPendentes
+        ? "Lote enviado para aprovacao administrativa (itens pendentes)."
+        : "Lote processado.",
+    });
+  } catch (error) {
+    await safeRollback(client);
     next(error);
   } finally {
     client.release();
@@ -4281,9 +4483,17 @@ app.delete("/locais/reset", mustAdmin, async (req, res, next) => {
     const unidadeId = req.query?.unidadeId != null && String(req.query.unidadeId).trim() !== ""
       ? Number(req.query.unidadeId)
       : null;
+    const localIdsRaw = Array.isArray(req.body?.localIds) ? req.body.localIds : [];
+    const localIds = Array.from(new Set(localIdsRaw.map((v) => String(v || "").trim()).filter(Boolean)));
 
     if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
       throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+    }
+    if (localIds.length > 500) {
+      throw new HttpError(422, "LIMITE_LOCAIS_EXCEDIDO", "Selecione no maximo 500 salas por reset.");
+    }
+    if (localIds.some((id) => !UUID_RE.test(id))) {
+      throw new HttpError(422, "LOCAL_ID_INVALIDO", "localIds deve conter apenas UUIDs validos de salas.");
     }
 
     // Exige senha de administrador para confirmar operacao destrutiva
@@ -4293,7 +4503,10 @@ app.delete("/locais/reset", mustAdmin, async (req, res, next) => {
 
     let updateSql = "UPDATE bens SET local_id = NULL WHERE local_id IS NOT NULL AND eh_bem_terceiro = FALSE AND status != 'BAIXADO'";
     const params = [];
-    if (unidadeId != null) {
+    if (localIds.length) {
+      params.push(localIds);
+      updateSql += ` AND local_id = ANY($${params.length}::uuid[])`;
+    } else if (unidadeId != null) {
       updateSql += " AND unidade_dona_id = $1";
       params.push(unidadeId);
     }
@@ -4301,7 +4514,13 @@ app.delete("/locais/reset", mustAdmin, async (req, res, next) => {
     const result = await client.query(updateSql, params);
     await client.query("COMMIT");
 
-    res.json({ requestId: req.requestId, afetados: result.rowCount ?? 0 });
+    res.json({
+      requestId: req.requestId,
+      afetados: result.rowCount ?? 0,
+      escopo: localIds.length ? "SALAS" : (unidadeId != null ? "UNIDADE" : "TODAS"),
+      unidadeId: localIds.length ? null : unidadeId,
+      totalLocaisSelecionados: localIds.length || 0,
+    });
   } catch (error) {
     await safeRollback(client);
     next(error);
@@ -4707,6 +4926,27 @@ async function applyVincularLocalLote(client, { payload, actorPerfilId }) {
   };
 }
 
+async function applyMovimentacaoSolicitada(client, { payload, solicitantePerfilId, aprovadorPerfilId }) {
+  const rawMov = payload?.movimentacao && typeof payload.movimentacao === "object"
+    ? payload.movimentacao
+    : payload;
+  const mov = validateMov(rawMov || {}, {
+    defaultPerfilId: solicitantePerfilId ? String(solicitantePerfilId).trim() : "",
+  });
+  if (solicitantePerfilId && UUID_RE.test(String(solicitantePerfilId))) {
+    mov.executadaPorPerfilId = String(solicitantePerfilId);
+  }
+  if (aprovadorPerfilId && UUID_RE.test(String(aprovadorPerfilId))) {
+    mov.autorizadaPorPerfilId = String(aprovadorPerfilId);
+  } else if (!mov.autorizadaPorPerfilId && mov.executadaPorPerfilId) {
+    mov.autorizadaPorPerfilId = mov.executadaPorPerfilId;
+  }
+  const bem = await lockBem(client, mov);
+  if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+  const out = await executeMov(client, bem, mov);
+  return out;
+}
+
 async function applySolicitacaoByType(client, { solicitacao, aprovadorPerfilId }) {
   const payload = solicitacao?.payload && typeof solicitacao.payload === "object" ? solicitacao.payload : {};
   const tipoAcao = String(solicitacao?.tipoAcao || "").trim();
@@ -4735,6 +4975,15 @@ async function applySolicitacaoByType(client, { solicitacao, aprovadorPerfilId }
       actorPerfilId: aprovadorPerfilId,
     });
     return { tipoAcao, lote };
+  }
+
+  if (tipoAcao === SOLICITACAO_TIPO_ACAO.MOVIMENTACAO) {
+    const out = await applyMovimentacaoSolicitada(client, {
+      payload,
+      solicitantePerfilId: solicitacao?.solicitantePerfilId || null,
+      aprovadorPerfilId,
+    });
+    return { tipoAcao, movimentacao: out.mov, bem: out.bem };
   }
 
   throw new HttpError(422, "SOLICITACAO_TIPO_INVALIDO", "Tipo de solicitacao nao suportado.");
@@ -7304,6 +7553,7 @@ function openapi() {
       "/importacoes/geafin/ultimo": { get: { summary: "Progresso da ultima sessao/importacao GEAFIN", responses: { 200: { description: "OK" }, 404: { description: "Sem importacao" } } } },
       "/importacoes/geafin/{id}/cancelar": { post: { summary: "Cancelar sessao/importacao GEAFIN", responses: { 200: { description: "OK" }, 404: { description: "Nao encontrado" } } } },
       "/movimentar": { post: { summary: "Movimenta bem por transferencia/cautela (tombamento GEAFIN: 10 digitos)", responses: { 201: { description: "Criado" }, 409: { description: "Bloqueado por inventario" } } } },
+      "/movimentar/lote": { post: { summary: "Movimenta bens em lote por transferencia/cautela", responses: { 200: { description: "Processado" }, 202: { description: "Pendente de aprovacao" } } } },
       "/inventario/eventos": {
         get: { summary: "Listar eventos de inventario", responses: { 200: { description: "OK" } } },
         post: { summary: "Criar evento de inventario (EM_ANDAMENTO)", responses: { 201: { description: "Criado" } } },

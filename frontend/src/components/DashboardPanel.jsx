@@ -10,6 +10,7 @@ import {
   getStats,
   listarAuditoriaPatrimonio,
   listarEventosInventario,
+  listarSolicitacoesAprovacao,
 } from "../services/apiClient.js";
 
 function unidadeLabel(unidade) {
@@ -158,7 +159,7 @@ function CjmBuildingMapIllustration({
         MAPA ILUSTRATIVO - PREDIO 2a CJM (8 ANDARES)
       </text>
       <text x="18" y="218" fill="#475569" fontSize="11">
-        Av. Casper Libero, 88 - Centro Historico de Sao Paulo
+        Av. Casper Libero, 88 - Centro Hist?rico de Sao Paulo
       </text>
       <text x="482" y="24" fill="#7c3aed" fontSize="11" fontWeight="600" textAnchor="end">
         Clique no andar
@@ -170,6 +171,7 @@ function CjmBuildingMapIllustration({
 export default function DashboardPanel({ onNavigate }) {
   const auth = useAuth();
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+  const canListarAprovacoes = !auth.authEnabled || auth.can("action.aprovacao.listar") || canAdmin;
   const [showMap, setShowMap] = useState(false);
   const [selectedFloor, setSelectedFloor] = useState(8);
   const [hoveredFloor, setHoveredFloor] = useState(null);
@@ -205,6 +207,18 @@ export default function DashboardPanel({ onNavigate }) {
     },
   });
 
+  const aprovacoesPendentesQuery = useQuery({
+    queryKey: ["dashboardAprovacoesPendentes"],
+    enabled: canListarAprovacoes,
+    queryFn: async () => {
+      const data = await listarSolicitacoesAprovacao({ status: "PENDENTE", limit: 6, offset: 0 });
+      return {
+        items: Array.isArray(data?.items) ? data.items : [],
+        total: Number(data?.paging?.total || 0),
+      };
+    },
+  });
+
   const totalBens = Number(statsQuery.data?.bens?.total || 0);
   const porUnidade = useMemo(() => {
     const rows = statsQuery.data?.bens?.porUnidade || [];
@@ -225,9 +239,9 @@ export default function DashboardPanel({ onNavigate }) {
 
   const quickActions = [
     { id: "bens", label: "Consulta de Bens" },
-    { id: "movimentacoes", label: "Movimentacoes" },
+    { id: "movimentacoes", label: "Movimentações" },
     { id: "operacoes-cadastro-sala", label: "Cadastrar Bens por Sala" },
-    { id: "inventario-contagem", label: "Inventario - Contagem" },
+    { id: "inventario-contagem", label: "Inventário - Contagem" },
     { id: "importacoes-geafin", label: "Importacao GEAFIN" },
   ];
   const activeFloor = hoveredFloor || selectedFloor;
@@ -357,9 +371,9 @@ export default function DashboardPanel({ onNavigate }) {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className={`grid gap-6 ${canListarAprovacoes ? "xl:grid-cols-3" : "xl:grid-cols-[0.9fr_1.1fr]"}`}>
         <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-slate-900">Inventario ativo</h3>
+          <h3 className="font-semibold text-slate-900">Inventário ativo</h3>
           {eventosAtivosQuery.isLoading ? (
             <p className="mt-3 text-sm text-slate-600">Carregando status...</p>
           ) : eventosAtivos.length ? (
@@ -383,7 +397,7 @@ export default function DashboardPanel({ onNavigate }) {
                 onClick={() => onNavigate?.("inventario-admin")}
                 className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
-                Abrir Inventario - Administracao
+                Abrir Inventário - Administração
               </button>
             </div>
           ) : (
@@ -439,6 +453,61 @@ export default function DashboardPanel({ onNavigate }) {
             </table>
           </div>
         </article>
+
+        {canListarAprovacoes ? (
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold text-slate-900">Aprovações pendentes</h3>
+              <button
+                type="button"
+                onClick={() => onNavigate?.("admin-aprovacoes")}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Abrir fila
+              </button>
+            </div>
+            {aprovacoesPendentesQuery.isLoading ? (
+              <p className="mt-3 text-sm text-slate-600">Carregando pendências...</p>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-slate-600">
+                  Total pendente: <strong>{Number(aprovacoesPendentesQuery.data?.total || 0)}</strong>
+                </p>
+                <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2">Criada em</th>
+                        <th className="px-3 py-2">Tipo</th>
+                        <th className="px-3 py-2">Solicitante</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {(aprovacoesPendentesQuery.data?.items || []).slice(0, 6).map((row) => (
+                        <tr key={String(row.id)} className="hover:bg-slate-50">
+                          <td className="px-3 py-2 text-slate-700">
+                            {new Date(row.createdAt || Date.now()).toLocaleString("pt-BR")}
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">{row.tipoAcao || "-"}</td>
+                          <td className="px-3 py-2 text-slate-700">
+                            {row.solicitanteNome || row.solicitanteMatricula || "-"}
+                          </td>
+                        </tr>
+                      ))}
+                      {!(aprovacoesPendentesQuery.data?.items || []).length ? (
+                        <tr>
+                          <td className="px-3 py-4 text-slate-600" colSpan={3}>
+                            Nenhuma aprovação pendente no momento.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </article>
+        ) : null}
       </div>
     </section>
   );

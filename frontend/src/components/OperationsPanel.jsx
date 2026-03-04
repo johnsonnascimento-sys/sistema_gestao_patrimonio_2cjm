@@ -13,7 +13,7 @@ import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 const SECTION_META = {
   "admin-backup": {
     title: "Backup e Restore",
-    description: "Operacoes de snapshot, backup manual e restore com confirmacao por senha ADMIN.",
+    description: "Operações de snapshot, backup manual e restore com confirmacao por senha ADMIN.",
   },
   "admin-health": {
     title: "Conectividade Backend",
@@ -21,14 +21,14 @@ const SECTION_META = {
   },
   "admin-perfis": {
     title: "Perfis e Acessos",
-    description: "Gestao de perfis, papeis e reset de senha de primeiro acesso.",
+    description: "Gestão de perfis, papeis e reset de senha de primeiro acesso.",
   },
   "admin-locais": {
     title: "Locais (salas) cadastrados",
     description: "CRUD de locais e vinculacao em lote de bens.local_id para governanca de sala.",
   },
   "admin-aprovacoes": {
-    title: "Aprovacoes Pendentes",
+    title: "Aprovações Pendentes",
     description: "Fila administrativa para aprovar ou reprovar acoes sensiveis solicitadas por operadores.",
   },
 };
@@ -46,7 +46,7 @@ export default function OperationsPanel({ section = "admin-backup" }) {
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Administracao do Painel</h2>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Administração do Painel</h2>
         <p className="mt-2 text-sm text-slate-600">{meta.description}</p>
       </header>
 

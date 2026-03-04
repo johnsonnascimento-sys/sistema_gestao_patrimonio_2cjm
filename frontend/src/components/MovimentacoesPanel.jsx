@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modulo: frontend/components
  * Arquivo: MovimentacoesPanel.jsx
  * Funcao no sistema: executar movimentacoes patrimoniais (transferencia/cautela) e regularizacao em lote por sala.
@@ -11,13 +11,19 @@ import {
   buscarPerfisDetentor,
   listarBens,
   listarLocais,
-  movimentarBem,
+  movimentarBemLote,
   getEstatisticasLocais,
   resetLocais,
   listarBensLocalizacao,
 } from "../services/apiClient.js";
 
 const MOV_TYPES = ["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"];
+const UNIDADES_DESTINO = [
+  { id: "1", label: "1 (1ª Aud)" },
+  { id: "2", label: "2 (2ª Aud)" },
+  { id: "3", label: "3 (Foro)" },
+  { id: "4", label: "4 (Almox)" },
+];
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CADASTRO_SALA_UI_STATE_KEY = "cjm_cadastro_sala_ui_v1";
 const TOMBAMENTO_4_DIGITS_RE = /^\d{4}$/;
@@ -118,6 +124,12 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const showCadastroSala = section === "cadastro-sala";
 
   const [movState, setMovState] = useState({ loading: false, response: null, error: null });
+  const [movQueueInput, setMovQueueInput] = useState("");
+  const [movQueueItems, setMovQueueItems] = useState([]);
+  const [movShowScanner, setMovShowScanner] = useState(false);
+  const [movTagIdModal, setMovTagIdModal] = useState({ isOpen: false, value: "" });
+  const [movScannerMode, setMovScannerMode] = useState("continuous");
+  const [movCameraScanPreview, setMovCameraScanPreview] = useState(null);
   const [movPayload, setMovPayload] = useState({
     tipoMovimentacao: "TRANSFERENCIA",
     numeroTombamento: "",
@@ -154,11 +166,23 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [loteState, setLoteState] = useState({ loading: false, response: null, error: null, info: null });
   const [justificativaSolicitante, setJustificativaSolicitante] = useState("");
   const [statsLocais, setStatsLocais] = useState({ loading: false, data: null, error: null });
-  const [resetModal, setResetModal] = useState({ open: false, loading: false, resultado: null });
+  const [resetModal, setResetModal] = useState({
+    open: false,
+    loading: false,
+    resultado: null,
+    escopo: "todas",
+    unidadeId: "",
+    localIds: [],
+    senha: "",
+    confirmText: "",
+    erroReset: null,
+  });
   const [bensLoc, setBensLoc] = useState({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 });
   const cameraPreviewTimeoutRef = useRef(null);
+  const movCameraPreviewTimeoutRef = useRef(null);
   const cadastroSalaStateHydratedRef = useRef(false);
   const scanInputRef = useRef(null);
+  const movQueueInputRef = useRef(null);
 
   const focusScanInput = () => {
     window.setTimeout(() => {
@@ -177,12 +201,23 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     [locaisState.data, localSalaId],
   );
 
+  const resetLocaisOptions = useMemo(() => {
+    const all = Array.isArray(locaisState.data) ? locaisState.data : [];
+    const unidadeFiltro = resetModal.escopo === "salas"
+      ? String(resetModal.unidadeId || "").trim()
+      : "";
+    return all.filter((l) => {
+      if (!unidadeFiltro) return true;
+      return String(l.unidadeId || "") === unidadeFiltro;
+    });
+  }, [locaisState.data, resetModal.escopo, resetModal.unidadeId]);
+
   const helperText = useMemo(() => {
     if (movPayload.tipoMovimentacao === "TRANSFERENCIA") {
       return "Transferencia muda carga (Arts. 124 e 127). Requer unidade destino e termo.";
     }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela nao muda carga. Requer detentor temporario e local (Sala destino ou Externo); data prevista de devolucao e opcional. Ao registrar cautela, o responsavel patrimonial passa a ser o detentor.";
+      return "Cautela não muda carga. Requer detentor temporario e local (Sala destino ou Externo); data prevista de devolucao e opcional. Ao registrar cautela, o responsavel patrimonial passa a ser o detentor.";
     }
     return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional). Ao confirmar, o sistema pergunta se deve manter o mesmo responsavel patrimonial.";
   }, [movPayload.tipoMovimentacao]);
@@ -310,17 +345,166 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     setDetentorLookupState({ loading: false, data: [], error: null });
   };
 
+  const focusMovQueueInput = () => {
+    window.setTimeout(() => {
+      movQueueInputRef.current?.focus();
+    }, 0);
+  };
+
+  const showMovCameraPreview = (numeroTombamento, nomeResumo, mode = "single") => {
+    setMovCameraScanPreview({
+      code: String(numeroTombamento || ""),
+      summary: String(nomeResumo || "Sem nome resumo cadastrado."),
+    });
+    if (movCameraPreviewTimeoutRef.current) {
+      window.clearTimeout(movCameraPreviewTimeoutRef.current);
+      movCameraPreviewTimeoutRef.current = null;
+    }
+    if (mode === "continuous") return;
+    movCameraPreviewTimeoutRef.current = window.setTimeout(() => {
+      setMovCameraScanPreview(null);
+      movCameraPreviewTimeoutRef.current = null;
+    }, 2000);
+  };
+
+  const upsertMovQueueItem = (item) => {
+    setMovQueueItems((prev) => {
+      const idx = prev.findIndex((x) => String(x.bemId || "") === String(item.bemId || ""));
+      if (idx < 0) return [item, ...prev];
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], ...item, repeticoes: Number(updated[idx].repeticoes || 1) + 1 };
+      return updated;
+    });
+  };
+
+  const removeMovQueueItem = (bemId, numeroTombamento) => {
+    setMovQueueItems((prev) =>
+      prev.filter((row) => String(row.bemId || "") !== String(bemId || "") && String(row.numeroTombamento || "") !== String(numeroTombamento || "")));
+  };
+
+  const clearMovQueueComConfirmacao = () => {
+    if (!movQueueItems.length) return;
+    const ok = window.confirm(
+      "Deseja realmente limpar a fila de movimentações?\nEsta ação remove todos os itens ainda não processados.",
+    );
+    if (!ok) return;
+    setMovQueueItems([]);
+    setMovQueueInput("");
+    setMovCameraScanPreview(null);
+    setMovState((prev) => ({ ...prev, error: null }));
+    focusMovQueueInput();
+  };
+
+  const buscarEAdicionarMovQueue = async (rawTombo, options = {}) => {
+    const inputNormalizado = normalizeTombamentoInput(rawTombo);
+    let tombo = inputNormalizado;
+    let itemResolvido = options?.itemResolvido || null;
+
+    if (TOMBAMENTO_4_DIGITS_RE.test(inputNormalizado)) {
+      const tipoBusca = options?.tipoBusca || null;
+      if (!tipoBusca) {
+        setMovTagIdModal({ isOpen: true, value: inputNormalizado });
+        setMovQueueInput(inputNormalizado);
+        focusMovQueueInput();
+        return;
+      }
+      const lookup = await listarBens({
+        numeroTombamento: inputNormalizado,
+        tipoBusca,
+        limit: 10,
+        offset: 0,
+      });
+      const lookupItems = lookup?.items || [];
+      if (!lookupItems.length) {
+        throw new Error(
+          `Nenhum bem encontrado para a etiqueta ${tipoBusca === "antigo" ? "antiga" : "nova"} "${inputNormalizado}".`,
+        );
+      }
+      if (lookupItems.length > 1) {
+        const candidatos = lookupItems
+          .slice(0, 5)
+          .map((x) => x.numeroTombamento)
+          .filter(Boolean)
+          .join(", ");
+        throw new Error(
+          `Codigo "${inputNormalizado}" encontrou ${lookupItems.length} patrimonios (${candidatos}${lookupItems.length > 5 ? ", ..." : ""}). Informe os 10 digitos.`,
+        );
+      }
+      itemResolvido = lookupItems[0] || null;
+      tombo = String(itemResolvido?.numeroTombamento || "");
+    }
+
+    if (!/^\d{10}$/.test(tombo)) {
+      throw new Error("Informe tombamento GEAFIN com 10 digitos ou etiqueta de 4 digitos.");
+    }
+
+    let item = itemResolvido;
+    if (!item) {
+      const data = await listarBens({ numeroTombamento: tombo, limit: 20, offset: 0 });
+      item = (data?.items || []).find((x) => String(x.numeroTombamento || "") === tombo);
+    }
+    if (!item) {
+      throw new Error(`Tombo ${tombo} não encontrado.`);
+    }
+
+    upsertMovQueueItem({
+      bemId: item.id,
+      numeroTombamento: item.numeroTombamento,
+      descricao: item.nomeResumo || item.descricao || item.descricaoComplementar || "-",
+      unidadeDonaId: item.unidadeDonaId || null,
+      statusAtual: item.status || null,
+      repeticoes: 1,
+      erro: null,
+    });
+    if (options?.fromCamera) {
+      showMovCameraPreview(item.numeroTombamento, item.nomeResumo || item.descricao || item.descricaoComplementar, movScannerMode);
+    }
+    setMovQueueInput("");
+    setMovTagIdModal({ isOpen: false, value: "" });
+    focusMovQueueInput();
+  };
+
+  const onAdicionarMovQueue = async (event) => {
+    event.preventDefault();
+    setMovState((prev) => ({ ...prev, error: null, response: null }));
+    try {
+      await buscarEAdicionarMovQueue(movQueueInput);
+    } catch (error) {
+      setMovState({ loading: false, response: null, error: formatApiError(error) });
+      focusMovQueueInput();
+    }
+  };
+
+  const handleMovQueueKeyDown = (event) => {
+    const key = String(event.key || "");
+    const lower = key.toLowerCase();
+    const isCtrlJ = event.ctrlKey && !event.altKey && !event.metaKey && lower === "j";
+    const isSubmitKey = key === "Enter" || key === "Tab" || isCtrlJ;
+    if (!isSubmitKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void onAdicionarMovQueue(event);
+  };
+
   const onMovSubmit = async (event) => {
     event.preventDefault();
     if (!canUse) {
       setMovState({ loading: false, response: null, error: "Voce precisa estar autenticado para movimentar bens." });
       return;
     }
+    if (movPayload.tipoMovimentacao === "TRANSFERENCIA" && !String(movPayload.unidadeDestinoId || "").trim()) {
+      setMovState({
+        loading: false,
+        response: null,
+        error: "Selecione a unidade de destino para transferência.",
+      });
+      return;
+    }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA" && !movPayload.detentorTemporarioPerfilId) {
       setMovState({
         loading: false,
         response: null,
-        error: "Selecione um detentor pela busca (matricula/nome) ou informe um perfilId UUID valido.",
+        error: "Selecione um detentor pela busca (matrícula/nome) ou informe um perfilId UUID valido.",
       });
       return;
     }
@@ -336,6 +520,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         return;
       }
     }
+    if (!movQueueItems.length) {
+      setMovState({
+        loading: false,
+        response: null,
+        error: "Adicione ao menos um bem na fila de movimentações.",
+      });
+      return;
+    }
 
     setMovState({ loading: true, response: null, error: null });
     try {
@@ -346,8 +538,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         );
         payloadBase.manterResponsavelNoRetorno = manter;
       }
-      const payload = buildMovPayload(payloadBase);
-      const data = await movimentarBem(payload);
+      const payload = {
+        ...buildMovPayload(payloadBase),
+        itens: movQueueItems.map((row) => ({
+          bemId: row.bemId || undefined,
+          numeroTombamento: row.numeroTombamento || undefined,
+        })),
+      };
+      const data = await movimentarBemLote(payload);
       setMovState({ loading: false, response: data, error: null });
     } catch (error) {
       setMovState({ loading: false, response: null, error: formatApiError(error) });
@@ -371,7 +569,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const clearLoteComConfirmacao = () => {
     if (!loteItens.length) return;
     const ok = window.confirm(
-      "Deseja realmente limpar a fila temporaria de bens lidos?\nEsta acao remove todos os itens nao salvos.",
+      "Deseja realmente limpar a fila temporaria de bens lidos?\nEsta acao remove todos os itens não salvos.",
     );
     if (!ok) return;
     setLoteItens([]);
@@ -401,7 +599,37 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     if (cameraPreviewTimeoutRef.current) {
       window.clearTimeout(cameraPreviewTimeoutRef.current);
     }
+    if (movCameraPreviewTimeoutRef.current) {
+      window.clearTimeout(movCameraPreviewTimeoutRef.current);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!showMovimentacaoForm || movShowScanner) return;
+    focusMovQueueInput();
+  }, [showMovimentacaoForm, movShowScanner]);
+
+  useEffect(() => {
+    if (!showMovimentacaoForm) return undefined;
+    const onWindowKeyDown = (event) => {
+      const key = String(event.key || "").toLowerCase();
+      const isCtrlJ = event.ctrlKey && !event.altKey && !event.metaKey && key === "j";
+      if (!isCtrlJ) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.activeElement !== movQueueInputRef.current) {
+        focusMovQueueInput();
+      }
+      const value = movQueueInputRef.current?.value ?? movQueueInput;
+      if (String(value || "").trim()) {
+        void buscarEAdicionarMovQueue(value);
+      }
+    };
+    window.addEventListener("keydown", onWindowKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onWindowKeyDown, true);
+    };
+  }, [showMovimentacaoForm, movQueueInput]);
 
   useEffect(() => {
     if (!showCadastroSala || showScanner) return;
@@ -492,7 +720,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         item = (data?.items || []).find((x) => String(x.numeroTombamento || "") === tombo);
       }
       if (!item) {
-        setLoteState({ loading: false, response: null, error: `Tombo ${tombo} nao encontrado.`, info: null });
+        setLoteState({ loading: false, response: null, error: `Tombo ${tombo} não encontrado.`, info: null });
         return;
       }
 
@@ -528,7 +756,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         response: null,
         error: null,
         info: divergenciaUnidade && !manterOutraUnidade
-          ? `Tombo ${tombo} adicionado como divergente (nao sera salvo ate marcar manter).`
+          ? `Tombo ${tombo} adicionado como divergente (não sera salvo ate marcar manter).`
           : `Tombo ${tombo} adicionado na fila.`,
       });
       if (options?.fromCamera) {
@@ -562,7 +790,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
   const onSalvarLote = async () => {
     if (!canExecuteOperacional && !canRequestOperacional) {
-      setLoteState({ loading: false, response: null, error: "Voce nao tem permissao para alterar localizacao por sala.", info: null });
+      setLoteState({ loading: false, response: null, error: "Voce não tem permissao para alterar localizacao por sala.", info: null });
       return;
     }
     if (!selectedLocal) {
@@ -576,7 +804,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
     const elegiveis = loteItens.filter((x) => !x.divergenciaUnidade || x.manterOutraUnidade);
     if (!elegiveis.length) {
-      setLoteState({ loading: false, response: null, error: "Nao ha itens elegiveis para salvar (divergencias nao confirmadas).", info: null });
+      setLoteState({ loading: false, response: null, error: "Não ha itens elegiveis para salvar (divergencias não confirmadas).", info: null });
       return;
     }
     if (!canExecuteOperacional && canRequestOperacional && !String(justificativaSolicitante || "").trim()) {
@@ -643,7 +871,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     <section className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">
-          {showCadastroSala ? "Cadastrar bens por sala" : "Movimentacoes"}
+          {showCadastroSala ? "Cadastrar bens por sala" : "Movimentações"}
         </h2>
         <p className="mt-2 text-sm text-slate-600">
           {showCadastroSala
@@ -656,9 +884,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="font-semibold">Movimentar bem</h3>
           <p className="mt-1 text-xs text-slate-600">
-            Dica: informe <code className="px-1">numeroTombamento</code> (10 digitos) ou <code className="px-1">bemId</code>.
+            Use modo individual para um item ou modo lote para processar varios tombamentos com o mesmo termo e parametros.
             Durante inventario ativo, transferencias continuam bloqueadas (Art. 183).
           </p>
+          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <strong>Aviso operacional (GEAFIN/SEI):</strong> a efetivação oficial de transferência/cautela exige os procedimentos próprios
+            no GEAFIN e no SEI (termo, tramitação e assinatura). Este módulo registra a movimentação para fins de controle e informação
+            interna do sistema patrimonial.
+          </div>
 
           <form onSubmit={onMovSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
@@ -677,27 +910,99 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
               </select>
             </label>
 
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">Numero do tombamento</span>
-              <input
-                value={movPayload.numeroTombamento}
-                onChange={(event) => setMovField("numeroTombamento", normalizeTombamentoInput(event.target.value))}
-                placeholder="Ex.: 1290001788"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                disabled={movState.loading}
-              />
-            </label>
-
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">bemId (opcional)</span>
-              <input
-                value={movPayload.bemId}
-                onChange={(event) => setMovField("bemId", event.target.value)}
-                placeholder="UUID do bem (se preferir)"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                disabled={movState.loading}
-              />
-            </label>
+            <div className="space-y-1 md:col-span-2">
+              <span className="text-xs text-slate-600">Fila de bens (adicionar por tombamento)</span>
+              <div className="mb-2 grid gap-2 sm:max-w-xs">
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-600">Modo câmera</span>
+                  <select
+                    value={movScannerMode}
+                    onChange={(event) => setMovScannerMode(event.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    disabled={movState.loading}
+                  >
+                    <option value="single">Leitura simples</option>
+                    <option value="continuous">Leitura contínua</option>
+                  </select>
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={movQueueInputRef}
+                  value={movQueueInput}
+                  onChange={(event) => setMovQueueInput(event.target.value)}
+                  onKeyDown={handleMovQueueKeyDown}
+                  placeholder="Bipe/Digite tombamento (10) ou etiqueta (4) e clique Adicionar"
+                  className="min-w-[280px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                  disabled={movState.loading}
+                />
+                <button
+                  type="button"
+                  onClick={onAdicionarMovQueue}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+                  disabled={movState.loading}
+                >
+                  Adicionar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMovShowScanner(true)}
+                  className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100"
+                  disabled={movState.loading}
+                >
+                  Abrir camera
+                </button>
+                <button
+                  type="button"
+                  onClick={clearMovQueueComConfirmacao}
+                  className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                  disabled={movState.loading || !movQueueItems.length}
+                >
+                  Limpar fila
+                </button>
+              </div>
+              <p className="text-xs text-slate-600">
+                Total na fila: <strong>{movQueueItems.length}</strong> item(ns).
+              </p>
+              <div className="max-h-44 overflow-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Tombamento</th>
+                      <th className="px-3 py-2 text-left font-medium">Descricao</th>
+                      <th className="px-3 py-2 text-left font-medium">Unid.</th>
+                      <th className="px-3 py-2 text-left font-medium">Acoes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {movQueueItems.map((row) => (
+                      <tr key={`${row.bemId || row.numeroTombamento}`}>
+                        <td className="px-3 py-2 font-mono text-slate-800">{row.numeroTombamento || "-"}</td>
+                        <td className="px-3 py-2 text-slate-700">{row.descricao || "-"}</td>
+                        <td className="px-3 py-2 text-slate-700">{row.unidadeDonaId || "-"}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => removeMovQueueItem(row.bemId, row.numeroTombamento)}
+                            className="rounded border border-slate-300 px-2 py-1 text-[11px] hover:bg-slate-100"
+                            disabled={movState.loading}
+                          >
+                            Remover
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!movQueueItems.length ? (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-3 text-center text-slate-500">
+                          Nenhum item na fila.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Termo referencia</span>
@@ -712,23 +1017,27 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
             {movPayload.tipoMovimentacao === "TRANSFERENCIA" ? (
               <label className="space-y-1">
-                <span className="text-xs text-slate-600">Unidade destino (1-4)</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="4"
+                <span className="text-xs text-slate-600">Unidade de destino</span>
+                <select
                   value={movPayload.unidadeDestinoId}
                   onChange={(event) => setMovField("unidadeDestinoId", event.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={movState.loading}
-                />
+                >
+                  <option value="">Selecione...</option>
+                  {UNIDADES_DESTINO.map((unidade) => (
+                    <option key={unidade.id} value={unidade.id}>
+                      {unidade.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             ) : null}
 
             {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
               <div className="space-y-1 md:col-span-2">
                 <span className="text-xs text-slate-600">
-                  Detentor temporario (buscar por matricula, nome ou perfilId UUID)
+                  Detentor temporario (buscar por matrícula, nome ou perfilId UUID)
                 </span>
                 <div className="relative">
                   <input
@@ -770,7 +1079,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           >
                             <p className="font-semibold text-slate-900">{perfil.nome}</p>
                             <p className="mt-0.5 text-slate-600">
-                              Matricula: <span className="font-mono">{perfil.matricula}</span> | PerfilId:{" "}
+                              Matrícula: <span className="font-mono">{perfil.matricula}</span> | PerfilId:{" "}
                               <span className="font-mono">{perfil.id}</span>
                             </p>
                           </button>
@@ -779,7 +1088,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   ) : null}
                 </div>
                 <p className="text-xs text-slate-600">
-                  Digite ao menos 2 caracteres para sugerir. O sistema aceita busca por nome, matricula ou UUID.
+                  Digite ao menos 2 caracteres para sugerir. O sistema aceita busca por nome, matrícula ou UUID.
                 </p>
                 {movPayload.detentorTemporarioPerfilId ? (
                   <p className="text-xs text-emerald-700">
@@ -845,7 +1154,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   Sem data prevista (ou deixe em branco)
                 </label>
                 <p className="text-xs text-slate-600">
-                  Se nao houver previsao de retorno no momento, marque a opcao acima ou mantenha o campo vazio.
+                  Se não houver previsao de retorno no momento, marque a opcao acima ou mantenha o campo vazio.
                 </p>
               </div>
             ) : null}
@@ -879,7 +1188,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                 disabled={movState.loading}
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {movState.loading ? "Enviando..." : "Executar /movimentar"}
+                {movState.loading ? "Enviando..." : "Executar movimentacao da fila"}
               </button>
               {movState.error ? <p className="mt-2 text-sm text-rose-700">{movState.error}</p> : null}
               {movState.response ? (
@@ -954,15 +1263,26 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                 </div>
               ) : null}
 
-              {/* ── Ações de localização (ADMIN) ── */}
+              {/* -- Ações de localização (ADMIN) -- */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setResetModal({ open: true, loading: false, resultado: null, escopo: unidadeSalaId || "todas", senha: "", confirmText: "" })}
+                  onClick={() =>
+                    setResetModal({
+                      open: true,
+                      loading: false,
+                      resultado: null,
+                      escopo: unidadeSalaId ? "unidade" : "todas",
+                      unidadeId: unidadeSalaId || "",
+                      localIds: [],
+                      senha: "",
+                      confirmText: "",
+                      erroReset: null,
+                    })}
                   className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
                   disabled={loteState.loading}
                 >
-                  🔄 Resetar localização
+                  Resetar localização
                 </button>
                 <button
                   type="button"
@@ -982,55 +1302,124 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   }}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  📋 Ver bens por situação
+                  Ver bens por situação
                 </button>
               </div>
 
-              {/* ── Modal de reset com dupla confirmação + senha ── */}
+              {/* -- Modal de reset com dupla confirmação + senha -- */}
               {resetModal.open && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                   <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
-                    <h3 className="text-base font-bold text-rose-700">⚠️ Resetar localização física</h3>
+                    <h3 className="text-base font-bold text-rose-700">Resetar localização física</h3>
 
                     {resetModal.resultado != null ? (
                       <div className="mt-3 space-y-3">
                         <p className="rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
-                          ✅ {resetModal.resultado} bem(ns) desvinculado(s) com sucesso.
+                          {resetModal.resultado} bem(ns) desvinculado(s) com sucesso.
                         </p>
                         <div className="flex justify-end">
                           <button
                             type="button"
-                            onClick={() => setResetModal({ open: false, loading: false, resultado: null, escopo: "todas", senha: "", confirmText: "" })}
+                            onClick={() =>
+                              setResetModal({
+                                open: false,
+                                loading: false,
+                                resultado: null,
+                                escopo: "todas",
+                                unidadeId: "",
+                                localIds: [],
+                                senha: "",
+                                confirmText: "",
+                                erroReset: null,
+                              })}
                             className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
                           >Fechar</button>
                         </div>
                       </div>
                     ) : (
                       <div className="mt-3 space-y-3">
-                        {/* Escopo */}
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Escopo do reset</label>
+                          <label className="mb-1 block text-xs font-medium text-slate-600">Escopo do reset</label>
                           <select
                             value={resetModal.escopo}
-                            onChange={(e) => setResetModal((s) => ({ ...s, escopo: e.target.value }))}
+                            onChange={(e) =>
+                              setResetModal((s) => ({
+                                ...s,
+                                escopo: e.target.value,
+                                localIds: e.target.value === "salas" ? s.localIds : [],
+                              }))}
                             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
                           >
-                            <option value="todas">🌐 Todas as unidades</option>
-                            <option value="1">Unidade 1</option>
-                            <option value="2">Unidade 2</option>
-                            <option value="3">Unidade 3</option>
-                            <option value="4">Unidade 4</option>
+                            <option value="todas">Todas as unidades</option>
+                            <option value="unidade">Somente uma unidade</option>
+                            <option value="salas">Salas selecionadas (uma ou várias)</option>
                           </select>
                           <p className="mt-1 text-xs text-slate-500">
                             {resetModal.escopo === "todas"
-                              ? "⚠️ Isso vai remover a sala de TODOS os bens de todas as unidades."
-                              : `⚠️ Isso vai remover a sala de todos os bens da Unidade ${resetModal.escopo}.`}
+                              ? "Isso vai remover a sala de todos os bens de todas as unidades."
+                              : resetModal.escopo === "unidade"
+                                ? "Isso vai remover a sala de todos os bens da unidade selecionada."
+                                : "Isso vai remover a sala apenas dos bens vinculados às salas selecionadas."}
                           </p>
                         </div>
 
-                        {/* Senha admin */}
+                        {(resetModal.escopo === "unidade" || resetModal.escopo === "salas") ? (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-slate-600">
+                              {resetModal.escopo === "unidade" ? "Unidade" : "Filtrar salas por unidade (opcional)"}
+                            </label>
+                            <select
+                              value={resetModal.unidadeId}
+                              onChange={(e) => setResetModal((s) => ({ ...s, unidadeId: e.target.value }))}
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+                            >
+                              <option value="">{resetModal.escopo === "unidade" ? "Selecione..." : "Todas as unidades"}</option>
+                              <option value="1">Unidade 1</option>
+                              <option value="2">Unidade 2</option>
+                              <option value="3">Unidade 3</option>
+                              <option value="4">Unidade 4</option>
+                            </select>
+                          </div>
+                        ) : null}
+
+                        {resetModal.escopo === "salas" ? (
+                          <div className="space-y-2">
+                            <div className="max-h-44 overflow-auto rounded-lg border border-slate-200 bg-white p-2">
+                              {resetLocaisOptions.map((l) => {
+                                const checked = (resetModal.localIds || []).includes(String(l.id));
+                                return (
+                                  <label key={l.id} className="flex items-center gap-2 py-1 text-xs text-slate-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        const id = String(l.id);
+                                        setResetModal((s) => {
+                                          const current = Array.isArray(s.localIds) ? s.localIds : [];
+                                          const next = e.target.checked
+                                            ? Array.from(new Set([...current, id]))
+                                            : current.filter((x) => String(x) !== id);
+                                          return { ...s, localIds: next };
+                                        });
+                                      }}
+                                      className="h-4 w-4 accent-rose-600"
+                                    />
+                                    <span>{l.nome} (unidade {l.unidadeId || "-"})</span>
+                                  </label>
+                                );
+                              })}
+                              {!resetLocaisOptions.length ? (
+                                <p className="py-2 text-xs text-slate-500">Nenhuma sala encontrada para o filtro atual.</p>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-slate-600">
+                              Salas selecionadas: <strong>{Array.isArray(resetModal.localIds) ? resetModal.localIds.length : 0}</strong>
+                            </p>
+                          </div>
+                        ) : null}
+
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Senha de administrador</label>
+                          <label className="mb-1 block text-xs font-medium text-slate-600">Senha de administrador</label>
                           <input
                             type="password"
                             placeholder="Senha admin"
@@ -1040,9 +1429,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           />
                         </div>
 
-                        {/* Confirmação de texto */}
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                          <label className="mb-1 block text-xs font-medium text-slate-600">
                             Digite <strong>RESETAR</strong> para confirmar
                           </label>
                           <input
@@ -1058,20 +1446,40 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           <p className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{resetModal.erroReset}</p>
                         )}
 
-                        <div className="flex gap-2 justify-end pt-1">
+                        <div className="flex justify-end gap-2 pt-1">
                           <button
                             type="button"
-                            onClick={() => setResetModal({ open: false, loading: false, resultado: null, escopo: "todas", senha: "", confirmText: "" })}
+                            onClick={() =>
+                              setResetModal({
+                                open: false,
+                                loading: false,
+                                resultado: null,
+                                escopo: "todas",
+                                unidadeId: "",
+                                localIds: [],
+                                senha: "",
+                                confirmText: "",
+                                erroReset: null,
+                              })}
                             className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
                           >Cancelar</button>
                           <button
                             type="button"
                             disabled={resetModal.loading || resetModal.confirmText !== "RESETAR" || !resetModal.senha}
                             onClick={async () => {
+                              if (resetModal.escopo === "unidade" && !String(resetModal.unidadeId || "").trim()) {
+                                setResetModal((s) => ({ ...s, erroReset: "Selecione a unidade para o reset por unidade." }));
+                                return;
+                              }
+                              if (resetModal.escopo === "salas" && !(Array.isArray(resetModal.localIds) && resetModal.localIds.length)) {
+                                setResetModal((s) => ({ ...s, erroReset: "Selecione ao menos uma sala para resetar." }));
+                                return;
+                              }
                               setResetModal((s) => ({ ...s, loading: true, erroReset: null }));
                               try {
                                 const res = await resetLocais({
-                                  unidadeId: resetModal.escopo !== "todas" ? Number(resetModal.escopo) : undefined,
+                                  unidadeId: resetModal.escopo === "unidade" ? Number(resetModal.unidadeId) : undefined,
+                                  localIds: resetModal.escopo === "salas" ? (resetModal.localIds || []) : undefined,
                                   adminPassword: resetModal.senha,
                                 });
                                 setResetModal((s) => ({ ...s, loading: false, resultado: res?.afetados ?? 0 }));
@@ -1082,7 +1490,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                             }}
                             className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-40"
                           >
-                            {resetModal.loading ? "Resetando…" : "Confirmar reset"}
+                            {resetModal.loading ? "Resetando..." : "Confirmar reset"}
                           </button>
                         </div>
                       </div>
@@ -1091,7 +1499,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                 </div>
               )}
 
-              {/* ── Listagem de bens por situação ── */}
+              {/* -- Listagem de bens por situação -- */}
               {(bensLoc.data || bensLoc.loading || bensLoc.error) && (
                 <div className="mt-4 rounded-lg border border-slate-200 bg-white shadow-sm">
                   <div className="flex border-b border-slate-200">
@@ -1121,7 +1529,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           : "text-slate-500 hover:bg-slate-50"
                           }`}
                       >
-                        {tab === "sem_local" ? "⏳ Pendentes (sem sala)" : "✅ Concluídos (com sala)"}
+                        {tab === "sem_local" ? "Pendentes (sem sala)" : "Concluídos (com sala)"}
                         {bensLoc.data && bensLoc.tabAtiva === tab ? ` · ${bensLoc.data.total}` : ""}
                       </button>
                     ))}
@@ -1134,7 +1542,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   </div>
 
                   {bensLoc.loading && (
-                    <div className="p-4 text-center text-xs text-slate-500 animate-pulse">Carregando…</div>
+                    <div className="p-4 text-center text-xs text-slate-500 animate-pulse">Carregando...</div>
                   )}
                   {bensLoc.error && (
                     <div className="p-3 text-xs text-rose-700">{bensLoc.error}</div>
@@ -1418,6 +1826,71 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         </article>
       ) : null}
 
+      {showMovimentacaoForm && movShowScanner ? (
+        <BarcodeScanner
+          continuous={movScannerMode === "continuous"}
+          scanPreview={movCameraScanPreview}
+          onClose={() => setMovShowScanner(false)}
+          onScan={(value) => {
+            const normalized = normalizeTombamentoInput(value);
+            if (normalized) {
+              void buscarEAdicionarMovQueue(normalized, { fromCamera: true });
+            }
+            if (movScannerMode === "single") {
+              setMovShowScanner(false);
+            }
+          }}
+        />
+      ) : null}
+
+      {showMovimentacaoForm && movTagIdModal.isOpen ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl">
+            <h3 className="font-[Space_Grotesk] text-xl font-bold text-slate-900">Identificar Etiqueta</h3>
+            <p className="mt-4 text-slate-600">
+              O codigo <span className="font-mono font-bold text-violet-700">"{movTagIdModal.value}"</span> possui 4 digitos. Como deseja consultar?
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMovTagIdModal({ isOpen: false, value: "" });
+                  void buscarEAdicionarMovQueue(movTagIdModal.value, { tipoBusca: "antigo" });
+                }}
+                className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
+              >
+                <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
+                <div className="text-xs text-slate-500">Busca por Cod2Aud da 2a Auditoria</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMovTagIdModal({ isOpen: false, value: "" });
+                  void buscarEAdicionarMovQueue(movTagIdModal.value, { tipoBusca: "novo" });
+                }}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition-colors hover:bg-slate-100"
+              >
+                <div className="font-bold text-emerald-700">Etiqueta Nova (Erro)</div>
+                <div className="text-xs text-slate-500">Busca pelo sufixo de 4 digitos no tombamento GEAFIN</div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMovTagIdModal({ isOpen: false, value: "" });
+                setMovQueueInput("");
+                focusMovQueueInput();
+              }}
+              className="mt-6 w-full rounded-xl py-2 text-sm text-slate-500 hover:text-slate-900"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {showCadastroSala && showScanner ? (
         <BarcodeScanner
           continuous={scannerMode === "continuous"}
@@ -1485,3 +1958,4 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     </section>
   );
 }
+

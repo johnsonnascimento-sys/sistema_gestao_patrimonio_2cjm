@@ -29,7 +29,7 @@ function formatUnidade(id) {
 
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const INVENTARIO_PRESETS = [
-    { key: "inventario-geral", label: "Inventario geral", apply: { escopoTipo: "GERAL", tipoCiclo: "ADHOC", unidadeInventariadaId: "", escopoLocalIds: [] } },
+    { key: "inventario-geral", label: "Inventário geral", apply: { escopoTipo: "GERAL", tipoCiclo: "ADHOC", unidadeInventariadaId: "", escopoLocalIds: [] } },
     { key: "ciclo-1aud", label: "Ciclo semanal 1a Aud", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "1", escopoLocalIds: [] } },
     { key: "ciclo-2aud", label: "Ciclo semanal 2a Aud", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "2", escopoLocalIds: [] } },
     { key: "ciclo-foro", label: "Ciclo semanal Foro", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "3", escopoLocalIds: [] } },
@@ -252,7 +252,7 @@ export default function InventoryAdminPanel() {
             return ativos[0];
         }
 
-        // Fallback: quando o cache de ativos ainda nao refletiu a reabertura,
+        // Fallback: quando o cache de ativos ainda não refletiu a reabertura,
         // tenta resolver pelo evento selecionado no cache completo.
         if (selectedEventoId) {
             const all = todosEventosQuery.data || [];
@@ -301,7 +301,7 @@ export default function InventoryAdminPanel() {
 
             if (nextStatus === "ENCERRADO" && vars?.id) {
                 setRelatorioEventoId(String(vars.id));
-                setUiInfo("Inventario encerrado. Relatorio detalhado gerado abaixo.");
+                setUiInfo("Inventário encerrado. Relatorio detalhado gerado abaixo.");
             } else if (nextStatus === "EM_ANDAMENTO" && vars?.id) {
                 setRelatorioEventoId(String(vars.id));
                 setSelectedEventoId(String(vars.id));
@@ -692,8 +692,8 @@ export default function InventoryAdminPanel() {
     const eventosAtivos = eventosQuery.data || [];
     const createButtonLabel = escopoTipo === "GERAL" ? "Abrir inventario geral" : "Abrir micro-inventario";
     const criticalImpactText = criticalModal.status === "ENCERRADO"
-        ? "Ao encerrar, este inventario nao aceita novas contagens."
-        : "Ao cancelar, este inventario sera interrompido e nao aceitara novas contagens.";
+        ? "Ao encerrar, este inventario não aceita novas contagens."
+        : "Ao cancelar, este inventario sera interrompido e não aceitara novas contagens.";
     const divergenciasInterTotal = Number(divergenciasInterunidadesQuery.data?.total || divergenciasInterItems.length || 0);
 
     return (
@@ -883,7 +883,7 @@ export default function InventoryAdminPanel() {
                                                                 className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
                                                             >
                                                                 <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                <div className="text-slate-600">Matricula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                                <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
                                                             </button>
                                                         ))}
                                                     </div>
@@ -930,7 +930,7 @@ export default function InventoryAdminPanel() {
                                                                     className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
                                                                 >
                                                                     <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                    <div className="text-slate-600">Matricula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                                    <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
                                                                 </button>
                                                             ))}
                                                         </div>
@@ -973,7 +973,7 @@ export default function InventoryAdminPanel() {
                                                                     className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
                                                                 >
                                                                     <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                    <div className="text-slate-600">Matricula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                                    <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
                                                                 </button>
                                                             ))}
                                                         </div>
@@ -1185,7 +1185,7 @@ export default function InventoryAdminPanel() {
                                         <table className="min-w-full text-xs">
                                             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
                                                 <tr>
-                                                    <th className="px-2 py-2 text-left font-semibold">Inventario</th>
+                                                    <th className="px-2 py-2 text-left font-semibold">Inventário</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Tombo/Bem</th>
                                                     <th className="px-2 py-2 text-right font-semibold">Dona</th>
                                                     <th className="px-2 py-2 text-right font-semibold">Encontrada</th>

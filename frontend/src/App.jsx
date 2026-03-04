@@ -33,7 +33,7 @@ const NAV_STRUCTURE = [
   {
     type: "group",
     id: "operacoes",
-    label: "Operacoes Patrimoniais",
+    label: "Operações Patrimoniais",
     items: [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
       { id: "movimentacoes", label: "Movimentações", short: "Mov." },
@@ -53,7 +53,7 @@ const NAV_STRUCTURE = [
     label: "Auditoria e Logs",
     items: [
       { id: "auditoria-changelog", label: "Log Geral de Alterações", short: "Log Geral" },
-      { id: "auditoria-patrimonio", label: "Auditoria Patrimonial (Global)", short: "Patrimonio" },
+      { id: "auditoria-patrimonio", label: "Auditoria Patrimonial (Global)", short: "Patrimônio" },
       { id: "auditoria-erros", label: "Log de Erros Runtime", short: "Erros" },
     ],
   },
@@ -66,7 +66,7 @@ const NAV_STRUCTURE = [
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
       { id: "admin-perfis", label: "Perfis e Acessos", short: "Perfis" },
-      { id: "admin-aprovacoes", label: "Aprovacoes Pendentes", short: "Aprov." },
+      { id: "admin-aprovacoes", label: "Aprovações Pendentes", short: "Aprov." },
     ],
   },
   { type: "item", item: { id: "wiki", label: "Wiki / Manual", short: "Wiki" } },
@@ -243,7 +243,7 @@ class SectionErrorBoundary extends Component {
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
-      errorMessage: String(error?.message || "Erro interno na renderizacao desta secao."),
+      errorMessage: String(error?.message || "Erro interno na renderizacao desta seção."),
     };
   }
 
@@ -259,7 +259,7 @@ class SectionErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="space-y-3 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-rose-800">
-          <p>Falha ao renderizar esta secao.</p>
+          <p>Falha ao renderizar esta seção.</p>
           {this.state.errorMessage ? (
             <p className="break-words text-xs text-rose-700">Detalhe tecnico: {this.state.errorMessage}</p>
           ) : null}
@@ -348,14 +348,14 @@ function AppShell() {
     if (inventoryStatus === "EM_ANDAMENTO") {
       const n = activeEvents.length;
       if (n > 1) {
-        return `Inventario ativo em ${n} eventos (por unidade): transferencias ficam bloqueadas no escopo do Art. 183 (AN303_Art183).`;
+        return `Inventário ativo em ${n} eventos (por unidade): transferências ficam bloqueadas no escopo do Art. 183 (AN303_Art183).`;
       }
-      return "Inventario ativo: movimentacoes de transferencia ficam bloqueadas pelo Art. 183 (AN303_Art183).";
+      return "Inventário ativo: movimentações de transferência ficam bloqueadas pelo Art. 183 (AN303_Art183).";
     }
     if (inventoryStatus === "CARREGANDO") {
       return "Consultando status do inventario no banco...";
     }
-    return "Sem evento ativo: transferencias e regularizacoes podem ser executadas.";
+    return "Sem evento ativo: transferências e regularizações podem ser executadas.";
   }, [inventoryStatus, activeEvents.length]);
 
   const toggleNavGroup = (groupId) =>
@@ -494,7 +494,7 @@ function AppShell() {
       const data = await listarBens({ numeroTombamento: tombo, limit: 1, offset: 0 });
       const it = (data.items || [])[0] || null;
       if (!it) {
-        setWizardPersistErr("Bem nao encontrado para este tombamento.");
+        setWizardPersistErr("Bem não encontrado para este tombamento.");
         return;
       }
       setWizardBem(it);
@@ -509,7 +509,7 @@ function AppShell() {
         <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
           <div className="border-b border-slate-200 px-5 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">2a CJM</p>
-            <h1 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Patrimonio</h1>
+            <h1 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Patrimônio</h1>
           </div>
 
           <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
@@ -595,7 +595,7 @@ function AppShell() {
           <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 md:px-8">
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Status Inventario</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Status Inventário</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
                     {inventoryStatus}
@@ -887,7 +887,7 @@ function AppShell() {
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs uppercase tracking-widest text-slate-500">Historico (Art. 141)</p>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Hist?rico (Art. 141)</p>
                       {wizardAvaliacoesQuery.isLoading && <p className="mt-3 text-sm text-slate-600">Carregando...</p>}
                       {!wizardBem && <p className="mt-3 text-sm text-slate-600">Selecione um bem para ver historico.</p>}
                       {wizardBem && !wizardAvaliacoesQuery.isLoading && (wizardAvaliacoesQuery.data || []).length === 0 && (

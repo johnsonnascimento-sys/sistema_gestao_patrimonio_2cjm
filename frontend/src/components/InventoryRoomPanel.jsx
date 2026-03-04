@@ -63,7 +63,7 @@ function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
   // Normaliza qualquer entrada (teclado, colar, scanner) para o tombamento GEAFIN:
   // - remove aspas comuns de CSV
-  // - remove qualquer caractere nao numerico
+  // - remove qualquer caractere não numerico
   // - limita a 10 digitos
   //
   // Observacao UX: evitamos depender de validacao nativa de <input pattern>,
@@ -109,7 +109,7 @@ function playSuccessBeep() {
       ctx.close().catch(() => undefined);
     }, 120);
   } catch (_error) {
-    // Sem audio em alguns navegadores; nao impede o fluxo.
+    // Sem audio em alguns navegadores; não impede o fluxo.
   }
 }
 
@@ -174,7 +174,7 @@ export default function InventoryRoomPanel() {
   const [terceiroIdentificador, setTerceiroIdentificador] = useState("");
   const [terceiroStatus, setTerceiroStatus] = useState(null);
 
-  // Registro segregado: bem nao identificado (Art. 175)
+  // Registro segregado: bem não identificado (Art. 175)
   const [naoIdDescricao, setNaoIdDescricao] = useState("");
   const [naoIdLocalizacao, setNaoIdLocalizacao] = useState("");
   const [naoIdFotoBase64, setNaoIdFotoBase64] = useState("");
@@ -695,7 +695,7 @@ export default function InventoryRoomPanel() {
       return;
     }
     if (eventoSelecionadoIncompativel) {
-      setUiError("O evento selecionado nao corresponde a unidade encontrada informada.");
+      setUiError("O evento selecionado não corresponde a unidade encontrada informada.");
       return;
     }
 
@@ -740,7 +740,7 @@ export default function InventoryRoomPanel() {
     let bem = shouldHideExpectedData ? null : (bemByTombamento.get(numeroTombamento) || null);
     let lookupItems = [];
 
-    // Scanner hibrido: se o tombo nao estiver no catalogo da sala carregado, tenta lookup rapido no backend (quando online).
+    // Scanner hibrido: se o tombo não estiver no catalogo da sala carregado, tenta lookup rapido no backend (quando online).
     const shouldLookupBem = navigator.onLine && (!shouldHideExpectedData || Boolean(tipoBusca));
     if (!bem && shouldLookupBem) {
       try {
@@ -754,7 +754,7 @@ export default function InventoryRoomPanel() {
         lookupItems = lookup.items || [];
         bem = lookupItems[0] || null;
       } catch (_error) {
-        // Falha de lookup nao impede enfileirar o scan.
+        // Falha de lookup não impede enfileirar o scan.
       }
     }
 
@@ -986,7 +986,7 @@ export default function InventoryRoomPanel() {
                 </p>
               ) : (
                 <p className="text-[11px] text-amber-700">
-                  Abra um evento na aba de Administracao do Inventario para iniciar a contagem.
+                  Abra um evento na aba de Administração do Inventário para iniciar a contagem.
                 </p>
               )}
               {eventoSelecionadoIncompativel ? (
@@ -996,7 +996,7 @@ export default function InventoryRoomPanel() {
               ) : null}
               {modoContagemEvento !== "PADRAO" && !sessaoContagemQuery.isLoading && !sessaoContagem?.designado ? (
                 <p className="text-[11px] text-rose-700">
-                  Usuario nao designado para este evento em modo {modoContagemEvento}. Solicite ao admin sua designacao.
+                  Usuario não designado para este evento em modo {modoContagemEvento}. Solicite ao admin sua designacao.
                 </p>
               ) : null}
             </label>
@@ -1056,7 +1056,7 @@ export default function InventoryRoomPanel() {
                 ))}
               </select>
               <p className="mt-1 text-[11px] text-slate-500">
-                Este campo nao e texto livre. O Admin cadastra os locais em "Operacoes API" (secao Locais).
+                Este campo não e texto livre. O Admin cadastra os locais em "Operações API" (seção Locais).
               </p>
               {localIdsPermitidosEvento ? (
                 <p className="mt-1 text-[11px] text-amber-700">
@@ -1469,7 +1469,7 @@ export default function InventoryRoomPanel() {
                               checked={meta.encontrado}
                               readOnly
                               className="h-4 w-4 accent-violet-600"
-                              title={meta.encontrado ? `Conferido (${meta.fonte})` : "Nao conferido"}
+                              title={meta.encontrado ? `Conferido (${meta.fonte})` : "Não conferido"}
                             />
                             <div className="flex flex-col items-start gap-0.5">
                               <div className="flex items-center gap-2">
@@ -1618,7 +1618,7 @@ export default function InventoryRoomPanel() {
                 ) : null}
                 {divergenteAlertItem.divergenciaSala ? (
                   <>
-                    {" "}Sala de carga: <strong>{divergenteAlertItem.salaEsperada || "nao informada"}</strong>.
+                    {" "}Sala de carga: <strong>{divergenteAlertItem.salaEsperada || "não informada"}</strong>.
                   </>
                 ) : null}
               </p>

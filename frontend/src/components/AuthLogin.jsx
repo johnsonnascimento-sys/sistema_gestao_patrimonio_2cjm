@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modulo: frontend/components
  * Arquivo: AuthLogin.jsx
  * Funcao no sistema: tela de login/primeiro acesso (quando AUTH_ENABLED=true no backend).
@@ -33,11 +33,11 @@ export default function AuthLogin() {
 
     const m = normalizeMatricula(matricula);
     if (!m) {
-      setLocalError(new Error("Informe a matricula."));
+      setLocalError(new Error("Informe a matrícula."));
       return;
     }
     if (!senha || String(senha).length < 8) {
-      setLocalError(new Error("Informe a senha (minimo 8 caracteres)."));
+      setLocalError(new Error("Informe a senha (mínimo 8 caracteres)."));
       return;
     }
     if (mode === "primeiro" && !String(nome || "").trim()) {
@@ -67,10 +67,10 @@ export default function AuthLogin() {
             2a Circunscricao Judiciaria Militar
           </p>
           <h1 className="mt-3 font-[Space_Grotesk] text-3xl font-bold text-slate-900 md:text-4xl">
-            Patrimonio 2a CJM
+            Patrimônio 2a CJM
           </h1>
           <p className="mt-3 text-sm text-slate-600">
-            Autenticacao ativa na VPS. Entre com sua matricula para acessar o sistema.
+            Autenticação ativa na VPS. Entre com sua matrícula para acessar o sistema.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export default function AuthLogin() {
 
           <form onSubmit={submit} className="mt-5 grid gap-3">
             <label className="space-y-1">
-              <span className="text-xs text-slate-600">Matricula</span>
+              <span className="text-xs text-slate-600">Matrícula</span>
               <input
                 value={matricula}
                 onChange={(e) => setMatricula(normalizeMatricula(e.target.value))}
@@ -130,7 +130,7 @@ export default function AuthLogin() {
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
               />
               <span className="text-[11px] text-slate-500">
-                Minimo 8 caracteres. A senha e armazenada como hash (bcrypt) no banco.
+                Mínimo 8 caracteres. A senha é armazenada como hash (bcrypt) no banco.
               </span>
             </label>
 
@@ -146,7 +146,7 @@ export default function AuthLogin() {
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
             <p className="font-semibold text-slate-800">Dica operacional</p>
             <p className="mt-1">
-              Se voce ainda nao tem perfil cadastrado, um ADMIN deve criar primeiro em "Operacoes API". Depois use "Primeiro acesso"
+              Se você ainda não tem perfil cadastrado, um ADMIN deve criar primeiro em "Operações API". Depois use "Primeiro acesso"
               para definir sua senha.
             </p>
           </div>
@@ -155,4 +155,3 @@ export default function AuthLogin() {
     </div>
   );
 }
-
