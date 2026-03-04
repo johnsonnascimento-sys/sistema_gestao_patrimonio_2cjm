@@ -82,24 +82,24 @@ Uso:
 - **Cautela x Transferência**: cautela não muda carga; transferência muda carga e exige formalização.
   - Regra legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127)
 
-## Atualiza?o 2026-02-26 - Reorganiza?o do menu
+## Atualização 2026-02-26 - Reorganização do menu
 
 O sistema agora abre no Dashboard Executivo Operacional.
 
 Distribuicao de modulos:
 
 - Dashboard: abertura com KPIs, inventario ativo e atividade recente.
-- Opera?es Patrimoniais: consulta, movimenta?es, cadastro por endereço, inventario, wizard Art. 141, cat?logo (material), gestao de normas e importa?o GEAFIN.
+- Operações Patrimoniais: consulta, movimentações, cadastro por endereço, inventario, wizard Art. 141, catálogo (material), gestao de normas e importação GEAFIN.
 - Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
-- Administra?o do Painel: backup, conectividade, perfis e locais (endereços) cadastrados.
+- Administração do Painel: backup, conectividade, perfis e locais (endereços) cadastrados.
 - Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.
 
 ## Menu atual - inventario
 
-No grupo **Opera?es Patrimoniais**, o inventario esta dividido em dois menus:
+No grupo **Operações Patrimoniais**, o inventario esta dividido em dois menus:
 
-- `Invent?rio - Contagem`: execu?o operacional (leitura, contagens, diverg?ncias, offline-first).
-- `Invent?rio - Administra?o`: abertura/encerramento/reabertura de eventos, micro-ciclos e relatorios.
+- `Inventário - Contagem`: execução operacional (leitura, contagens, divergências, offline-first).
+- `Inventário - Administração`: abertura/encerramento/reabertura de eventos, micro-ciclos e relatorios.
 
-Essa separa?o existe para evitar mistura de funcoes entre operador de endereço e administrador do evento.
+Essa separação existe para evitar mistura de funcoes entre operador de endereço e administrador do evento.
 

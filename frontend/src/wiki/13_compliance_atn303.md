@@ -13,8 +13,8 @@ Este sistema implementa regras de compliance como comportamento verificavel. As 
 ## Regra 1: Congelamento no inventario
 
 - Base legal: Art. 183 (AN303_Art183)
-- Regra: durante inventario `EM_ANDAMENTO`, e vedada movimenta?o de bens (mudanca de carga) no escopo ativo.
-- Implementa?o: bloqueio no banco para altera?o de `bens.unidade_dona_id` durante evento ativo com escopo:
+- Regra: durante inventario `EM_ANDAMENTO`, e vedada movimentação de bens (mudanca de carga) no escopo ativo.
+- Implementação: bloqueio no banco para alteração de `bens.unidade_dona_id` durante evento ativo com escopo:
   - `GERAL` (global)
   - `UNIDADE` (unidade especifica)
   - `LOCAIS` (lista de endereços)
@@ -23,13 +23,13 @@ Este sistema implementa regras de compliance como comportamento verificavel. As 
 
 - Base legal: Art. 185 (AN303_Art185)
 - Regra: bens encontrados em local divergente não mudam de unidade dona durante inventário.
-- Implementa?o: registrar ocorrencia `ENCONTRADO_EM_LOCAL_DIVERGENTE` + `regulariza?o_pendente=true`.
+- Implementação: registrar ocorrencia `ENCONTRADO_EM_LOCAL_DIVERGENTE` + `regularizacao_pendente=true`.
 
 ## Regra 3: Cautela vs transferencia
 
 - Base legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127)
 - Regra: transferência muda carga; cautela mantém carga e controla detentor temporário.
-- Implementa?o: endpoints e registros distintos; transferencia gera historico de carga.
+- Implementação: endpoints e registros distintos; transferencia gera historico de carga.
 
 ## Regra 4: Classificação de inservíveis com fluxo guiado
 
@@ -40,19 +40,19 @@ Este sistema implementa regras de compliance como comportamento verificavel. As 
   - Art. 141, III (AN303_Art141_III)
   - Art. 141, IV (AN303_Art141_IV)
 - Regra: classificação deve ser guiada e auditável.
-- Implementa?o: wizard com perguntas e justificativa.
+- Implementação: wizard com perguntas e justificativa.
 
 ## Regra 5: Controle segregado de bens de terceiros
 
 - Base legal: Art. 99 (AN303_Art99), Art. 110, VI (AN303_Art110_VI), Art. 175, IX (AN303_Art175_IX)
 - Regra: bens externos não devem ser incorporados automaticamente como patrimônio.
-- Implementa?o: registro segregado de ocorrencias de bem de terceiro.
+- Implementação: registro segregado de ocorrencias de bem de terceiro.
 
 ## Regra 6: Registro de bens sem identificação (plaqueta ausente/danificada)
 
 - Base legal: Art. 175, IX (AN303_Art175_IX)
 - Regra: bens encontrados sem identificação durante inventário devem ser registrados com fotografia e descrição detalhada e mantidos no local encontrado até regularização.
-- Implementa?o: endpoint `POST /inventario/bens-n?o-identificados`; cria entrada em `bens` com `proprietario_externo='SEM_IDENTIFICACAO'` e contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` + `regulariza?o_pendente=true`.
+- Implementação: endpoint `POST /inventario/bens-nao-identificados`; cria entrada em `bens` com `proprietario_externo='SEM_IDENTIFICACAO'` e contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` + `regularizacao_pendente=true`.
 
 ## Nota operacional: alerta impositivo de divergência
 

@@ -1,7 +1,7 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/08_wizard_art141.md
-Funcao no sistema: orientar uso do Wizard de classifica?o de inserviveis (Art. 141) com persistencia e auditoria.
+Funcao no sistema: orientar uso do Wizard de classificação de inserviveis (Art. 141) com persistencia e auditoria.
 Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
@@ -56,9 +56,9 @@ Se existir laudo/foto/arquivo no Drive vinculado à avaliação, registre o link
 Como:
 
 - UI: após salvar a avaliação, usar o bloco **"Evidência (opcional)"** e colar a URL do Drive.
-- API: `POST /documentos` com `avalia?oInservivelId`.
+- API: `POST /documentos` com `avaliacaoInservivelId`.
 
 Pré-requisito:
 
-- Aplicar a migration `database/013_documentos_avalia?es_inserviveis.sql`.
+- Aplicar a migration `database/013_documentos_avaliações_inserviveis.sql`.
 

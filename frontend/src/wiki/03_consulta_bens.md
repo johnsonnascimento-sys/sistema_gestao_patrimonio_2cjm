@@ -56,7 +56,7 @@ Use quando você quer ver apenas itens de uma unidade (carga).
 
 ### 5) Filtro por responsavel
 
-- Digite matr?cula ou nome do responsavel patrimonial.
+- Digite matrícula ou nome do responsavel patrimonial.
 - Selecione o perfil sugerido para filtrar com precisao.
 - O resultado lista apenas bens associados ao responsavel selecionado.
 
@@ -70,7 +70,7 @@ Campos típicos no resumo:
 - Descrição (do catálogo ou descrição consolidada)
 - Unidade (carga)
 - Local (local fisico)
-- Responsavel (matr?cula/nome)
+- Responsavel (matrícula/nome)
 - Tombo antigo (Azul) (`cod2Aud`)
 - Catálogo (SKU)
 - Status (OK/EM_CAUTELA/BAIXADO/AGUARDANDO_RECEBIMENTO quando aplicavel)
@@ -99,23 +99,23 @@ Use isso quando precisar:
 Quando o status do bem for `EM_CAUTELA`, o modal mostra o bloco **Cautela atual** com:
 
 - `detentorTemporarioPerfilId`
-- matr?cula e nome do detentor
+- matrícula e nome do detentor
 - data prevista de devolucao (ou "Sem data prevista")
 
-## Linha do tempo de altera?es e reversao (modal)
+## Linha do tempo de alterações e reversao (modal)
 
-No modal de detalhes, ha uma secao **Linha do tempo de altera?es** com:
+No modal de detalhes, ha uma seção **Linha do tempo de alterações** com:
 
-- Quem alterou (`executorNome`/matr?cula quando disponivel)
-- Data e hora da altera?o
+- Quem alterou (`executorNome`/matrícula quando disponivel)
+- Data e hora da alteração
 - O que mudou (campo, valor antes, valor depois)
-- Origem da altera?o (tabela/opera?o auditada)
+- Origem da alteração (tabela/operação auditada)
 
 Modo de reversao item-a-item (ADMIN):
 
-- Cada registro elegivel exibe o botao **Reverter esta altera?o**
-- A reversao cria nova trilha de auditoria (n?o apaga historico)
-- Recomenda-se reverter apenas altera?es indevidas, validando antes no proprio diff
+- Cada registro elegivel exibe o botao **Reverter esta alteração**
+- A reversao cria nova trilha de auditoria (não apaga historico)
+- Recomenda-se reverter apenas alterações indevidas, validando antes no proprio diff
 
 ## Editar bem (ADMIN)
 
@@ -123,19 +123,19 @@ No modal de detalhes, usuarios `ADMIN` podem editar os campos operacionais do be
 
 - Material (SKU) via busca por codigo
 - endereço/Local (padronizado) via tabela locais
-- Responsavel patrimonial por busca de matr?cula ou nome (com dupla confirma?o na associa?o)
+- Responsavel patrimonial por busca de matrícula ou nome (com dupla confirmação na associação)
 - Contrato / data / valor de aquisicao
-- Observa?es (texto livre relacionado ao bem)
+- Observações (texto livre relacionado ao bem)
 - Fotos (item e referencia do SKU)
 
 Importante no modal:
 
-- Unidade (carga) e status aparecem bloqueados e exigem o fluxo proprio em Movimenta?es.
-- Nome Resumo e Descri?o sao exibidos em modo leitura e devem ser alterados no menu Material (SKU).
-- A descri?o exibida no modal vem da ficha do Material (SKU).
+- Unidade (carga) e status aparecem bloqueados e exigem o fluxo proprio em Movimentações.
+- Nome Resumo e Descrição sao exibidos em modo leitura e devem ser alterados no menu Material (SKU).
+- A descrição exibida no modal vem da ficha do Material (SKU).
 - Responsavel patrimonial indica posse operacional no dia a dia, sem cautela ativa.
-- Usuarios selecionados como responsavel devem estar cadastrados em Administra?o do Painel -> Perfis e Acessos.
-- Cautela e outro fluxo: fica registrada em Movimenta?es com detentor temporario e status EM_CAUTELA.
+- Usuarios selecionados como responsavel devem estar cadastrados em Administração do Painel -> Perfis e Acessos.
+- Cautela e outro fluxo: fica registrada em Movimentações com detentor temporario e status EM_CAUTELA.
 - Em CAUTELA_SAIDA, o responsavel patrimonial e preenchido automaticamente com o detentor da cautela.
 - Em CAUTELA_RETORNO, o sistema pergunta se deve manter o mesmo responsavel patrimonial.
 
@@ -149,7 +149,7 @@ No mesmo modal, o `ADMIN` pode:
 
 OBS: O sistema armazena as fotos localmente no servidor para maior performance e privacidade.
 
-## Dicas de uso (opera?o rapida)
+## Dicas de uso (operação rapida)
 
 - Se você estiver no inventário e não encontrou um item, use a Consulta para ver "onde deveria estar" e "onde está cadastrado".
 - Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda não foi localizado/recebido fisicamente.
@@ -161,7 +161,7 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 - O sufixo de leitura com Enter, Tab **ou** Ctrl+J dispara a consulta automaticamente.
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
 
-- Observa?o: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+- Observação: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
 
 
 

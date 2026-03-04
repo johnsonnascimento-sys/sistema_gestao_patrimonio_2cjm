@@ -156,6 +156,12 @@ Regra obrigatoria:
 - Todo texto exibido ao usuario final deve usar ortografia correta do portugues brasileiro, com acentuacao completa (ex.: `Inventario` -> `Inventário`, `Administracao` -> `Administração`, `Gestao` -> `Gestão`).
 - O mesmo padrao vale para todo conteudo de wiki/manual (`/frontend/src/wiki`).
 - Excecoes permitidas: identificadores tecnicos, nomes de variaveis, chaves de API, codigos de erro, rotas e nomes de arquivo.
+- Todos os arquivos de UI/wiki devem ser salvos em UTF-8.
+- E proibido publicar texto com sinais de corrupcao de encoding, incluindo:
+  - caracteres de substituicao (`�`);
+  - sequencias tipicas de mojibake (`Ã`, `Â`);
+  - `?` dentro de palavras (ex.: `Opera?es`, `Invent?rio`, `Classifica?o`).
+- Gate obrigatorio no ciclo de entrega: executar `python scripts/check_wiki_encoding.py` e corrigir toda falha antes de commit/deploy.
 
 ## 8. Politica de Segredos e Compliance Operacional
 
@@ -178,6 +184,7 @@ Regras de mudanca:
 - Refatoracao visual deve ser incremental por fase, com checkpoint de regressao funcional ao final de cada fase.
 - Redesign guiado por imagem de referencia exige checklist de paridade visual e evidencia (antes/depois) no mesmo ciclo documental.
 - PR sem aderencia ao `PROJECT_RULES.md` deve ser reprovado.
+- PR com falha em `python scripts/check_wiki_encoding.py` deve ser reprovado.
 
 ## 10. Regra Wiki-First (Manual Operacional Obrigatorio)
 

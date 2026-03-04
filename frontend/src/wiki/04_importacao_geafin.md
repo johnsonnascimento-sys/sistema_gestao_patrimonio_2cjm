@@ -1,29 +1,29 @@
 <!--
 Modulo: wiki
-Arquivo: frontend/src/wiki/04_importa?o_geafin.md
-Funcao no sistema: manual detalhado da importa?o GEAFIN (CSV Latin1) e como auditar o espelho.
+Arquivo: frontend/src/wiki/04_importacao_geafin.md
+Funcao no sistema: manual detalhado da importação GEAFIN (CSV Latin1) e como auditar o espelho.
 -->
 
 # Importação GEAFIN (CSV)
 
-## O que esta importa?o faz
+## O que esta importação faz
 
 Quando voce importa o CSV do GEAFIN (relatorio), o sistema faz duas coisas:
 
 1. **Camada espelho (auditoria 1:1)**:
-   - Salva todas as linhas importadas em tabelas de importa?o (espelho do CSV).
+   - Salva todas as linhas importadas em tabelas de importação (espelho do CSV).
    - Isso permite provar que "o que entrou" e exatamente o que estava no arquivo.
 
 2. **Camada operacional (normalizada)**:
-   - Atualiza `cat?logo_bens` e `bens` para uso diario (SKU vs item).
-   - Evita duplica?o de descri?o por item, quando possivel.
+   - Atualiza `catálogo_bens` e `bens` para uso diario (SKU vs item).
+   - Evita duplicação de descrição por item, quando possivel.
 
 ## Onde importar
 
 No site, abra:
 
-- Grupo **Opera?es Patrimoniais**
-- Secao **Importa?o GEAFIN (CSV Latin1)**
+- Grupo **Operações Patrimoniais**
+- Secao **Importação GEAFIN (CSV Latin1)**
 
 Passos:
 
@@ -33,21 +33,21 @@ Passos:
 
 ## Progresso (barra)
 
-Durante a importa?o, a UI mostra:
+Durante a importação, a UI mostra:
 
 - Nome do arquivo
 - Status (EM_ANDAMENTO / CONCLUIDO / ERRO)
 - Percentual (%)
-- Contadores (ok, falhas de persistencia, falhas de normaliza?o)
+- Contadores (ok, falhas de persistencia, falhas de normalização)
 - Datas:
   - **inicio** (quando o arquivo foi registrado)
-  - **ultima atualiza?o** (ultima linha persistida no espelho)
+  - **ultima atualização** (ultima linha persistida no espelho)
   - **finalizada em** (quando concluiu ou falhou)
-- Indicador **sem atualiza?o** (segundos desde a ultima atualiza?o)
+- Indicador **sem atualização** (segundos desde a ultima atualização)
 
 ### Se ficar em 0% por muito tempo
 
-Isso normalmente significa "fase de prepara?o":
+Isso normalmente significa "fase de preparação":
 
 - upload do arquivo
 - leitura/parse do CSV
@@ -57,13 +57,13 @@ Por isso, o sistema pode mostrar um indicador "indeterminado" ate as primeiras l
 
 ### Se ficar parado (ex.: % travado) por muito tempo
 
-Se o status continuar `EM_ANDAMENTO` mas o campo **sem atualiza?o** ficar alto (sem novas linhas entrando),
-provavelmente a importa?o anterior foi interrompida (ex.: backend reiniciado).
+Se o status continuar `EM_ANDAMENTO` mas o campo **sem atualização** ficar alto (sem novas linhas entrando),
+provavelmente a importação anterior foi interrompida (ex.: backend reiniciado).
 
 Acao recomendada:
 
 1. Clique em **Cancelar** na barra de progresso.
-2. O sistema marca a importa?o como `ERRO` para destravar a UI (isso e esperado).
+2. O sistema marca a importação como `ERRO` para destravar a UI (isso e esperado).
 3. Em seguida, faca um novo upload.
 
 ## O que pode dar errado (e o que fazer)
@@ -72,7 +72,7 @@ Acao recomendada:
 
 Sintoma:
 
-- O browser mostra 504 ou "Failed to fetch" durante upload/importa?o.
+- O browser mostra 504 ou "Failed to fetch" durante upload/importação.
 
 Causa comum:
 
@@ -82,7 +82,7 @@ Solução:
 
 - Ajustar `proxy_read_timeout`/`proxy_send_timeout` no Nginx (host e/ou container) e recarregar.
 
-### 2) ERRO no status da importa?o
+### 2) ERRO no status da importação
 
 Quando o status vira `ERRO`, o sistema guarda um resumo (`erro_resumo`). Voce deve:
 
@@ -105,7 +105,7 @@ O sistema guarda metadados do arquivo (hash, bytes, total de linhas) e as linhas
 Importante:
 
 - O espelho não substitui a camada operacional.
-- Ele existe para rastreabilidade e compara?o.
+- Ele existe para rastreabilidade e comparação.
 
 ## Boas praticas
 
@@ -115,7 +115,7 @@ Importante:
 
 ## Backup obrigatorio antes de importar
 
-Para reduzir risco em caso de erro durante a importa?o, execute snapshot antes de cada carga GEAFIN:
+Para reduzir risco em caso de erro durante a importação, execute snapshot antes de cada carga GEAFIN:
 
 ```bash
 cd /opt/cjm-patrimonio/current
@@ -130,56 +130,56 @@ Esse snapshot inclui:
 
 Se ocorrer incidente grave, use o restore do dump correspondente conforme `docs/BACKUP_DRIVE.md`.
 
-## Atualiza?o 2026-02-26 - Local da funcionalidade
+## Atualização 2026-02-26 - Local da funcionalidade
 
-A importa?o GEAFIN foi posicionada como ultimo submenu operacional.
+A importação GEAFIN foi posicionada como ultimo submenu operacional.
 
 Novo caminho de menu:
 
-- Opera?es Patrimoniais -> Importa?o GEAFIN (CSV Latin1)
+- Operações Patrimoniais -> Importação GEAFIN (CSV Latin1)
 
 A API e o comportamento operacional permanecem os mesmos.
 
-## Atualiza?o 2026-02-27 - Sessao v2 (previa -> revisao -> aplica?o)
+## Atualização 2026-02-27 - Sessao v2 (previa -> revisao -> aplicação)
 
-Novo fluxo da Importa?o GEAFIN:
+Novo fluxo da Importação GEAFIN:
 
-1. Criar sessao de previa (sem gravar altera?es operacionais em `bens/cat?logo`).
-2. Revisar a?es planejadas.
+1. Criar sessao de previa (sem gravar alterações operacionais em `bens/catálogo`).
+2. Revisar ações planejadas.
 3. Aplicar sessao com backup automatico obrigatorio antes da escrita.
 
 ### Modos
 
 - `INCREMENTAL` (padrao):
-  - exige decisao item a item para a?es de cria?o/atualiza?o (`APROVADA` ou `REJEITADA`);
+  - exige decisao item a item para ações de criação/atualização (`APROVADA` ou `REJEITADA`);
   - permite atalho de decisao em lote por filtro.
 
 - `TOTAL`:
-  - exige confirma?o forte (`IMPORTACAO_TOTAL`);
+  - exige confirmação forte (`IMPORTACAO_TOTAL`);
   - exige escolha obrigatoria para bens ausentes no escopo:
-    - `MANTER`: n?o altera ausentes;
+    - `MANTER`: não altera ausentes;
     - `BAIXAR`: marca ausentes como `BAIXADO`.
 
 ### Escopo
 
 - `GERAL`: todas as unidades.
-- `UNIDADE`: uma unidade por execu?o (`1..4`).
+- `UNIDADE`: uma unidade por execução (`1..4`).
 
 ### Cancelamento e rollback
 
 - Cancelar em previa: encerra sessao sem impacto operacional.
-- Cancelar durante aplica?o: o backend faz rollback total da aplica?o em curso.
+- Cancelar durante aplicação: o backend faz rollback total da aplicação em curso.
 
 ### Regra permanente de seguranca
 
-- A importa?o GEAFIN n?o executa delete fisico de `bens` nem `cat?logo_bens`.
+- A importação GEAFIN não executa delete fisico de `bens` nem `catálogo_bens`.
 
 ### Endpoints principais (v2)
 
-- `POST /importa?es/geafin/sessoes`
-- `GET /importa?es/geafin/:id`
-- `GET /importa?es/geafin/:id/a?es`
-- `POST /importa?es/geafin/:id/a?es/:a?oId/decisao`
-- `POST /importa?es/geafin/:id/a?es/decisao-lote`
-- `POST /importa?es/geafin/:id/aplicar`
-- `POST /importa?es/geafin/:id/cancelar`
+- `POST /importacoes/geafin/sessoes`
+- `GET /importacoes/geafin/:id`
+- `GET /importacoes/geafin/:id/ações`
+- `POST /importacoes/geafin/:id/ações/:acaoId/decisao`
+- `POST /importacoes/geafin/:id/ações/decisao-lote`
+- `POST /importacoes/geafin/:id/aplicar`
+- `POST /importacoes/geafin/:id/cancelar`

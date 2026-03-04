@@ -887,7 +887,7 @@ function AppShell() {
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs uppercase tracking-widest text-slate-500">Hist?rico (Art. 141)</p>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Histórico (Art. 141)</p>
                       {wizardAvaliacoesQuery.isLoading && <p className="mt-3 text-sm text-slate-600">Carregando...</p>}
                       {!wizardBem && <p className="mt-3 text-sm text-slate-600">Selecione um bem para ver historico.</p>}
                       {wizardBem && !wizardAvaliacoesQuery.isLoading && (wizardAvaliacoesQuery.data || []).length === 0 && (
@@ -982,7 +982,6 @@ export default function App() {
 
   return <AppShell />;
 }
-
 
 
 

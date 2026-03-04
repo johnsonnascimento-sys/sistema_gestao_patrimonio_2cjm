@@ -1,7 +1,7 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/09_relatorios_auditoria.md
-Funcao no sistema: orientar como extrair evidencias e entender trilhas (historicos, importa?o GEAFIN, inventario, documentos).
+Funcao no sistema: orientar como extrair evidencias e entender trilhas (historicos, importação GEAFIN, inventario, documentos).
 Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
@@ -26,7 +26,7 @@ Evidências:
 
 Uso típico:
 
-- "as 3833 linhas do CSV foram processadas?": verificar `status=CONCLUIDO` e `percent=100` em `GET /importa?es/geafin/ultimo`.
+- "as 3833 linhas do CSV foram processadas?": verificar `status=CONCLUIDO` e `percent=100` em `GET /importacoes/geafin/ultimo`.
 
 ## 2) Auditoria de mudança de carga (transferências)
 
@@ -49,7 +49,7 @@ Base legal:
 Um "forasteiro" é uma divergência registrada no inventário:
 
 - `tipo_ocorrencia = ENCONTRADO_EM_LOCAL_DIVERGENTE`
-- `regulariza?o_pendente = true`
+- `regularizacao_pendente = true`
 
 Relatório típico:
 
@@ -63,38 +63,38 @@ Base legal:
 
 - Art. 185 (AN303_Art185).
 
-## Relat?rio de encerramento do invent?rio (detalhado)
+## Relatório de encerramento do inventário (detalhado)
 
-Quando o evento ? encerrado, a tela de Administra?o apresenta um relat?rio consolidado com:
+Quando o evento ? encerrado, a tela de Administração apresenta um relatório consolidado com:
 
 - contagens totais e conformidades
-- diverg?ncias de unidade/endereço (incluindo `UNIDADE_E_endereço`)
-- pend?ncias de regulariza?o p?s-invent?rio
-- evid?ncias de ader?ncia aos Arts. 183/185/124/127
+- divergências de unidade/endereço (incluindo `UNIDADE_E_endereço`)
+- pendências de regularização pós-inventário
+- evidências de aderência aos Arts. 183/185/124/127
 
-Gr?ficos no painel:
+Gráficos no painel:
 
-- pizza de diverg?ncias por tipo (Unidade, endereço, Unidade+endereço)
-- barra de regulariza?o (pendentes x regularizadas)
-- ranking de endereços com mais diverg?ncias
+- pizza de divergências por tipo (Unidade, endereço, Unidade+endereço)
+- barra de regularização (pendentes x regularizadas)
+- ranking de endereços com mais divergências
 
-Exporta?o edit?vel:
+Exportação editável:
 
 - endpoint `GET /api/inventario/eventos/{id}/relatorio-encerramento.csv`
-- arquivo CSV edit?vel para planilhas e edi?es da comiss?o.
+- arquivo CSV editável para planilhas e edições da comissão.
 
-Observa?o de compliance:
+Observação de compliance:
 
-- o endpoint exige evento `ENCERRADO`, evitando relat?rio final em invent?rio ainda ativo.
+- o endpoint exige evento `ENCERRADO`, evitando relatório final em inventário ainda ativo.
 
-## Linha do tempo de altera?es do bem
+## Linha do tempo de alterações do bem
 
 Na tela de detalhes do bem (Consulta de Bens), a trilha de auditoria segue estes padroes:
 
-- IDs de local, perfil, cat?logo e bem n?o aparecem crus na grade principal.
+- IDs de local, perfil, catálogo e bem não aparecem crus na grade principal.
 - Para `UPDATE`, o diff mostra antes/depois por campo.
-- Para `INSERT` e `DELETE`, a timeline mostra um marcador de opera?o para evitar item vazio.
-- O responsavel da altera?o e resolvido por nome/matr?cula sempre que houver `perfil_id` relacionado.
+- Para `INSERT` e `DELETE`, a timeline mostra um marcador de operação para evitar item vazio.
+- O responsavel da alteração e resolvido por nome/matrícula sempre que houver `perfil_id` relacionado.
 - Quando existir UUID de referencia, ele fica disponivel por tooltip (hover/foco), sem poluir a leitura principal.
 
 ## 4) Bens de terceiros (controle segregado)
@@ -119,8 +119,8 @@ O sistema **não armazena PDF no banco**. Ele armazena metadados em `documentos`
 
 - `drive_url` / `drive_file_id`
 - `sha256` (opcional)
-- vínculo com `movimenta?es` e/ou `contagens`
-- (opcional) vínculo com `avalia?es_inserviveis` (Wizard Art. 141) via `avalia?o_inservivel_id` (migration 013)
+- vínculo com `movimentações` e/ou `contagens`
+- (opcional) vínculo com `avaliações_inserviveis` (Wizard Art. 141) via `avaliacao_inservivel_id` (migration 013)
 
 Isso permite auditoria sem carregar binários no Postgres.
 
@@ -146,11 +146,11 @@ Pré-requisitos dos workflows PDF via API:
 
 ## 8) Logs consolidados (projeto x patrimonio)
 
-### Log Geral de Altera?es (governanca)
+### Log Geral de Alterações (governanca)
 
 Onde consultar:
 
-- Menu **Auditoria e Logs** -> **Log Geral de Altera?es**
+- Menu **Auditoria e Logs** -> **Log Geral de Alterações**
 - Arquivo canonico: `docs/LOG_GERAL_ALTERACOES.md`
 
 Use este log para trilha de mudancas de sistema (deploy, UX, docs, scripts, runtime), com:
@@ -166,18 +166,18 @@ Onde consultar:
 
 - Menu **Auditoria e Logs** -> **Auditoria Patrimonial (Global)**
 
-Use este log para altera?es de patrimonio (bens/cat?logo/movimenta?es/contagens), sem abrir tombo individual.
+Use este log para alterações de patrimonio (bens/catálogo/movimentações/contagens), sem abrir tombo individual.
 
 Filtros recomendados:
 
 - `numeroTombamento`
 - `tabela`
-- `opera?o`
+- `operação`
 - `q` (texto livre)
 
 ### Log de erros runtime (novo)
 
-No menu **Auditoria e Logs**, consulte a secao **Log de Erros Runtime (API)** para ver falhas recentes (4xx/5xx) com:
+No menu **Auditoria e Logs**, consulte a seção **Log de Erros Runtime (API)** para ver falhas recentes (4xx/5xx) com:
 
 - data/hora UTC
 - codigo do erro
@@ -186,13 +186,13 @@ No menu **Auditoria e Logs**, consulte a secao **Log de Erros Runtime (API)** pa
 
 Use o `requestId` para correlacionar com logs do backend na VPS.
 
-## Atualiza?o 2026-02-26 - Novo agrupamento de Auditoria
+## Atualização 2026-02-26 - Novo agrupamento de Auditoria
 
 Consulta recomendada no menu:
 
-- Auditoria e Logs -> Log Geral de Altera?es
+- Auditoria e Logs -> Log Geral de Alterações
 - Auditoria e Logs -> Auditoria Patrimonial (Global)
 - Auditoria e Logs -> Log de Erros Runtime
 
-Esse agrupamento separa auditoria operacional da Administra?o de Infra.
+Esse agrupamento separa auditoria operacional da Administração de Infra.
 

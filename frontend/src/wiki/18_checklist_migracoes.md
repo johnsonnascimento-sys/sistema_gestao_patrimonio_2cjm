@@ -1,7 +1,7 @@
 <!--
 Modulo: wiki
-Arquivo: frontend/src/wiki/18_checklist_migra?es.md
-Funcao no sistema: explicar o que e "migra?o" neste projeto e fornecer checklist operacional de aplica?o/valida?o.
+Arquivo: frontend/src/wiki/18_checklist_migracoes.md
+Funcao no sistema: explicar o que e "migração" neste projeto e fornecer checklist operacional de aplicação/validação.
 Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
@@ -73,7 +73,7 @@ Arquivo:
 
 O que muda:
 
-- Cria `documentos` para registrar metadados (Drive URL/ID/hash) vinculados a `movimenta?es` e/ou `contagens`.
+- Cria `documentos` para registrar metadados (Drive URL/ID/hash) vinculados a `movimentações` e/ou `contagens`.
 
 Por quê:
 
@@ -118,7 +118,7 @@ Arquivo:
 
 O que muda:
 
-- Cria `avalia?es_inserviveis` (histórico) e permite persistir resultado do wizard.
+- Cria `avaliações_inserviveis` (histórico) e permite persistir resultado do wizard.
 
 Por quê:
 
@@ -126,7 +126,7 @@ Por quê:
 
 Como validar (SQL):
 
-- `SELECT to_regclass('public.avalia?es_inserviveis');`
+- `SELECT to_regclass('public.avaliações_inserviveis');`
 
 Como validar (UI):
 
@@ -141,7 +141,7 @@ Arquivo:
 
 O que muda:
 
-- `cat?logo_bens.foto_referencia_url` (foto de referência do SKU)
+- `catálogo_bens.foto_referencia_url` (foto de referência do SKU)
 - `bens.foto_url` (foto do item, quando necessário)
 - tabela `locais` e `bens.local_id` (opcional, mantendo `local_fisico`)
 
@@ -152,7 +152,7 @@ Por quê:
 Como validar (SQL):
 
 - `SELECT to_regclass('public.locais');`
-- `SELECT foto_referencia_url FROM cat?logo_bens LIMIT 1;`
+- `SELECT foto_referencia_url FROM catálogo_bens LIMIT 1;`
 - `SELECT foto_url, local_id FROM bens LIMIT 1;`
 
 Como validar (API):
@@ -185,19 +185,19 @@ Como validar (API):
 
 Arquivo:
 
-- `database/013_documentos_avalia?es_inserviveis.sql`
+- `database/013_documentos_avaliações_inserviveis.sql`
 
 O que muda:
 
-- Adiciona `documentos.avalia?o_inservivel_id` (FK) para permitir anexar evidências do Drive a uma avaliação.
+- Adiciona `documentos.avaliacao_inservivel_id` (FK) para permitir anexar evidências do Drive a uma avaliação.
 
 Como validar (SQL):
 
-- `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='documentos' AND column_name='avalia?o_inservivel_id';`
+- `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='documentos' AND column_name='avaliacao_inservivel_id';`
 
 Como validar (API):
 
-- `GET /api/documentos?avalia?oInservivelId=<uuid>` deve responder 200.
+- `GET /api/documentos?avaliacaoInservivelId=<uuid>` deve responder 200.
 
 ## 4) Depois de aplicar migrações: deploy
 

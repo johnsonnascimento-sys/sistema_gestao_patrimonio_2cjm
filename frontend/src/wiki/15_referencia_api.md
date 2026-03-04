@@ -186,7 +186,7 @@ Acesso:
 
 - `mustAdmin`.
 
-### POST `/catalogo-bens`
+### POST `/catálogo-bens`
 
 Uso:
 
@@ -196,7 +196,7 @@ Regra:
 
 - campo `grupo` deve referenciar classificação SIAFI válida e ativa.
 
-### PATCH `/catalogo-bens/:id`
+### PATCH `/catálogo-bens/:id`
 
 Uso:
 

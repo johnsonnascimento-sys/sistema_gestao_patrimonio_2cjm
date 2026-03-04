@@ -8,7 +8,7 @@ Funcao no sistema: documentar o painel inicial (Dashboard) e seus atalhos operac
 
 ## Objetivo
 
-O Dashboard e a tela inicial para visao rapida da opera?o patrimonial.
+O Dashboard e a tela inicial para visao rapida da operação patrimonial.
 
 Ele concentra:
 
@@ -25,18 +25,18 @@ Ele concentra:
 - distribuicao por unidade
 - estado geral de processamento da base
 
-### Invent?rio ativo
+### Inventário ativo
 
 - quantidade de eventos em andamento
-- indica?o de escopo (geral/unidade/locais)
+- indicação de escopo (geral/unidade/locais)
 - alerta de bloqueio de transferencia no escopo do Art. 183
 
 ### Atalhos
 
-- abrir Invent?rio - Contagem
-- abrir Invent?rio - Administra?o
+- abrir Inventário - Contagem
+- abrir Inventário - Administração
 - abrir Consulta de Bens
-- abrir Movimenta?es
+- abrir Movimentações
 
 ## Uso recomendado
 
@@ -44,7 +44,7 @@ Ele concentra:
 2. Verificar se ha inventario ativo e em qual unidade.
 3. Abrir o modulo de trabalho pelo atalho correto.
 
-## Observa?es
+## Observações
 
-- O Dashboard n?o substitui auditoria detalhada.
-- Para trilha formal de altera?es, usar "Auditoria e Logs".
+- O Dashboard não substitui auditoria detalhada.
+- Para trilha formal de alterações, usar "Auditoria e Logs".

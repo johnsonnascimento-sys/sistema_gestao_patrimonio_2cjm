@@ -1,7 +1,7 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/16_matriz_compliance.md
-Funcao no sistema: matriz de compliance (ATN 303/2008) mapeando artigo -> regra -> implementa?o -> evidencia.
+Funcao no sistema: matriz de compliance (ATN 303/2008) mapeando artigo -> regra -> implementação -> evidencia.
 Fonte: planilha `ATN_STM_303_2008.xlsx` (abas "Index da Norma" e "Norma Detalhada").
 -->
 
@@ -64,10 +64,10 @@ Quadro (mínimo) exigido para auditoria: **Artigo → Regra do sistema → Onde 
 
 | Artigo (ID) | Resumo interpretativo (planilha) | Regra do sistema | Implementação (DB/API/UI/n8n) | Evidência/auditoria |
 |---|---|---|---|---|
-| Art. 183 (AN303_Art183) | "Congelamento" físico e sistêmico dos ativos durante a contagem. | Com inventário `EM_ANDAMENTO`, é vedada movimentação que altere **carga** (unidade dona), respeitando escopo ativo (`GERAL`, `UNIDADE`, `LOCAIS`). | DB: trigger/função `fn_bloqueio_movimenta?o_art183()` em `bens`, filtrando por escopo do evento. UI: banner "Inventário ativo" e seleção explícita do evento. | Erro Postgres (`P0001`) + `auditoria_log` para tentativas. |
-| Art. 185 (AN303_Art185) | Dever de sanear o sistema corrigindo locais ou dados dos bens. | Divergência vira ocorrência (`ENCONTRADO_EM_LOCAL_DIVERGENTE`) e **não** muda dono durante o inventário; regulariza depois. | DB: `contagens` + view `vw_forasteiros` + regra `regulariza?o_pendente`. API: `POST /inventario/sync`, `GET /inventario/forasteiros`, `POST /inventario/regulariza?es`. UI: "Modo Inventário" + aba "Regularização". n8n: relatório (quando importado). | Linhas em `contagens`/`vw_forasteiros` + histórico de regularização (Art. 185) + PDF no Drive (quando automatizado). |
-| Art. 124 (AN303_Art124) | Termo de Responsabilidade formaliza o dever de guarda. | Transferência muda carga e deve ter referência documental (termo) e responsável. | DB: `historico_transferencias` + trigger `trg_track_owner_change`. API/UI: `POST /movimentar` (TRANSFERENCIA) com `termo_referencia`. | `historico_transferencias` + `movimenta?es` + `auditoria_log`. (PDF: pendente n8n). |
-| Art. 127 (AN303_Art127) | Saída física só com aval prévio da DIPAT. | Cautela registra saída/retorno sem mudar carga; deve registrar autorizador/termo. | API/UI: `POST /movimentar` (`CAUTELA_SAIDA`/`CAUTELA_RETORNO`) + campos de termo/autorização. DB: status `EM_CAUTELA` + `movimenta?es`. | `movimenta?es` com termo + histórico de status do bem. (PDF: pendente n8n). |
+| Art. 183 (AN303_Art183) | "Congelamento" físico e sistêmico dos ativos durante a contagem. | Com inventário `EM_ANDAMENTO`, é vedada movimentação que altere **carga** (unidade dona), respeitando escopo ativo (`GERAL`, `UNIDADE`, `LOCAIS`). | DB: trigger/função `fn_bloqueio_movimentacao_art183()` em `bens`, filtrando por escopo do evento. UI: banner "Inventário ativo" e seleção explícita do evento. | Erro Postgres (`P0001`) + `auditoria_log` para tentativas. |
+| Art. 185 (AN303_Art185) | Dever de sanear o sistema corrigindo locais ou dados dos bens. | Divergência vira ocorrência (`ENCONTRADO_EM_LOCAL_DIVERGENTE`) e **não** muda dono durante o inventário; regulariza depois. | DB: `contagens` + view `vw_forasteiros` + regra `regularizacao_pendente`. API: `POST /inventario/sync`, `GET /inventario/forasteiros`, `POST /inventario/regularizacoes`. UI: "Modo Inventário" + aba "Regularização". n8n: relatório (quando importado). | Linhas em `contagens`/`vw_forasteiros` + histórico de regularização (Art. 185) + PDF no Drive (quando automatizado). |
+| Art. 124 (AN303_Art124) | Termo de Responsabilidade formaliza o dever de guarda. | Transferência muda carga e deve ter referência documental (termo) e responsável. | DB: `historico_transferencias` + trigger `trg_track_owner_change`. API/UI: `POST /movimentar` (TRANSFERENCIA) com `termo_referencia`. | `historico_transferencias` + `movimentações` + `auditoria_log`. (PDF: pendente n8n). |
+| Art. 127 (AN303_Art127) | Saída física só com aval prévio da DIPAT. | Cautela registra saída/retorno sem mudar carga; deve registrar autorizador/termo. | API/UI: `POST /movimentar` (`CAUTELA_SAIDA`/`CAUTELA_RETORNO`) + campos de termo/autorização. DB: status `EM_CAUTELA` + `movimentações`. | `movimentações` com termo + histórico de status do bem. (PDF: pendente n8n). |
 | Art. 141 (AN303_Art141_*) | 4 categorias obrigatórias: Ocioso, Recuperável, Antieconômico, Irrecuperável. | Classificação de inservíveis deve ser **guiada** e auditável (decisão + justificativa). | UI: Wizard Art. 141. DB: enum `tipo_inservivel`. | (Pendente) persistir resultado do wizard + relatórios. |
 | Art. 99 (AN303_Art99) | Proíbe tombamento de bens que não pertencem ao STM (controle à parte). | Bens de terceiros não são incorporados ao acervo STM; cadastro segregado e rastreável. | DB: `bens.eh_bem_terceiro`, `identificador_externo`, `proprietario_externo` + constraints. UI/Wiki: fluxo "Bem de terceiro". | Registros com `eh_bem_terceiro=TRUE` + auditoria. |
 | Art. 110, VI (AN303_Art110_VI) | Controlar itens alugados/terceiros e informar ao Patrimônio. | Controle segregado com rastreabilidade (quem, onde, quando). | DB/UI/Wiki: mesmo mecanismo de "bens de terceiros", com relatórios dedicados. | Relatório (pendente n8n) + trilha de auditoria. |
@@ -78,7 +78,7 @@ Quadro (mínimo) exigido para auditoria: **Artigo → Regra do sistema → Onde 
 - Base legal: Art. 183 (AN303_Art183)
 - Regra: durante inventário `EM_ANDAMENTO`, é vedada movimentação que altere carga.
 - Implementação:
-  - DB: trigger `fn_bloqueio_movimenta?o_art183()` bloqueia `UPDATE` em `bens.unidade_dona_id`.
+  - DB: trigger `fn_bloqueio_movimentacao_art183()` bloqueia `UPDATE` em `bens.unidade_dona_id`.
   - UI: banner "Inventário ativo".
 - Evidência/auditoria:
   - Erro de banco com `DETAIL` contendo Art. 183 (AN303_Art183).
@@ -89,7 +89,7 @@ Quadro (mínimo) exigido para auditoria: **Artigo → Regra do sistema → Onde 
 - Base legal: Art. 185 (AN303_Art185)
 - Regra: bem encontrado em local divergente deve virar ocorrência e ser regularizado depois.
 - Implementação:
-  - DB: `contagens.tipo_ocorrencia='ENCONTRADO_EM_LOCAL_DIVERGENTE'` força `regulariza?o_pendente=TRUE`.
+  - DB: `contagens.tipo_ocorrencia='ENCONTRADO_EM_LOCAL_DIVERGENTE'` força `regularizacao_pendente=TRUE`.
   - API: `POST /inventario/sync` grava contagem e marca divergência de forma determinística.
   - View: `vw_forasteiros` (base para relatório/automação).
 - Evidência/auditoria:
@@ -106,7 +106,7 @@ Quadro (mínimo) exigido para auditoria: **Artigo → Regra do sistema → Onde 
   - DB: `historico_transferencias` + trigger `trg_track_owner_change` (mudança de `unidade_dona_id`).
   - API: `POST /movimentar` separa `TRANSFERENCIA` de `CAUTELA_SAIDA/RETORNO`.
 - Evidência/auditoria:
-  - `movimenta?es` (com `termo_referencia`) + `historico_transferencias`.
+  - `movimentações` (com `termo_referencia`) + `historico_transferencias`.
   - `GET /bens/{id}` expõe histórico e movimentações recentes.
 
 ### 2.4 Classificação de inservíveis (fluxo guiado)
@@ -138,7 +138,7 @@ Quadro (mínimo) exigido para auditoria: **Artigo → Regra do sistema → Onde 
 
 Para evoluir a compliance, o backlog imediato é:
 
-1. Regularização pós-inventário para divergências do Art. 185 (implementado: aba "Regularização" + endpoint `/inventario/regulariza?es`).
+1. Regularização pós-inventário para divergências do Art. 185 (implementado: aba "Regularização" + endpoint `/inventario/regularizacoes`).
 2. Termos oficiais (PDF) para transferência/cautela (Arts. 124/127).
 3. Persistência completa do Wizard Art. 141 + relatórios de inservíveis.
 4. Baixa e apuração de fatos (Arts. 153–168).

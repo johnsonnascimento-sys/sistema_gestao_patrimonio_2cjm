@@ -159,7 +159,7 @@ function CjmBuildingMapIllustration({
         MAPA ILUSTRATIVO - PREDIO 2a CJM (8 ANDARES)
       </text>
       <text x="18" y="218" fill="#475569" fontSize="11">
-        Av. Casper Libero, 88 - Centro Hist?rico de Sao Paulo
+        Av. Casper Libero, 88 - Centro Histórico de Sao Paulo
       </text>
       <text x="482" y="24" fill="#7c3aed" fontSize="11" fontWeight="600" textAnchor="end">
         Clique no andar
@@ -512,6 +512,5 @@ export default function DashboardPanel({ onNavigate }) {
     </section>
   );
 }
-
 
 

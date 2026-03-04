@@ -1,6 +1,6 @@
 <!--
 Modulo: wiki
-Arquivo: frontend/src/wiki/05_movimenta?es.md
+Arquivo: frontend/src/wiki/05_movimentacoes.md
 Funcao no sistema: explicar cautela vs transferencia e como manter evidencia auditavel.
 -->
 
@@ -60,12 +60,12 @@ Efeito no sistema:
 - Registra detentor temporario e datas (saida/retorno), com data prevista opcional.
 - Em `CAUTELA_SAIDA`, exige informar **endereço destino** ou marcar **Externo**.
 - Em `CAUTELA_SAIDA`, o responsavel patrimonial do bem passa automaticamente a ser o detentor temporario selecionado.
-- Em `CAUTELA_RETORNO`, o sistema pergunta se deve manter o mesmo responsavel patrimonial (se n?o, limpa o responsavel do bem).
+- Em `CAUTELA_RETORNO`, o sistema pergunta se deve manter o mesmo responsavel patrimonial (se não, limpa o responsavel do bem).
 
 Detentor temporário (UX):
 
-- O campo aceita busca por `matr?cula`, `nome` ou `perfilId UUID`.
-- Para aparecer na busca, a pessoa precisa estar cadastrada em `Administra?o do Painel -> Perfis e Acessos`.
+- O campo aceita busca por `matrícula`, `nome` ou `perfilId UUID`.
+- Para aparecer na busca, a pessoa precisa estar cadastrada em `Administração do Painel -> Perfis e Acessos`.
 - Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleção.
 - Ao selecionar, o sistema envia o `detentorTemporarioPerfilId` correto no payload.
 
@@ -90,7 +90,7 @@ Para auditoria, toda movimentação relevante deve ter evidência:
 
 No sistema, isso é registrado em:
 
-- Tabela `documentos` (metadados do Drive), vinculada a `movimenta?es` e/ou `contagens`.
+- Tabela `documentos` (metadados do Drive), vinculada a `movimentações` e/ou `contagens`.
 
 Comportamento do sistema:
 
@@ -101,9 +101,9 @@ Regras legais:
 
 - Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
 
-## Cadastro de bens por endereço (regulariza?o em lote)
+## Cadastro de bens por endereço (regularização em lote)
 
-A funcionalidade fica no submenu **Opera?es Patrimoniais -> Cadastrar Bens por endereço**,
+A funcionalidade fica no submenu **Operações Patrimoniais -> Cadastrar Bens por endereço**,
 sem transferencia de carga.
 
 Fluxo:
@@ -124,27 +124,27 @@ Feedback de leitura por camera:
 Comportamento de divergencia:
 
 - Se um bem for de outra unidade, o sistema alerta e pergunta se voce deseja manter o item na endereço escolhida.
-- Itens divergentes n?o confirmados ficam na fila e n?o sao salvos ate marca?o explicita.
+- Itens divergentes não confirmados ficam na fila e não sao salvos ate marcação explicita.
 
 Persistencia aplicada:
 
 - Atualiza `bens.local_id` e `bens.local_fisico` para a endereço selecionada.
-- Nao altera `bens.unidade_dona_id` (n?o e transferencia de carga).
+- Nao altera `bens.unidade_dona_id` (não e transferencia de carga).
 
 Permissao:
 
-- Opera?o restrita ao perfil ADMIN.
+- Operação restrita ao perfil ADMIN.
 
-## Atualiza?o 2026-02-26 - Gest?o de locais na Administra?o do Painel
+## Atualização 2026-02-26 - Gestão de locais na Administração do Painel
 
-A gestao de Locais (CRUD e vincula?o em lote de `bens.local_id`) fica em:
+A gestao de Locais (CRUD e vinculação em lote de `bens.local_id`) fica em:
 
-- **Administra?o do Painel -> Locais (endereços) cadastrados**
+- **Administração do Painel -> Locais (endereços) cadastrados**
 
 Motivo:
 
 - manter governanca de cadastros estruturais no modulo administrativo
-- preservar Opera?es Patrimoniais focada em execu?o operacional
+- preservar Operações Patrimoniais focada em execução operacional
 ## Leitura continua com scanner fisico (cadastro por endereço)
 
 No campo de bipagem de tombamento da tela **Cadastrar bens por endereço**:
@@ -153,46 +153,46 @@ No campo de bipagem de tombamento da tela **Cadastrar bens por endereço**:
 - O termino da leitura com Enter, Tab **ou** Ctrl+J adiciona o item na fila automaticamente.
 - Apos adicionar/validar o item, o foco retorna para o campo para a proxima leitura.
 
-- Observa?o: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+- Observação: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
 
 
-## Aprova?o administrativa de a?es sensiveis (RBAC)
+## Aprovação administrativa de ações sensiveis (RBAC)
 
-A altera?o de localiza?o/edicao operacional pode seguir dois caminhos:
+A alteração de localização/edição operacional pode seguir dois caminhos:
 
 - Execucao direta: quando o perfil possui permissao `*.execute`.
-- Solicita?o: quando possui apenas `*.request`; a API retorna `202 PENDENTE_APROVACAO`.
+- Solicitação: quando possui apenas `*.request`; a API retorna `202 PENDENTE_APROVACAO`.
 
-Campos de solicita?o:
+Campos de solicitação:
 
-- `justificativaSolicitante` no payload da a?o.
+- `justificativaSolicitante` no payload da ação.
 
 Mensagens esperadas na UI:
 
-- "Acao enviada para aprova?o administrativa."
-- "Voce n?o tem permissao para executar esta a?o."
+- "Acao enviada para aprovação administrativa."
+- "Voce não tem permissao para executar esta ação."
 
 Fluxo de decisao:
 
-- Menu: `Administra?o do Painel -> Aprova?es Pendentes`.
+- Menu: `Administração do Painel -> Aprovações Pendentes`.
 - Admin decide com senha (aprovar/reprovar).
 
-## Regra de permiss?o para `/movimentar` (incidente 2026-03-04)
+## Regra de permissão para `/movimentar` (incidente 2026-03-04)
 
-Para proteger transfer?ncia e cautela, o endpoint `POST /movimentar` passou a exigir permiss?es ACL de execu??o:
+Para proteger transferência e cautela, o endpoint `POST /movimentar` passou a exigir permissões ACL de execução:
 
 - `TRANSFERENCIA`: exige `action.bem.alterar_responsavel.execute`.
 - `CAUTELA_SAIDA`: exige `action.bem.alterar_status.execute` e `action.bem.alterar_responsavel.execute`.
-- `CAUTELA_RETORNO`: exige `action.bem.alterar_status.execute` (e tamb?m `action.bem.alterar_responsavel.execute` quando limpar respons?vel).
+- `CAUTELA_RETORNO`: exige `action.bem.alterar_status.execute` (e também `action.bem.alterar_responsavel.execute` quando limpar responsável).
 
 Comportamento:
 
-- sem permiss?o `execute` e sem `request`: retorna `403 SEM_PERMISSAO`;
+- sem permissão `execute` e sem `request`: retorna `403 SEM_PERMISSAO`;
 - com `request` e sem `execute`: retorna `403 APROVACAO_OBRIGATORIA`.
 
-Observa??o operacional:
+Observação operacional:
 
-- neste endpoint, a abertura autom?tica de solicita??o pendente n?o est? habilitada na vers?o atual; a execu??o deve ser feita por perfil autorizado.
+- neste endpoint, a abertura automática de solicitação pendente não está habilitada na versão atual; a execução deve ser feita por perfil autorizado.
 
 ## Integração com Regularização pós-inventário (transferência formal)
 
@@ -211,4 +211,3 @@ Comportamento:
 Resultado operacional:
 
 - a divergência só sai da regularização depois da transferência formal concluída.
-
