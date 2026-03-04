@@ -7,7 +7,8 @@
  * - Nao cachear respostas de API (`/api/*`), para nao mascarar dados reais.
  * - Navegacao (HTML) e "network-first" para evitar ficar preso em builds antigas.
  */
-const CACHE_NAME = "cjm-patrimonio-v3";
+// Bump de versao para forcar invalidacao de cache antigo em clientes PWA.
+const CACHE_NAME = "cjm-patrimonio-v4";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

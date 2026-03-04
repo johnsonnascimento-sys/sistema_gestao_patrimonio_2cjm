@@ -14,9 +14,9 @@ Item fisico individual identificado por tombamento.
 
 Numero identificador do bem. No GEAFIN usado aqui como **10 digitos numericos** (ex.: `1290001788`).
 
-## Catalogo / SKU
+## Cat?logo / SKU
 
-Registro "o que e": descricao unica, marca/modelo e foto de referencia (quando existir). Varios bens apontam para o mesmo catalogo.
+Registro "o que e": descri?o unica, marca/modelo e foto de referencia (quando existir). Varios bens apontam para o mesmo cat?logo.
 
 ## Unidade dona (carga)
 
@@ -30,7 +30,7 @@ Pessoa vinculada ao bem para indicar posse operacional no dia a dia, sem cautela
 
 Ambiente onde o bem esta (ou deveria estar) no predio.
 
-## Inventario (evento)
+## Invent?rio (evento)
 
 Periodo/atividade de conferencia fisica. Enquanto `EM_ANDAMENTO`, ha congelamento de transferencias (Art. 183).
 
@@ -44,8 +44,8 @@ Item externo ao patrimonio STM em uso no predio. Deve ter controle segregado (Ar
 
 ## Cautela
 
-Saida fisica formal do bem sem mudar carga, registrada em Movimentacoes (detentor temporario e data de retorno).
+Saida fisica formal do bem sem mudar carga, registrada em Movimenta?es (detentor temporario e data de retorno).
 
 ## Transferencia
 
-Mudanca de carga (unidade dona). Exige formalizacao.
+Mudanca de carga (unidade dona). Exige formaliza?o.

@@ -82,23 +82,23 @@ Uso:
 - **Cautela x Transferência**: cautela não muda carga; transferência muda carga e exige formalização.
   - Regra legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127)
 
-## Atualizacao 2026-02-26 - Reorganizacao do menu
+## Atualiza?o 2026-02-26 - Reorganiza?o do menu
 
 O sistema agora abre no Dashboard Executivo Operacional.
 
 Distribuicao de modulos:
 
 - Dashboard: abertura com KPIs, inventario ativo e atividade recente.
-- Operacoes Patrimoniais: consulta, movimentacoes, cadastro por sala, inventario, wizard Art. 141, catalogo (material), gestao de normas e importacao GEAFIN.
+- Opera?es Patrimoniais: consulta, movimenta?es, cadastro por sala, inventario, wizard Art. 141, cat?logo (material), gestao de normas e importa?o GEAFIN.
 - Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
-- Administracao do Painel: backup, conectividade, perfis e locais (salas) cadastrados.
+- Administra?o do Painel: backup, conectividade, perfis e locais (salas) cadastrados.
 - Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.
 
 ## Menu atual - inventario
 
-No grupo **Operacoes Patrimoniais**, o inventario esta dividido em dois menus:
+No grupo **Opera?es Patrimoniais**, o inventario esta dividido em dois menus:
 
-- `Inventario - Contagem`: execucao operacional (leitura, contagens, divergencias, offline-first).
-- `Inventario - Administracao`: abertura/encerramento/reabertura de eventos, micro-ciclos e relatorios.
+- `Invent?rio - Contagem`: execu?o operacional (leitura, contagens, diverg?ncias, offline-first).
+- `Invent?rio - Administra?o`: abertura/encerramento/reabertura de eventos, micro-ciclos e relatorios.
 
-Essa separacao existe para evitar mistura de funcoes entre operador de sala e administrador do evento.
+Essa separa?o existe para evitar mistura de funcoes entre operador de sala e administrador do evento.

@@ -41,6 +41,7 @@ export default function LocaisAdminPanel({ canAdmin }) {
     dryRun: true,
   });
   const [mapLocalState, setMapLocalState] = useState({ loading: false, response: null, error: null });
+  const [justificativaSolicitante, setJustificativaSolicitante] = useState("");
 
   const setLocalField = (key, value) =>
     setLocalForm((prev) => ({
@@ -158,6 +159,7 @@ export default function LocaisAdminPanel({ canAdmin }) {
         somenteSemLocalId: Boolean(mapLocalForm.somenteSemLocalId),
         unidadeDonaId: unidade || undefined,
         dryRun: Boolean(mapLocalForm.dryRun),
+        justificativaSolicitante: justificativaSolicitante || undefined,
       });
       setMapLocalState({ loading: false, response: data, error: null });
     } catch (error) {
@@ -402,6 +404,16 @@ export default function LocaisAdminPanel({ canAdmin }) {
               <option value="4">4</option>
             </select>
           </label>
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-xs text-slate-600">Justificativa do solicitante (quando acao exigir aprovacao)</span>
+            <textarea
+              value={justificativaSolicitante}
+              onChange={(e) => setJustificativaSolicitante(e.target.value)}
+              className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              placeholder="Descreva o motivo da vinculacao em lote."
+              disabled={!canAdmin && auth.authEnabled}
+            />
+          </label>
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
@@ -435,6 +447,9 @@ export default function LocaisAdminPanel({ canAdmin }) {
               <pre className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
                 {JSON.stringify(mapLocalState.response, null, 2)}
               </pre>
+            ) : null}
+            {String(mapLocalState.response?.status || "").toUpperCase() === "PENDENTE_APROVACAO" ? (
+              <p className="mt-2 text-xs text-amber-700">Acao enviada para aprovacao administrativa.</p>
             ) : null}
           </div>
         </form>

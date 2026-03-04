@@ -1,6 +1,6 @@
 <!--
 Modulo: wiki
-Arquivo: frontend/src/wiki/05_movimentacoes.md
+Arquivo: frontend/src/wiki/05_movimenta?es.md
 Funcao no sistema: explicar cautela vs transferencia e como manter evidencia auditavel.
 -->
 
@@ -60,12 +60,12 @@ Efeito no sistema:
 - Registra detentor temporario e datas (saida/retorno), com data prevista opcional.
 - Em `CAUTELA_SAIDA`, exige informar **Sala destino** ou marcar **Externo**.
 - Em `CAUTELA_SAIDA`, o responsavel patrimonial do bem passa automaticamente a ser o detentor temporario selecionado.
-- Em `CAUTELA_RETORNO`, o sistema pergunta se deve manter o mesmo responsavel patrimonial (se nao, limpa o responsavel do bem).
+- Em `CAUTELA_RETORNO`, o sistema pergunta se deve manter o mesmo responsavel patrimonial (se n?o, limpa o responsavel do bem).
 
 Detentor temporário (UX):
 
-- O campo aceita busca por `matricula`, `nome` ou `perfilId UUID`.
-- Para aparecer na busca, a pessoa precisa estar cadastrada em `Administracao do Painel -> Perfis e Acessos`.
+- O campo aceita busca por `matr?cula`, `nome` ou `perfilId UUID`.
+- Para aparecer na busca, a pessoa precisa estar cadastrada em `Administra?o do Painel -> Perfis e Acessos`.
 - Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleção.
 - Ao selecionar, o sistema envia o `detentorTemporarioPerfilId` correto no payload.
 
@@ -90,7 +90,7 @@ Para auditoria, toda movimentação relevante deve ter evidência:
 
 No sistema, isso é registrado em:
 
-- Tabela `documentos` (metadados do Drive), vinculada a `movimentacoes` e/ou `contagens`.
+- Tabela `documentos` (metadados do Drive), vinculada a `movimenta?es` e/ou `contagens`.
 
 Comportamento do sistema:
 
@@ -101,9 +101,9 @@ Regras legais:
 
 - Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
 
-## Cadastro de bens por sala (regularizacao em lote)
+## Cadastro de bens por sala (regulariza?o em lote)
 
-A funcionalidade fica no submenu **Operacoes Patrimoniais -> Cadastrar Bens por Sala**,
+A funcionalidade fica no submenu **Opera?es Patrimoniais -> Cadastrar Bens por Sala**,
 sem transferencia de carga.
 
 Fluxo:
@@ -124,27 +124,27 @@ Feedback de leitura por camera:
 Comportamento de divergencia:
 
 - Se um bem for de outra unidade, o sistema alerta e pergunta se voce deseja manter o item na sala escolhida.
-- Itens divergentes nao confirmados ficam na fila e nao sao salvos ate marcacao explicita.
+- Itens divergentes n?o confirmados ficam na fila e n?o sao salvos ate marca?o explicita.
 
 Persistencia aplicada:
 
 - Atualiza `bens.local_id` e `bens.local_fisico` para a sala selecionada.
-- Nao altera `bens.unidade_dona_id` (nao e transferencia de carga).
+- Nao altera `bens.unidade_dona_id` (n?o e transferencia de carga).
 
 Permissao:
 
-- Operacao restrita ao perfil ADMIN.
+- Opera?o restrita ao perfil ADMIN.
 
-## Atualizacao 2026-02-26 - Gestao de locais na Administracao do Painel
+## Atualiza?o 2026-02-26 - Gest?o de locais na Administra?o do Painel
 
-A gestao de Locais (CRUD e vinculacao em lote de `bens.local_id`) fica em:
+A gestao de Locais (CRUD e vincula?o em lote de `bens.local_id`) fica em:
 
-- **Administracao do Painel -> Locais (salas) cadastrados**
+- **Administra?o do Painel -> Locais (salas) cadastrados**
 
 Motivo:
 
 - manter governanca de cadastros estruturais no modulo administrativo
-- preservar Operacoes Patrimoniais focada em execucao operacional
+- preservar Opera?es Patrimoniais focada em execu?o operacional
 ## Leitura continua com scanner fisico (cadastro por sala)
 
 No campo de bipagem de tombamento da tela **Cadastrar bens por sala**:
@@ -153,5 +153,26 @@ No campo de bipagem de tombamento da tela **Cadastrar bens por sala**:
 - O termino da leitura com Enter, Tab **ou** Ctrl+J adiciona o item na fila automaticamente.
 - Apos adicionar/validar o item, o foco retorna para o campo para a proxima leitura.
 
-- Observacao: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+- Observa?o: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
 
+
+## Aprova?o administrativa de a?es sensiveis (RBAC)
+
+A altera?o de localiza?o/edicao operacional pode seguir dois caminhos:
+
+- Execucao direta: quando o perfil possui permissao `*.execute`.
+- Solicita?o: quando possui apenas `*.request`; a API retorna `202 PENDENTE_APROVACAO`.
+
+Campos de solicita?o:
+
+- `justificativaSolicitante` no payload da a?o.
+
+Mensagens esperadas na UI:
+
+- "Acao enviada para aprova?o administrativa."
+- "Voce n?o tem permissao para executar esta a?o."
+
+Fluxo de decisao:
+
+- Menu: `Administra?o do Painel -> Aprova?es Pendentes`.
+- Admin decide com senha (aprovar/reprovar).

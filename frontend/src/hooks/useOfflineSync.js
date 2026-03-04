@@ -18,6 +18,7 @@ function groupBySyncKey(items) {
   for (const item of items) {
     const key = [
       item.eventoInventarioId,
+      item.rodada || "A",
       item.unidadeEncontradaId,
       item.salaEncontrada,
       item.localEncontradoId || "",
@@ -90,6 +91,7 @@ export default function useOfflineSync() {
         const head = items[0];
         const payload = {
           eventoInventarioId: head.eventoInventarioId,
+          rodada: head.rodada || "A",
           unidadeEncontradaId: head.unidadeEncontradaId,
           salaEncontrada: head.salaEncontrada,
           localEncontradoId: head.localEncontradoId || undefined,

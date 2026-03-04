@@ -1,7 +1,7 @@
 <!--
 Modulo: wiki
-Arquivo: frontend/src/wiki/14_admin_operacao_vps.md
-Funcao no sistema: manual de operacao para administradores (VPS + Docker + Nginx), sem segredos.
+Arquivo: frontend/src/wiki/14_admin_opera?o_vps.md
+Funcao no sistema: manual de opera?o para administradores (VPS + Docker + Nginx), sem segredos.
 -->
 
 # Admin: operação na VPS (Docker/Nginx)
@@ -83,7 +83,7 @@ Observação:
 - Rebuild do frontend troca os arquivos estaticos.
 - Por causa do Service Worker (PWA), alguns navegadores podem manter cache. Use hard refresh.
 
-## Importacao GEAFIN e timeouts
+## Importa?o GEAFIN e timeouts
 
 Importação pode demorar (milhares de linhas). Para evitar 504:
 
@@ -177,21 +177,21 @@ Se "Failed to fetch" aparecer no site:
 3. Se ok: conferir Nginx `/api` no host e no container frontend.
 4. Recarregar Nginx host: `nginx -t && systemctl reload nginx`.
 
-## Registro de alteracoes e rollback (operacao)
+## Registro de altera?es e rollback (opera?o)
 
 Toda entrega relevante deve registrar trilha de governanca e modo de reversao.
 
 Arquivos e scripts oficiais:
 
 - Log geral: `docs/LOG_GERAL_ALTERACOES.md`
-- Registrar entrada: `./scripts/log_alteracao.sh "<TIPO>" "<DETALHE>"`
-- Reverter por commit: `./scripts/reverter_alteracao.sh --commit <hash>`
-- Reverter por ID do log: `./scripts/reverter_alteracao.sh --log-id <ID>`
+- Registrar entrada: `./scripts/log_altera?o.sh "<TIPO>" "<DETALHE>"`
+- Reverter por commit: `./scripts/reverter_altera?o.sh --commit <hash>`
+- Reverter por ID do log: `./scripts/reverter_altera?o.sh --log-id <ID>`
 
 No sistema web (Admin):
 
-- **Log Geral de Alteracoes**: trilha de projeto + comando de rollback.
-- **Auditoria Patrimonial (Global)**: trilha de alteracoes de dados do patrimonio.
+- **Log Geral de Altera?es**: trilha de projeto + comando de rollback.
+- **Auditoria Patrimonial (Global)**: trilha de altera?es de dados do patrimonio.
 
 ## Log de erros runtime (API)
 
@@ -202,8 +202,8 @@ A API grava erros tratados em arquivo de runtime persistido na VPS:
 
 Uso recomendado:
 
-- monitorar erros de validacao/formatacao sem depender apenas de `docker logs`
-- usar `requestId` para correlacao rapida de incidente
+- monitorar erros de valida?o/formata?o sem depender apenas de `docker logs`
+- usar `requestId` para correla?o rapida de incidente
 
 ## Backup no Google Drive (banco + imagens)
 
@@ -220,7 +220,7 @@ cd /opt/cjm-patrimonio/current
 ./scripts/backup_to_drive.sh --scope all --tag manual --keep-days 14
 ```
 
-Snapshot antes da Importacao GEAFIN:
+Snapshot antes da Importa?o GEAFIN:
 
 ```bash
 ./scripts/pre_geafin_snapshot.sh --tag pre-geafin --keep-days 14
@@ -246,12 +246,12 @@ Checklist rapido:
 
 ## Backup por botoes (com senha ADMIN)
 
-Agora o painel **Administracao do Painel** possui a secao visual **Backup e Restore (Drive)** com execucao por botoes.
+Agora o painel **Administra?o do Painel** possui a secao visual **Backup e Restore (Drive)** com execu?o por botoes.
 
 Fluxo operacional:
 
 1. Informar senha do ADMIN na propria secao.
-2. Escolher acao:
+2. Escolher a?o:
    - Snapshot pre-GEAFIN
    - Backup manual (all/db/media)
    - Restore (destrutivo)
@@ -261,19 +261,19 @@ A secao tambem exibe:
 
 - lista de backups remotos (database e media)
 - ferramentas disponiveis no backend
-- ultimas operacoes executadas (OK/ERRO)
+- ultimas opera?es executadas (OK/ERRO)
 
-## Atualizacao 2026-02-26 - Escopo da Administracao do Painel
+## Atualiza?o 2026-02-26 - Escopo da Administra?o do Painel
 
-A Administracao do Painel concentra operacoes administrativas e cadastros de suporte:
+A Administra?o do Painel concentra opera?es administrativas e cadastros de suporte:
 
 - Backup e Restore (Drive)
 - Conectividade backend (/health)
 - Perfis e acessos
 - Locais (salas) cadastrados
 
-Importacao GEAFIN permanece operacional em menu proprio:
+Importa?o GEAFIN permanece operacional em menu proprio:
 
-- Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
+- Opera?es Patrimoniais -> Importa?o GEAFIN (CSV Latin1)
 
 Auditoria permanece em menu proprio (**Auditoria e Logs**).

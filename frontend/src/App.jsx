@@ -3,7 +3,7 @@
  * Arquivo: App.jsx
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
  */
-import { Component, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuditoriaLogsPanel from "./components/AuditoriaLogsPanel.jsx";
@@ -36,15 +36,15 @@ const NAV_STRUCTURE = [
     label: "Operacoes Patrimoniais",
     items: [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
-      { id: "movimentacoes", label: "Movimentacoes", short: "Mov." },
+      { id: "movimentacoes", label: "Movimentações", short: "Mov." },
       { id: "operacoes-cadastro-sala", label: "Cadastrar Bens por Sala", short: "Sala" },
-      { id: "inventario-contagem", label: "Inventario - Contagem", short: "Contagem" },
-      { id: "inventario-admin", label: "Inventario - Administracao", short: "Inv. Admin" },
+      { id: "inventario-contagem", label: "Inventário - Contagem", short: "Contagem" },
+      { id: "inventario-admin", label: "Inventário - Administração", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
-      { id: "classificacoes-siafi", label: "Classificacao SIAFI", short: "SIAFI" },
-      { id: "normas", label: "Gestao de Normas", short: "Normas" },
-      { id: "importacoes-geafin", label: "Importacao GEAFIN (CSV Latin1)", short: "GEAFIN" },
+      { id: "classificacoes-siafi", label: "Classificação SIAFI", short: "SIAFI" },
+      { id: "normas", label: "Gestão de Normas", short: "Normas" },
+      { id: "importacoes-geafin", label: "Importação GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
   },
   {
@@ -52,7 +52,7 @@ const NAV_STRUCTURE = [
     id: "auditoria",
     label: "Auditoria e Logs",
     items: [
-      { id: "auditoria-changelog", label: "Log Geral de Alteracoes", short: "Log Geral" },
+      { id: "auditoria-changelog", label: "Log Geral de Alterações", short: "Log Geral" },
       { id: "auditoria-patrimonio", label: "Auditoria Patrimonial (Global)", short: "Patrimonio" },
       { id: "auditoria-erros", label: "Log de Erros Runtime", short: "Erros" },
     ],
@@ -60,21 +60,46 @@ const NAV_STRUCTURE = [
   {
     type: "group",
     id: "admin",
-    label: "Administracao do Painel",
+    label: "Administração do Painel",
     items: [
       { id: "admin-locais", label: "Locais (salas) cadastrados", short: "Locais" },
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
       { id: "admin-perfis", label: "Perfis e Acessos", short: "Perfis" },
+      { id: "admin-aprovacoes", label: "Aprovacoes Pendentes", short: "Aprov." },
     ],
   },
   { type: "item", item: { id: "wiki", label: "Wiki / Manual", short: "Wiki" } },
 ];
 
+const TAB_PERMISSION_MAP = Object.freeze({
+  dashboard: "menu.dashboard.view",
+  bens: "menu.bens.view",
+  movimentacoes: "menu.movimentacoes.view",
+  "operacoes-cadastro-sala": "menu.movimentacoes.view",
+  "inventario-contagem": "menu.inventario_contagem.view",
+  "inventario-admin": "menu.inventario_admin.view",
+  classificacao: "menu.classificacao.view",
+  "catalogo-material": "menu.catalogo_material.view",
+  "classificacoes-siafi": "menu.classificacoes_siafi.view",
+  "importacoes-geafin": "menu.importacoes_geafin.view",
+  "auditoria-changelog": "menu.auditoria.view",
+  "auditoria-patrimonio": "menu.auditoria.view",
+  "auditoria-erros": "menu.auditoria.view",
+  "admin-locais": "menu.admin_locais.view",
+  "admin-backup": "menu.admin_backup.view",
+  "admin-health": "menu.admin_health.view",
+  "admin-perfis": "menu.admin_perfis.view",
+  "admin-aprovacoes": "menu.admin_aprovacoes.view",
+  normas: "menu.classificacao.view",
+  wiki: "menu.wiki.view",
+});
+
 const DEFAULT_OPEN_GROUPS = NAV_STRUCTURE.reduce((acc, entry) => {
   if (entry.type === "group") acc[entry.id] = true;
   return acc;
 }, {});
+const INVENTARIO_REDUCED_MODE_KEY = "cjm_inventario_reduced_mode_v1";
 
 function NavIcon({ id }) {
   const cls = "h-4 w-4";
@@ -185,6 +210,7 @@ function NavIcon({ id }) {
     id === "admin-backup" ||
     id === "admin-health" ||
     id === "admin-perfis" ||
+    id === "admin-aprovacoes" ||
     id === "admin-locais" ||
     id === "operacoes"
   ) {
@@ -262,7 +288,7 @@ class SectionErrorBoundary extends Component {
 
 function AppShell() {
   const auth = useAuth();
-  const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+  const canAdmin = !auth.authEnabled || auth.can("menu.admin_health.view") || String(auth.role || "").toUpperCase() === "ADMIN";
   const [tab, setTab] = useState("dashboard");
   const [bensNavPreset, setBensNavPreset] = useState({ unidadeDonaId: null, nonce: 0 });
   const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
@@ -276,6 +302,7 @@ function AppShell() {
   const [wizardDocUrl, setWizardDocUrl] = useState("");
   const [wizardDocMsg, setWizardDocMsg] = useState(null);
   const [wizardDocErr, setWizardDocErr] = useState(null);
+  const [navReducedMode, setNavReducedMode] = useState(false);
 
   const eventosQuery = useQuery({
     queryKey: ["inventarioEventos", "EM_ANDAMENTO"],
@@ -292,6 +319,30 @@ function AppShell() {
       : "SEM_EVENTO";
   const activeEvents = eventosQuery.data || [];
   const activeEventCode = activeEvents[0]?.codigoEvento || null;
+
+  const isTabAllowed = useMemo(
+    () => (tabId) => {
+      if (!auth.authEnabled) return true;
+      const perm = TAB_PERMISSION_MAP[tabId];
+      if (!perm) return true;
+      return auth.can(perm);
+    },
+    [auth],
+  );
+
+  const filteredNavStructure = useMemo(() => {
+    const out = [];
+    for (const entry of NAV_STRUCTURE) {
+      if (entry.type === "item") {
+        if (isTabAllowed(entry.item.id)) out.push(entry);
+        continue;
+      }
+      const items = entry.items.filter((item) => isTabAllowed(item.id));
+      if (!items.length) continue;
+      out.push({ ...entry, items });
+    }
+    return out;
+  }, [isTabAllowed]);
 
   const bannerMessage = useMemo(() => {
     if (inventoryStatus === "EM_ANDAMENTO") {
@@ -334,7 +385,7 @@ function AppShell() {
     }
   };
   const activeTabLabel = useMemo(() => {
-    for (const entry of NAV_STRUCTURE) {
+    for (const entry of filteredNavStructure) {
       if (entry.type === "item" && entry.item.id === tab) return entry.item.label;
       if (entry.type === "group") {
         const found = entry.items.find((it) => it.id === tab);
@@ -342,7 +393,50 @@ function AppShell() {
       }
     }
     return "Menu";
-  }, [tab]);
+  }, [tab, filteredNavStructure]);
+
+  useEffect(() => {
+    const readReduced = () => {
+      try {
+        const raw = window.localStorage.getItem(INVENTARIO_REDUCED_MODE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        return Boolean(data?.active);
+      } catch {
+        return false;
+      }
+    };
+    const sync = () => setNavReducedMode(readReduced());
+    sync();
+    window.addEventListener("storage", sync);
+    const t = window.setInterval(sync, 1500);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.clearInterval(t);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (navReducedMode && tab !== "inventario-contagem") {
+      setTab("inventario-contagem");
+    }
+  }, [navReducedMode, tab]);
+
+  useEffect(() => {
+    if (isTabAllowed(tab)) return;
+    let fallback = "dashboard";
+    for (const entry of filteredNavStructure) {
+      if (entry.type === "item") {
+        fallback = entry.item.id;
+        break;
+      }
+      if (entry.type === "group" && entry.items.length) {
+        fallback = entry.items[0].id;
+        break;
+      }
+    }
+    if (tab !== fallback) setTab(fallback);
+  }, [tab, isTabAllowed, filteredNavStructure]);
 
   const wizardAvaliacoesQuery = useQuery({
     queryKey: ["inserviveisAvaliacoes", wizardBem?.id || null],
@@ -419,20 +513,25 @@ function AppShell() {
           </div>
 
           <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
-            {NAV_STRUCTURE.map((entry) => {
+            {filteredNavStructure.map((entry) => {
               if (entry.type === "item") {
                 const item = entry.item;
                 const active = tab === item.id;
+                const navLocked = navReducedMode && item.id !== "inventario-contagem";
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setTab(item.id)}
+                    onClick={() => {
+                      if (navLocked) return;
+                      setTab(item.id);
+                    }}
+                    disabled={navLocked}
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
                       active
                         ? "bg-violet-50 text-violet-700"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
+                    } ${navLocked ? "cursor-not-allowed opacity-45" : ""}`}
                   >
                     <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
                       <NavIcon id={item.id} />
@@ -460,16 +559,21 @@ function AppShell() {
                     <div className="space-y-1 pl-2">
                       {entry.items.map((item) => {
                         const active = tab === item.id;
+                        const navLocked = navReducedMode && item.id !== "inventario-contagem";
                         return (
                           <button
                             key={item.id}
                             type="button"
-                            onClick={() => setTab(item.id)}
+                            onClick={() => {
+                              if (navLocked) return;
+                              setTab(item.id);
+                            }}
+                            disabled={navLocked}
                             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
                               active
                                 ? "bg-violet-50 text-violet-700"
                                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                            }`}
+                            } ${navLocked ? "cursor-not-allowed opacity-45" : ""}`}
                           >
                             <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
                               <NavIcon id={item.id} />
@@ -574,20 +678,25 @@ function AppShell() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {NAV_STRUCTURE.map((entry) => {
+                  {filteredNavStructure.map((entry) => {
                     if (entry.type === "item") {
                       const item = entry.item;
                       const active = tab === item.id;
+                      const navLocked = navReducedMode && item.id !== "inventario-contagem";
                       return (
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => selectTab(item.id)}
+                          onClick={() => {
+                            if (navLocked) return;
+                            selectTab(item.id);
+                          }}
+                          disabled={navLocked}
                           className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
                             active
                               ? "bg-violet-50 text-violet-700"
                               : "text-slate-700 hover:bg-slate-100"
-                          }`}
+                          } ${navLocked ? "cursor-not-allowed opacity-45" : ""}`}
                         >
                           <span>{item.label}</span>
                           <span>{item.short}</span>
@@ -613,16 +722,21 @@ function AppShell() {
                           <div className="space-y-1 pl-2">
                             {entry.items.map((item) => {
                               const active = tab === item.id;
+                              const navLocked = navReducedMode && item.id !== "inventario-contagem";
                               return (
                                 <button
                                   key={item.id}
                                   type="button"
-                                  onClick={() => selectTab(item.id)}
+                                  onClick={() => {
+                                    if (navLocked) return;
+                                    selectTab(item.id);
+                                  }}
+                                  disabled={navLocked}
                                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
                                     active
                                       ? "bg-violet-50 text-violet-700"
                                       : "text-slate-700 hover:bg-slate-100"
-                                  }`}
+                                  } ${navLocked ? "cursor-not-allowed opacity-45" : ""}`}
                                 >
                                   <span>{item.label}</span>
                                   <span>{item.short}</span>
@@ -805,6 +919,7 @@ function AppShell() {
               {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
               {tab === "admin-health" && <OperationsPanel section="admin-health" />}
               {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}
+              {tab === "admin-aprovacoes" && <OperationsPanel section="admin-aprovacoes" />}
               {tab === "normas" && <NormsPage />}
               {tab === "wiki" && <WikiManual />}
             </div>

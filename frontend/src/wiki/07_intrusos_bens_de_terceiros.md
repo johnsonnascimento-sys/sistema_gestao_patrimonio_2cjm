@@ -21,7 +21,7 @@ Isso é uma **divergência de localização**, não uma transferência automáti
 ### O que o sistema faz
 
 - Registra ocorrência `ENCONTRADO_EM_LOCAL_DIVERGENTE`.
-- Marca `regularizacao_pendente=true`.
+- Marca `regulariza?o_pendente=true`.
 - **Não** muda `bens.unidade_dona_id` durante inventário.
 
 Regra legal:
@@ -96,7 +96,7 @@ O sistema:
 
 - persiste a foto otimizada no servidor,
 - cria registro em `bens` com `eh_bem_terceiro=true`, `proprietario_externo='SEM_IDENTIFICACAO'`,
-- cria contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` e `regularizacao_pendente=true`,
+- cria contagem com `tipo_ocorrencia='BEM_NAO_IDENTIFICADO'` e `regulariza?o_pendente=true`,
 - item aparece na lista de divergências da sala.
 
 Instrução operacional:

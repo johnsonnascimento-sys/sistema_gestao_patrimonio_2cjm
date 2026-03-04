@@ -52,6 +52,60 @@ const VALID_UNIDADES = new Set([1, 2, 3, 4]);
 const VALID_MOV = new Set(["TRANSFERENCIA", "CAUTELA_SAIDA", "CAUTELA_RETORNO"]);
 const VALID_STATUS_BEM = new Set(["OK", "BAIXADO", "EM_CAUTELA", "AGUARDANDO_RECEBIMENTO"]);
 const VALID_ROLES = new Set(["ADMIN", "OPERADOR"]);
+const ROLE_CODES = Object.freeze([
+  "LEITURA",
+  "OPERADOR_BASICO",
+  "OPERADOR_AVANCADO",
+  "SUPERVISOR",
+  "ADMIN_COMPLETO",
+]);
+const ACL_MENU_PERMISSIONS = Object.freeze([
+  "menu.dashboard.view",
+  "menu.bens.view",
+  "menu.movimentacoes.view",
+  "menu.inventario_contagem.view",
+  "menu.inventario_admin.view",
+  "menu.classificacao.view",
+  "menu.catalogo_material.view",
+  "menu.classificacoes_siafi.view",
+  "menu.importacoes_geafin.view",
+  "menu.auditoria.view",
+  "menu.admin_locais.view",
+  "menu.admin_backup.view",
+  "menu.admin_health.view",
+  "menu.admin_perfis.view",
+  "menu.admin_aprovacoes.view",
+  "menu.wiki.view",
+]);
+const ACL_ACTION_PERMISSIONS = Object.freeze([
+  "action.bem.editar_operacional.execute",
+  "action.bem.editar_operacional.request",
+  "action.bem.alterar_responsavel.execute",
+  "action.bem.alterar_responsavel.request",
+  "action.bem.alterar_status.execute",
+  "action.bem.alterar_status.request",
+  "action.bem.alterar_localizacao.execute",
+  "action.bem.alterar_localizacao.request",
+  "action.bem.vincular_local_lote.execute",
+  "action.bem.vincular_local_lote.request",
+  "action.aprovacao.listar",
+  "action.aprovacao.aprovar",
+  "action.aprovacao.reprovar",
+]);
+const ACL_ALL_PERMISSIONS = Object.freeze([...ACL_MENU_PERMISSIONS, ...ACL_ACTION_PERMISSIONS]);
+const SOLICITACAO_STATUS = Object.freeze({
+  PENDENTE: "PENDENTE",
+  APROVADA: "APROVADA",
+  REPROVADA: "REPROVADA",
+  CANCELADA: "CANCELADA",
+  EXPIRADA: "EXPIRADA",
+  ERRO_APLICACAO: "ERRO_APLICACAO",
+});
+const SOLICITACAO_TIPO_ACAO = Object.freeze({
+  BEM_PATCH_OPERACIONAL: "BEM_PATCH_OPERACIONAL",
+  BEM_PATCH: "BEM_PATCH",
+  BEM_VINCULAR_LOCAL_LOTE: "BEM_VINCULAR_LOCAL_LOTE",
+});
 const GEAFIN_MODES = new Set(["INCREMENTAL", "TOTAL"]);
 const GEAFIN_SCOPE_TYPES = new Set(["GERAL", "UNIDADE"]);
 const GEAFIN_SESSION_STATUS = new Set([
@@ -87,6 +141,7 @@ const UNIT_MAP = new Map([
 
 // Cache simples de compatibilidade de schema: evita derrubar a API quando o backend sobe antes das migrations.
 let _documentosHasAvaliacaoInservivelId = null;
+let _aclSchemaCaps = null;
 
 async function documentosHasAvaliacaoInservivelIdColumn() {
   if (_documentosHasAvaliacaoInservivelId != null) return _documentosHasAvaliacaoInservivelId;
@@ -106,6 +161,50 @@ async function documentosHasAvaliacaoInservivelIdColumn() {
   return _documentosHasAvaliacaoInservivelId;
 }
 
+async function getAclSchemaCaps() {
+  if (_aclSchemaCaps) return _aclSchemaCaps;
+  try {
+    const r = await pool.query(
+      `SELECT
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='roles_acesso'
+         ) AS "hasRoles",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='permissoes_acesso'
+         ) AS "hasPermissoes",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='role_permissoes_acesso'
+         ) AS "hasRolePermissoes",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='perfil_roles_acesso'
+         ) AS "hasPerfilRoles",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='solicitacoes_aprovacao'
+         ) AS "hasSolicitacoesAprovacao",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='solicitacoes_aprovacao_eventos'
+         ) AS "hasSolicitacoesEventos";`,
+    );
+    _aclSchemaCaps = r.rows?.[0] || null;
+  } catch (_error) {
+    _aclSchemaCaps = null;
+  }
+  return _aclSchemaCaps || {
+    hasRoles: false,
+    hasPermissoes: false,
+    hasRolePermissoes: false,
+    hasPerfilRoles: false,
+    hasSolicitacoesAprovacao: false,
+    hasSolicitacoesEventos: false,
+  };
+}
+
 class HttpError extends Error {
   constructor(status, code, message, details) {
     super(message);
@@ -119,7 +218,7 @@ app.use(helmet());
 app.use(
   cors({
     origin: FRONTEND_ORIGIN === "*" ? true : FRONTEND_ORIGIN,
-    methods: ["GET", "POST", "PATCH", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "OPTIONS"],
   }),
 );
 app.use(express.json({ limit: "12mb" }));
@@ -557,6 +656,188 @@ function signAuthToken(perfil) {
   );
 }
 
+function buildDefaultAclByLegacyRole(legacyRole) {
+  const role = String(legacyRole || "OPERADOR").trim().toUpperCase();
+  if (role === "ADMIN") {
+    return {
+      roles: ["ADMIN_COMPLETO"],
+      permissions: [...ACL_ALL_PERMISSIONS],
+      menuPermissions: [...ACL_MENU_PERMISSIONS],
+      source: "legacy-admin-fallback",
+    };
+  }
+  return {
+    roles: ["OPERADOR_AVANCADO"],
+    permissions: [
+      "menu.dashboard.view",
+      "menu.bens.view",
+      "menu.movimentacoes.view",
+      "menu.inventario_contagem.view",
+      "menu.classificacao.view",
+      "menu.wiki.view",
+      "action.bem.editar_operacional.request",
+      "action.bem.alterar_responsavel.request",
+      "action.bem.alterar_status.request",
+      "action.bem.alterar_localizacao.request",
+      "action.bem.vincular_local_lote.request",
+    ],
+    menuPermissions: [
+      "menu.dashboard.view",
+      "menu.bens.view",
+      "menu.movimentacoes.view",
+      "menu.inventario_contagem.view",
+      "menu.classificacao.view",
+      "menu.wiki.view",
+    ],
+    source: "legacy-operador-fallback",
+  };
+}
+
+async function resolveAclForPerfil(perfilId, legacyRole) {
+  const caps = await getAclSchemaCaps();
+  if (!caps.hasRoles || !caps.hasPermissoes || !caps.hasRolePermissoes || !caps.hasPerfilRoles) {
+    return buildDefaultAclByLegacyRole(legacyRole);
+  }
+
+  const roleQuery = await pool.query(
+    `SELECT r.codigo
+     FROM perfil_roles_acesso pr
+     JOIN roles_acesso r ON r.id = pr.role_id
+     WHERE pr.perfil_id = $1
+       AND pr.ativo = TRUE
+       AND r.ativo = TRUE
+     ORDER BY r.nivel DESC, r.codigo ASC;`,
+    [perfilId],
+  );
+
+  const roleCodes = roleQuery.rows.map((x) => String(x.codigo || "").trim()).filter(Boolean);
+  if (!roleCodes.length) {
+    return buildDefaultAclByLegacyRole(legacyRole);
+  }
+
+  const permQuery = await pool.query(
+    `SELECT DISTINCT p.codigo, p.categoria::text AS categoria
+     FROM perfil_roles_acesso pr
+     JOIN roles_acesso r ON r.id = pr.role_id
+     JOIN role_permissoes_acesso rp ON rp.role_id = r.id
+     JOIN permissoes_acesso p ON p.id = rp.permissao_id
+     WHERE pr.perfil_id = $1
+       AND pr.ativo = TRUE
+       AND r.ativo = TRUE
+       AND p.ativo = TRUE
+     ORDER BY p.codigo ASC;`,
+    [perfilId],
+  );
+
+  const perms = permQuery.rows.map((x) => String(x.codigo || "").trim()).filter(Boolean);
+  const menuPerms = permQuery.rows
+    .filter((x) => String(x.categoria || "").toUpperCase() === "MENU")
+    .map((x) => String(x.codigo || "").trim())
+    .filter(Boolean);
+
+  return {
+    roles: roleCodes,
+    permissions: perms,
+    menuPermissions: menuPerms,
+    source: "rbac",
+  };
+}
+
+async function syncPerfilRoleAcesso(client, { perfilId, legacyRole, atribuidoPorPerfilId = null }) {
+  const caps = await getAclSchemaCaps();
+  if (!caps.hasRoles || !caps.hasPerfilRoles) return;
+  const roleCode = String(legacyRole || "").toUpperCase() === "ADMIN" ? "ADMIN_COMPLETO" : "OPERADOR_AVANCADO";
+
+  await setPerfilRoleAcessoByCode(client, {
+    perfilId,
+    roleCode,
+    atribuidoPorPerfilId,
+  });
+}
+
+async function setPerfilRoleAcessoByCode(client, { perfilId, roleCode, atribuidoPorPerfilId = null }) {
+  const caps = await getAclSchemaCaps();
+  if (!caps.hasRoles || !caps.hasPerfilRoles) return;
+  const roleCodeFinal = String(roleCode || "").trim().toUpperCase();
+  if (!ROLE_CODES.includes(roleCodeFinal)) {
+    throw new HttpError(422, "ROLE_ACESSO_INVALIDA", "roleCodigo invalido para RBAC.");
+  }
+
+  const roleQ = await client.query(
+    `SELECT id
+     FROM roles_acesso
+     WHERE codigo = $1
+       AND ativo = TRUE
+     LIMIT 1;`,
+    [roleCodeFinal],
+  );
+  if (!roleQ.rowCount) {
+    throw new HttpError(404, "ROLE_ACESSO_NAO_ENCONTRADA", "Role de acesso nao encontrada.");
+  }
+  const roleId = roleQ.rows[0].id;
+
+  await client.query(
+    `UPDATE perfil_roles_acesso
+     SET ativo = FALSE, updated_at = NOW()
+     WHERE perfil_id = $1
+       AND role_id <> $2;`,
+    [perfilId, roleId],
+  );
+
+  await client.query(
+    `INSERT INTO perfil_roles_acesso (perfil_id, role_id, ativo, atribuido_por_perfil_id)
+     VALUES ($1, $2, TRUE, $3)
+     ON CONFLICT (perfil_id, role_id)
+     DO UPDATE
+       SET ativo = TRUE,
+           atribuido_por_perfil_id = COALESCE(EXCLUDED.atribuido_por_perfil_id, perfil_roles_acesso.atribuido_por_perfil_id),
+           updated_at = NOW();`,
+    [perfilId, roleId, atribuidoPorPerfilId || null],
+  );
+}
+
+function roleAcessoToLegacyRole(roleCodigo) {
+  return String(roleCodigo || "").trim().toUpperCase() === "ADMIN_COMPLETO" ? "ADMIN" : "OPERADOR";
+}
+
+function userHasPermission(user, permissionCode) {
+  const code = String(permissionCode || "").trim();
+  if (!code) return false;
+  if (!AUTH_ENABLED) return true;
+  if (!user) return false;
+
+  const aclPerms = Array.isArray(user?.acl?.permissions) ? user.acl.permissions : [];
+  if (aclPerms.includes(code) || aclPerms.includes("*")) return true;
+
+  // Fallback de compatibilidade para ambiente sem RBAC migrado.
+  if (String(user.role || "").toUpperCase() === "ADMIN") return true;
+  return false;
+}
+
+function requirePermission(permissionCode) {
+  return (req, _res, next) => {
+    try {
+      if (userHasPermission(req.user, permissionCode)) return next();
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para executar esta acao.");
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+function requireAnyPermission(permissionCodes) {
+  const codes = Array.isArray(permissionCodes) ? permissionCodes.map((x) => String(x || "").trim()).filter(Boolean) : [];
+  return (req, _res, next) => {
+    try {
+      if (!codes.length) throw new HttpError(500, "ACL_CONFIG_INVALIDA", "Nenhuma permissao foi configurada.");
+      if (codes.some((code) => userHasPermission(req.user, code))) return next();
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para executar esta acao.");
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
 async function requireAuth(req, _res, next) {
   try {
     const token = extractBearerToken(req);
@@ -584,7 +865,8 @@ async function requireAuth(req, _res, next) {
     if (!perfil) throw new HttpError(401, "NAO_AUTENTICADO", "Perfil do token nao encontrado.");
     if (!perfil.ativo) throw new HttpError(403, "PERFIL_INATIVO", "Perfil inativo.");
 
-    req.user = perfil;
+    const acl = await resolveAclForPerfil(perfil.id, perfil.role);
+    req.user = { ...perfil, acl };
     next();
   } catch (error) {
     next(error);
@@ -697,6 +979,283 @@ app.post("/auth/primeiro-acesso", async (req, res, next) => {
 
 app.get("/auth/me", mustAuth, async (req, res) => {
   res.json({ requestId: req.requestId, authEnabled: AUTH_ENABLED, perfil: req.user || null });
+});
+
+app.get("/auth/acl", mustAuth, async (req, res, next) => {
+  try {
+    const acl = req.user?.acl || buildDefaultAclByLegacyRole(req.user?.role);
+    res.json({
+      requestId: req.requestId,
+      authEnabled: AUTH_ENABLED,
+      perfilId: req.user?.id || null,
+      roles: acl.roles || [],
+      permissions: acl.permissions || [],
+      menuPermissions: acl.menuPermissions || [],
+      source: acl.source || "unknown",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/aprovacoes/solicitacoes", mustAuth, requirePermission("action.aprovacao.listar"), async (req, res, next) => {
+  try {
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasSolicitacoesAprovacao) {
+      throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+    }
+
+    const limit = Math.max(1, Math.min(200, parseIntOrDefault(req.query?.limit, 50)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+    const status = req.query?.status ? String(req.query.status).trim().toUpperCase() : "";
+    const tipoAcao = req.query?.tipoAcao ? String(req.query.tipoAcao).trim().toUpperCase() : "";
+    const solicitantePerfilId = req.query?.solicitantePerfilId ? String(req.query.solicitantePerfilId).trim() : "";
+    if (solicitantePerfilId && !UUID_RE.test(solicitantePerfilId)) {
+      throw new HttpError(422, "PERFIL_ID_INVALIDO", "solicitantePerfilId deve ser UUID.");
+    }
+
+    const where = [];
+    const params = [];
+    let i = 1;
+    if (status) {
+      where.push(`s.status = $${i}::public.status_solicitacao_aprovacao`);
+      params.push(status);
+      i += 1;
+    }
+    if (tipoAcao) {
+      where.push(`s.tipo_acao = $${i}`);
+      params.push(tipoAcao);
+      i += 1;
+    }
+    if (solicitantePerfilId) {
+      where.push(`s.solicitante_perfil_id = $${i}`);
+      params.push(solicitantePerfilId);
+      i += 1;
+    }
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const itemsQ = await pool.query(
+      `SELECT
+         s.id,
+         s.tipo_acao AS "tipoAcao",
+         s.entidade_tipo AS "entidadeTipo",
+         s.entidade_id AS "entidadeId",
+         s.status::text AS status,
+         s.payload,
+         s.snapshot_before AS "snapshotBefore",
+         s.resultado_execucao AS "resultadoExecucao",
+         s.justificativa_solicitante AS "justificativaSolicitante",
+         s.justificativa_admin AS "justificativaAdmin",
+         s.expira_em AS "expiraEm",
+         s.created_at AS "createdAt",
+         s.updated_at AS "updatedAt",
+         s.solicitante_perfil_id AS "solicitantePerfilId",
+         ps.nome AS "solicitanteNome",
+         ps.matricula AS "solicitanteMatricula",
+         s.aprovado_por_perfil_id AS "aprovadoPorPerfilId",
+         pa.nome AS "aprovadoPorNome",
+         s.reprovado_por_perfil_id AS "reprovadoPorPerfilId",
+         pr.nome AS "reprovadoPorNome"
+       FROM solicitacoes_aprovacao s
+       LEFT JOIN perfis ps ON ps.id = s.solicitante_perfil_id
+       LEFT JOIN perfis pa ON pa.id = s.aprovado_por_perfil_id
+       LEFT JOIN perfis pr ON pr.id = s.reprovado_por_perfil_id
+       ${whereSql}
+       ORDER BY s.created_at DESC
+       LIMIT $${i} OFFSET $${i + 1};`,
+      [...params, limit, offset],
+    );
+
+    const totalQ = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM solicitacoes_aprovacao s
+       ${whereSql};`,
+      params,
+    );
+
+    res.json({
+      requestId: req.requestId,
+      paging: {
+        limit,
+        offset,
+        total: Number(totalQ.rows?.[0]?.total || 0),
+      },
+      items: itemsQ.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/aprovacoes/solicitacoes/:id/aprovar", mustAuth, requirePermission("action.aprovacao.aprovar"), async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    if (!AUTH_ENABLED) throw new HttpError(409, "AUTH_DESABILITADA", "Aprovacoes administrativas exigem autenticacao ativa.");
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasSolicitacoesAprovacao || !caps.hasSolicitacoesEventos) {
+      throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+    }
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "SOLICITACAO_ID_INVALIDO", "id deve ser UUID.");
+
+    await ensureAdminPassword(req, req.body?.adminPassword);
+    const justificativaAdmin = req.body?.justificativaAdmin != null
+      ? String(req.body.justificativaAdmin).trim().slice(0, 2000)
+      : "";
+
+    await client.query("BEGIN");
+    const q = await client.query(
+      `SELECT
+         id,
+         tipo_acao AS "tipoAcao",
+         entidade_tipo AS "entidadeTipo",
+         entidade_id AS "entidadeId",
+         status::text AS status,
+         payload
+       FROM solicitacoes_aprovacao
+       WHERE id = $1
+       FOR UPDATE;`,
+      [id],
+    );
+    if (!q.rowCount) throw new HttpError(404, "SOLICITACAO_NAO_ENCONTRADA", "Solicitacao nao encontrada.");
+    const solicitacao = q.rows[0];
+    if (String(solicitacao.status || "") !== SOLICITACAO_STATUS.PENDENTE) {
+      throw new HttpError(409, "SOLICITACAO_STATUS_INVALIDO", "Somente solicitacoes pendentes podem ser aprovadas.");
+    }
+
+    let resultadoExecucao = null;
+    try {
+      resultadoExecucao = await applySolicitacaoByType(client, {
+        solicitacao,
+        aprovadorPerfilId: req.user?.id ? String(req.user.id) : null,
+      });
+    } catch (applyError) {
+      await client.query(
+        `UPDATE solicitacoes_aprovacao
+         SET status = 'ERRO_APLICACAO',
+             aprovado_por_perfil_id = $2,
+             justificativa_admin = $3,
+             resultado_execucao = $4::jsonb,
+             updated_at = NOW()
+         WHERE id = $1;`,
+        [
+          id,
+          req.user?.id ? String(req.user.id) : null,
+          justificativaAdmin || null,
+          JSON.stringify({ erro: dbError(applyError), tipo: applyError?.code || "ERRO_APLICACAO" }),
+        ],
+      );
+      await addSolicitacaoEvento(client, {
+        solicitacaoId: id,
+        status: SOLICITACAO_STATUS.ERRO_APLICACAO,
+        perfilId: req.user?.id ? String(req.user.id) : null,
+        observacao: String(applyError?.message || "Falha ao aplicar solicitacao."),
+        payload: { code: applyError?.code || null },
+      });
+      throw applyError;
+    }
+
+    await client.query(
+      `UPDATE solicitacoes_aprovacao
+       SET status = 'APROVADA',
+           aprovado_por_perfil_id = $2,
+           justificativa_admin = $3,
+           resultado_execucao = $4::jsonb,
+           updated_at = NOW()
+       WHERE id = $1;`,
+      [
+        id,
+        req.user?.id ? String(req.user.id) : null,
+        justificativaAdmin || null,
+        JSON.stringify(toSafeJson(resultadoExecucao) || {}),
+      ],
+    );
+
+    await addSolicitacaoEvento(client, {
+      solicitacaoId: id,
+      status: SOLICITACAO_STATUS.APROVADA,
+      perfilId: req.user?.id ? String(req.user.id) : null,
+      observacao: "Solicitacao aprovada e aplicada.",
+      payload: resultadoExecucao || {},
+    });
+
+    await client.query("COMMIT");
+    res.json({
+      requestId: req.requestId,
+      status: SOLICITACAO_STATUS.APROVADA,
+      solicitacaoId: id,
+      resultado: resultadoExecucao || {},
+      message: "Acao aprovada e aplicada com sucesso.",
+    });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/aprovacoes/solicitacoes/:id/reprovar", mustAuth, requirePermission("action.aprovacao.reprovar"), async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    if (!AUTH_ENABLED) throw new HttpError(409, "AUTH_DESABILITADA", "Aprovacoes administrativas exigem autenticacao ativa.");
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasSolicitacoesAprovacao || !caps.hasSolicitacoesEventos) {
+      throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+    }
+    const id = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) throw new HttpError(422, "SOLICITACAO_ID_INVALIDO", "id deve ser UUID.");
+
+    await ensureAdminPassword(req, req.body?.adminPassword);
+    const justificativaAdmin = req.body?.justificativaAdmin != null
+      ? String(req.body.justificativaAdmin).trim().slice(0, 2000)
+      : "";
+    if (!justificativaAdmin) throw new HttpError(422, "JUSTIFICATIVA_ADMIN_OBRIGATORIA", "Informe justificativa da reprovacao.");
+
+    await client.query("BEGIN");
+    const q = await client.query(
+      `SELECT id, status::text AS status
+       FROM solicitacoes_aprovacao
+       WHERE id = $1
+       FOR UPDATE;`,
+      [id],
+    );
+    if (!q.rowCount) throw new HttpError(404, "SOLICITACAO_NAO_ENCONTRADA", "Solicitacao nao encontrada.");
+    if (String(q.rows[0].status || "") !== SOLICITACAO_STATUS.PENDENTE) {
+      throw new HttpError(409, "SOLICITACAO_STATUS_INVALIDO", "Somente solicitacoes pendentes podem ser reprovadas.");
+    }
+
+    await client.query(
+      `UPDATE solicitacoes_aprovacao
+       SET status = 'REPROVADA',
+           reprovado_por_perfil_id = $2,
+           justificativa_admin = $3,
+           updated_at = NOW()
+       WHERE id = $1;`,
+      [id, req.user?.id ? String(req.user.id) : null, justificativaAdmin],
+    );
+
+    await addSolicitacaoEvento(client, {
+      solicitacaoId: id,
+      status: SOLICITACAO_STATUS.REPROVADA,
+      perfilId: req.user?.id ? String(req.user.id) : null,
+      observacao: "Solicitacao reprovada.",
+      payload: { justificativaAdmin },
+    });
+
+    await client.query("COMMIT");
+    res.json({
+      requestId: req.requestId,
+      status: SOLICITACAO_STATUS.REPROVADA,
+      solicitacaoId: id,
+      message: "Acao reprovada.",
+    });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
 });
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi()));
@@ -1967,12 +2526,34 @@ app.get("/perfis", mustAdmin, async (req, res, next) => {
     const limit = parseIntOrDefault(req.query?.limit, 50);
     const limitFinal = Math.max(1, Math.min(200, limit));
 
+    const caps = await getAclSchemaCaps();
+    const hasAcl = Boolean(caps.hasRoles && caps.hasPerfilRoles);
     const r = await pool.query(
-      `SELECT id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo,
-              senha_definida_em AS "senhaDefinidaEm", ultimo_login_em AS "ultimoLoginEm",
-              created_at AS "createdAt"
-       FROM perfis
-       ORDER BY created_at DESC
+      `SELECT
+         p.id,
+         p.matricula,
+         p.nome,
+         p.email,
+         p.unidade_id AS "unidadeId",
+         p.cargo,
+         p.role,
+         p.ativo,
+         p.senha_definida_em AS "senhaDefinidaEm",
+         p.ultimo_login_em AS "ultimoLoginEm",
+         p.created_at AS "createdAt",
+         ${hasAcl ? "acl.codigo" : "NULL::text"} AS "roleAcessoCodigo"
+       FROM perfis p
+       ${hasAcl ? `LEFT JOIN LATERAL (
+         SELECT r.codigo
+         FROM perfil_roles_acesso pr
+         JOIN roles_acesso r ON r.id = pr.role_id
+         WHERE pr.perfil_id = p.id
+           AND pr.ativo = TRUE
+           AND r.ativo = TRUE
+         ORDER BY r.nivel DESC, r.codigo ASC
+         LIMIT 1
+       ) acl ON TRUE` : ""}
+       ORDER BY p.created_at DESC
        LIMIT $1;`,
       [limitFinal],
     );
@@ -2026,18 +2607,27 @@ app.get("/perfis/busca", mustAuth, async (req, res, next) => {
 });
 
 app.post("/perfis", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const p = validatePerfil(req.body || {});
     const senhaHash = p.senha ? await bcrypt.hash(p.senha, 10) : null;
     const senhaDefinidaEm = senhaHash ? new Date() : null;
-    const r = await pool.query(
+    await client.query("BEGIN");
+    const r = await client.query(
       `INSERT INTO perfis (matricula, nome, email, unidade_id, cargo, ativo, role, senha_hash, senha_definida_em)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, matricula, nome, email, unidade_id AS "unidadeId", cargo, role, ativo, created_at AS "createdAt";`,
       [p.matricula, p.nome, p.email, p.unidadeId, p.cargo, p.ativo, p.role, senhaHash, senhaDefinidaEm],
     );
+    await syncPerfilRoleAcesso(client, {
+      perfilId: r.rows[0].id,
+      legacyRole: r.rows[0].role,
+      atribuidoPorPerfilId: req.user?.id ? String(req.user.id) : null,
+    });
+    await client.query("COMMIT");
     res.status(201).json({ requestId: req.requestId, perfil: r.rows[0] });
   } catch (error) {
+    await safeRollback(client);
     if (error?.code === "23505") {
       if (String(error?.constraint || "") === "perfis_matricula_key") {
         next(new HttpError(409, "MATRICULA_DUPLICADA", "Ja existe perfil com esta matricula."));
@@ -2051,6 +2641,235 @@ app.post("/perfis", mustAdmin, async (req, res, next) => {
       return;
     }
     next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/roles-acesso", mustAdmin, async (req, res, next) => {
+  try {
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasRoles) {
+      throw new HttpError(503, "RBAC_INDISPONIVEL", "Estrutura RBAC ainda nao foi migrada no banco.");
+    }
+
+    const r = await pool.query(
+      `SELECT id, codigo, nome, nivel, ativo
+       FROM roles_acesso
+       ORDER BY nivel ASC, codigo ASC;`,
+    );
+
+    res.json({ requestId: req.requestId, items: r.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/acl/matriz", mustAdmin, async (req, res, next) => {
+  try {
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasRoles || !caps.hasPermissoes || !caps.hasRolePermissoes) {
+      throw new HttpError(503, "RBAC_INDISPONIVEL", "Estrutura RBAC ainda nao foi migrada no banco.");
+    }
+
+    const rolesQ = await pool.query(
+      `SELECT id, codigo, nome, nivel, ativo, sistema
+       FROM roles_acesso
+       WHERE ativo = TRUE
+       ORDER BY nivel ASC, codigo ASC;`,
+    );
+    const permsQ = await pool.query(
+      `SELECT id, codigo, descricao, categoria::text AS categoria, ativo
+       FROM permissoes_acesso
+       WHERE ativo = TRUE
+       ORDER BY categoria ASC, codigo ASC;`,
+    );
+    const linksQ = await pool.query(
+      `SELECT r.codigo AS "roleCodigo", p.codigo AS "permissaoCodigo"
+       FROM role_permissoes_acesso rp
+       JOIN roles_acesso r ON r.id = rp.role_id
+       JOIN permissoes_acesso p ON p.id = rp.permissao_id
+       WHERE r.ativo = TRUE
+         AND p.ativo = TRUE;`,
+    );
+
+    const rolePermissions = {};
+    for (const role of rolesQ.rows) rolePermissions[String(role.codigo)] = [];
+    for (const row of linksQ.rows) {
+      const roleCode = String(row.roleCodigo || "");
+      const permCode = String(row.permissaoCodigo || "");
+      if (!roleCode || !permCode) continue;
+      if (!Array.isArray(rolePermissions[roleCode])) rolePermissions[roleCode] = [];
+      rolePermissions[roleCode].push(permCode);
+    }
+
+    res.json({
+      requestId: req.requestId,
+      roles: rolesQ.rows,
+      permissions: permsQ.rows,
+      rolePermissions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/roles-acesso/:codigo/permissoes", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasRoles || !caps.hasPermissoes || !caps.hasRolePermissoes) {
+      throw new HttpError(503, "RBAC_INDISPONIVEL", "Estrutura RBAC ainda nao foi migrada no banco.");
+    }
+
+    const roleCodigo = String(req.params?.codigo || "").trim().toUpperCase();
+    if (!roleCodigo) throw new HttpError(422, "ROLE_ACESSO_OBRIGATORIA", "codigo da role e obrigatorio.");
+
+    const permissions = Array.isArray(req.body?.permissions)
+      ? req.body.permissions.map((x) => String(x || "").trim()).filter(Boolean)
+      : null;
+    if (!permissions) throw new HttpError(422, "PERMISSOES_INVALIDAS", "permissions deve ser um array de codigos.");
+
+    await ensureAdminPassword(req, req.body?.adminPassword);
+
+    await client.query("BEGIN");
+
+    const roleQ = await client.query(
+      `SELECT id, codigo
+       FROM roles_acesso
+       WHERE codigo = $1
+         AND ativo = TRUE
+       LIMIT 1
+       FOR UPDATE;`,
+      [roleCodigo],
+    );
+    if (!roleQ.rowCount) throw new HttpError(404, "ROLE_ACESSO_NAO_ENCONTRADA", "Role de acesso nao encontrada.");
+    const roleId = roleQ.rows[0].id;
+
+    const uniqPermissions = Array.from(new Set(permissions));
+    let allowedPermCodes = [];
+    if (uniqPermissions.length) {
+      const permQ = await client.query(
+        `SELECT id, codigo
+         FROM permissoes_acesso
+         WHERE ativo = TRUE
+           AND codigo = ANY($1::text[]);`,
+        [uniqPermissions],
+      );
+      if (permQ.rowCount !== uniqPermissions.length) {
+        const got = new Set(permQ.rows.map((x) => String(x.codigo)));
+        const missing = uniqPermissions.filter((x) => !got.has(x));
+        throw new HttpError(422, "PERMISSOES_INVALIDAS", "Uma ou mais permissoes sao invalidas/inativas.", { missing });
+      }
+      allowedPermCodes = permQ.rows.map((x) => String(x.codigo));
+    }
+
+    await client.query(`DELETE FROM role_permissoes_acesso WHERE role_id = $1;`, [roleId]);
+    if (uniqPermissions.length) {
+      await client.query(
+        `INSERT INTO role_permissoes_acesso (role_id, permissao_id)
+         SELECT $1, p.id
+         FROM permissoes_acesso p
+         WHERE p.codigo = ANY($2::text[])
+           AND p.ativo = TRUE;`,
+        [roleId, uniqPermissions],
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({
+      requestId: req.requestId,
+      roleCodigo,
+      permissions: allowedPermCodes.sort(),
+      message: "Permissoes da role atualizadas com sucesso.",
+    });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.put("/perfis/:id/role-acesso", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const caps = await getAclSchemaCaps();
+    if (!caps.hasRoles || !caps.hasPerfilRoles) {
+      throw new HttpError(503, "RBAC_INDISPONIVEL", "Estrutura RBAC ainda nao foi migrada no banco.");
+    }
+
+    const perfilId = String(req.params?.id || "").trim();
+    if (!UUID_RE.test(perfilId)) throw new HttpError(422, "PERFIL_ID_INVALIDO", "id deve ser UUID.");
+    const roleCodigo = String(req.body?.roleCodigo || "").trim().toUpperCase();
+    if (!roleCodigo) throw new HttpError(422, "ROLE_ACESSO_OBRIGATORIA", "Informe roleCodigo.");
+    if (!ROLE_CODES.includes(roleCodigo)) {
+      throw new HttpError(422, "ROLE_ACESSO_INVALIDA", "roleCodigo invalido.");
+    }
+
+    await client.query("BEGIN");
+
+    const perfilQ = await client.query(
+      `SELECT id
+       FROM perfis
+       WHERE id = $1
+       FOR UPDATE;`,
+      [perfilId],
+    );
+    if (!perfilQ.rowCount) throw new HttpError(404, "PERFIL_NAO_ENCONTRADO", "Perfil nao encontrado.");
+
+    await setPerfilRoleAcessoByCode(client, {
+      perfilId,
+      roleCode: roleCodigo,
+      atribuidoPorPerfilId: req.user?.id ? String(req.user.id) : null,
+    });
+
+    const legacyRole = roleAcessoToLegacyRole(roleCodigo);
+    await client.query(
+      `UPDATE perfis
+       SET role = $2,
+           updated_at = NOW()
+       WHERE id = $1;`,
+      [perfilId, legacyRole],
+    );
+
+    const out = await client.query(
+      `SELECT
+         p.id,
+         p.matricula,
+         p.nome,
+         p.email,
+         p.unidade_id AS "unidadeId",
+         p.cargo,
+         p.role,
+         p.ativo,
+         p.senha_definida_em AS "senhaDefinidaEm",
+         p.ultimo_login_em AS "ultimoLoginEm",
+         p.created_at AS "createdAt",
+         acl.codigo AS "roleAcessoCodigo"
+       FROM perfis p
+       LEFT JOIN LATERAL (
+         SELECT r.codigo
+         FROM perfil_roles_acesso pr
+         JOIN roles_acesso r ON r.id = pr.role_id
+         WHERE pr.perfil_id = p.id
+           AND pr.ativo = TRUE
+           AND r.ativo = TRUE
+         ORDER BY r.nivel DESC, r.codigo ASC
+         LIMIT 1
+       ) acl ON TRUE
+       WHERE p.id = $1
+       LIMIT 1;`,
+      [perfilId],
+    );
+
+    await client.query("COMMIT");
+    res.json({ requestId: req.requestId, perfil: out.rows[0] || null });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -2059,6 +2878,7 @@ app.post("/perfis", mustAdmin, async (req, res, next) => {
  * Regra operacional: usado para corrigir cadastro/role, desativar usuarios e resetar senha via endpoint dedicado.
  */
 app.patch("/perfis/:id", mustAdmin, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(422, "PERFIL_ID_INVALIDO", "id deve ser UUID.");
@@ -2102,7 +2922,8 @@ app.patch("/perfis/:id", mustAdmin, async (req, res, next) => {
     if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
 
     fields.push("updated_at = NOW()");
-    const r = await pool.query(
+    await client.query("BEGIN");
+    const r = await client.query(
       `UPDATE perfis
        SET ${fields.join(", ")}
        WHERE id = $${i}
@@ -2113,13 +2934,25 @@ app.patch("/perfis/:id", mustAdmin, async (req, res, next) => {
     );
     if (!r.rowCount) throw new HttpError(404, "PERFIL_NAO_ENCONTRADO", "Perfil nao encontrado.");
 
+    if (patch.role != null) {
+      await syncPerfilRoleAcesso(client, {
+        perfilId: id,
+        legacyRole: patch.role,
+        atribuidoPorPerfilId: req.user?.id ? String(req.user.id) : null,
+      });
+    }
+    await client.query("COMMIT");
+
     res.json({ requestId: req.requestId, perfil: r.rows[0] });
   } catch (error) {
+    await safeRollback(client);
     if (error?.code === "23505" && String(error?.constraint || "") === "perfis_email_key") {
       next(new HttpError(409, "EMAIL_DUPLICADO", "Ja existe perfil com este e-mail."));
       return;
     }
     next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -2428,6 +3261,7 @@ const inventario = createInventarioController({
 app.get("/inventario/eventos", mustAuth, inventario.getEventos);
 app.get("/inventario/divergencias-interunidades", mustAuth, inventario.getDivergenciasInterunidades);
 app.get("/inventario/contagens", mustAuth, inventario.getContagens);
+app.get("/inventario/divergencias-interunidades", mustAuth, inventario.getDivergenciasInterunidades);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.get("/inventario/sugestoes-ciclo", mustAuth, inventario.getSugestoesCiclo);
@@ -3694,45 +4528,268 @@ app.get("/pdf/forasteiros", mustAdmin, async (req, res, next) => {
   }
 });
 
+async function applyBemOperacionalPatch(client, { bemId, payload, actorPerfilId }) {
+  const id = String(bemId || "").trim();
+  if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
+  const body = payload && typeof payload === "object" ? payload : {};
+  const localFisico = body.localFisico != null ? String(body.localFisico).trim().slice(0, 180) : null;
+  const localId = body.localId != null && String(body.localId).trim() !== "" ? String(body.localId).trim() : null;
+  if (localId && !UUID_RE.test(localId)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
+  const fotoUrl = body.fotoUrl != null ? String(body.fotoUrl).trim().slice(0, 2000) : null;
+
+  await setDbContext(client, { changeOrigin: "APP", currentUserId: actorPerfilId || null });
+  const r = await client.query(
+    `UPDATE bens
+     SET local_fisico = COALESCE($2, local_fisico),
+         local_id = $3,
+         foto_url = COALESCE($4, foto_url),
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING id,
+       numero_tombamento AS "numeroTombamento",
+       local_fisico AS "localFisico",
+       local_id AS "localId",
+       foto_url AS "fotoUrl";`,
+    [id, localFisico, localId, fotoUrl],
+  );
+  if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+  return r.rows[0];
+}
+
+async function applyBemPatchSensivel(client, { bemId, patch, actorPerfilId }) {
+  const id = String(bemId || "").trim();
+  if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
+  const body = patch && typeof patch === "object" ? patch : {};
+
+  const currentBem = await client.query(
+    `SELECT unidade_dona_id AS "unidadeDonaId", status::text AS "status"
+     FROM bens
+     WHERE id = $1`,
+    [id],
+  );
+  if (!currentBem.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+  const currentRow = currentBem.rows[0];
+
+  const fields = [];
+  const params = [];
+  let i = 1;
+
+  if (Object.prototype.hasOwnProperty.call(body, "responsavelPerfilId")) {
+    const raw = body.responsavelPerfilId != null ? String(body.responsavelPerfilId).trim() : "";
+    const value = raw ? raw : null;
+    if (value && !UUID_RE.test(value)) throw new HttpError(422, "RESPONSAVEL_INVALIDO", "responsavelPerfilId deve ser UUID ou null.");
+    fields.push(`responsavel_perfil_id = $${i}`);
+    params.push(value);
+    i += 1;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "localFisico")) {
+    fields.push(`local_fisico = $${i}`);
+    params.push(body.localFisico != null ? String(body.localFisico).trim().slice(0, 180) : null);
+    i += 1;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "localId")) {
+    const raw = body.localId != null ? String(body.localId).trim() : "";
+    const value = raw ? raw : null;
+    if (value && !UUID_RE.test(value)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID ou null.");
+    fields.push(`local_id = $${i}`);
+    params.push(value);
+    i += 1;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "status")) {
+    const status = String(body.status || "").trim().toUpperCase();
+    const allowed = new Set(["OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"]);
+    if (!allowed.has(status)) throw new HttpError(422, "STATUS_INVALIDO", "status invalido.");
+    if (status !== String(currentRow.status || "").trim().toUpperCase()) {
+      throw new HttpError(
+        422,
+        "PROCEDIMENTO_OBRIGATORIO_STATUS",
+        "Alteracao de status deve seguir o procedimento proprio (ex.: CAUTELA_SAIDA/CAUTELA_RETORNO em Movimentacoes).",
+      );
+    }
+  }
+
+  if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo sensivel para atualizar.");
+
+  await setDbContext(client, { changeOrigin: "APP", currentUserId: actorPerfilId || null });
+  const r = await client.query(
+    `UPDATE bens
+     SET ${fields.join(", ")}, updated_at = NOW()
+     WHERE id = $${i}
+     RETURNING id,
+       numero_tombamento AS "numeroTombamento",
+       unidade_dona_id AS "unidadeDonaId",
+       responsavel_perfil_id AS "responsavelPerfilId",
+       local_fisico AS "localFisico",
+       local_id AS "localId",
+       status::text AS "status",
+       updated_at AS "updatedAt";`,
+    [...params, id],
+  );
+  if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+  return r.rows[0];
+}
+
+async function applyVincularLocalLote(client, { payload, actorPerfilId }) {
+  const body = payload && typeof payload === "object" ? payload : {};
+  const localId = body.localId != null ? String(body.localId).trim() : "";
+  if (!UUID_RE.test(localId)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
+
+  const termo = body.termoLocalFisico != null ? String(body.termoLocalFisico).trim().slice(0, 180) : "";
+  if (termo.length < 2) throw new HttpError(422, "TERMO_OBRIGATORIO", "termoLocalFisico deve ter pelo menos 2 caracteres.");
+
+  const somenteSemLocalId = parseBool(body.somenteSemLocalId, true);
+  const unidadeRaw = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== ""
+    ? Number(body.unidadeDonaId)
+    : null;
+  if (unidadeRaw != null && (!Number.isInteger(unidadeRaw) || !VALID_UNIDADES.has(unidadeRaw))) {
+    throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+  }
+
+  const where = [
+    "eh_bem_terceiro = FALSE",
+    "local_fisico IS NOT NULL",
+    "local_fisico <> ''",
+    "local_fisico ILIKE $1",
+  ];
+  const params = [`%${termo}%`];
+  let i = 2;
+
+  if (somenteSemLocalId) where.push("local_id IS NULL");
+  if (unidadeRaw != null) {
+    where.push(`unidade_dona_id = $${i}`);
+    params.push(unidadeRaw);
+    i += 1;
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  const preview = await client.query(
+    `SELECT id, numero_tombamento AS "numeroTombamento", local_fisico AS "localFisico", local_id AS "localId"
+     FROM bens
+     ${whereSql}
+     ORDER BY numero_tombamento NULLS LAST
+     LIMIT 10;`,
+    params,
+  );
+  const total = await client.query(`SELECT COUNT(*)::int AS total FROM bens ${whereSql};`, params);
+  const totalAlvo = total.rows[0]?.total ?? 0;
+
+  await setDbContext(client, { changeOrigin: "APP", currentUserId: actorPerfilId || null });
+  const upd = await client.query(
+    `UPDATE bens
+     SET local_id = $${i}, updated_at = NOW()
+     ${whereSql}
+     RETURNING id;`,
+    [...params, localId],
+  );
+  return {
+    totalAlvo,
+    atualizados: upd.rowCount,
+    exemplo: preview.rows,
+  };
+}
+
+async function applySolicitacaoByType(client, { solicitacao, aprovadorPerfilId }) {
+  const payload = solicitacao?.payload && typeof solicitacao.payload === "object" ? solicitacao.payload : {};
+  const tipoAcao = String(solicitacao?.tipoAcao || "").trim();
+
+  if (tipoAcao === SOLICITACAO_TIPO_ACAO.BEM_PATCH_OPERACIONAL) {
+    const bem = await applyBemOperacionalPatch(client, {
+      bemId: payload.bemId || solicitacao.entidadeId,
+      payload: payload.patch || {},
+      actorPerfilId: aprovadorPerfilId,
+    });
+    return { tipoAcao, bem };
+  }
+
+  if (tipoAcao === SOLICITACAO_TIPO_ACAO.BEM_PATCH) {
+    const bem = await applyBemPatchSensivel(client, {
+      bemId: payload.bemId || solicitacao.entidadeId,
+      patch: payload.patch || {},
+      actorPerfilId: aprovadorPerfilId,
+    });
+    return { tipoAcao, bem };
+  }
+
+  if (tipoAcao === SOLICITACAO_TIPO_ACAO.BEM_VINCULAR_LOCAL_LOTE) {
+    const lote = await applyVincularLocalLote(client, {
+      payload: payload.patch || {},
+      actorPerfilId: aprovadorPerfilId,
+    });
+    return { tipoAcao, lote };
+  }
+
+  throw new HttpError(422, "SOLICITACAO_TIPO_INVALIDO", "Tipo de solicitacao nao suportado.");
+}
+
 /**
  * Atualiza localizacao e fotos de um bem (camada operacional melhorada).
  * Restrito a ADMIN (quando auth ativa).
  */
-app.patch("/bens/:id/operacional", mustAdmin, async (req, res, next) => {
+app.patch("/bens/:id/operacional", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
     const id = String(req.params?.id || "").trim();
-    if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
-
     const body = req.body || {};
-    const localFisico = body.localFisico != null ? String(body.localFisico).trim().slice(0, 180) : null;
-    const localId = body.localId != null && String(body.localId).trim() !== "" ? String(body.localId).trim() : null;
-    if (localId && !UUID_RE.test(localId)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
+    const payloadKeys = ["localFisico", "localId", "fotoUrl"].filter((k) => Object.prototype.hasOwnProperty.call(body, k));
+    if (!payloadKeys.length) {
+      throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo (localFisico/localId/fotoUrl).");
+    }
+    const canExecute = userHasPermission(req.user, "action.bem.editar_operacional.execute");
+    const canRequest = userHasPermission(req.user, "action.bem.editar_operacional.request");
+    if (!canExecute && !canRequest) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para alterar operacional do bem.");
+    }
+    if (canExecute) {
+      await client.query("BEGIN");
+      const bem = await applyBemOperacionalPatch(client, {
+        bemId: id,
+        payload: body,
+        actorPerfilId: req.user?.id ? String(req.user.id).trim() : null,
+      });
+      await client.query("COMMIT");
+      res.json({ requestId: req.requestId, bem });
+      return;
+    }
 
-    const fotoUrl = body.fotoUrl != null ? String(body.fotoUrl).trim().slice(0, 2000) : null;
+    const justificativaSolicitante = body?.justificativaSolicitante != null
+      ? String(body.justificativaSolicitante).trim().slice(0, 2000)
+      : "";
+    if (!justificativaSolicitante) {
+      throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+    }
 
     await client.query("BEGIN");
-    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
-
-    const r = await client.query(
-      `UPDATE bens
-    SET
-    local_fisico = COALESCE($2, local_fisico),
-      local_id = $3,
-      foto_url = COALESCE($4, foto_url),
-      updated_at = NOW()
+    const snap = await client.query(
+      `SELECT id, numero_tombamento AS "numeroTombamento", local_fisico AS "localFisico", local_id AS "localId", foto_url AS "fotoUrl"
+       FROM bens
        WHERE id = $1
-       RETURNING id,
-      numero_tombamento AS "numeroTombamento",
-        local_fisico AS "localFisico",
-          local_id AS "localId",
-            foto_url AS "fotoUrl"; `,
-      [id, localFisico, localId, fotoUrl],
+       LIMIT 1;`,
+      [id],
     );
-    if (!r.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
-
+    if (!snap.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+    const solicitacao = await createSolicitacaoAprovacao(client, {
+      tipoAcao: SOLICITACAO_TIPO_ACAO.BEM_PATCH_OPERACIONAL,
+      entidadeTipo: "BEM",
+      entidadeId: id,
+      payload: {
+        bemId: id,
+        patch: body,
+      },
+      solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+      justificativaSolicitante,
+      snapshotBefore: snap.rows[0],
+      expiraEm: nowPlusDays(15),
+    });
     await client.query("COMMIT");
-    res.json({ requestId: req.requestId, bem: r.rows[0] });
+    res.status(202).json({
+      requestId: req.requestId,
+      status: "PENDENTE_APROVACAO",
+      solicitacaoId: solicitacao.id,
+      message: "Acao enviada para aprovacao administrativa.",
+    });
   } catch (error) {
     await safeRollback(client);
     next(error);
@@ -3762,13 +4819,15 @@ function deleteLocalFoto(relUrl) {
  * - Nao permite alterar: id, numero_tombamento, identificador_externo, eh_bem_terceiro.
  * - Mudanca de carga (unidade_dona_id) segue regras legais: Art. 183 bloqueia durante EM_ANDAMENTO.
  */
-app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
+app.patch("/bens/:id", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "id deve ser UUID.");
 
     const body = req.body || {};
+    const bodyKeys = Object.keys(body).filter((k) => String(k) !== "justificativaSolicitante");
+    if (!bodyKeys.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar.");
     if (Object.prototype.hasOwnProperty.call(body, "numeroTombamento") || Object.prototype.hasOwnProperty.call(body, "numero_tombamento")) {
       throw new HttpError(422, "CHAVE_IMUTAVEL", "numeroTombamento e imutavel.");
     }
@@ -3778,6 +4837,64 @@ app.patch("/bens/:id", mustAdmin, async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(body, "ehBemTerceiro") || Object.prototype.hasOwnProperty.call(body, "eh_bem_terceiro")) {
       throw new HttpError(422, "CHAVE_IMUTAVEL", "ehBemTerceiro e imutavel.");
     }
+
+    const aclNeeds = classifyBemPatchPermissions(body);
+    const canExecute = aclNeeds.executePermissions.length
+      ? aclNeeds.executePermissions.every((perm) => userHasPermission(req.user, perm))
+      : userHasPermission(req.user, "action.bem.editar_operacional.execute");
+    const canRequest = aclNeeds.requestPermissions.length
+      ? aclNeeds.requestPermissions.every((perm) => userHasPermission(req.user, perm))
+      : userHasPermission(req.user, "action.bem.editar_operacional.request");
+    if (!canExecute && !canRequest) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para alterar este bem.");
+    }
+
+    if (!canExecute && canRequest) {
+      if (aclNeeds.executePermissions.includes("action.bem.editar_operacional.execute")) {
+        throw new HttpError(
+          422,
+          "SOLICITACAO_CAMPOS_NAO_SUPORTADOS",
+          "Solicitacao de aprovacao para este conjunto de campos nao e suportada nesta versao.",
+        );
+      }
+      const justificativaSolicitante = body?.justificativaSolicitante != null
+        ? String(body.justificativaSolicitante).trim().slice(0, 2000)
+        : "";
+      if (!justificativaSolicitante) {
+        throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+      }
+
+      await client.query("BEGIN");
+      const snap = await client.query(
+        `SELECT id, numero_tombamento AS "numeroTombamento", status::text AS "status",
+                responsavel_perfil_id AS "responsavelPerfilId", local_fisico AS "localFisico", local_id AS "localId"
+         FROM bens
+         WHERE id = $1
+         LIMIT 1;`,
+        [id],
+      );
+      if (!snap.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
+
+      const solicitacao = await createSolicitacaoAprovacao(client, {
+        tipoAcao: SOLICITACAO_TIPO_ACAO.BEM_PATCH,
+        entidadeTipo: "BEM",
+        entidadeId: id,
+        payload: { bemId: id, patch: body },
+        solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+        justificativaSolicitante,
+        snapshotBefore: snap.rows[0],
+        expiraEm: nowPlusDays(15),
+      });
+      await client.query("COMMIT");
+      res.status(202).json({
+        requestId: req.requestId,
+        status: "PENDENTE_APROVACAO",
+        solicitacaoId: solicitacao.id,
+        message: "Acao enviada para aprovacao administrativa.",
+      });
+      return;
+    }
+
     const currentBem = await client.query(
       `SELECT unidade_dona_id AS "unidadeDonaId", status::text AS "status"
        FROM bens
@@ -4094,86 +5211,68 @@ app.post("/drive/fotos/upload", mustAdmin, (req, res, next) => {
  * - Ajuda a migrar do "texto livre do GEAFIN" (local_fisico) para "local padronizado" (local_id).
  * - Nao e regra legal; e melhoria operacional para inventario por sala.
  */
-app.post("/bens/vincular-local", mustAdmin, async (req, res, next) => {
+app.post("/bens/vincular-local", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
     const body = req.body || {};
-    const localId = body.localId != null ? String(body.localId).trim() : "";
-    if (!UUID_RE.test(localId)) throw new HttpError(422, "LOCAL_ID_INVALIDO", "localId deve ser UUID.");
-
-    const termo = body.termoLocalFisico != null ? String(body.termoLocalFisico).trim().slice(0, 180) : "";
-    if (termo.length < 2) throw new HttpError(422, "TERMO_OBRIGATORIO", "termoLocalFisico deve ter pelo menos 2 caracteres.");
-
-    const somenteSemLocalId = parseBool(body.somenteSemLocalId, true);
     const dryRun = parseBool(body.dryRun, false);
-
-    const unidadeRaw = body.unidadeDonaId != null && String(body.unidadeDonaId).trim() !== ""
-      ? Number(body.unidadeDonaId)
-      : null;
-    if (unidadeRaw != null && (!Number.isInteger(unidadeRaw) || !VALID_UNIDADES.has(unidadeRaw))) {
-      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+    const canExecute = userHasPermission(req.user, "action.bem.vincular_local_lote.execute");
+    const canRequest = userHasPermission(req.user, "action.bem.vincular_local_lote.request");
+    if (!canExecute && !canRequest) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para vincular locais em lote.");
     }
 
-    const where = [
-      "eh_bem_terceiro = FALSE",
-      "local_fisico IS NOT NULL",
-      "local_fisico <> ''",
-      "local_fisico ILIKE $1",
-    ];
-    const params = [`%${termo}%`];
-    let i = 2;
-
-    if (somenteSemLocalId) {
-      where.push("local_id IS NULL");
-    }
-    if (unidadeRaw != null) {
-      where.push(`unidade_dona_id = $${i}`);
-      params.push(unidadeRaw);
-      i += 1;
-    }
-
-    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-    const preview = await pool.query(
-      `SELECT id, numero_tombamento AS "numeroTombamento", local_fisico AS "localFisico", local_id AS "localId"
-       FROM bens
-       ${whereSql}
-       ORDER BY numero_tombamento NULLS LAST
-       LIMIT 10;`,
-      params,
-    );
-
-    const total = await pool.query(`SELECT COUNT(*)::int AS total FROM bens ${whereSql};`, params);
-    const totalAlvo = total.rows[0]?.total ?? 0;
-
-    if (dryRun) {
+    if (dryRun || canExecute) {
+      await client.query("BEGIN");
+      const result = await applyVincularLocalLote(client, {
+        payload: body,
+        actorPerfilId: req.user?.id ? String(req.user.id).trim() : null,
+      });
+      if (dryRun) {
+        await safeRollback(client);
+        res.json({
+          requestId: req.requestId,
+          dryRun: true,
+          totalAlvo: result.totalAlvo,
+          exemplo: result.exemplo,
+        });
+        return;
+      }
+      await client.query("COMMIT");
       res.json({
         requestId: req.requestId,
-        dryRun: true,
-        totalAlvo,
-        exemplo: preview.rows,
+        dryRun: false,
+        totalAlvo: result.totalAlvo,
+        atualizados: result.atualizados || 0,
+        exemplo: result.exemplo,
       });
       return;
     }
 
+    const justificativaSolicitante = body?.justificativaSolicitante != null
+      ? String(body.justificativaSolicitante).trim().slice(0, 2000)
+      : "";
+    if (!justificativaSolicitante) {
+      throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+    }
+
     await client.query("BEGIN");
-    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
-
-    const upd = await client.query(
-      `UPDATE bens
-       SET local_id = $${i}, updated_at = NOW()
-       ${whereSql}
-       RETURNING id;`,
-      [...params, localId],
-    );
+    const solicitacao = await createSolicitacaoAprovacao(client, {
+      tipoAcao: SOLICITACAO_TIPO_ACAO.BEM_VINCULAR_LOCAL_LOTE,
+      entidadeTipo: "BENS_LOTE",
+      entidadeId: null,
+      payload: { patch: body },
+      solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+      justificativaSolicitante,
+      snapshotBefore: null,
+      expiraEm: nowPlusDays(15),
+    });
     await client.query("COMMIT");
-
-    res.json({
+    res.status(202).json({
       requestId: req.requestId,
-      dryRun: false,
-      totalAlvo,
-      atualizados: upd.rowCount || 0,
-      exemplo: preview.rows,
+      status: "PENDENTE_APROVACAO",
+      solicitacaoId: solicitacao.id,
+      message: "Acao enviada para aprovacao administrativa.",
     });
   } catch (error) {
     await safeRollback(client);
@@ -4757,6 +5856,127 @@ function normalizeLatinForSearch(raw) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function uniqStrings(input) {
+  return Array.from(new Set((Array.isArray(input) ? input : []).map((x) => String(x || "").trim()).filter(Boolean)));
+}
+
+function nowPlusDays(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + Number(days || 0));
+  return d.toISOString();
+}
+
+function toSafeJson(value) {
+  if (value === undefined) return null;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function addSolicitacaoEvento(client, { solicitacaoId, status, perfilId, observacao, payload }) {
+  await client.query(
+    `INSERT INTO solicitacoes_aprovacao_eventos
+     (solicitacao_id, status, perfil_id, observacao, payload)
+     VALUES ($1, $2::public.status_solicitacao_aprovacao, $3, $4, $5::jsonb);`,
+    [
+      solicitacaoId,
+      status,
+      perfilId || null,
+      observacao || null,
+      JSON.stringify(toSafeJson(payload) || {}),
+    ],
+  );
+}
+
+async function createSolicitacaoAprovacao(client, {
+  tipoAcao,
+  entidadeTipo,
+  entidadeId,
+  payload,
+  solicitantePerfilId,
+  justificativaSolicitante,
+  snapshotBefore,
+  expiraEm,
+}) {
+  const r = await client.query(
+    `INSERT INTO solicitacoes_aprovacao
+     (tipo_acao, entidade_tipo, entidade_id, payload, status, solicitante_perfil_id, justificativa_solicitante, snapshot_before, expira_em)
+     VALUES ($1, $2, $3, $4::jsonb, 'PENDENTE', $5, $6, $7::jsonb, $8)
+     RETURNING
+       id,
+       tipo_acao AS "tipoAcao",
+       entidade_tipo AS "entidadeTipo",
+       entidade_id AS "entidadeId",
+       status::text AS status,
+       solicitante_perfil_id AS "solicitantePerfilId",
+       created_at AS "createdAt";`,
+    [
+      String(tipoAcao || "").trim(),
+      String(entidadeTipo || "").trim(),
+      entidadeId || null,
+      JSON.stringify(toSafeJson(payload) || {}),
+      solicitantePerfilId,
+      justificativaSolicitante || null,
+      JSON.stringify(toSafeJson(snapshotBefore) || {}),
+      expiraEm || null,
+    ],
+  );
+
+  const solicitacao = r.rows[0];
+  await addSolicitacaoEvento(client, {
+    solicitacaoId: solicitacao.id,
+    status: SOLICITACAO_STATUS.PENDENTE,
+    perfilId: solicitantePerfilId,
+    observacao: "Solicitacao criada.",
+    payload: payload || {},
+  });
+  return solicitacao;
+}
+
+function classifyBemPatchPermissions(body) {
+  const b = body && typeof body === "object" ? body : {};
+  const exec = [];
+  const req = [];
+
+  const hasLocalizacao = Object.prototype.hasOwnProperty.call(b, "localFisico")
+    || Object.prototype.hasOwnProperty.call(b, "localId");
+  const hasResponsavel = Object.prototype.hasOwnProperty.call(b, "responsavelPerfilId");
+  const hasStatus = Object.prototype.hasOwnProperty.call(b, "status");
+
+  if (hasLocalizacao) {
+    exec.push("action.bem.alterar_localizacao.execute");
+    req.push("action.bem.alterar_localizacao.request");
+  }
+  if (hasResponsavel) {
+    exec.push("action.bem.alterar_responsavel.execute");
+    req.push("action.bem.alterar_responsavel.request");
+  }
+  if (hasStatus) {
+    exec.push("action.bem.alterar_status.execute");
+    req.push("action.bem.alterar_status.request");
+  }
+
+  const hasGenericEdit = Object.keys(b).some((k) =>
+    !["localFisico", "localId", "responsavelPerfilId", "status", "justificativaSolicitante"].includes(String(k)),
+  );
+  if (hasGenericEdit) {
+    exec.push("action.bem.editar_operacional.execute");
+    req.push("action.bem.editar_operacional.request");
+  }
+
+  return { executePermissions: uniqStrings(exec), requestPermissions: uniqStrings(req) };
+}
+
+function ensureAnyPermissionOrThrow(user, permissions, modeLabel) {
+  const list = uniqStrings(permissions);
+  if (!list.length) throw new HttpError(403, "SEM_PERMISSAO", "Permissoes nao configuradas para a acao.");
+  if (list.every((perm) => !userHasPermission(user, perm))) {
+    throw new HttpError(403, "SEM_PERMISSAO", `Voce nao tem permissao (${modeLabel}) para executar esta acao.`);
+  }
 }
 
 /**
@@ -6047,6 +7267,9 @@ function openapi() {
       },
       "/inventario/contagens": {
         get: { summary: "Listar contagens de inventario (por evento/sala)", responses: { 200: { description: "OK" } } },
+      },
+      "/inventario/divergencias-interunidades": {
+        get: { summary: "Listar divergencias interunidades com visibilidade cruzada", responses: { 200: { description: "OK" } } },
       },
       "/inventario/forasteiros": {
         get: { summary: "Listar divergencias pendentes (forasteiros) para regularizacao", responses: { 200: { description: "OK" } } },

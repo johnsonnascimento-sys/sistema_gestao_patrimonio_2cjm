@@ -1,14 +1,14 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/21_gestao_normas.md
-Funcao no sistema: documentar o menu Gestao de Normas.
+Funcao no sistema: documentar o menu Gest?o de Normas.
 -->
 
-# Gestao de Normas
+# Gest?o de Normas
 
 ## Objetivo
 
-A secao Gestao de Normas concentra o acervo normativo usado na operacao patrimonial.
+A secao Gest?o de Normas concentra o acervo normativo usado na opera?o patrimonial.
 
 Ela serve para consulta rapida das regras internas e referencias legais aplicadas no sistema.
 
@@ -16,7 +16,7 @@ Ela serve para consulta rapida das regras internas e referencias legais aplicada
 
 - normas internas de inventario
 - referencias ATN 303/2008
-- orientacoes de procedimento (cautela, transferencia, regularizacao)
+- orienta?es de procedimento (cautela, transferencia, regulariza?o)
 
 ## Uso operacional
 
@@ -27,6 +27,6 @@ Ela serve para consulta rapida das regras internas e referencias legais aplicada
 ## Governanca
 
 - Mudanca de regra de negocio deve refletir em:
-  - Gestao de Normas
+  - Gest?o de Normas
   - Wiki operacional
-  - Log geral de alteracoes
+  - Log geral de altera?es

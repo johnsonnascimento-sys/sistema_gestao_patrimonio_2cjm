@@ -29,7 +29,7 @@ Segredos devem existir apenas:
 ## 4) O que o admin deve fazer (VPS)
 
 - Manter Docker e containers atualizados.
-- Monitorar logs do backend em operacoes longas (importacao).
+- Monitorar logs do backend em opera?es longas (importa?o).
 - Ajustar Nginx somente quando necessario.
 - Garantir que backups existam (se politica interna exigir).
 

@@ -104,6 +104,16 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const auth = useAuth();
   const canUse = Boolean(auth.perfil) || !auth.authEnabled;
   const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+  const canExecuteOperacional =
+    !auth.authEnabled
+    || auth.can("action.bem.editar_operacional.execute")
+    || auth.can("action.bem.alterar_localizacao.execute")
+    || canAdmin;
+  const canRequestOperacional =
+    !auth.authEnabled
+    || auth.can("action.bem.editar_operacional.request")
+    || auth.can("action.bem.alterar_localizacao.request")
+    || canAdmin;
   const showMovimentacaoForm = section !== "cadastro-sala";
   const showCadastroSala = section === "cadastro-sala";
 
@@ -142,6 +152,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const [cameraScanPreview, setCameraScanPreview] = useState(null);
   const [loteItens, setLoteItens] = useState([]);
   const [loteState, setLoteState] = useState({ loading: false, response: null, error: null, info: null });
+  const [justificativaSolicitante, setJustificativaSolicitante] = useState("");
   const [statsLocais, setStatsLocais] = useState({ loading: false, data: null, error: null });
   const [resetModal, setResetModal] = useState({ open: false, loading: false, resultado: null });
   const [bensLoc, setBensLoc] = useState({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 });
@@ -550,8 +561,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   };
 
   const onSalvarLote = async () => {
-    if (!canAdmin) {
-      setLoteState({ loading: false, response: null, error: "Regularizacao por sala restrita ao perfil ADMIN.", info: null });
+    if (!canExecuteOperacional && !canRequestOperacional) {
+      setLoteState({ loading: false, response: null, error: "Voce nao tem permissao para alterar localizacao por sala.", info: null });
       return;
     }
     if (!selectedLocal) {
@@ -568,6 +579,15 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       setLoteState({ loading: false, response: null, error: "Nao ha itens elegiveis para salvar (divergencias nao confirmadas).", info: null });
       return;
     }
+    if (!canExecuteOperacional && canRequestOperacional && !String(justificativaSolicitante || "").trim()) {
+      setLoteState({
+        loading: false,
+        response: null,
+        error: "Informe a justificativa para enviar a alteracao de localizacao para aprovacao administrativa.",
+        info: null,
+      });
+      return;
+    }
 
     const divergentes = elegiveis.filter((x) => x.divergenciaUnidade);
     if (divergentes.length) {
@@ -581,6 +601,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     setLoteState({ loading: true, response: null, error: null, info: null });
 
     let okCount = 0;
+    let pendenteCount = 0;
     let failCount = 0;
     const updated = [...loteItens];
 
@@ -588,14 +609,23 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       const row = updated[i];
       if (row.divergenciaUnidade && !row.manterOutraUnidade) continue;
       try {
-        await atualizarBemOperacional(row.bemId, {
+        const payload = {
           localId: selectedLocal.id,
           localFisico: selectedLocal.nome,
-        });
-        updated[i] = { ...row, salvo: true, erro: null };
-        okCount += 1;
+        };
+        if (!canExecuteOperacional && canRequestOperacional) {
+          payload.justificativaSolicitante = justificativaSolicitante;
+        }
+        const resp = await atualizarBemOperacional(row.bemId, payload);
+        if (String(resp?.status || "").toUpperCase() === "PENDENTE_APROVACAO") {
+          updated[i] = { ...row, salvo: false, pendenteAprovacao: true, erro: null };
+          pendenteCount += 1;
+        } else {
+          updated[i] = { ...row, salvo: true, pendenteAprovacao: false, erro: null };
+          okCount += 1;
+        }
       } catch (error) {
-        updated[i] = { ...row, salvo: false, erro: formatApiError(error) };
+        updated[i] = { ...row, salvo: false, pendenteAprovacao: false, erro: formatApiError(error) };
         failCount += 1;
       }
     }
@@ -603,9 +633,9 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     setLoteItens(updated);
     setLoteState({
       loading: false,
-      response: { ok: okCount, falhas: failCount },
+      response: { ok: okCount, pendentes: pendenteCount, falhas: failCount },
       error: null,
-      info: `Regularizacao concluida: ${okCount} salvo(s), ${failCount} falha(s).`,
+      info: `Regularizacao concluida: ${okCount} salvo(s), ${pendenteCount} pendente(s) de aprovacao, ${failCount} falha(s).`,
     });
   };
 
@@ -1282,6 +1312,20 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                 </button>
               </form>
 
+              {!canExecuteOperacional && canRequestOperacional ? (
+                <label className="mt-3 block space-y-1">
+                  <span className="text-xs text-slate-600">Justificativa do solicitante (obrigatoria para aprovacao)</span>
+                  <textarea
+                    value={justificativaSolicitante}
+                    onChange={(e) => setJustificativaSolicitante(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    placeholder="Descreva por que a alteracao de sala/local e necessaria."
+                    disabled={loteState.loading}
+                  />
+                </label>
+              ) : null}
+
               {locaisState.error ? <p className="mt-2 text-sm text-rose-700">{locaisState.error}</p> : null}
               {loteState.error ? <p className="mt-2 text-sm text-rose-700">{loteState.error}</p> : null}
               {loteState.info ? <p className="mt-2 text-sm text-slate-700">{loteState.info}</p> : null}
@@ -1339,6 +1383,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                         <td className="px-3 py-2">
                           {row.erro ? (
                             <span className="text-rose-700">{row.erro}</span>
+                          ) : row.pendenteAprovacao ? (
+                            <span className="text-amber-700">Pendente aprovacao</span>
                           ) : row.salvo ? (
                             <span className="text-emerald-700">Salvo</span>
                           ) : (

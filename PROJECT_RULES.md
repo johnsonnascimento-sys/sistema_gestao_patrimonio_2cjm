@@ -151,6 +151,12 @@ Exemplo obrigatorio:
 // Regra legal: bloqueio de movimentacao em inventario - Art. 183 (AN303_Art183)
 ```
 
+### 7.4 Padrao de idioma (pt-BR) na interface e Wiki
+Regra obrigatoria:
+- Todo texto exibido ao usuario final deve usar ortografia correta do portugues brasileiro, com acentuacao completa (ex.: `Inventario` -> `Inventário`, `Administracao` -> `Administração`, `Gestao` -> `Gestão`).
+- O mesmo padrao vale para todo conteudo de wiki/manual (`/frontend/src/wiki`).
+- Excecoes permitidas: identificadores tecnicos, nomes de variaveis, chaves de API, codigos de erro, rotas e nomes de arquivo.
+
 ## 8. Politica de Segredos e Compliance Operacional
 
 Regras obrigatorias:

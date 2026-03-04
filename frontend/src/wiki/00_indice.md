@@ -28,7 +28,7 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Inventário - Contagem
 - Inventário - Administração
 - Material (SKU)
-- Classificacao SIAFI
+- Classifica?o SIAFI
 - Gestão de Normas
 - Intrusos e bens de terceiros ("bem de terceiro")
 - Regularização pós-inventário (forasteiros)
@@ -38,55 +38,55 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Checklist de migrações (Supabase)
 - Glossário
 - Segurança e sigilo operacional
-- Compliance ATN 303/2008 (resumo operacional + citacoes)
+- Compliance ATN 303/2008 (resumo operacional + cita?es)
 - Matriz de compliance (ATN 303/2008)
 - Admin: operação na VPS (Docker/Nginx)
 - Referência rápida da API
 - Analise de cobertura menu x wiki (faseada)
 
-## Atualizacao 2026-02-26 - Navegacao principal
+## Atualiza?o 2026-02-26 - Navega?o principal
 
 Estrutura principal da sidebar:
 
 - Dashboard
-- Operacoes Patrimoniais
+- Opera?es Patrimoniais
 - Auditoria e Logs
-- Administracao do Painel
+- Administra?o do Painel
 - Wiki / Manual
 
 Submenus relevantes:
 
-- Operacoes Patrimoniais -> Cadastrar Bens por Sala
-- Operacoes Patrimoniais -> Inventario - Contagem
-- Operacoes Patrimoniais -> Inventario - Administracao
-- Operacoes Patrimoniais -> Material (SKU)
-- Operacoes Patrimoniais -> Classificacao SIAFI
-- Operacoes Patrimoniais -> Gestao de Normas
-- Operacoes Patrimoniais -> Importacao GEAFIN (CSV Latin1)
-- Administracao do Painel -> Locais (salas) cadastrados
+- Opera?es Patrimoniais -> Cadastrar Bens por Sala
+- Opera?es Patrimoniais -> Invent?rio - Contagem
+- Opera?es Patrimoniais -> Invent?rio - Administra?o
+- Opera?es Patrimoniais -> Material (SKU)
+- Opera?es Patrimoniais -> Classifica?o SIAFI
+- Opera?es Patrimoniais -> Gest?o de Normas
+- Opera?es Patrimoniais -> Importa?o GEAFIN (CSV Latin1)
+- Administra?o do Painel -> Locais (salas) cadastrados
 
 ## Menu atual do sistema (referencia rapida)
 
-### Operacoes Patrimoniais
+### Opera?es Patrimoniais
 
 - Consulta de Bens
-- Movimentacoes
+- Movimenta?es
 - Cadastrar Bens por Sala
-- Inventario - Contagem
-- Inventario - Administracao
+- Invent?rio - Contagem
+- Invent?rio - Administra?o
 - Wizard Art. 141
 - Material (SKU)
-- Classificacao SIAFI
-- Gestao de Normas
-- Importacao GEAFIN (CSV Latin1)
+- Classifica?o SIAFI
+- Gest?o de Normas
+- Importa?o GEAFIN (CSV Latin1)
 
 ### Auditoria e Logs
 
-- Log Geral de Alteracoes
+- Log Geral de Altera?es
 - Auditoria Patrimonial (Global)
 - Log de Erros Runtime
 
-### Administracao do Painel
+### Administra?o do Painel
 
 - Locais (salas) cadastrados
 - Backup e Restore

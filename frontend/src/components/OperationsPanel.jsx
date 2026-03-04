@@ -6,6 +6,7 @@
 import { useAuth } from "../context/AuthContext.jsx";
 import AdminHealthPanel from "./AdminHealthPanel.jsx";
 import AdminPerfisPanel from "./AdminPerfisPanel.jsx";
+import AprovacoesPanel from "./AprovacoesPanel.jsx";
 import BackupOpsPanel from "./BackupOpsPanel.jsx";
 import LocaisAdminPanel from "./LocaisAdminPanel.jsx";
 
@@ -26,11 +27,19 @@ const SECTION_META = {
     title: "Locais (salas) cadastrados",
     description: "CRUD de locais e vinculacao em lote de bens.local_id para governanca de sala.",
   },
+  "admin-aprovacoes": {
+    title: "Aprovacoes Pendentes",
+    description: "Fila administrativa para aprovar ou reprovar acoes sensiveis solicitadas por operadores.",
+  },
 };
 
 export default function OperationsPanel({ section = "admin-backup" }) {
   const auth = useAuth();
-  const canAdmin = !auth.authEnabled || String(auth.role || "").toUpperCase() === "ADMIN";
+  const canAdmin =
+    !auth.authEnabled
+    || auth.can("menu.admin_health.view")
+    || auth.can("action.aprovacao.aprovar")
+    || String(auth.role || "").toUpperCase() === "ADMIN";
   const normalizedSection = SECTION_META[section] ? section : "admin-backup";
   const meta = SECTION_META[normalizedSection];
 
@@ -45,6 +54,7 @@ export default function OperationsPanel({ section = "admin-backup" }) {
       {normalizedSection === "admin-perfis" ? <AdminPerfisPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-backup" ? <BackupOpsPanel canAdmin={canAdmin} /> : null}
       {normalizedSection === "admin-locais" ? <LocaisAdminPanel canAdmin={canAdmin} /> : null}
+      {normalizedSection === "admin-aprovacoes" ? <AprovacoesPanel /> : null}
     </section>
   );
 }

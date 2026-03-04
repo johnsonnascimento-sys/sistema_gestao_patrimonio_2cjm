@@ -6,9 +6,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
+  atualizarRolePermissoes,
   atualizarPerfil,
+  atualizarPerfilRoleAcesso,
   criarPerfil,
+  listarAclMatriz,
   listarPerfis,
+  listarRolesAcesso,
   resetSenhaPerfil,
 } from "../services/apiClient.js";
 
@@ -41,6 +45,19 @@ function buildCargoValue(form) {
   return String(form.cargoOutro || "").trim();
 }
 
+function toHumanPermissionLabel(permission) {
+  const descricao = String(permission?.descricao || "").trim();
+  if (descricao) return descricao;
+  const code = String(permission?.codigo || "").trim();
+  if (!code) return "Permissao";
+  return code
+    .replace(/^menu\./i, "")
+    .replace(/^action\./i, "")
+    .replace(/[._]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
 export default function AdminPerfisPanel({ canAdmin }) {
   const auth = useAuth();
   const [perfilState, setPerfilState] = useState({
@@ -58,6 +75,13 @@ export default function AdminPerfisPanel({ canAdmin }) {
     cargoOutro: "",
   });
   const [perfisState, setPerfisState] = useState({ loading: false, data: null, error: null });
+  const [rolesAcessoState, setRolesAcessoState] = useState({ loading: false, data: [], error: null });
+  const [roleAcessoDraftByPerfil, setRoleAcessoDraftByPerfil] = useState({});
+  const [aclMatrixState, setAclMatrixState] = useState({ loading: false, data: null, error: null });
+  const [aclRoleSelecionada, setAclRoleSelecionada] = useState("OPERADOR_AVANCADO");
+  const [aclPermissoesDraft, setAclPermissoesDraft] = useState([]);
+  const [aclAdminPassword, setAclAdminPassword] = useState("");
+  const [aclSaveState, setAclSaveState] = useState({ loading: false, error: null, message: null });
   const [perfilEditId, setPerfilEditId] = useState("");
   const [perfilEditForm, setPerfilEditForm] = useState({
     nome: "",
@@ -85,16 +109,56 @@ export default function AdminPerfisPanel({ canAdmin }) {
     try {
       const data = await listarPerfis({ limit: 200 });
       setPerfisState({ loading: false, data, error: null });
+      const draft = {};
+      for (const perfil of data?.items || []) {
+        const roleAcesso = String(perfil?.roleAcessoCodigo || "").trim().toUpperCase();
+        const legacyRole = String(perfil?.role || "").trim().toUpperCase();
+        draft[String(perfil.id)] = roleAcesso || (legacyRole === "ADMIN" ? "ADMIN_COMPLETO" : "OPERADOR_AVANCADO");
+      }
+      setRoleAcessoDraftByPerfil(draft);
     } catch (error) {
       setPerfisState({ loading: false, data: null, error: formatApiError(error) });
+    }
+  };
+
+  const loadRolesAcesso = async () => {
+    if (!canAdmin) return;
+    setRolesAcessoState({ loading: true, data: [], error: null });
+    try {
+      const data = await listarRolesAcesso();
+      setRolesAcessoState({ loading: false, data: Array.isArray(data?.items) ? data.items : [], error: null });
+    } catch (error) {
+      setRolesAcessoState({ loading: false, data: [], error: formatApiError(error) });
+    }
+  };
+
+  const loadAclMatriz = async () => {
+    if (!canAdmin) return;
+    setAclMatrixState({ loading: true, data: null, error: null });
+    try {
+      const data = await listarAclMatriz();
+      setAclMatrixState({ loading: false, data, error: null });
+      const firstRole = String(data?.roles?.[0]?.codigo || "OPERADOR_AVANCADO");
+      setAclRoleSelecionada((prev) => (prev && (data?.rolePermissions?.[prev] || prev === firstRole) ? prev : firstRole));
+    } catch (error) {
+      setAclMatrixState({ loading: false, data: null, error: formatApiError(error) });
     }
   };
 
   useEffect(() => {
     if (!canAdmin) return;
     void loadPerfis();
+    void loadRolesAcesso();
+    void loadAclMatriz();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAdmin]);
+
+  useEffect(() => {
+    const roleCode = String(aclRoleSelecionada || "").trim().toUpperCase();
+    if (!roleCode) return;
+    const rolePerms = aclMatrixState.data?.rolePermissions?.[roleCode];
+    setAclPermissoesDraft(Array.isArray(rolePerms) ? rolePerms : []);
+  }, [aclRoleSelecionada, aclMatrixState.data]);
 
   const onCreatePerfil = async (event) => {
     event.preventDefault();
@@ -240,6 +304,74 @@ export default function AdminPerfisPanel({ canAdmin }) {
     }
   };
 
+  const saveRoleAcessoPerfil = async (perfil) => {
+    if (!canAdmin || !perfil?.id) return;
+    const perfilId = String(perfil.id);
+    const roleCodigo = String(roleAcessoDraftByPerfil[perfilId] || "").trim().toUpperCase();
+    if (!roleCodigo) {
+      setPerfilEditState({ loading: false, response: null, error: "Selecione uma Role ACL antes de salvar." });
+      return;
+    }
+    setPerfilEditState({ loading: true, response: null, error: null });
+    try {
+      await atualizarPerfilRoleAcesso(perfilId, roleCodigo);
+      await loadPerfis();
+      setPerfilEditState({ loading: false, response: { ok: true }, error: null });
+    } catch (error) {
+      setPerfilEditState({ loading: false, response: null, error: formatApiError(error) });
+    }
+  };
+
+  const toggleAclPermissao = (codigo) => {
+    const code = String(codigo || "").trim();
+    if (!code) return;
+    setAclPermissoesDraft((prev) => {
+      const set = new Set(prev.map((x) => String(x)));
+      if (set.has(code)) set.delete(code);
+      else set.add(code);
+      return Array.from(set).sort();
+    });
+  };
+
+  const setAclPermissoesPorCategoria = (categoria, marcado) => {
+    const cat = String(categoria || "").trim().toUpperCase();
+    const catCodes = (aclMatrixState.data?.permissions || [])
+      .filter((p) => String(p?.categoria || "").toUpperCase() === cat)
+      .map((p) => String(p.codigo || "").trim())
+      .filter(Boolean);
+    if (!catCodes.length) return;
+    setAclPermissoesDraft((prev) => {
+      const set = new Set(prev.map((x) => String(x)));
+      for (const code of catCodes) {
+        if (marcado) set.add(code);
+        else set.delete(code);
+      }
+      return Array.from(set).sort();
+    });
+  };
+
+  const salvarMatrizRole = async () => {
+    if (!canAdmin) return;
+    const roleCode = String(aclRoleSelecionada || "").trim().toUpperCase();
+    if (!roleCode) {
+      setAclSaveState({ loading: false, error: "Selecione a role para editar.", message: null });
+      return;
+    }
+    setAclSaveState({ loading: true, error: null, message: null });
+    try {
+      const resp = await atualizarRolePermissoes(roleCode, aclPermissoesDraft, aclAdminPassword);
+      setAclSaveState({ loading: false, error: null, message: String(resp?.message || "Permissoes atualizadas.") });
+      await loadAclMatriz();
+    } catch (error) {
+      setAclSaveState({ loading: false, error: formatApiError(error), message: null });
+    }
+  };
+
+  const allPermissions = Array.isArray(aclMatrixState.data?.permissions) ? aclMatrixState.data.permissions : [];
+  const menuPermissions = allPermissions.filter((p) => String(p?.categoria || "").toUpperCase() === "MENU");
+  const actionPermissions = allPermissions.filter((p) => String(p?.categoria || "").toUpperCase() === "ACTION");
+  const aclSelectedSet = new Set(aclPermissoesDraft.map((x) => String(x)));
+
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -267,6 +399,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
       ) : null}
 
       {perfisState.error ? <p className="mt-3 text-sm text-rose-700">{perfisState.error}</p> : null}
+      {rolesAcessoState.error ? <p className="mt-1 text-sm text-rose-700">{rolesAcessoState.error}</p> : null}
 
       <form onSubmit={onCreatePerfil} className="mt-3 grid gap-3 md:grid-cols-2">
         <label className="space-y-1 md:col-span-2">
@@ -471,7 +604,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h4 className="text-sm font-semibold text-slate-900">Lista de perfis</h4>
-        <p className="mt-1 text-[11px] text-slate-500">Acoes: editar, ativar/desativar, resetar senha.</p>
+        <p className="mt-1 text-[11px] text-slate-500">Acoes: editar, ativar/desativar, resetar senha e definir Role ACL (RBAC).</p>
 
         {perfilEditState.error ? <p className="mt-2 text-sm text-rose-700">{perfilEditState.error}</p> : null}
 
@@ -484,6 +617,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
                 <th className="px-3 py-2">Cargo</th>
                 <th className="px-3 py-2">Unid.</th>
                 <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Role ACL</th>
                 <th className="px-3 py-2">Ativo</th>
                 <th className="px-3 py-2">Senha</th>
                 <th className="px-3 py-2">Acoes</th>
@@ -497,6 +631,32 @@ export default function AdminPerfisPanel({ canAdmin }) {
                   <td className="px-3 py-2 text-slate-600">{p.cargo || "-"}</td>
                   <td className="px-3 py-2 text-slate-600">{p.unidadeId}</td>
                   <td className="px-3 py-2 text-slate-600">{p.role}</td>
+                  <td className="px-3 py-2 text-slate-600">
+                    <div className="flex min-w-[220px] items-center gap-2">
+                      <select
+                        value={roleAcessoDraftByPerfil[String(p.id)] || ""}
+                        onChange={(e) => setRoleAcessoDraftByPerfil((prev) => ({ ...prev, [String(p.id)]: e.target.value }))}
+                        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px]"
+                        disabled={!canAdmin || perfilEditState.loading || rolesAcessoState.loading}
+                      >
+                        <option value="">Selecione...</option>
+                        {rolesAcessoState.data.map((role) => (
+                          <option key={role.id || role.codigo} value={role.codigo}>
+                            {role.codigo}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => saveRoleAcessoPerfil(p)}
+                        className="rounded-md border border-indigo-300 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                        disabled={!canAdmin || perfilEditState.loading || !roleAcessoDraftByPerfil[String(p.id)]}
+                        title="Salvar role ACL principal do perfil."
+                      >
+                        Salvar ACL
+                      </button>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-slate-600">{p.ativo ? "SIM" : "NAO"}</td>
                   <td className="px-3 py-2 text-slate-600">{p.senhaDefinidaEm ? "DEFINIDA" : "NAO"}</td>
                   <td className="px-3 py-2">
@@ -533,13 +693,171 @@ export default function AdminPerfisPanel({ canAdmin }) {
               ))}
               {(perfisState.data?.items || []).length === 0 && !perfisState.loading ? (
                 <tr>
-                  <td className="px-3 py-3 text-slate-600" colSpan={8}>
+                  <td className="px-3 py-3 text-slate-600" colSpan={9}>
                     Nenhum perfil cadastrado ainda.
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900">Matriz de permissoes por role</h4>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Defina visualmente o que cada role pode ver (menus) e executar (acoes). Alteracao exige senha do admin.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadAclMatriz}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs hover:bg-slate-100 disabled:opacity-50"
+            disabled={!canAdmin || aclMatrixState.loading || aclSaveState.loading}
+          >
+            {aclMatrixState.loading ? "Atualizando..." : "Atualizar matriz"}
+          </button>
+        </div>
+
+        {aclMatrixState.error ? <p className="mt-2 text-sm text-rose-700">{aclMatrixState.error}</p> : null}
+        {aclSaveState.error ? <p className="mt-2 text-sm text-rose-700">{aclSaveState.error}</p> : null}
+        {aclSaveState.message ? <p className="mt-2 text-sm text-emerald-700">{aclSaveState.message}</p> : null}
+
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <label className="space-y-1">
+            <span className="text-xs text-slate-600">Role</span>
+            <select
+              value={aclRoleSelecionada}
+              onChange={(e) => setAclRoleSelecionada(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              disabled={!canAdmin || aclMatrixState.loading || aclSaveState.loading}
+            >
+              {(aclMatrixState.data?.roles || []).map((role) => (
+                <option key={role.id || role.codigo} value={role.codigo}>
+                  {role.codigo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-xs text-slate-600">Senha admin para salvar</span>
+            <input
+              type="password"
+              value={aclAdminPassword}
+              onChange={(e) => setAclAdminPassword(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              disabled={!canAdmin || aclSaveState.loading}
+            />
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setAclPermissoesPorCategoria("MENU", true)}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
+            disabled={!canAdmin || aclSaveState.loading}
+          >
+            Marcar todos menus
+          </button>
+          <button
+            type="button"
+            onClick={() => setAclPermissoesPorCategoria("MENU", false)}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
+            disabled={!canAdmin || aclSaveState.loading}
+          >
+            Limpar menus
+          </button>
+          <button
+            type="button"
+            onClick={() => setAclPermissoesPorCategoria("ACTION", true)}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
+            disabled={!canAdmin || aclSaveState.loading}
+          >
+            Marcar todas acoes
+          </button>
+          <button
+            type="button"
+            onClick={() => setAclPermissoesPorCategoria("ACTION", false)}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
+            disabled={!canAdmin || aclSaveState.loading}
+          >
+            Limpar acoes
+          </button>
+          <button
+            type="button"
+            onClick={() => setAclPermissoesDraft([])}
+            className="rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+            disabled={!canAdmin || aclSaveState.loading}
+          >
+            Limpar tudo
+          </button>
+        </div>
+
+        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Menus</h5>
+            <div className="mt-2 max-h-64 space-y-1 overflow-auto pr-1">
+              {menuPermissions.map((perm) => {
+                const code = String(perm.codigo || "");
+                return (
+                  <label key={code} className="flex items-start gap-2 rounded px-1 py-1 text-xs hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={aclSelectedSet.has(code)}
+                      onChange={() => toggleAclPermissao(code)}
+                      className="mt-0.5 h-4 w-4 accent-violet-600"
+                      disabled={!canAdmin || aclSaveState.loading}
+                    />
+                    <span>
+                      <span className="block text-slate-700">{toHumanPermissionLabel(perm)}</span>
+                    </span>
+                  </label>
+                );
+              })}
+              {!menuPermissions.length ? <p className="text-xs text-slate-500">Sem permissoes de menu.</p> : null}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Acoes</h5>
+            <div className="mt-2 max-h-64 space-y-1 overflow-auto pr-1">
+              {actionPermissions.map((perm) => {
+                const code = String(perm.codigo || "");
+                return (
+                  <label key={code} className="flex items-start gap-2 rounded px-1 py-1 text-xs hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={aclSelectedSet.has(code)}
+                      onChange={() => toggleAclPermissao(code)}
+                      className="mt-0.5 h-4 w-4 accent-violet-600"
+                      disabled={!canAdmin || aclSaveState.loading}
+                    />
+                    <span>
+                      <span className="block text-slate-700">{toHumanPermissionLabel(perm)}</span>
+                    </span>
+                  </label>
+                );
+              })}
+              {!actionPermissions.length ? <p className="text-xs text-slate-500">Sem permissoes de acao.</p> : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xs text-slate-600">
+            Total selecionado: <strong>{aclPermissoesDraft.length}</strong>
+          </p>
+          <button
+            type="button"
+            onClick={salvarMatrizRole}
+            className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            disabled={!canAdmin || aclSaveState.loading || !aclRoleSelecionada}
+          >
+            {aclSaveState.loading ? "Salvando permissoes..." : "Salvar permissoes da role"}
+          </button>
         </div>
       </div>
     </article>
