@@ -17,6 +17,7 @@
 - `GET /docs` (Swagger UI)
 - `GET /inventario/contagens` (leituras de contagens por evento/sala)
 - `GET /inventario/forasteiros` (divergencias pendentes para regularizacao pos-inventario)
+- `GET /inventario/indicadores-acuracidade` (KPIs de acuracidade por periodo com serie semanal/mensal)
 - `POST /inventario/regularizacoes` (encerra pendencia; opcionalmente transfere carga com termo)
 
 ## Camada raw do GEAFIN (auditoria)

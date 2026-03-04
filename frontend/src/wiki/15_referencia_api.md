@@ -306,3 +306,46 @@ Body:
   "adminPassword": "senha_admin"
 }
 ```
+
+### GET `/inventario/indicadores-acuracidade`
+
+Uso:
+
+- consolidar KPIs operacionais de acuracidade por periodo, com serie semanal e mensal.
+
+Query obrigatoria:
+
+- `dataInicio` (`YYYY-MM-DD`)
+- `dataFim` (`YYYY-MM-DD`)
+
+Query opcional:
+
+- `unidadeId` (`1..4`)
+- `statusEvento` (`ENCERRADO` padrao, `EM_ANDAMENTO`, `CANCELADO`)
+- `toleranciaPct` (0..10, padrao `2`)
+
+Resposta:
+
+- `periodo`
+- `configuracao`
+- `resumo`
+- `porEvento`
+- `porSala`
+- `serieSemanal`
+- `serieMensal`
+
+KPIs de resumo:
+
+- `acuracidadeExataPct`
+- `acuracidadeToleranciaPct`
+- `erroRelativoMedioSalaPct`
+- `taxaDivergenciaPct`
+- `taxaPendenciaRegularizacaoPct`
+- `mttrRegularizacaoDias`
+- `coberturaContagemPct`
+
+Observacoes:
+
+- exclui bens de terceiros e bens baixados;
+- referencia temporal do filtro: `COALESCE(encerrado_em, iniciado_em)`;
+- semaforo operacional e retornado em `resumo.semaforo`.

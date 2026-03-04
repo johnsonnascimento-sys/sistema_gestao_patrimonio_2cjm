@@ -136,3 +136,22 @@ Ao encerrar ou cancelar:
 - Art. 183 (AN303_Art183): inventário ativo bloqueia mudança de carga.
 - Art. 185 (AN303_Art185): divergência não transfere carga automaticamente.
 - Art. 175 (AN303_Art175): itens sem identificação exigem evidência visual.
+
+## Painel de Acuracidade
+
+O card "Acuracidade de Inventario" usa `GET /inventario/indicadores-acuracidade` e exibe:
+
+- acuracidade exata por item (`conformes / totalContagens`)
+- acuracidade por tolerancia de sala (`erroRelSala <= toleranciaPct`)
+- taxa de divergencia
+- taxa de pendencia de regularizacao
+- MTTR de regularizacao (dias)
+- cobertura de contagem (`sum(qtdInventariados) / max(sum(qtdEsperados),1)`)
+
+Semaforo operacional:
+
+- Acuracidade Exata: verde `>=98`, amarelo `95-97.99`, vermelho `<95`
+- Acuracidade Tolerancia: verde `>=95`, amarelo `90-94.99`, vermelho `<90`
+- Pendencia de Regularizacao: verde `<=5`, amarelo `5.01-10`, vermelho `>10`
+- MTTR: verde `<=5 dias`, amarelo `6-10`, vermelho `>10`
+- Cobertura: verde `>=99`, amarelo `95-98.99`, vermelho `<95`

@@ -8,6 +8,7 @@ import {
     criarEventoInventario,
     getMonitoramentoContagemInventario,
     getFotoUrl,
+    getIndicadoresAcuracidadeInventario,
     getRelatorioEncerramentoInventario,
     listarDivergenciasInterunidades,
     listarEventosInventario,
@@ -72,6 +73,35 @@ function formatDateTimeShort(value) {
     }
 }
 
+function toIsoDateInput(date) {
+    const d = new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+function shiftDays(date, deltaDays) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + deltaDays);
+    return d;
+}
+
+function semaforoClass(status) {
+    if (status === "VERDE") return "border-emerald-300 bg-emerald-50 text-emerald-700";
+    if (status === "AMARELO") return "border-amber-300 bg-amber-50 text-amber-700";
+    return "border-rose-300 bg-rose-50 text-rose-700";
+}
+
+function calcTrend(points, field) {
+    const list = Array.isArray(points) ? points : [];
+    if (list.length < 2) return null;
+    const last = Number(list[list.length - 1]?.[field] || 0);
+    const prev = Number(list[list.length - 2]?.[field] || 0);
+    if (!Number.isFinite(last) || !Number.isFinite(prev)) return null;
+    return Number((last - prev).toFixed(2));
+}
+
 export default function InventoryAdminPanel() {
     const qc = useQueryClient();
     const auth = useAuth();
@@ -111,6 +141,11 @@ export default function InventoryAdminPanel() {
     const [interUnidadeRelacionada, setInterUnidadeRelacionada] = useState("");
     const [interCodigoFiltro, setInterCodigoFiltro] = useState("");
     const [interSalaFiltro, setInterSalaFiltro] = useState("");
+    const [acuraciaDataFim, setAcuraciaDataFim] = useState(() => toIsoDateInput(new Date()));
+    const [acuraciaDataInicio, setAcuraciaDataInicio] = useState(() => toIsoDateInput(shiftDays(new Date(), -90)));
+    const [acuraciaUnidadeId, setAcuraciaUnidadeId] = useState("");
+    const [acuraciaStatusEvento, setAcuraciaStatusEvento] = useState("ENCERRADO");
+    const [acuraciaToleranciaPct, setAcuraciaToleranciaPct] = useState("2");
 
     useEffect(() => {
         if (!perfilId && auth?.perfil?.id) setPerfilId(String(auth.perfil.id));
@@ -369,6 +404,28 @@ export default function InventoryAdminPanel() {
             }),
     });
 
+    const acuraciaQuery = useQuery({
+        queryKey: [
+            "inventarioIndicadoresAcuracidade",
+            acuraciaDataInicio,
+            acuraciaDataFim,
+            acuraciaStatusEvento,
+            acuraciaUnidadeId,
+            acuraciaToleranciaPct,
+        ],
+        enabled: Boolean(acuraciaDataInicio && acuraciaDataFim),
+        queryFn: async () => {
+            const tolerancia = Number(acuraciaToleranciaPct);
+            return getIndicadoresAcuracidadeInventario({
+                dataInicio: acuraciaDataInicio,
+                dataFim: acuraciaDataFim,
+                statusEvento: acuraciaStatusEvento,
+                unidadeId: acuraciaUnidadeId ? Number(acuraciaUnidadeId) : undefined,
+                toleranciaPct: Number.isFinite(tolerancia) ? tolerancia : 2,
+            });
+        },
+    });
+
     const baixarCsvMut = useMutation({
         mutationFn: async () => {
             if (!relatorioEventoIdFinal) throw new Error("Selecione um evento para exportar.");
@@ -476,6 +533,16 @@ export default function InventoryAdminPanel() {
             ? "bg-amber-100 text-amber-800 border-amber-200"
             : "bg-emerald-100 text-emerald-800 border-emerald-200"
     );
+
+    const acuraciaData = acuraciaQuery.data || null;
+    const acuraciaResumo = acuraciaData?.resumo || null;
+    const acuraciaSemaforo = acuraciaResumo?.semaforo || {};
+    const serieSemanalAcuracia = acuraciaData?.serieSemanal || [];
+    const serieMensalAcuracia = acuraciaData?.serieMensal || [];
+    const trendAcuracidadeExata = calcTrend(serieSemanalAcuracia, "acuracidadeExataPct");
+    const trendPendencia = calcTrend(serieSemanalAcuracia, "taxaPendenciaRegularizacaoPct");
+    const trendCobertura = calcTrend(serieSemanalAcuracia, "coberturaContagemPct");
+    const topSalasCriticasAcuracia = useMemo(() => (acuraciaData?.porSala || []).slice(0, 8), [acuraciaData?.porSala]);
     const onCreateEvento = async (event) => {
         event.preventDefault();
         setUiError(null);
@@ -1359,6 +1426,169 @@ export default function InventoryAdminPanel() {
                     </div>
                 </div>
             ) : null}
+            <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
+                <header className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h3 className="font-[Space_Grotesk] text-xl font-semibold">Acuracidade de Inventario</h3>
+                        <p className="mt-1 text-xs text-slate-600">
+                            Painel operacional com Exact Match, tolerancia por sala e serie semanal/mensal.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => acuraciaQuery.refetch()}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100"
+                    >
+                        Atualizar painel
+                    </button>
+                </header>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-5">
+                    <label className="block space-y-1">
+                        <span className="text-xs text-slate-600">Data inicio</span>
+                        <input
+                            type="date"
+                            value={acuraciaDataInicio}
+                            onChange={(e) => setAcuraciaDataInicio(e.target.value)}
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                    </label>
+                    <label className="block space-y-1">
+                        <span className="text-xs text-slate-600">Data fim</span>
+                        <input
+                            type="date"
+                            value={acuraciaDataFim}
+                            onChange={(e) => setAcuraciaDataFim(e.target.value)}
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                    </label>
+                    <label className="block space-y-1">
+                        <span className="text-xs text-slate-600">Status evento</span>
+                        <select
+                            value={acuraciaStatusEvento}
+                            onChange={(e) => setAcuraciaStatusEvento(e.target.value)}
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        >
+                            <option value="ENCERRADO">ENCERRADO</option>
+                            <option value="EM_ANDAMENTO">EM_ANDAMENTO</option>
+                            <option value="CANCELADO">CANCELADO</option>
+                        </select>
+                    </label>
+                    <label className="block space-y-1">
+                        <span className="text-xs text-slate-600">Unidade</span>
+                        <select
+                            value={acuraciaUnidadeId}
+                            onChange={(e) => setAcuraciaUnidadeId(e.target.value)}
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        >
+                            <option value="">Todas</option>
+                            <option value="1">{formatUnidade(1)}</option>
+                            <option value="2">{formatUnidade(2)}</option>
+                            <option value="3">{formatUnidade(3)}</option>
+                            <option value="4">{formatUnidade(4)}</option>
+                        </select>
+                    </label>
+                    <label className="block space-y-1">
+                        <span className="text-xs text-slate-600">Tolerancia % (0-10)</span>
+                        <input
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="0.1"
+                            value={acuraciaToleranciaPct}
+                            onChange={(e) => setAcuraciaToleranciaPct(e.target.value)}
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                        />
+                    </label>
+                </div>
+
+                {acuraciaQuery.isLoading && <p className="mt-4 text-sm text-slate-600">Calculando indicadores...</p>}
+                {acuraciaQuery.error && (
+                    <p className="mt-4 text-sm text-rose-700">Falha ao calcular indicadores de acuracidade.</p>
+                )}
+
+                {!acuraciaQuery.isLoading && !acuraciaQuery.error && acuraciaResumo && (
+                    <div className="mt-4 space-y-4">
+                        <div className="grid gap-3 md:grid-cols-5">
+                            <KpiSemaforoCard
+                                titulo="Acuracidade Exata"
+                                valor={`${Number(acuraciaResumo.acuracidadeExataPct || 0).toFixed(2)}%`}
+                                status={acuraciaSemaforo.acuracidadeExata?.status}
+                                tendencia={trendAcuracidadeExata}
+                            />
+                            <KpiSemaforoCard
+                                titulo="Acuracidade Tolerancia"
+                                valor={`${Number(acuraciaResumo.acuracidadeToleranciaPct || 0).toFixed(2)}%`}
+                                status={acuraciaSemaforo.acuracidadeTolerancia?.status}
+                            />
+                            <KpiSemaforoCard
+                                titulo="Pendencia Regularizacao"
+                                valor={`${Number(acuraciaResumo.taxaPendenciaRegularizacaoPct || 0).toFixed(2)}%`}
+                                status={acuraciaSemaforo.pendenciaRegularizacao?.status}
+                                tendencia={trendPendencia}
+                            />
+                            <KpiSemaforoCard
+                                titulo="MTTR Regularizacao"
+                                valor={`${Number(acuraciaResumo.mttrRegularizacaoDias || 0).toFixed(2)} dias`}
+                                status={acuraciaSemaforo.mttrRegularizacao?.status}
+                            />
+                            <KpiSemaforoCard
+                                titulo="Cobertura Contagem"
+                                valor={`${Number(acuraciaResumo.coberturaContagemPct || 0).toFixed(2)}%`}
+                                status={acuraciaSemaforo.coberturaContagem?.status}
+                                tendencia={trendCobertura}
+                            />
+                        </div>
+
+                        <div className="grid gap-3 lg:grid-cols-2">
+                            <TrendListCard
+                                title="Serie semanal"
+                                rows={serieSemanalAcuracia}
+                                metricKey="acuracidadeExataPct"
+                                metricLabel="Acuracidade Exata"
+                            />
+                            <TrendListCard
+                                title="Serie mensal"
+                                rows={serieMensalAcuracia}
+                                metricKey="acuracidadeExataPct"
+                                metricLabel="Acuracidade Exata"
+                            />
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-xs uppercase tracking-widest text-slate-500">Top salas criticas por erro relativo medio</p>
+                            {!topSalasCriticasAcuracia.length ? (
+                                <p className="mt-2 text-sm text-slate-600">Sem salas avaliadas para o periodo.</p>
+                            ) : (
+                                <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
+                                    <table className="min-w-full text-left text-xs">
+                                        <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
+                                            <tr>
+                                                <th className="px-2 py-2">Sala</th>
+                                                <th className="px-2 py-2">Erro medio</th>
+                                                <th className="px-2 py-2">Cobertura</th>
+                                                <th className="px-2 py-2">Hit/Miss</th>
+                                                <th className="px-2 py-2">Eventos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            {topSalasCriticasAcuracia.map((s) => (
+                                                <tr key={`${s.sala}-${s.eventos}`}>
+                                                    <td className="px-2 py-2 text-slate-800">{s.sala}</td>
+                                                    <td className="px-2 py-2 text-slate-700">{Number(s.erroRelativoMedioSalaPct || 0).toFixed(2)}%</td>
+                                                    <td className="px-2 py-2 text-slate-700">{Number(s.coberturaContagemPct || 0).toFixed(2)}%</td>
+                                                    <td className="px-2 py-2 text-slate-700">{Number(s.hits || 0)}/{Number(s.avaliacoes || 0)}</td>
+                                                    <td className="px-2 py-2 text-slate-700">{Number(s.eventos || 0)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </section>
 
             {relatorioEventoIdFinal && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
@@ -1560,6 +1790,51 @@ function CardKpi({ k, v }) {
         <div className="rounded-xl border border-slate-200 bg-white p-3">
             <p className="text-[11px] uppercase tracking-widest text-slate-500">{k}</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900">{Number(v || 0)}</p>
+        </div>
+    );
+}
+
+function KpiSemaforoCard({ titulo, valor, status, tendencia }) {
+    return (
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] uppercase tracking-widest text-slate-500">{titulo}</p>
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${semaforoClass(status)}`}>
+                    {status || "SEM_DADO"}
+                </span>
+            </div>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{valor}</p>
+            {Number.isFinite(tendencia) && (
+                <p className={`mt-1 text-[11px] ${tendencia > 0 ? "text-emerald-700" : tendencia < 0 ? "text-rose-700" : "text-slate-500"}`}>
+                    Semana anterior: {tendencia > 0 ? "+" : ""}{Number(tendencia).toFixed(2)} p.p.
+                </p>
+            )}
+        </div>
+    );
+}
+
+function TrendListCard({ title, rows, metricKey, metricLabel }) {
+    const list = Array.isArray(rows) ? rows : [];
+    const visible = list.slice(-8);
+    return (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
+            {!visible.length ? (
+                <p className="mt-3 text-sm text-slate-600">Sem pontos para o periodo.</p>
+            ) : (
+                <div className="mt-3 space-y-2">
+                    {visible.map((row) => {
+                        const val = Number(row?.[metricKey] || 0);
+                        const rotulo = row?.periodo?.rotulo || row?.chave || "-";
+                        return (
+                            <div key={`${title}-${row?.chave}`} className="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1 text-xs">
+                                <span className="truncate pr-3 text-slate-600">{rotulo}</span>
+                                <span className="font-semibold text-slate-900">{metricLabel}: {val.toFixed(2)}%</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

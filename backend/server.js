@@ -3483,6 +3483,7 @@ app.get("/inventario/contagens", mustAuth, inventario.getContagens);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.get("/inventario/sugestoes-ciclo", mustAuth, inventario.getSugestoesCiclo);
+app.get("/inventario/indicadores-acuracidade", mustAuth, inventario.getIndicadoresAcuracidade);
 app.get("/inventario/eventos/:id/progresso", mustAuth, inventario.getProgresso);
 app.get("/inventario/eventos/:id/minha-sessao-contagem", mustAuth, inventario.getMinhaSessaoContagem);
 app.get("/inventario/eventos/:id/monitoramento-contagem", mustAdmin, inventario.getMonitoramentoContagem);
@@ -7569,6 +7570,9 @@ function openapi() {
       },
       "/inventario/forasteiros": {
         get: { summary: "Listar divergencias pendentes (forasteiros) para regularizacao", responses: { 200: { description: "OK" } } },
+      },
+      "/inventario/indicadores-acuracidade": {
+        get: { summary: "Consolidar KPIs de acuracidade por periodo (semanal/mensal)", responses: { 200: { description: "OK" } } },
       },
       "/inventario/sync": {
         post: { summary: "Sincronizar contagens (offline-first)", responses: { 200: { description: "OK" }, 409: { description: "Evento nao ativo" } } },

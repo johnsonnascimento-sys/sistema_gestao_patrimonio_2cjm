@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getDivergenciasInterunidades: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, getMinhaSessaoContagem: Function, getMonitoramentoContagem: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getDivergenciasInterunidades: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, getIndicadoresAcuracidade: Function, getMinhaSessaoContagem: Function, getMonitoramentoContagem: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -40,6 +40,7 @@ function createInventarioController(deps) {
   const VALID_MODO_CONTAGEM = new Set(["PADRAO", "CEGO", "DUPLO_CEGO"]);
   const VALID_PAPEL_CONTAGEM = new Set(["OPERADOR_UNICO", "OPERADOR_A", "OPERADOR_B"]);
   const VALID_RODADA = new Set(["A", "B", "DESEMPATE"]);
+  const VALID_STATUS_EVENTO = new Set(["EM_ANDAMENTO", "ENCERRADO", "CANCELADO"]);
   let _invSchemaCaps = null;
 
   async function getInvSchemaCaps() {
@@ -752,6 +753,647 @@ function createInventarioController(deps) {
         requestId: req.requestId,
         paging: { limit, offset, total: totalR.rows[0]?.total || 0 },
         items: r.rows,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Consolida indicadores operacionais de acuracidade de inventario por periodo.
+   *
+   * Query obrigatoria:
+   * - dataInicio: YYYY-MM-DD
+   * - dataFim: YYYY-MM-DD
+   *
+   * Query opcional:
+   * - unidadeId: 1..4
+   * - statusEvento: EM_ANDAMENTO | ENCERRADO | CANCELADO (default: ENCERRADO)
+   * - toleranciaPct: 0..10 (default: 2)
+   *
+   * Regras operacionais:
+   * - Exclui bens de terceiros e bens baixados da base de KPI.
+   * - Mantem separacao de divergencias e regularizacao (Art. 185 - AN303_Art185).
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getIndicadoresAcuracidade(req, res, next) {
+    try {
+      const q = req.query || {};
+
+      const parseDateOnly = (raw, fieldName) => {
+        const value = String(raw || "").trim();
+        if (!value) throw new HttpError(422, `${fieldName.toUpperCase()}_OBRIGATORIA`, `${fieldName} e obrigatorio no formato YYYY-MM-DD.`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          throw new HttpError(422, `${fieldName.toUpperCase()}_INVALIDA`, `${fieldName} deve usar o formato YYYY-MM-DD.`);
+        }
+        const dt = new Date(`${value}T00:00:00.000Z`);
+        if (Number.isNaN(dt.getTime())) {
+          throw new HttpError(422, `${fieldName.toUpperCase()}_INVALIDA`, `${fieldName} e invalida.`);
+        }
+        return { value, date: dt };
+      };
+
+      const round2 = (n) => Number(Number(n || 0).toFixed(2));
+      const calcPct = (num, den) => (den > 0 ? round2((num / den) * 100) : 0);
+      const calcCoberturaPct = (qtdInventariados, qtdEsperados) => round2((Number(qtdInventariados || 0) / Math.max(Number(qtdEsperados || 0), 1)) * 100);
+
+      const semaforoHigh = (value, greenMin, yellowMin) => {
+        if (value >= greenMin) return "VERDE";
+        if (value >= yellowMin) return "AMARELO";
+        return "VERMELHO";
+      };
+      const semaforoLow = (value, greenMax, yellowMax) => {
+        if (value <= greenMax) return "VERDE";
+        if (value <= yellowMax) return "AMARELO";
+        return "VERMELHO";
+      };
+
+      const buildSemaforo = (kpis) => ({
+        acuracidadeExata: {
+          valorPct: kpis.acuracidadeExataPct,
+          status: semaforoHigh(kpis.acuracidadeExataPct, 98, 95),
+          meta: "Verde >= 98; Amarelo 95-97.99; Vermelho < 95",
+        },
+        acuracidadeTolerancia: {
+          valorPct: kpis.acuracidadeToleranciaPct,
+          status: semaforoHigh(kpis.acuracidadeToleranciaPct, 95, 90),
+          meta: "Verde >= 95; Amarelo 90-94.99; Vermelho < 90",
+        },
+        pendenciaRegularizacao: {
+          valorPct: kpis.taxaPendenciaRegularizacaoPct,
+          status: semaforoLow(kpis.taxaPendenciaRegularizacaoPct, 5, 10),
+          meta: "Verde <= 5; Amarelo 5.01-10; Vermelho > 10",
+        },
+        mttrRegularizacao: {
+          valorDias: kpis.mttrRegularizacaoDias,
+          status: semaforoLow(kpis.mttrRegularizacaoDias, 5, 10),
+          meta: "Verde <= 5 dias; Amarelo 6-10; Vermelho > 10",
+        },
+        coberturaContagem: {
+          valorPct: kpis.coberturaContagemPct,
+          status: semaforoHigh(kpis.coberturaContagemPct, 99, 95),
+          meta: "Verde >= 99; Amarelo 95-98.99; Vermelho < 95",
+        },
+      });
+
+      const inicio = parseDateOnly(q.dataInicio, "dataInicio");
+      const fim = parseDateOnly(q.dataFim, "dataFim");
+      if (inicio.date.getTime() > fim.date.getTime()) {
+        throw new HttpError(422, "PERIODO_INVALIDO", "dataInicio deve ser menor ou igual a dataFim.");
+      }
+
+      const endExclusive = new Date(fim.date.getTime() + 24 * 60 * 60 * 1000);
+      const dataInicioIso = `${inicio.value}T00:00:00.000Z`;
+      const dataFimExclusivaIso = endExclusive.toISOString();
+
+      const statusEvento = q.statusEvento != null && String(q.statusEvento).trim() !== ""
+        ? String(q.statusEvento).trim().toUpperCase()
+        : "ENCERRADO";
+      if (!VALID_STATUS_EVENTO.has(statusEvento)) {
+        throw new HttpError(422, "STATUS_EVENTO_INVALIDO", "statusEvento deve ser EM_ANDAMENTO, ENCERRADO ou CANCELADO.");
+      }
+
+      const unidadeId = q.unidadeId != null && String(q.unidadeId).trim() !== ""
+        ? Number(q.unidadeId)
+        : null;
+      if (unidadeId != null && (!Number.isInteger(unidadeId) || !VALID_UNIDADES.has(unidadeId))) {
+        throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeId deve ser 1..4.");
+      }
+
+      const toleranciaPctRaw = q.toleranciaPct != null && String(q.toleranciaPct).trim() !== ""
+        ? Number(q.toleranciaPct)
+        : 2;
+      if (!Number.isFinite(toleranciaPctRaw) || toleranciaPctRaw < 0 || toleranciaPctRaw > 10) {
+        throw new HttpError(422, "TOLERANCIA_INVALIDA", "toleranciaPct deve ser numero entre 0 e 10.");
+      }
+      const toleranciaPct = round2(toleranciaPctRaw);
+      const toleranciaFracao = toleranciaPct / 100;
+
+      const whereEventos = [
+        `COALESCE(e.encerrado_em, e.iniciado_em) >= $1::timestamptz`,
+        `COALESCE(e.encerrado_em, e.iniciado_em) < $2::timestamptz`,
+        `e.status = $3::public.status_inventario`,
+      ];
+      const eventosParams = [dataInicioIso, dataFimExclusivaIso, statusEvento];
+      let paramIndex = 4;
+
+      if (unidadeId != null) {
+        whereEventos.push(`e.unidade_inventariada_id = $${paramIndex}`);
+        eventosParams.push(unidadeId);
+        paramIndex += 1;
+      }
+
+      const eventosR = await pool.query(
+        `SELECT
+           e.id,
+           e.codigo_evento AS "codigoEvento",
+           e.status::text AS status,
+           e.unidade_inventariada_id AS "unidadeInventariadaId",
+           e.iniciado_em AS "iniciadoEm",
+           e.encerrado_em AS "encerradoEm",
+           COALESCE(e.encerrado_em, e.iniciado_em) AS "dataReferencia"
+         FROM eventos_inventario e
+         WHERE ${whereEventos.join(" AND ")}
+         ORDER BY "dataReferencia" ASC, e.created_at ASC;`,
+        eventosParams,
+      );
+
+      const emptyResumo = {
+        totalEventos: 0,
+        totalContagens: 0,
+        conformes: 0,
+        totalDivergencias: 0,
+        divergenciasUnidade: 0,
+        divergenciasSala: 0,
+        divergenciasUnidadeESala: 0,
+        regularizacoesPendentes: 0,
+        salasAvaliadas: 0,
+        salasHit: 0,
+        acuracidadeExataPct: 0,
+        acuracidadeToleranciaPct: 0,
+        erroRelativoMedioSalaPct: 0,
+        taxaDivergenciaPct: 0,
+        taxaPendenciaRegularizacaoPct: 0,
+        mttrRegularizacaoDias: 0,
+        coberturaContagemPct: 0,
+      };
+
+      if (!eventosR.rowCount) {
+        const resumoVazio = { ...emptyResumo, semaforo: buildSemaforo(emptyResumo) };
+        res.json({
+          requestId: req.requestId,
+          periodo: {
+            dataInicio: inicio.value,
+            dataFim: fim.value,
+            dataInicioIso,
+            dataFimExclusivaIso,
+            referenciaTemporal: "COALESCE(encerrado_em, iniciado_em)",
+          },
+          configuracao: {
+            statusEvento,
+            unidadeId,
+            toleranciaPct,
+            frequenciaConsolidacao: "SEMANAL_MENSAL",
+            exclusoes: ["bens.eh_bem_terceiro = FALSE", "bens.status != BAIXADO"],
+          },
+          resumo: resumoVazio,
+          porEvento: [],
+          porSala: [],
+          serieSemanal: [],
+          serieMensal: [],
+        });
+        return;
+      }
+
+      const eventos = eventosR.rows;
+      const eventoIds = eventos.map((e) => e.id);
+      const eventoMap = new Map();
+
+      for (const ev of eventos) {
+        const dataRef = ev.dataReferencia ? new Date(ev.dataReferencia) : new Date(ev.iniciadoEm);
+        eventoMap.set(ev.id, {
+          eventoId: ev.id,
+          codigoEvento: ev.codigoEvento,
+          status: ev.status,
+          unidadeInventariadaId: ev.unidadeInventariadaId,
+          iniciadoEm: ev.iniciadoEm,
+          encerradoEm: ev.encerradoEm,
+          dataReferencia: Number.isNaN(dataRef.getTime()) ? null : dataRef,
+          totalContagens: 0,
+          conformes: 0,
+          totalDivergencias: 0,
+          divergenciasUnidade: 0,
+          divergenciasSala: 0,
+          divergenciasUnidadeESala: 0,
+          regularizacoesPendentes: 0,
+          mttrDiasSoma: 0,
+          mttrQtd: 0,
+          salasAvaliadas: 0,
+          salasHit: 0,
+          erroRelSalaSoma: 0,
+          qtdEsperadosTotal: 0,
+          qtdInventariadosTotal: 0,
+        });
+      }
+
+      const [contagensR, esperadosR, inventariadosR] = await Promise.all([
+        pool.query(
+          `SELECT
+             c.evento_inventario_id AS "eventoId",
+             c.unidade_encontrada_id AS "unidadeEncontradaId",
+             c.sala_encontrada AS "salaEncontrada",
+             c.encontrado_em AS "encontradoEm",
+             c.regularizado_em AS "regularizadoEm",
+             c.regularizacao_pendente AS "regularizacaoPendente",
+             b.unidade_dona_id AS "unidadeDonaId",
+             b.local_fisico AS "localEsperadoTexto",
+             l.nome AS "localEsperadoNome"
+           FROM contagens c
+           JOIN bens b ON b.id = c.bem_id
+           LEFT JOIN locais l ON l.id = b.local_id
+           WHERE c.evento_inventario_id = ANY($1::uuid[])
+             AND b.eh_bem_terceiro = FALSE
+             AND b.status <> 'BAIXADO'::public.status_bem;`,
+          [eventoIds],
+        ),
+        pool.query(
+          `SELECT
+             e.id AS "eventoId",
+             l.nome AS sala,
+             COUNT(b.id)::int AS "qtdEsperados"
+           FROM eventos_inventario e
+           JOIN bens b
+             ON (e.unidade_inventariada_id IS NULL OR b.unidade_dona_id = e.unidade_inventariada_id)
+           JOIN locais l ON l.id = b.local_id
+           WHERE e.id = ANY($1::uuid[])
+             AND b.eh_bem_terceiro = FALSE
+             AND b.status <> 'BAIXADO'::public.status_bem
+           GROUP BY e.id, l.nome;`,
+          [eventoIds],
+        ),
+        pool.query(
+          `SELECT
+             c.evento_inventario_id AS "eventoId",
+             COALESCE(NULLIF(trim(c.sala_encontrada), ''), '(sem sala)') AS sala,
+             COUNT(c.id)::int AS "qtdInventariados"
+           FROM contagens c
+           JOIN bens b ON b.id = c.bem_id
+           WHERE c.evento_inventario_id = ANY($1::uuid[])
+             AND b.eh_bem_terceiro = FALSE
+             AND b.status <> 'BAIXADO'::public.status_bem
+           GROUP BY c.evento_inventario_id, COALESCE(NULLIF(trim(c.sala_encontrada), ''), '(sem sala)');`,
+          [eventoIds],
+        ),
+      ]);
+
+      for (const row of contagensR.rows) {
+        const ev = eventoMap.get(row.eventoId);
+        if (!ev) continue;
+
+        ev.totalContagens += 1;
+        const unidadeDivergente = Number(row.unidadeDonaId) !== Number(row.unidadeEncontradaId);
+        const localEsperado = String(row.localEsperadoNome || row.localEsperadoTexto || "").trim();
+        const salaEncontrada = String(row.salaEncontrada || "").trim();
+        const salaDivergente = localEsperado && salaEncontrada
+          ? normalizeRoomLabel(localEsperado) !== normalizeRoomLabel(salaEncontrada)
+          : false;
+
+        if (unidadeDivergente || salaDivergente) {
+          ev.totalDivergencias += 1;
+          if (unidadeDivergente && salaDivergente) ev.divergenciasUnidadeESala += 1;
+          else if (unidadeDivergente) ev.divergenciasUnidade += 1;
+          else if (salaDivergente) ev.divergenciasSala += 1;
+
+          if (row.regularizacaoPendente) ev.regularizacoesPendentes += 1;
+          if (!row.regularizacaoPendente && row.regularizadoEm && row.encontradoEm) {
+            const inicioTs = new Date(row.encontradoEm).getTime();
+            const fimTs = new Date(row.regularizadoEm).getTime();
+            if (!Number.isNaN(inicioTs) && !Number.isNaN(fimTs) && fimTs >= inicioTs) {
+              ev.mttrDiasSoma += (fimTs - inicioTs) / (24 * 60 * 60 * 1000);
+              ev.mttrQtd += 1;
+            }
+          }
+        } else {
+          ev.conformes += 1;
+        }
+      }
+
+      const salaEventoMap = new Map();
+      const toSalaKey = (eventoId, salaRaw) => {
+        const sala = String(salaRaw || "").trim() || "(sem sala)";
+        return `${eventoId}::${normalizeRoomLabel(sala)}`;
+      };
+      const ensureSalaEvento = (eventoId, salaRaw) => {
+        const sala = String(salaRaw || "").trim() || "(sem sala)";
+        const key = toSalaKey(eventoId, sala);
+        if (!salaEventoMap.has(key)) {
+          salaEventoMap.set(key, {
+            eventoId,
+            sala,
+            qtdEsperados: 0,
+            qtdInventariados: 0,
+          });
+        }
+        return salaEventoMap.get(key);
+      };
+
+      for (const row of esperadosR.rows) {
+        const slot = ensureSalaEvento(row.eventoId, row.sala);
+        slot.qtdEsperados += Number(row.qtdEsperados || 0);
+      }
+      for (const row of inventariadosR.rows) {
+        const slot = ensureSalaEvento(row.eventoId, row.sala);
+        slot.qtdInventariados += Number(row.qtdInventariados || 0);
+      }
+
+      const porSalaAgg = new Map();
+      for (const slot of salaEventoMap.values()) {
+        const ev = eventoMap.get(slot.eventoId);
+        if (!ev) continue;
+        const qtdEsperados = Number(slot.qtdEsperados || 0);
+        const qtdInventariados = Number(slot.qtdInventariados || 0);
+        const erroRel = Math.abs(qtdInventariados - qtdEsperados) / Math.max(qtdEsperados, 1);
+        const hit = erroRel <= toleranciaFracao;
+
+        ev.salasAvaliadas += 1;
+        ev.salasHit += hit ? 1 : 0;
+        ev.erroRelSalaSoma += erroRel;
+        ev.qtdEsperadosTotal += qtdEsperados;
+        ev.qtdInventariadosTotal += qtdInventariados;
+
+        const salaKey = normalizeRoomLabel(slot.sala);
+        if (!porSalaAgg.has(salaKey)) {
+          porSalaAgg.set(salaKey, {
+            sala: slot.sala,
+            eventos: new Set(),
+            avaliacoes: 0,
+            hits: 0,
+            erroRelSoma: 0,
+            qtdEsperados: 0,
+            qtdInventariados: 0,
+          });
+        }
+        const salaAgg = porSalaAgg.get(salaKey);
+        salaAgg.eventos.add(slot.eventoId);
+        salaAgg.avaliacoes += 1;
+        salaAgg.hits += hit ? 1 : 0;
+        salaAgg.erroRelSoma += erroRel;
+        salaAgg.qtdEsperados += qtdEsperados;
+        salaAgg.qtdInventariados += qtdInventariados;
+      }
+
+      const rawEventos = Array.from(eventoMap.values());
+      const totals = rawEventos.reduce((acc, ev) => {
+        acc.totalEventos += 1;
+        acc.totalContagens += ev.totalContagens;
+        acc.conformes += ev.conformes;
+        acc.totalDivergencias += ev.totalDivergencias;
+        acc.divergenciasUnidade += ev.divergenciasUnidade;
+        acc.divergenciasSala += ev.divergenciasSala;
+        acc.divergenciasUnidadeESala += ev.divergenciasUnidadeESala;
+        acc.regularizacoesPendentes += ev.regularizacoesPendentes;
+        acc.salasAvaliadas += ev.salasAvaliadas;
+        acc.salasHit += ev.salasHit;
+        acc.erroRelSalaSoma += ev.erroRelSalaSoma;
+        acc.mttrDiasSoma += ev.mttrDiasSoma;
+        acc.mttrQtd += ev.mttrQtd;
+        acc.qtdEsperadosTotal += ev.qtdEsperadosTotal;
+        acc.qtdInventariadosTotal += ev.qtdInventariadosTotal;
+        return acc;
+      }, {
+        totalEventos: 0,
+        totalContagens: 0,
+        conformes: 0,
+        totalDivergencias: 0,
+        divergenciasUnidade: 0,
+        divergenciasSala: 0,
+        divergenciasUnidadeESala: 0,
+        regularizacoesPendentes: 0,
+        salasAvaliadas: 0,
+        salasHit: 0,
+        erroRelSalaSoma: 0,
+        mttrDiasSoma: 0,
+        mttrQtd: 0,
+        qtdEsperadosTotal: 0,
+        qtdInventariadosTotal: 0,
+      });
+
+      const resumoBase = {
+        totalEventos: totals.totalEventos,
+        totalContagens: totals.totalContagens,
+        conformes: totals.conformes,
+        totalDivergencias: totals.totalDivergencias,
+        divergenciasUnidade: totals.divergenciasUnidade,
+        divergenciasSala: totals.divergenciasSala,
+        divergenciasUnidadeESala: totals.divergenciasUnidadeESala,
+        regularizacoesPendentes: totals.regularizacoesPendentes,
+        salasAvaliadas: totals.salasAvaliadas,
+        salasHit: totals.salasHit,
+        acuracidadeExataPct: calcPct(totals.conformes, totals.totalContagens),
+        acuracidadeToleranciaPct: calcPct(totals.salasHit, totals.salasAvaliadas),
+        erroRelativoMedioSalaPct: totals.salasAvaliadas > 0 ? round2((totals.erroRelSalaSoma / totals.salasAvaliadas) * 100) : 0,
+        taxaDivergenciaPct: calcPct(totals.totalDivergencias, totals.totalContagens),
+        taxaPendenciaRegularizacaoPct: calcPct(totals.regularizacoesPendentes, totals.totalDivergencias),
+        mttrRegularizacaoDias: totals.mttrQtd > 0 ? round2(totals.mttrDiasSoma / totals.mttrQtd) : 0,
+        coberturaContagemPct: calcCoberturaPct(totals.qtdInventariadosTotal, totals.qtdEsperadosTotal),
+      };
+      const resumo = { ...resumoBase, semaforo: buildSemaforo(resumoBase) };
+
+      const porEvento = rawEventos
+        .map((ev) => {
+          const acuracidadeExataPct = calcPct(ev.conformes, ev.totalContagens);
+          const acuracidadeToleranciaPct = calcPct(ev.salasHit, ev.salasAvaliadas);
+          const erroRelativoMedioSalaPct = ev.salasAvaliadas > 0 ? round2((ev.erroRelSalaSoma / ev.salasAvaliadas) * 100) : 0;
+          const taxaDivergenciaPct = calcPct(ev.totalDivergencias, ev.totalContagens);
+          const taxaPendenciaRegularizacaoPct = calcPct(ev.regularizacoesPendentes, ev.totalDivergencias);
+          const mttrRegularizacaoDias = ev.mttrQtd > 0 ? round2(ev.mttrDiasSoma / ev.mttrQtd) : 0;
+          const coberturaContagemPct = calcCoberturaPct(ev.qtdInventariadosTotal, ev.qtdEsperadosTotal);
+          const kpisEvento = {
+            acuracidadeExataPct,
+            acuracidadeToleranciaPct,
+            taxaPendenciaRegularizacaoPct,
+            mttrRegularizacaoDias,
+            coberturaContagemPct,
+          };
+          return {
+            eventoId: ev.eventoId,
+            codigoEvento: ev.codigoEvento,
+            status: ev.status,
+            unidadeInventariadaId: ev.unidadeInventariadaId,
+            iniciadoEm: ev.iniciadoEm,
+            encerradoEm: ev.encerradoEm,
+            dataReferencia: ev.dataReferencia ? ev.dataReferencia.toISOString() : null,
+            totalContagens: ev.totalContagens,
+            conformes: ev.conformes,
+            totalDivergencias: ev.totalDivergencias,
+            divergenciasUnidade: ev.divergenciasUnidade,
+            divergenciasSala: ev.divergenciasSala,
+            divergenciasUnidadeESala: ev.divergenciasUnidadeESala,
+            regularizacoesPendentes: ev.regularizacoesPendentes,
+            salasAvaliadas: ev.salasAvaliadas,
+            salasHit: ev.salasHit,
+            acuracidadeExataPct,
+            acuracidadeToleranciaPct,
+            erroRelativoMedioSalaPct,
+            taxaDivergenciaPct,
+            taxaPendenciaRegularizacaoPct,
+            mttrRegularizacaoDias,
+            coberturaContagemPct,
+            semaforo: buildSemaforo(kpisEvento),
+            _raw: {
+              mttrQtd: ev.mttrQtd,
+              qtdEsperadosTotal: ev.qtdEsperadosTotal,
+              qtdInventariadosTotal: ev.qtdInventariadosTotal,
+              erroRelSalaSoma: ev.erroRelSalaSoma,
+            },
+          };
+        })
+        .sort((a, b) => String(b.dataReferencia || "").localeCompare(String(a.dataReferencia || "")));
+
+      const porSala = Array.from(porSalaAgg.values())
+        .map((s) => {
+          const acuracidadeToleranciaPct = calcPct(s.hits, s.avaliacoes);
+          const erroRelativoMedioSalaPct = s.avaliacoes > 0 ? round2((s.erroRelSoma / s.avaliacoes) * 100) : 0;
+          return {
+            sala: s.sala,
+            eventos: s.eventos.size,
+            avaliacoes: s.avaliacoes,
+            hits: s.hits,
+            misses: Math.max(0, s.avaliacoes - s.hits),
+            qtdEsperados: s.qtdEsperados,
+            qtdInventariados: s.qtdInventariados,
+            coberturaContagemPct: calcCoberturaPct(s.qtdInventariados, s.qtdEsperados),
+            acuracidadeToleranciaPct,
+            erroRelativoMedioSalaPct,
+            statusTolerancia: semaforoHigh(acuracidadeToleranciaPct, 95, 90),
+          };
+        })
+        .sort((a, b) =>
+          Number(b.erroRelativoMedioSalaPct) - Number(a.erroRelativoMedioSalaPct)
+            || Number(b.misses) - Number(a.misses)
+            || a.sala.localeCompare(b.sala)
+        );
+
+      const getWeekStartIso = (date) => {
+        const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+        const offset = (d.getUTCDay() + 6) % 7; // segunda = inicio da semana
+        d.setUTCDate(d.getUTCDate() - offset);
+        return d.toISOString().slice(0, 10);
+      };
+
+      const buildSeries = (modo) => {
+        const buckets = new Map();
+        for (const row of porEvento) {
+          if (!row.dataReferencia) continue;
+          const ref = new Date(row.dataReferencia);
+          if (Number.isNaN(ref.getTime())) continue;
+
+          let key = "";
+          let rotulo = "";
+          let periodoInicio = "";
+          let periodoFim = "";
+          if (modo === "SEMANAL") {
+            periodoInicio = getWeekStartIso(ref);
+            const fimSemana = new Date(`${periodoInicio}T00:00:00.000Z`);
+            fimSemana.setUTCDate(fimSemana.getUTCDate() + 6);
+            periodoFim = fimSemana.toISOString().slice(0, 10);
+            key = periodoInicio;
+            rotulo = `${periodoInicio} a ${periodoFim}`;
+          } else {
+            const ano = ref.getUTCFullYear();
+            const mes = String(ref.getUTCMonth() + 1).padStart(2, "0");
+            key = `${ano}-${mes}`;
+            periodoInicio = `${key}-01`;
+            const fimMes = new Date(Date.UTC(ano, ref.getUTCMonth() + 1, 0));
+            periodoFim = fimMes.toISOString().slice(0, 10);
+            rotulo = key;
+          }
+
+          if (!buckets.has(key)) {
+            buckets.set(key, {
+              key,
+              modo,
+              rotulo,
+              periodoInicio,
+              periodoFim,
+              totalEventos: 0,
+              totalContagens: 0,
+              conformes: 0,
+              totalDivergencias: 0,
+              regularizacoesPendentes: 0,
+              salasAvaliadas: 0,
+              salasHit: 0,
+              erroRelSalaSoma: 0,
+              mttrDiasSoma: 0,
+              mttrQtd: 0,
+              qtdEsperadosTotal: 0,
+              qtdInventariadosTotal: 0,
+            });
+          }
+          const b = buckets.get(key);
+          b.totalEventos += 1;
+          b.totalContagens += Number(row.totalContagens || 0);
+          b.conformes += Number(row.conformes || 0);
+          b.totalDivergencias += Number(row.totalDivergencias || 0);
+          b.regularizacoesPendentes += Number(row.regularizacoesPendentes || 0);
+          b.salasAvaliadas += Number(row.salasAvaliadas || 0);
+          b.salasHit += Number(row.salasHit || 0);
+          b.erroRelSalaSoma += Number(row._raw?.erroRelSalaSoma || 0);
+          b.mttrDiasSoma += Number(row.mttrRegularizacaoDias || 0) * Number(row._raw?.mttrQtd || 0);
+          b.mttrQtd += Number(row._raw?.mttrQtd || 0);
+          b.qtdEsperadosTotal += Number(row._raw?.qtdEsperadosTotal || 0);
+          b.qtdInventariadosTotal += Number(row._raw?.qtdInventariadosTotal || 0);
+        }
+
+        return Array.from(buckets.values())
+          .sort((a, b) => a.key.localeCompare(b.key))
+          .map((b) => {
+            const mttrRegularizacaoDias = b.mttrQtd > 0 ? round2(b.mttrDiasSoma / b.mttrQtd) : 0;
+            const acuracidadeExataPct = calcPct(b.conformes, b.totalContagens);
+            const acuracidadeToleranciaPct = calcPct(b.salasHit, b.salasAvaliadas);
+            const taxaPendenciaRegularizacaoPct = calcPct(b.regularizacoesPendentes, b.totalDivergencias);
+            const coberturaContagemPct = calcCoberturaPct(b.qtdInventariadosTotal, b.qtdEsperadosTotal);
+            return {
+              chave: b.key,
+              periodo: {
+                modo: b.modo,
+                rotulo: b.rotulo,
+                inicio: b.periodoInicio,
+                fim: b.periodoFim,
+              },
+              totalEventos: b.totalEventos,
+              totalContagens: b.totalContagens,
+              totalDivergencias: b.totalDivergencias,
+              acuracidadeExataPct,
+              acuracidadeToleranciaPct,
+              erroRelativoMedioSalaPct: b.salasAvaliadas > 0 ? round2((b.erroRelSalaSoma / b.salasAvaliadas) * 100) : 0,
+              taxaDivergenciaPct: calcPct(b.totalDivergencias, b.totalContagens),
+              taxaPendenciaRegularizacaoPct,
+              mttrRegularizacaoDias,
+              coberturaContagemPct,
+              semaforo: buildSemaforo({
+                acuracidadeExataPct,
+                acuracidadeToleranciaPct,
+                taxaPendenciaRegularizacaoPct,
+                mttrRegularizacaoDias,
+                coberturaContagemPct,
+              }),
+            };
+          });
+      };
+
+      const serieSemanal = buildSeries("SEMANAL");
+      const serieMensal = buildSeries("MENSAL");
+
+      const porEventoSanitizado = porEvento.map((row) => {
+        const { _raw, ...rest } = row;
+        return rest;
+      });
+
+      res.json({
+        requestId: req.requestId,
+        periodo: {
+          dataInicio: inicio.value,
+          dataFim: fim.value,
+          dataInicioIso,
+          dataFimExclusivaIso,
+          referenciaTemporal: "COALESCE(encerrado_em, iniciado_em)",
+        },
+        configuracao: {
+          statusEvento,
+          unidadeId,
+          toleranciaPct,
+          frequenciaConsolidacao: "SEMANAL_MENSAL",
+          exclusoes: ["bens.eh_bem_terceiro = FALSE", "bens.status != BAIXADO"],
+        },
+        resumo,
+        porEvento: porEventoSanitizado,
+        porSala,
+        serieSemanal,
+        serieMensal,
       });
     } catch (error) {
       next(error);
@@ -2613,6 +3255,9 @@ function createInventarioController(deps) {
     getRelatorioEncerramento,
     exportRelatorioEncerramentoCsv,
     getSugestoesCiclo,
+    getMinhaSessaoContagem,
+    getMonitoramentoContagem,
+    getIndicadoresAcuracidade,
     getMinhaSessaoContagem,
     getMonitoramentoContagem,
     getForasteiros,

@@ -1434,6 +1434,31 @@ export async function listarSugestoesCicloInventario(params = {}) {
 }
 
 /**
+ * Consulta indicadores operacionais de acuracidade do inventario por periodo.
+ * @param {{dataInicio: string, dataFim: string, unidadeId?: number, statusEvento?: "EM_ANDAMENTO"|"ENCERRADO"|"CANCELADO", toleranciaPct?: number}} params Parametros.
+ * @returns {Promise<object>} Consolidado com resumo, por evento/sala e series semanal/mensal.
+ */
+export async function getIndicadoresAcuracidadeInventario(params = {}) {
+  const dataInicio = String(params.dataInicio || "").trim();
+  const dataFim = String(params.dataFim || "").trim();
+  if (!dataInicio) throw new Error("dataInicio obrigatoria.");
+  if (!dataFim) throw new Error("dataFim obrigatoria.");
+
+  const usp = new URLSearchParams();
+  usp.set("dataInicio", dataInicio);
+  usp.set("dataFim", dataFim);
+  if (params.unidadeId) usp.set("unidadeId", String(params.unidadeId));
+  if (params.statusEvento) usp.set("statusEvento", String(params.statusEvento));
+  if (params.toleranciaPct != null) usp.set("toleranciaPct", String(params.toleranciaPct));
+
+  const response = await safeFetch(`${API_BASE_URL}/inventario/indicadores-acuracidade?${usp.toString()}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Atualiza status do evento de inventario (EM_ANDAMENTO/ENCERRADO/CANCELADO).
  * @param {string} id UUID do evento.
  * @param {{status: "EM_ANDAMENTO"|"ENCERRADO"|"CANCELADO", encerradoPorPerfilId: string, observacoes?: string}} payload Payload.
