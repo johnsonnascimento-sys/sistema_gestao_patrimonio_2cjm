@@ -155,3 +155,16 @@ Semaforo operacional:
 - Pendencia de Regularizacao: verde `<=5`, amarelo `5.01-10`, vermelho `>10`
 - MTTR: verde `<=5 dias`, amarelo `6-10`, vermelho `>10`
 - Cobertura: verde `>=99`, amarelo `95-98.99`, vermelho `<95`
+
+## Regra operacional para cancelar evento
+
+`CANCELADO` e status de descarte operacional (erro de abertura/configuracao/teste) e nao substitui fechamento do ciclo.
+
+Consequencia:
+
+- evento `CANCELADO` nao permite regularizacao pos-inventario (`POST /inventario/regularizacoes` exige `ENCERRADO`).
+
+Guard rails da UI:
+
+- modal de acao critica explica que cancelamento descarta o evento para regularizacao;
+- para cancelar, o operador deve digitar exatamente `CANCELAR_INVENTARIO`.

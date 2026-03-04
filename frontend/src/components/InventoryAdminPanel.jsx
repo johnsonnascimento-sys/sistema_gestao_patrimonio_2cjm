@@ -137,6 +137,7 @@ export default function InventoryAdminPanel() {
     const [showItemPhotoRelatorio, setShowItemPhotoRelatorio] = useState(false);
     const [showCatalogPhotoRelatorio, setShowCatalogPhotoRelatorio] = useState(false);
     const [criticalModal, setCriticalModal] = useState({ open: false, status: "", eventoId: "", eventoCodigo: "" });
+    const [criticalConfirmText, setCriticalConfirmText] = useState("");
     const [interStatusInventario, setInterStatusInventario] = useState("TODOS");
     const [interUnidadeRelacionada, setInterUnidadeRelacionada] = useState("");
     const [interCodigoFiltro, setInterCodigoFiltro] = useState("");
@@ -648,6 +649,7 @@ export default function InventoryAdminPanel() {
             null;
         if (!refEvento?.id) return;
         setEncerramentoObs("");
+        setCriticalConfirmText("");
         setCriticalModal({
             open: true,
             status,
@@ -658,8 +660,16 @@ export default function InventoryAdminPanel() {
 
     const onConfirmCriticalStatus = () => {
         if (!criticalModal.open || !criticalModal.eventoId || !criticalModal.status) return;
+        if (criticalModal.status === "CANCELADO") {
+            const confirmFinal = String(criticalConfirmText || "").trim().toUpperCase();
+            if (confirmFinal !== "CANCELAR_INVENTARIO") {
+                setUiError("Para cancelar, digite exatamente CANCELAR_INVENTARIO.");
+                return;
+            }
+        }
         executarAtualizacaoStatus(criticalModal.status, criticalModal.eventoId, encerramentoObs);
         setCriticalModal({ open: false, status: "", eventoId: "", eventoCodigo: "" });
+        setCriticalConfirmText("");
     };
 
     const onUpdateStatus = async (status, eventoId = selectedEventoIdFinal) => {
@@ -759,8 +769,8 @@ export default function InventoryAdminPanel() {
     const eventosAtivos = eventosQuery.data || [];
     const createButtonLabel = escopoTipo === "GERAL" ? "Abrir inventario geral" : "Abrir micro-inventario";
     const criticalImpactText = criticalModal.status === "ENCERRADO"
-        ? "Ao encerrar, este inventario não aceita novas contagens."
-        : "Ao cancelar, este inventario sera interrompido e não aceitara novas contagens.";
+        ? "Ao encerrar, este inventario nao aceita novas contagens e habilita regularizacao pos-inventario."
+        : "Ao cancelar, este inventario e descartado para regularizacao: manter/transferir carga (Art. 185) nao sera permitido neste evento.";
     const divergenciasInterTotal = Number(divergenciasInterunidadesQuery.data?.total || divergenciasInterItems.length || 0);
 
     return (
@@ -1406,10 +1416,26 @@ export default function InventoryAdminPanel() {
                                 className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                             />
                         </label>
+                        {criticalModal.status === "CANCELADO" ? (
+                            <label className="mt-3 block space-y-1">
+                                <span className="text-xs text-slate-600">
+                                    Para confirmar o cancelamento, digite exatamente: <strong>CANCELAR_INVENTARIO</strong>
+                                </span>
+                                <input
+                                    value={criticalConfirmText}
+                                    onChange={(e) => setCriticalConfirmText(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                                    placeholder="CANCELAR_INVENTARIO"
+                                />
+                            </label>
+                        ) : null}
                         <div className="mt-4 flex items-center justify-end gap-2">
                             <button
                                 type="button"
-                                onClick={() => setCriticalModal({ open: false, status: "", eventoId: "", eventoCodigo: "" })}
+                                onClick={() => {
+                                    setCriticalModal({ open: false, status: "", eventoId: "", eventoCodigo: "" });
+                                    setCriticalConfirmText("");
+                                }}
                                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                             >
                                 Voltar
