@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modulo: frontend/components
  * Arquivo: AssetsExplorer.jsx
  * Funcao no sistema: consulta paginada do cadastro de bens via API backend.
@@ -213,7 +213,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
 
     const tombo = String(filters.numeroTombamento || "").trim();
     if (tombo && !/^\d{10}$/.test(tombo) && !/^\d{4}$/.test(tombo)) {
-      setFormError("Tombamento inválido: use 10 dígitos (ex.: 1290001788) ou 4 dígitos (ex.: 1260 ou 2657).");
+      setFormError("Tombamento invÃ¡lido: use 10 dÃ­gitos (ex.: 1290001788) ou 4 dÃ­gitos (ex.: 1260 ou 2657).");
       return;
     }
     if (/^\d{4}$/.test(tombo) && !tipoBusca4Digitos) {
@@ -361,7 +361,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
-      setCopyFeedback("Número copiado");
+      setCopyFeedback("NÃºmero copiado");
       window.setTimeout(() => setCopyFeedback(""), 1600);
     } catch (_error) {
       // Clipboard pode falhar em alguns navegadores; sem efeito colateral.
@@ -516,13 +516,13 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
             </select>
           </label>
           <label className="space-y-1 md:col-span-2">
-            <span className="text-xs text-slate-600">Sala (local cadastrado)</span>
+            <span className="text-xs text-slate-600">Endereço (local cadastrado)</span>
             <select
               value={filters.localId}
               onChange={(e) => setFilters((prev) => ({ ...prev, localId: e.target.value }))}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Todas as salas</option>
+              <option value="">Todos os endereços</option>
               {locaisFiltroOptions.map((l) => (
                 <option key={l.id} value={l.id}>
                   {`${l.nome}${l.unidadeId ? ` (${formatUnidade(Number(l.unidadeId))})` : ""}`}
@@ -530,7 +530,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
               ))}
             </select>
             {locaisFiltroQuery.isLoading ? (
-              <p className="text-[11px] text-slate-500">Carregando salas...</p>
+              <p className="text-[11px] text-slate-500">Carregando endereços...</p>
             ) : null}
           </label>
           <label className="space-y-1 md:col-span-2">
@@ -639,12 +639,12 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                 onChange={(e) => setListView((prev) => ({ ...prev, showCatalogPhoto: e.target.checked }))}
                 className="h-4 w-4 accent-violet-600"
               />
-              Foto do catálogo
+              Foto do catÃ¡logo
             </label>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             {copyFeedback ? (
-              <span className={`rounded-md px-2 py-1 font-semibold ${copyFeedback === "Número copiado" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+              <span className={`rounded-md px-2 py-1 font-semibold ${copyFeedback === "NÃºmero copiado" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
                 {copyFeedback}
               </span>
             ) : null}
@@ -678,9 +678,9 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                 <th className="px-3 py-2">Tombo</th>
                 <th className="px-3 py-2">Antigo (Azul)</th>
                 <th className="px-3 py-2">Material (SKU)</th>
-                <th className="px-3 py-2">Descrição / Resumo</th>
+                <th className="px-3 py-2">DescriÃ§Ã£o / Resumo</th>
                 {listView.showItemPhoto && <th className="px-3 py-2">Foto Item</th>}
-                {listView.showCatalogPhoto && <th className="px-3 py-2">Foto Catálogo</th>}
+                {listView.showCatalogPhoto && <th className="px-3 py-2">Foto CatÃ¡logo</th>}
                 <th className="px-3 py-2">Unidade</th>
                 <th className="px-3 py-2">Local</th>
                 <th className="px-3 py-2">Responsavel</th>
@@ -759,7 +759,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                         <a href={getFotoUrl(item.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer">
                           <img
                             src={getFotoUrl(item.fotoReferenciaUrl)}
-                            alt={`Foto catálogo ${item.codigoCatalogo || ""}`}
+                            alt={`Foto catÃ¡logo ${item.codigoCatalogo || ""}`}
                             className="h-10 w-10 rounded border border-slate-300 object-cover"
                           />
                         </a>
@@ -784,7 +784,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                   </td>
                   <td className="px-3 py-2 text-center">
                     {item.temDivergenciaPendente && (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white" title="Divergência Pendente!">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white" title="DivergÃªncia Pendente!">
                         !
                       </span>
                     )}
@@ -833,7 +833,7 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
                 className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition-colors hover:bg-violet-100"
               >
                 <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
-                <div className="text-xs text-slate-500">Busca por Cod2Aud da 2ª Auditoria</div>
+                <div className="text-xs text-slate-500">Busca por Cod2Aud da 2Âª Auditoria</div>
               </button>
               <button
                 type="button"
@@ -903,9 +903,9 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
     }
     const sala = extractSalaChange(m?.justificativa);
     if (sala) {
-      out.push(`Sala: ${sala.antes || "-"} -> ${sala.depois || "-"}`);
+      out.push(`Endereço: ${sala.antes || "-"} -> ${sala.depois || "-"}`);
     } else if (String(m?.tipoMovimentacao || "").toUpperCase() === "REGULARIZACAO_INVENTARIO" && m?.regularizacaoSalaEncontrada) {
-      out.push(`Sala regularizada: ${m.regularizacaoSalaEncontrada}`);
+      out.push(`Endereço regularizado: ${m.regularizacaoSalaEncontrada}`);
     }
     return out.length ? out.join(" | ") : "Sem detalhe de alteracao";
   };
@@ -1181,7 +1181,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         fotoUrl: edit.fotoUrl || null,
       });
 
-      // Atualiza foto do catálogo se houve alteração
+      // Atualiza foto do catÃ¡logo se houve alteraÃ§Ã£o
       const targetCatalogoId = edit.catalogoBemId || catalogo?.id;
       const currentRefUrl = catalogo?.fotoReferenciaUrl || "";
       const newRefUrl = edit.fotoReferenciaUrl || "";
@@ -1215,7 +1215,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
         setEditMsg("Foto do item salva e vinculada ao bem.");
       } else {
         setEdit((p) => ({ ...p, fotoReferenciaUrl: url }));
-        setEditMsg("Foto de referência salva e vinculada ao catálogo.");
+        setEditMsg("Foto de referÃªncia salva e vinculada ao catÃ¡logo.");
       }
       setEditErr(null);
       await onReload?.();
@@ -1281,7 +1281,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
   const fieldLabel = (field) => {
     const map = {
       __operacao: "Operacao",
-      local_fisico: "Sala / Local",
+      local_fisico: "Endereço / Local",
       local_id: "Local",
       unidade_dona_id: "Unidade dona",
       nome_resumo: "Nome resumo",
@@ -1347,14 +1347,14 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <h3 className="font-bold uppercase tracking-wide">Divergência Pendente Detectada!</h3>
+                    <h3 className="font-bold uppercase tracking-wide">DivergÃªncia Pendente Detectada!</h3>
                   </div>
                   <p className="mt-2 text-sm text-slate-800">
                     Este bem foi encontrado em local divergente em <strong>{new Date(divergenciaPendente.encontradoEm).toLocaleString()}</strong>.
                     Local encontrado: <strong>{divergenciaPendente.salaEncontrada}</strong> ({formatUnidade(divergenciaPendente.unidadeEncontradaId)}).
                   </p>
                   <p className="mt-1 text-xs text-rose-700 font-medium">
-                    Art. 185 (ATN 303): Regularização pendente.
+                    Art. 185 (ATN 303): RegularizaÃ§Ã£o pendente.
                   </p>
                 </div>
               )}
@@ -1369,10 +1369,10 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     <Row k="Tomb. Antigo (Azul)" v={imp.cod2Aud} />
                     <Row k="Nome Resumo" v={imp.nomeResumo} />
                     <Row k="Responsavel" v={state?.data?.responsavel?.matricula ? `${state.data.responsavel.matricula}${state?.data?.responsavel?.nome ? ` - ${state.data.responsavel.nome}` : ""}` : (state?.data?.responsavel?.nome || "-")} />
-                    <Row k="Sala/Local (padronizado)" v={salaPadronizadaAtual} />
+                    <Row k="Endereço (padronizado)" v={salaPadronizadaAtual} />
                     <Row k="Status" v={imp.status} />
-                    <Row k="Valor aquisição" v={imp.valorAquisicao} />
-                    <Row k="Data aquisição" v={imp.dataAquisicao} />
+                    <Row k="Valor aquisiÃ§Ã£o" v={imp.valorAquisicao} />
+                    <Row k="Data aquisiÃ§Ã£o" v={imp.dataAquisicao} />
                     <Row k="Contrato" v={imp.contratoReferencia} />
                     <Row k="Observacoes" v={imp.observacoes} />
                     <Row k="Foto (item)" v={imp.fotoUrl} />
@@ -1385,10 +1385,10 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                   <dl className="mt-2 space-y-1 text-sm">
                     <Row k="Material (SKU) id" v={catalogo?.id || imp.catalogoBemId} mono />
                     <Row k="Codigo material (SKU)" v={catalogo?.codigoCatalogo} />
-                    <Row k="Descrição" v={catalogo?.descricao} />
+                    <Row k="DescriÃ§Ã£o" v={catalogo?.descricao} />
                     <Row k="Classificacao SIAFI" v={catalogo?.grupo} />
                     <Row k="Material permanente" v={String(Boolean(catalogo?.materialPermanente))} />
-                    <Row k="Foto (referência)" v={catalogo?.fotoReferenciaUrl} />
+                    <Row k="Foto (referÃªncia)" v={catalogo?.fotoReferenciaUrl} />
                   </dl>
                 </div>
               </section>
@@ -1398,7 +1398,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-xs uppercase tracking-widest text-slate-500">Editar (ADMIN)</p>
                     <p className="text-[11px] text-slate-500">
-                      Edite campos operacionais (exceto chaves). Sala/Local vem do cadastro de locais.
+                      Edite campos operacionais (exceto chaves). Endereço vem do cadastro de locais.
                     </p>
                   </div>
 
@@ -1409,7 +1409,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                         Atual: <strong>{catalogo?.codigoCatalogo || "-"}</strong>
                       </p>
                       <p className="text-[11px] font-semibold text-amber-700">
-                        Atenção: o Material (SKU) deve ser o mesmo cadastrado no GEAFIN para evitar divergências.
+                        AtenÃ§Ã£o: o Material (SKU) deve ser o mesmo cadastrado no GEAFIN para evitar divergÃªncias.
                       </p>
                       <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
                         <input
@@ -1436,7 +1436,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                             Codigo: <strong>{materialBuscaState.candidato.codigoCatalogo || "-"}</strong>
                           </p>
                           <p>
-                            Descrição: <strong>{materialBuscaState.candidato.descricao || "-"}</strong>
+                            DescriÃ§Ã£o: <strong>{materialBuscaState.candidato.descricao || "-"}</strong>
                           </p>
                           <button
                             type="button"
@@ -1480,7 +1480,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Sala/Local (padronizado)</span>
+                      <span className="text-xs text-slate-600">Endereço (padronizado)</span>
                       <select
                         value={edit.localId || ""}
                         onChange={(e) => setEdit((p) => ({ ...p, localId: e.target.value }))}
@@ -1494,7 +1494,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                         ))}
                       </select>
                       <p className="text-[11px] text-slate-500">
-                        Lista completa de salas ativas (todas as unidades).
+                        Lista completa de endereços ativas (todas as unidades).
                       </p>
                       {locaisQuery.isLoading ? (
                         <p className="text-[11px] text-slate-500">Carregando locais cadastrados...</p>
@@ -1509,7 +1509,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs text-slate-600">Descri��o (Material SKU)</span>
+                      <span className="text-xs text-slate-600">Descriï¿½ï¿½o (Material SKU)</span>
                       <p className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
                         {catalogo?.descricao || imp?.descricaoComplementar || "-"}
                       </p>
@@ -1572,7 +1572,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Contrato referência</span>
+                      <span className="text-xs text-slate-600">Contrato referÃªncia</span>
                       <input
                         value={edit.contratoReferencia}
                         onChange={(e) => setEdit((p) => ({ ...p, contratoReferencia: e.target.value }))}
@@ -1582,7 +1582,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Data de aquisição</span>
+                      <span className="text-xs text-slate-600">Data de aquisiÃ§Ã£o</span>
                       <input
                         value={edit.dataAquisicao}
                         onChange={(e) => setEdit((p) => ({ ...p, dataAquisicao: e.target.value }))}
@@ -1592,7 +1592,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </label>
 
                     <label className="space-y-1">
-                      <span className="text-xs text-slate-600">Valor de aquisição</span>
+                      <span className="text-xs text-slate-600">Valor de aquisiÃ§Ã£o</span>
                       <input
                         value={edit.valorAquisicao}
                         onChange={(e) => setEdit((p) => ({ ...p, valorAquisicao: e.target.value }))}
@@ -1654,7 +1654,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                             onClick={() => {
                               if (window.confirm("Remover foto do item?")) {
                                 setEdit((p) => ({ ...p, fotoUrl: null }));
-                                setEditMsg("Foto removida. Clique em 'Salvar alterações do bem' para confirmar.");
+                                setEditMsg("Foto removida. Clique em 'Salvar alteraÃ§Ãµes do bem' para confirmar.");
                               }
                             }}
                             disabled={uploadFotoMut.isPending}
@@ -1702,12 +1702,12 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                     </div>
 
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-xs uppercase tracking-widest text-slate-500">Foto de referência (SKU)</p>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Foto de referÃªncia (SKU)</p>
                       {edit.fotoReferenciaUrl ? (
                         <a href={getFotoUrl(edit.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer" className="block mt-2">
                           <img
                             src={getFotoUrl(edit.fotoReferenciaUrl)}
-                            alt="Foto de referência"
+                            alt="Foto de referÃªncia"
                             className="h-40 w-full object-contain rounded bg-black/20"
                           />
                         </a>
@@ -1737,9 +1737,9 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                           <button
                             type="button"
                             onClick={() => {
-                              if (window.confirm("Remover foto de referência?")) {
+                              if (window.confirm("Remover foto de referÃªncia?")) {
                                 setEdit((p) => ({ ...p, fotoReferenciaUrl: null }));
-                                setEditMsg("Foto removida. Clique em 'Salvar alterações do bem' para confirmar.");
+                                setEditMsg("Foto removida. Clique em 'Salvar alteraÃ§Ãµes do bem' para confirmar.");
                               }
                             }}
                             disabled={uploadFotoMut.isPending}
@@ -1794,7 +1794,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                       disabled={salvarBemMut.isPending}
                       className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                     >
-                      {salvarBemMut.isPending ? "Salvando..." : "Salvar alterações do bem"}
+                      {salvarBemMut.isPending ? "Salvando..." : "Salvar alteraÃ§Ãµes do bem"}
                     </button>
                     {uploadFotoMut.isPending ? <span className="text-xs text-slate-600">Enviando foto...</span> : null}
                     {editMsg ? <span className="text-xs text-emerald-700">{editMsg}</span> : null}
@@ -1807,17 +1807,17 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                 <section className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                   <p className="text-xs uppercase tracking-widest text-amber-700">Cautela atual</p>
                   <dl className="mt-2 space-y-1 text-sm">
-                    <Row k="Detentor Matrícula" v={cautelaAtual?.detentorTemporarioMatricula} />
+                    <Row k="Detentor MatrÃ­cula" v={cautelaAtual?.detentorTemporarioMatricula} />
                     <Row k="Detentor Nome" v={cautelaAtual?.detentorTemporarioNome} />
                     <Row k="Local da cautela" v={cautelaDestinoAtual?.label || salaPadronizadaAtual} />
                     <Row k="Data da cautela" v={formatDateTime(cautelaAtual?.executadaEm || cautelaAtual?.createdAt)} />
-                    <Row k="Data prevista devolução" v={cautelaAtual?.dataPrevistaDevolucao || "Sem data prevista"} />
+                    <Row k="Data prevista devoluÃ§Ã£o" v={cautelaAtual?.dataPrevistaDevolucao || "Sem data prevista"} />
                   </dl>
                 </section>
               ) : null}
 
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Movimentações</p>
+                <p className="text-xs uppercase tracking-widest text-slate-500">MovimentaÃ§Ãµes</p>
                 {movs.length === 0 ? (
                   <p className="mt-2 text-sm text-slate-600">Nenhuma movimentacao registrada.</p>
                 ) : (
@@ -1846,7 +1846,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                               <p><span className="text-slate-500">Origem:</span> {m.unidadeOrigemId != null ? formatUnidade(Number(m.unidadeOrigemId)) : "-"}</p>
                               <p><span className="text-slate-500">Destino:</span> {m.unidadeDestinoId != null ? formatUnidade(Number(m.unidadeDestinoId)) : "-"}</p>
                               <p><span className="text-slate-500">Detentor:</span> {m.detentorTemporarioNome || "-"}</p>
-                              <p><span className="text-slate-500">Data prevista devolução:</span> {m.dataPrevistaDevolucao || "-"}</p>
+                              <p><span className="text-slate-500">Data prevista devoluÃ§Ã£o:</span> {m.dataPrevistaDevolucao || "-"}</p>
                             </div>
                           ) : null}
                         </article>
@@ -1857,13 +1857,13 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
               </section>
 
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Linha do tempo de alterações</p>
+                <p className="text-xs uppercase tracking-widest text-slate-500">Linha do tempo de alteraÃ§Ãµes</p>
                 {auditoriaQuery.isLoading ? (
                   <p className="mt-2 text-sm text-slate-600">Carregando auditoria...</p>
                 ) : auditoriaQuery.error ? (
                   <p className="mt-2 text-sm text-rose-700">Falha ao carregar auditoria.</p>
                 ) : !(auditoriaQuery.data || []).length ? (
-                  <p className="mt-2 text-sm text-slate-600">Nenhuma alteração auditada encontrada.</p>
+                  <p className="mt-2 text-sm text-slate-600">Nenhuma alteraÃ§Ã£o auditada encontrada.</p>
                 ) : (
                   <div className="mt-2 space-y-3">
                     {(auditoriaQuery.data || []).map((a) => (
@@ -1889,7 +1889,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                                 )}
                               </p>
                               <p className="mt-1 text-xs text-violet-700">
-                                {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem mudanças estruturadas"}
+                                {(a.changes || []).slice(0, 4).map((c) => fieldLabel(c.field)).join(", ") || "Sem mudanÃ§as estruturadas"}
                               </p>
                             </div>
                             {isAdmin && a.canRevert ? (
@@ -1904,7 +1904,7 @@ function BemDetailModal({ state, onClose, onReload, isAdmin }) {
                                 disabled={reverterMut.isPending}
                                 className="rounded-lg border border-amber-300/40 bg-amber-200/10 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200/20 disabled:opacity-50"
                               >
-                                {reverterMut.isPending ? "Revertendo..." : "Reverter esta alteração"}
+                                {reverterMut.isPending ? "Revertendo..." : "Reverter esta alteraÃ§Ã£o"}
                               </button>
                             ) : null}
                           </div>
@@ -1953,4 +1953,7 @@ function Row({ k, v, mono }) {
     </div>
   );
 }
+
+
+
 

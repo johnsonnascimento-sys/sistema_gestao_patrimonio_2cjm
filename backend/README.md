@@ -18,7 +18,11 @@
 - `GET /inventario/contagens` (leituras de contagens por evento/sala)
 - `GET /inventario/forasteiros` (divergencias pendentes para regularizacao pos-inventario)
 - `GET /inventario/indicadores-acuracidade` (KPIs de acuracidade por periodo com serie semanal/mensal)
-- `POST /inventario/regularizacoes` (encerra pendencia; opcionalmente transfere carga com termo)
+- `POST /inventario/regularizacoes` (encerra pendencia sem transferencia direta)
+- `POST /inventario/regularizacoes/lote` (regularizacao em lote sem transferencia direta)
+- `POST /inventario/regularizacoes/encaminhar-transferencia` (encaminha itens para fluxo formal em movimentacoes)
+- `GET /inventario/regularizacoes/transferencias-pendentes` (lista fila de transferencias encaminhadas)
+- `POST /inventario/regularizacoes/concluir-transferencias` (conclui regularizacao apos movimentacao executada)
 
 ## Camada raw do GEAFIN (auditoria)
 

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Modulo: frontend/components
  * Arquivo: InventoryRoomPanel.jsx
- * Funcao no sistema: modo inventario (offline-first) com contagens por sala e sincronizacao deterministica.
+ * Funcao no sistema: modo inventario (offline-first) com contagens por endereço e sincronizacao deterministica.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -63,7 +63,7 @@ function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
   // Normaliza qualquer entrada (teclado, colar, scanner) para o tombamento GEAFIN:
   // - remove aspas comuns de CSV
-  // - remove qualquer caractere não numerico
+  // - remove qualquer caractere nÃ£o numerico
   // - limita a 10 digitos
   //
   // Observacao UX: evitamos depender de validacao nativa de <input pattern>,
@@ -89,7 +89,7 @@ function playAlertBeep() {
       ctx.close().catch(() => undefined);
     }, 180);
   } catch (_error) {
-    // Sem audio em alguns navegadores; não impede o fluxo.
+    // Sem audio em alguns navegadores; nÃ£o impede o fluxo.
   }
 }
 
@@ -109,7 +109,7 @@ function playSuccessBeep() {
       ctx.close().catch(() => undefined);
     }, 120);
   } catch (_error) {
-    // Sem audio em alguns navegadores; não impede o fluxo.
+    // Sem audio em alguns navegadores; nÃ£o impede o fluxo.
   }
 }
 
@@ -174,7 +174,7 @@ export default function InventoryRoomPanel() {
   const [terceiroIdentificador, setTerceiroIdentificador] = useState("");
   const [terceiroStatus, setTerceiroStatus] = useState(null);
 
-  // Registro segregado: bem não identificado (Art. 175)
+  // Registro segregado: bem nÃ£o identificado (Art. 175)
   const [naoIdDescricao, setNaoIdDescricao] = useState("");
   const [naoIdLocalizacao, setNaoIdLocalizacao] = useState("");
   const [naoIdFotoBase64, setNaoIdFotoBase64] = useState("");
@@ -274,7 +274,7 @@ export default function InventoryRoomPanel() {
   const sessaoContagem = sessaoContagemQuery.data || null;
   const uiReduzida = Boolean(sessaoContagem?.uiReduzida);
   const blindCountMode = modoContagemEvento === "CEGO" || modoContagemEvento === "DUPLO_CEGO";
-  // Fail-closed: em modo cego, se a sessão não estiver disponível ainda, não exibir dados esperados.
+  // Fail-closed: em modo cego, se a sessÃ£o nÃ£o estiver disponÃ­vel ainda, nÃ£o exibir dados esperados.
   const shouldHideExpectedData = blindCountMode && (uiReduzida || !sessaoContagem);
   const rodadasPermitidas = Array.isArray(sessaoContagem?.rodadasPermitidas) ? sessaoContagem.rodadasPermitidas : ["A"];
   const eventoSelecionadoIncompativel = useMemo(() => {
@@ -328,7 +328,7 @@ export default function InventoryRoomPanel() {
       setTerceiroIdentificador("");
       setTerceiroStatus({ kind: "ok", at: new Date().toISOString() });
 
-      // Atualiza contagens da sala (se online) para refletir o registro.
+      // Atualiza contagens do endereço (se online) para refletir o registro.
       await qc.invalidateQueries({ queryKey: ["inventarioContagens", selectedEventoIdFinal, salaEncontrada] }).catch(
         () => undefined,
       );
@@ -349,7 +349,7 @@ export default function InventoryRoomPanel() {
       await qc.invalidateQueries({ queryKey: ["inventarioBensTerceiros", selectedEventoIdFinal, salaEncontrada] }).catch(() => undefined);
     },
     onError: (error) => {
-      setUiError(String(error?.message || "Falha ao registrar bem não identificado."));
+      setUiError(String(error?.message || "Falha ao registrar bem nÃ£o identificado."));
     }
   });
 
@@ -362,7 +362,7 @@ export default function InventoryRoomPanel() {
       const localId = String(selectedLocalId || "").trim();
       if (!localId) return [];
 
-      // Offline-first: se não houver conexao, tenta carregar o ultimo catalogo baixado para esta sala.
+      // Offline-first: se nÃ£o houver conexao, tenta carregar o ultimo catalogo baixado para este endereço.
       if (!navigator.onLine) {
         const cached = await loadRoomCatalogFromCache(localId);
         if (cached.length) return cached;
@@ -474,7 +474,7 @@ export default function InventoryRoomPanel() {
       const key = b.catalogoBemId || "sem-catalogo";
       const group = map.get(key) || {
         catalogoBemId: key,
-        catalogoDescricao: b.catalogoDescricao || "Sem catálogo",
+        catalogoDescricao: b.catalogoDescricao || "Sem catÃ¡logo",
         items: [],
       };
       group.items.push(b);
@@ -622,7 +622,7 @@ export default function InventoryRoomPanel() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 12_000_000) {
-      setUiError("A foto é muito grande. Escolha uma imagem menor (max ~12MB).");
+      setUiError("A foto Ã© muito grande. Escolha uma imagem menor (max ~12MB).");
       return;
     }
     const reader = new FileReader();
@@ -637,12 +637,12 @@ export default function InventoryRoomPanel() {
 
     const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : "";
     if (!perfilIdFinal) {
-      setUiError("Informe um perfilId (UUID) para registrar bem não identificado.");
+      setUiError("Informe um perfilId (UUID) para registrar bem nÃ£o identificado.");
       return;
     }
 
     if (!canRegisterNaoIdentificado) {
-      setUiError("Preencha descrição, localização exata e tire/envie uma foto.");
+      setUiError("Preencha descriÃ§Ã£o, localizaÃ§Ã£o exata e tire/envie uma foto.");
       return;
     }
 
@@ -669,7 +669,7 @@ export default function InventoryRoomPanel() {
     }
 
     if (!canRegisterTerceiro) {
-      setUiError("Preencha descrição e proprietário do bem de terceiro.");
+      setUiError("Preencha descriÃ§Ã£o e proprietÃ¡rio do bem de terceiro.");
       return;
     }
 
@@ -682,7 +682,7 @@ export default function InventoryRoomPanel() {
       descricao: terceiroDescricao.trim(),
       proprietarioExterno: terceiroProprietario.trim(),
       identificadorExterno: terceiroIdentificador.trim() || undefined,
-      observacoes: "UI: registro de bem de terceiro durante inventário.",
+      observacoes: "UI: registro de bem de terceiro durante inventÃ¡rio.",
     });
   };
 
@@ -691,11 +691,11 @@ export default function InventoryRoomPanel() {
     setScanFeedback(null);
 
     if (!canRegister) {
-      setUiError("Selecione evento ativo, unidade encontrada e sala antes de registrar.");
+      setUiError("Selecione evento ativo, unidade encontrada e endereço antes de registrar.");
       return;
     }
     if (eventoSelecionadoIncompativel) {
-      setUiError("O evento selecionado não corresponde a unidade encontrada informada.");
+      setUiError("O evento selecionado nÃ£o corresponde a unidade encontrada informada.");
       return;
     }
 
@@ -707,7 +707,7 @@ export default function InventoryRoomPanel() {
     }
 
     if (!TOMBAMENTO_RE.test(numeroTombamento)) {
-      setUiError("Tombamento inválido. Use 10 dígitos (ex.: 1290001788) ou 4 dígitos (ex.: 1260 ou 2657).");
+      setUiError("Tombamento invÃ¡lido. Use 10 dÃ­gitos (ex.: 1290001788) ou 4 dÃ­gitos (ex.: 1260 ou 2657).");
       return;
     }
 
@@ -740,7 +740,7 @@ export default function InventoryRoomPanel() {
     let bem = shouldHideExpectedData ? null : (bemByTombamento.get(numeroTombamento) || null);
     let lookupItems = [];
 
-    // Scanner hibrido: se o tombo não estiver no catalogo da sala carregado, tenta lookup rapido no backend (quando online).
+    // Scanner hibrido: se o tombo nÃ£o estiver no catalogo do endereço carregado, tenta lookup rapido no backend (quando online).
     const shouldLookupBem = navigator.onLine && (!shouldHideExpectedData || Boolean(tipoBusca));
     if (!bem && shouldLookupBem) {
       try {
@@ -754,7 +754,7 @@ export default function InventoryRoomPanel() {
         lookupItems = lookup.items || [];
         bem = lookupItems[0] || null;
       } catch (_error) {
-        // Falha de lookup não impede enfileirar o scan.
+        // Falha de lookup nÃ£o impede enfileirar o scan.
       }
     }
 
@@ -805,7 +805,7 @@ export default function InventoryRoomPanel() {
       scanCooldownRef.current.set(scanKey, now);
       setScanFeedback({
         kind: "warn",
-        message: `${finalTombamento} ja foi lido nesta sala.`,
+        message: `${finalTombamento} ja foi lido neste endereço.`,
       });
       setScannerValue("");
       return;
@@ -848,7 +848,7 @@ export default function InventoryRoomPanel() {
     const observacoes = (!shouldHideExpectedData && divergente)
       ? [
         divergenciaUnidade ? "Divergencia de unidade detectada na leitura." : null,
-        divergenciaSala ? "Divergencia de sala detectada na leitura." : null,
+        divergenciaSala ? "Divergencia de endereço detectada na leitura." : null,
       ].filter(Boolean).join(" ")
       : null;
     const payload = {
@@ -878,7 +878,7 @@ export default function InventoryRoomPanel() {
     const statusLabel = shouldHideExpectedData
       ? "Registrado"
       : divergente
-        ? `Divergente${divergenciaSala ? " de sala" : ""}${divergenciaUnidade ? `${divergenciaSala ? " e" : " de"} unidade` : ""}`
+        ? `Divergente${divergenciaSala ? " de endereço" : ""}${divergenciaUnidade ? `${divergenciaSala ? " e" : " de"} unidade` : ""}`
         : "Conforme";
     setScanFeedback({
       kind: shouldHideExpectedData ? "success" : (divergente ? "warn" : "success"),
@@ -894,7 +894,7 @@ export default function InventoryRoomPanel() {
         id: payload.id,
         numeroTombamento: finalTombamento,
         divergente: shouldHideExpectedData ? false : divergente,
-        divergenciaSala: shouldHideExpectedData ? false : divergenciaSala,
+        divergenciaEndereço: shouldHideExpectedData ? false : divergenciaSala,
         divergenciaUnidade: shouldHideExpectedData ? false : divergenciaUnidade,
         unidadeDonaId: bem?.unidadeDonaId || null,
         unidadeEncontradaId: unidadeEncontrada,
@@ -916,7 +916,7 @@ export default function InventoryRoomPanel() {
     <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo Inventário (offline-first)</h2>
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo InventÃ¡rio (offline-first)</h2>
           <p className="mt-2 text-sm text-slate-600">
             Contagens sao persistidas no navegador e sincronizadas com a API quando houver conexao.
           </p>
@@ -955,9 +955,9 @@ export default function InventoryRoomPanel() {
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <article className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1">
-          <h3 className="font-semibold">Sala e scanner</h3>
+          <h3 className="font-semibold">Endereço e scanner</h3>
           <p className="mt-1 text-xs text-slate-600">
-            Selecione a sala e registre tombamentos. Divergencias tocam alerta e viram ocorrencia (Art. 185).
+            Selecione o endereço e registre tombamentos. Divergencias tocam alerta e viram ocorrencia (Art. 185).
           </p>
 
           <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -986,17 +986,17 @@ export default function InventoryRoomPanel() {
                 </p>
               ) : (
                 <p className="text-[11px] text-amber-700">
-                  Abra um evento na aba de Administração do Inventário para iniciar a contagem.
+                  Abra um evento na aba de AdministraÃ§Ã£o do InventÃ¡rio para iniciar a contagem.
                 </p>
               )}
               {eventoSelecionadoIncompativel ? (
                 <p className="text-[11px] text-rose-700">
-                  Evento incompatível com a unidade encontrada selecionada. Escolha o evento da mesma unidade ou um evento GERAL.
+                  Evento incompatÃ­vel com a unidade encontrada selecionada. Escolha o evento da mesma unidade ou um evento GERAL.
                 </p>
               ) : null}
               {modoContagemEvento !== "PADRAO" && !sessaoContagemQuery.isLoading && !sessaoContagem?.designado ? (
                 <p className="text-[11px] text-rose-700">
-                  Usuario não designado para este evento em modo {modoContagemEvento}. Solicite ao admin sua designacao.
+                  Usuario nÃ£o designado para este evento em modo {modoContagemEvento}. Solicite ao admin sua designacao.
                 </p>
               ) : null}
             </label>
@@ -1056,11 +1056,11 @@ export default function InventoryRoomPanel() {
                 ))}
               </select>
               <p className="mt-1 text-[11px] text-slate-500">
-                Este campo não e texto livre. O Admin cadastra os locais em "Operações API" (seção Locais).
+                Este campo nÃ£o e texto livre. O Admin cadastra os locais em "OperaÃ§Ãµes API" (seÃ§Ã£o Locais).
               </p>
               {localIdsPermitidosEvento ? (
                 <p className="mt-1 text-[11px] text-amber-700">
-                  Este evento esta em escopo LOCAIS: apenas as salas selecionadas no evento podem ser usadas.
+                  Este evento esta em escopo LOCAIS: apenas os endereços selecionados no evento podem ser usados.
                 </p>
               ) : null}
             </label>
@@ -1068,7 +1068,7 @@ export default function InventoryRoomPanel() {
 
           <form onSubmit={registerScan} className="mt-4">
             <label className="block space-y-1 mb-2">
-              <span className="text-xs text-slate-600">Bipar tombamento (10 dígitos)</span>
+              <span className="text-xs text-slate-600">Bipar tombamento (10 dÃ­gitos)</span>
               <div className="grid gap-2 grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto]">
                 <input
                   ref={scannerInputRef}
@@ -1086,7 +1086,7 @@ export default function InventoryRoomPanel() {
                   <button
                     type="button"
                     onClick={() => { setScannerMode("single"); setShowScanner(true); }}
-                    title="Câmera (Uma leitura)"
+                    title="CÃ¢mera (Uma leitura)"
                     className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800 hover:bg-slate-200 focus:ring-2 focus:ring-violet-500"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -1094,7 +1094,7 @@ export default function InventoryRoomPanel() {
                   <button
                     type="button"
                     onClick={() => { setScannerMode("continuous"); setShowScanner(true); }}
-                    title="Câmera (Contínuo)"
+                    title="CÃ¢mera (ContÃ­nuo)"
                     className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800 hover:bg-slate-200 focus:ring-2 focus:ring-violet-500"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -1121,7 +1121,7 @@ export default function InventoryRoomPanel() {
                 const cleaned = normalizeTombamentoInput(decodedText);
                 if (cleaned.length === 10 || cleaned.length === 4) {
                   setScannerValue(cleaned);
-                  // Simula o envio do formulário programaticamente (para engatilhar a mesma lógica de registerScan)
+                  // Simula o envio do formulÃ¡rio programaticamente (para engatilhar a mesma lÃ³gica de registerScan)
                   if (!canRegister) return;
                   if (scannerMode === "single") setShowScanner(false);
 
@@ -1130,7 +1130,7 @@ export default function InventoryRoomPanel() {
                     handleScanValue(cleaned, { fromCamera: true });
                   }, 50);
                 } else if (scannerMode === "single") {
-                  // Manteve a varredura se estiver contínuo
+                  // Manteve a varredura se estiver contÃ­nuo
                   setScannerValue(cleaned || decodedText);
                 }
               }}
@@ -1139,7 +1139,7 @@ export default function InventoryRoomPanel() {
 
           {lastScans.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="text-xs uppercase tracking-widest text-slate-500">Últimos registros</p>
+              <p className="text-xs uppercase tracking-widest text-slate-500">Ãšltimos registros</p>
               {lastScans.map((s) => (
                 <div key={s.id} className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1150,7 +1150,7 @@ export default function InventoryRoomPanel() {
                     {s.divergente ? (
                       <span className="text-amber-800">
                         {s.statusLabel || "Divergente"}: dono={formatUnidade(Number(s.unidadeDonaId))} encontrado={formatUnidade(Number(s.unidadeEncontradaId))}
-                        {s.divergenciaSala && s.salaEsperada ? ` | sala esperada=${s.salaEsperada}` : ""}
+                        {s.divergenciaSala && s.salaEsperada ? ` | endereço esperado=${s.salaEsperada}` : ""}
                       </span>
                     ) : (
                       <span className="text-emerald-700">{s.statusLabel || "Conforme"}</span>
@@ -1179,7 +1179,7 @@ export default function InventoryRoomPanel() {
 
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Descrição</span>
+                  <span className="text-xs text-slate-600">DescriÃ§Ã£o</span>
                   <input
                     value={terceiroDescricao}
                     onChange={(e) => setTerceiroDescricao(e.target.value)}
@@ -1188,7 +1188,7 @@ export default function InventoryRoomPanel() {
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Proprietário externo</span>
+                  <span className="text-xs text-slate-600">ProprietÃ¡rio externo</span>
                   <input
                     value={terceiroProprietario}
                     onChange={(e) => setTerceiroProprietario(e.target.value)}
@@ -1231,27 +1231,27 @@ export default function InventoryRoomPanel() {
         </details>
 
         <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none text-rose-700">Registrar bem sem identificação (Divergência)</summary>
+          <summary className="font-semibold cursor-pointer select-none text-rose-700">Registrar bem sem identificaÃ§Ã£o (DivergÃªncia)</summary>
           <div className="mt-3 group-open:block">
             <form onSubmit={onRegistrarNaoIdentificado} className="mt-4 rounded-xl border border-slate-200 border-l-rose-500 bg-slate-50 p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-[11px] text-slate-500">
-                  Obrigatório foto e descrição. Fica onde está. Art. 175.
+                  ObrigatÃ³rio foto e descriÃ§Ã£o. Fica onde estÃ¡. Art. 175.
                 </p>
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Descrição detalhada do bem</span>
+                  <span className="text-xs text-slate-600">DescriÃ§Ã£o detalhada do bem</span>
                   <input
                     value={naoIdDescricao}
                     onChange={(e) => setNaoIdDescricao(e.target.value)}
-                    placeholder="Ex.: Cadeira giratória azul, marca Frisokar, sem braços..."
+                    placeholder="Ex.: Cadeira giratÃ³ria azul, marca Frisokar, sem braÃ§os..."
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Localização exata</span>
+                  <span className="text-xs text-slate-600">LocalizaÃ§Ã£o exata</span>
                   <input
                     value={naoIdLocalizacao}
                     onChange={(e) => setNaoIdLocalizacao(e.target.value)}
@@ -1260,7 +1260,7 @@ export default function InventoryRoomPanel() {
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Fotografia (Obrigatória)</span>
+                  <span className="text-xs text-slate-600">Fotografia (ObrigatÃ³ria)</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -1290,7 +1290,7 @@ export default function InventoryRoomPanel() {
                 </button>
 
                 {naoIdStatus?.kind === "ok" ? (
-                  <span className="text-xs text-emerald-700">Adicionado às disparidades da sala.</span>
+                  <span className="text-xs text-emerald-700">Adicionado Ã s disparidades do endereço.</span>
                 ) : null}
               </div>
 
@@ -1304,7 +1304,7 @@ export default function InventoryRoomPanel() {
         </details>
 
         <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none">Bens de terceiros registrados (esta sala)</summary>
+          <summary className="font-semibold cursor-pointer select-none">Bens de terceiros registrados (este endereço)</summary>
           <div className="mt-3 group-open:block">
             <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1314,23 +1314,23 @@ export default function InventoryRoomPanel() {
               </div>
 
               {!selectedEventoIdFinal || !salaEncontrada.trim() ? (
-                <p className="mt-2 text-sm text-slate-600">Selecione evento e sala para listar os registros.</p>
+                <p className="mt-2 text-sm text-slate-600">Selecione evento e endereço para listar os registros.</p>
               ) : !navigator.onLine ? (
                 <p className="mt-2 text-sm text-slate-600">
-                  Offline: a lista de bens de terceiros depende da API (os registros feitos offline ainda ficam na fila de sincronização).
+                  Offline: a lista de bens de terceiros depende da API (os registros feitos offline ainda ficam na fila de sincronizaÃ§Ã£o).
                 </p>
               ) : terceirosSalaQuery.isFetching ? (
                 <p className="mt-2 text-sm text-slate-600">Carregando...</p>
               ) : (terceirosSalaQuery.data || []).length === 0 ? (
-                <p className="mt-2 text-sm text-slate-600">Nenhum bem de terceiro registrado para esta sala.</p>
+                <p className="mt-2 text-sm text-slate-600">Nenhum bem de terceiro registrado para este endereço.</p>
               ) : (
                 <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
                   <table className="min-w-full text-left text-xs">
                     <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                       <tr>
                         <th className="px-3 py-2">Identificador</th>
-                        <th className="px-3 py-2">Descrição</th>
-                        <th className="px-3 py-2">Proprietário</th>
+                        <th className="px-3 py-2">DescriÃ§Ã£o</th>
+                        <th className="px-3 py-2">ProprietÃ¡rio</th>
                         <th className="px-3 py-2">Quando</th>
                       </tr>
                     </thead>
@@ -1369,7 +1369,7 @@ export default function InventoryRoomPanel() {
       {!shouldHideExpectedData ? (
       <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
         <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
-          <span>Bens da sala (agrupado por catálogo)</span>
+          <span>Bens do endereço (agrupado por catÃ¡logo)</span>
           {bensSalaQuery.isFetching && <span className="text-xs text-slate-500">Carregando...</span>}
         </summary>
         <div className="mt-3 group-open:block">
@@ -1394,7 +1394,7 @@ export default function InventoryRoomPanel() {
                   onChange={(e) => setShowCatalogPhotoList(e.target.checked)}
                   className="h-4 w-4 accent-violet-600"
                 />
-                Mostrar foto do catálogo
+                Mostrar foto do catÃ¡logo
               </label>
             </div>
           </div>
@@ -1415,7 +1415,7 @@ export default function InventoryRoomPanel() {
                 Nenhum bem vinculado ao local <span className="font-semibold text-slate-900">"{salaEncontrada.trim()}"</span>.
               </p>
               <p className="text-xs text-slate-500">
-                Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
+                Aqui o inventÃ¡rio usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), nÃ£o o texto do GEAFIN.
                 Para aparecerem itens, um Admin deve vincular os bens a este local.
               </p>
             </div>
@@ -1469,7 +1469,7 @@ export default function InventoryRoomPanel() {
                               checked={meta.encontrado}
                               readOnly
                               className="h-4 w-4 accent-violet-600"
-                              title={meta.encontrado ? `Conferido (${meta.fonte})` : "Não conferido"}
+                              title={meta.encontrado ? `Conferido (${meta.fonte})` : "NÃ£o conferido"}
                             />
                             <div className="flex flex-col items-start gap-0.5">
                               <div className="flex items-center gap-2">
@@ -1481,7 +1481,7 @@ export default function InventoryRoomPanel() {
                                 )}
                               </div>
                               <span className="text-[10px] text-slate-500 leading-tight">
-                                {formatUnidade(Number(b.unidadeDonaId))} • {b.nomeResumo || "Sem resumo"}
+                                {formatUnidade(Number(b.unidadeDonaId))} â€¢ {b.nomeResumo || "Sem resumo"}
                               </span>
                               {(showItemPhotoList || showCatalogPhotoList) && (
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -1508,7 +1508,7 @@ export default function InventoryRoomPanel() {
                                         />
                                       </a>
                                     ) : (
-                                      <span className="text-[10px] text-slate-500">Catálogo sem foto</span>
+                                      <span className="text-[10px] text-slate-500">CatÃ¡logo sem foto</span>
                                     )
                                   )}
                                 </div>
@@ -1530,13 +1530,13 @@ export default function InventoryRoomPanel() {
       </details>
       ) : null}
 
-      {/* Modal Identificação Etiqueta 4 Dígitos */}
+      {/* Modal IdentificaÃ§Ã£o Etiqueta 4 DÃ­gitos */}
       {tagIdModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl border border-slate-300 bg-white p-6 shadow-2xl">
             <h3 className="font-[Space_Grotesk] text-xl font-bold text-slate-900">Identificar Etiqueta</h3>
             <p className="mt-4 text-slate-600">
-              O código <span className="font-mono font-bold text-violet-700">"{tagIdModal.value}"</span> possui apenas 4 dígitos. Como deseja identificá-lo?
+              O cÃ³digo <span className="font-mono font-bold text-violet-700">"{tagIdModal.value}"</span> possui apenas 4 dÃ­gitos. Como deseja identificÃ¡-lo?
             </p>
 
             <div className="mt-8 flex flex-col gap-3">
@@ -1551,7 +1551,7 @@ export default function InventoryRoomPanel() {
               >
                 <div>
                   <div className="font-bold text-violet-700">Etiqueta Antiga (Azul)</div>
-                  <div className="text-xs text-slate-500">Código legado da 2ª Auditoria</div>
+                  <div className="text-xs text-slate-500">CÃ³digo legado da 2Âª Auditoria</div>
                 </div>
                 <div className="text-blue-500">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1596,7 +1596,7 @@ export default function InventoryRoomPanel() {
         </div>
       )}
 
-      {/* MODAL ALERTA DIVERGÊNCIA */}
+      {/* MODAL ALERTA DIVERGÃŠNCIA */}
       {
         divergenteAlertItem && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
@@ -1605,7 +1605,7 @@ export default function InventoryRoomPanel() {
                 <svg className="h-10 w-10 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <h2 className="text-xl font-bold uppercase tracking-wide">Atenção: Bem Divergente!</h2>
+                <h2 className="text-xl font-bold uppercase tracking-wide">AtenÃ§Ã£o: Bem Divergente!</h2>
               </div>
 
               <p className="mb-4 text-base text-slate-800">
@@ -1618,16 +1618,16 @@ export default function InventoryRoomPanel() {
                 ) : null}
                 {divergenteAlertItem.divergenciaSala ? (
                   <>
-                    {" "}Sala de carga: <strong>{divergenteAlertItem.salaEsperada || "não informada"}</strong>.
+                    {" "}Endereço de carga: <strong>{divergenteAlertItem.salaEsperada || "nÃ£o informada"}</strong>.
                   </>
                 ) : null}
               </p>
 
               <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4">
-                <p className="font-bold text-amber-800 uppercase">Não leve este item para outro local!</p>
+                <p className="font-bold text-amber-800 uppercase">NÃ£o leve este item para outro local!</p>
                 <p className="mt-2 text-sm text-amber-800/80 leading-relaxed">
-                  Segundo o <strong>Art. 185 (ATN 303)</strong>, divergências constatadas in-loco de fato compõem o rol de Ocorrências (Disparidades).
-                  O bem deverá permanecer obrigatoriamente neste local até o fim dos trabalhos, momento em que a fila de forasteiros possibilitará sua regularização por transferência.
+                  Segundo o <strong>Art. 185 (ATN 303)</strong>, divergÃªncias constatadas in-loco de fato compÃµem o rol de OcorrÃªncias (Disparidades).
+                  O bem deverÃ¡ permanecer obrigatoriamente neste local atÃ© o fim dos trabalhos, momento em que a fila de forasteiros possibilitarÃ¡ sua regularizaÃ§Ã£o por transferÃªncia.
                 </p>
               </div>
 
@@ -1659,9 +1659,9 @@ function describeRowDivergence(row) {
 
   if (unidadeDivergente && salaDivergente) {
     return {
-      badge: "UNIDADE + SALA",
+      badge: "UNIDADE + ENDEREÇO",
       badgeClass: "border-rose-300/40 bg-rose-200/10 text-rose-700",
-      title: "Carga em unidade diferente e sala divergente.",
+      title: "Carga em unidade diferente e endereço divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
     };
   }
@@ -1675,9 +1675,9 @@ function describeRowDivergence(row) {
   }
   if (salaDivergente) {
     return {
-      badge: "SALA",
+      badge: "ENDEREÇO",
       badgeClass: "border-violet-300 bg-violet-100/10 text-violet-700",
-      title: "Mesma unidade, mas sala divergente.",
+      title: "Mesma unidade, mas endereço divergente.",
       detail: `Esperado: ${salaEsperada}. Encontrado: ${salaEncontrada}.`,
     };
   }
@@ -1685,7 +1685,7 @@ function describeRowDivergence(row) {
     badge: "REGISTRO",
     badgeClass: "border-slate-300 bg-slate-100 text-slate-800",
     title: "Divergencia registrada (sem detalhe de local esperado).",
-    detail: salaEsperada ? `Sala de referencia: ${salaEsperada}.` : "",
+    detail: salaEsperada ? `Endereço de referência: ${salaEsperada}.` : "",
   };
 }
 
@@ -1758,7 +1758,7 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
         salaEncontrada: it.salaEncontrada,
         localEsperadoId: b?.localId != null ? String(b.localId) : null,
         localEsperadoNome: b?.localFisico || null,
-        observacoes: divergenciaSala && b?.localFisico ? `Sala esperada: ${b.localFisico}` : undefined,
+        observacoes: divergenciaSala && b?.localFisico ? `Endereço esperado: ${b.localFisico}` : undefined,
         encontradoEm: it.encontradoEm,
       });
     }
@@ -1782,14 +1782,14 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
   return (
     <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
       <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
-        <span>Divergências na sala (Art. 185)</span>
+        <span>DivergÃªncias no endereço (Art. 185)</span>
         <span className="text-xs font-normal text-slate-600">
           Pendentes: <span className="font-semibold text-rose-700">{all.length}</span>
         </span>
       </summary>
       <div className="mt-3 group-open:block">
         <p className="mt-2 text-xs text-slate-500">
-          Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
+          Regra legal: registrar divergÃªncia sem transferir carga durante inventÃ¡rio. Art. 185 (AN303_Art185).
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
@@ -1814,14 +1814,14 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
         </div>
 
         {all.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Nenhuma divergência pendente nesta sala.</p>
+          <p className="mt-3 text-sm text-slate-600">Nenhuma divergÃªncia pendente neste endereço.</p>
         ) : (
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 pb-2">
             <table className="w-full text-sm">
               <thead className="bg-white text-xs uppercase tracking-widest text-slate-600">
                 <tr>
                   <th className="px-3 py-3 text-left">Tombo</th>
-                  <th className="px-3 py-3 text-left">Catálogo (SKU)</th>
+                  <th className="px-3 py-3 text-left">CatÃ¡logo (SKU)</th>
                   <th className="px-3 py-3 text-left">Unid. dona</th>
                   <th className="px-3 py-3 text-left">Unid. encontrada</th>
                   <th className="px-3 py-3 text-left">Qual divergencia</th>
@@ -1853,7 +1853,7 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
                         {showItemPhoto && fotoItem && (
                           <div className="mt-2">
                             <a href={fotoItem} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-slate-100">
-                              📸 Ver Foto
+                              ðŸ“¸ Ver Foto
                             </a>
                           </div>
                         )}
@@ -1898,6 +1898,9 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
+
+
+
 
 
 

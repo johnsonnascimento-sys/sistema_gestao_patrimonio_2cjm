@@ -1636,4 +1636,73 @@ export async function regularizarForasteiro(payload) {
   return parseResponse(response);
 }
 
+/**
+ * Regulariza divergencias em lote (sem transferencia direta).
+ * @param {{contagemIds: string[], acao: "MANTER_CARGA"|"ATUALIZAR_LOCAL", regularizadoPorPerfilId?: string, localDestinoId?: string, observacoes?: string}} payload
+ * @returns {Promise<object>}
+ */
+export async function regularizarForasteiroLote(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/regularizacoes/lote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Encaminha divergencias para transferencia formal no menu Movimentacoes.
+ * @param {{contagemIds: string[], encaminhadoPorPerfilId?: string, observacoes?: string}} payload
+ * @returns {Promise<object>}
+ */
+export async function encaminharTransferenciaRegularizacao(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/regularizacoes/encaminhar-transferencia`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista pendencias de transferencia encaminhadas pela regularizacao.
+ * @param {{status?: string, limit?: number, offset?: number}} params
+ * @returns {Promise<object>}
+ */
+export async function listarTransferenciasPendentesRegularizacao(params = {}) {
+  const usp = new URLSearchParams();
+  if (params.status) usp.set("status", String(params.status));
+  if (params.limit != null) usp.set("limit", String(params.limit));
+  if (params.offset != null) usp.set("offset", String(params.offset));
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inventario/regularizacoes/transferencias-pendentes${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Conclui regularizacao de transferencias formalizadas.
+ * @param {{itens: Array<{contagemId:string,movimentacaoId:string}>, regularizadoPorPerfilId?: string, observacoes?: string}} payload
+ * @returns {Promise<object>}
+ */
+export async function concluirTransferenciasRegularizacao(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inventario/regularizacoes/concluir-transferencias`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(response);
+}
+
 export { API_BASE_URL };

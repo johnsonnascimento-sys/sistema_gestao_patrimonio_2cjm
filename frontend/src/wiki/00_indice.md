@@ -1,47 +1,47 @@
-<!--
+﻿<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/00_indice.md
 Funcao no sistema: indice navegavel do manual/wiki self-hosted do patrimonio2cjm.
 -->
 
-# Índice (Manual do Sistema)
+# Ãndice (Manual do Sistema)
 
-Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele foi feito para:
+Este Wiki Ã© o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele foi feito para:
 
-- Usuários operacionais (inventário, consulta, cautela, transferências).
-- Administradores (importação GEAFIN, governança, auditoria, operação na VPS).
+- UsuÃ¡rios operacionais (inventÃ¡rio, consulta, cautela, transferÃªncias).
+- Administradores (importaÃ§Ã£o GEAFIN, governanÃ§a, auditoria, operaÃ§Ã£o na VPS).
 - Auditoria/Compliance (rastreabilidade e regras ATN 303/2008).
 
 ## Como usar o Wiki
 
 - Use a busca na barra lateral para encontrar o tema.
-- Use o "Link desta página" para guardar um atalho (o ID fica no `#hash` do navegador).
+- Use o "Link desta pÃ¡gina" para guardar um atalho (o ID fica no `#hash` do navegador).
 
 ## Paginas
 
-- Visão geral do sistema
+- VisÃ£o geral do sistema
 - Dashboard
 - Perfis e acesso
 - Consulta de bens
-- Importação GEAFIN (CSV)
-- Movimentações: cautela x transferência
-- Inventário - Contagem
-- Inventário - Administração
+- ImportaÃ§Ã£o GEAFIN (CSV)
+- MovimentaÃ§Ãµes: cautela x transferÃªncia
+- InventÃ¡rio - Contagem
+- InventÃ¡rio - AdministraÃ§Ã£o
 - Material (SKU)
 - Classifica?o SIAFI
-- Gestão de Normas
+- GestÃ£o de Normas
 - Intrusos e bens de terceiros ("bem de terceiro")
-- Regularização pós-inventário (forasteiros)
+- RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio (forasteiros)
 - Wizard Art. 141 (inserviveis)
-- Relatórios e auditoria
-- Solução de problemas (erros comuns)
-- Checklist de migrações (Supabase)
-- Glossário
-- Segurança e sigilo operacional
+- RelatÃ³rios e auditoria
+- SoluÃ§Ã£o de problemas (erros comuns)
+- Checklist de migraÃ§Ãµes (Supabase)
+- GlossÃ¡rio
+- SeguranÃ§a e sigilo operacional
 - Compliance ATN 303/2008 (resumo operacional + cita?es)
 - Matriz de compliance (ATN 303/2008)
-- Admin: operação na VPS (Docker/Nginx)
-- Referência rápida da API
+- Admin: operaÃ§Ã£o na VPS (Docker/Nginx)
+- ReferÃªncia rÃ¡pida da API
 - Analise de cobertura menu x wiki (faseada)
 
 ## Atualiza?o 2026-02-26 - Navega?o principal
@@ -56,14 +56,14 @@ Estrutura principal da sidebar:
 
 Submenus relevantes:
 
-- Opera?es Patrimoniais -> Cadastrar Bens por Sala
+- Opera?es Patrimoniais -> Cadastrar Bens por endereço
 - Opera?es Patrimoniais -> Invent?rio - Contagem
 - Opera?es Patrimoniais -> Invent?rio - Administra?o
 - Opera?es Patrimoniais -> Material (SKU)
 - Opera?es Patrimoniais -> Classifica?o SIAFI
 - Opera?es Patrimoniais -> Gest?o de Normas
 - Opera?es Patrimoniais -> Importa?o GEAFIN (CSV Latin1)
-- Administra?o do Painel -> Locais (salas) cadastrados
+- Administra?o do Painel -> Locais (endereços) cadastrados
 
 ## Menu atual do sistema (referencia rapida)
 
@@ -71,7 +71,7 @@ Submenus relevantes:
 
 - Consulta de Bens
 - Movimenta?es
-- Cadastrar Bens por Sala
+- Cadastrar Bens por endereço
 - Invent?rio - Contagem
 - Invent?rio - Administra?o
 - Wizard Art. 141
@@ -88,8 +88,9 @@ Submenus relevantes:
 
 ### Administra?o do Painel
 
-- Locais (salas) cadastrados
+- Locais (endereços) cadastrados
 - Backup e Restore
 - Conectividade Backend
 - Perfis e Acessos
+
 

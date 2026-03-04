@@ -1126,6 +1126,7 @@ app.post("/aprovacoes/solicitacoes/:id/aprovar", mustAuth, requirePermission("ac
     }
 
     let resultadoExecucao = null;
+    const origemRegularizacaoContagemId = extractOrigemFromSolicitacaoPayload(solicitacao.payload);
     try {
       resultadoExecucao = await applySolicitacaoByType(client, {
         solicitacao,
@@ -1154,6 +1155,17 @@ app.post("/aprovacoes/solicitacoes/:id/aprovar", mustAuth, requirePermission("ac
         observacao: String(applyError?.message || "Falha ao aplicar solicitacao."),
         payload: { code: applyError?.code || null },
       });
+      if (origemRegularizacaoContagemId) {
+        await upsertRegularizacaoTransferenciaFluxo(client, {
+          contagemId: origemRegularizacaoContagemId,
+          statusFluxo: "ERRO",
+          perfilId: req.user?.id ? String(req.user.id) : (solicitacao?.solicitantePerfilId || null),
+          solicitacaoAprovacaoId: id,
+          movimentacaoId: null,
+          observacoes: "Falha ao aplicar solicitacao de transferencia aprovada.",
+          ultimoErro: String(applyError?.message || "Falha ao aplicar solicitacao."),
+        });
+      }
       throw applyError;
     }
 
@@ -1216,7 +1228,11 @@ app.post("/aprovacoes/solicitacoes/:id/reprovar", mustAuth, requirePermission("a
 
     await client.query("BEGIN");
     const q = await client.query(
-      `SELECT id, status::text AS status
+      `SELECT
+         id,
+         status::text AS status,
+         payload,
+         solicitante_perfil_id AS "solicitantePerfilId"
        FROM solicitacoes_aprovacao
        WHERE id = $1
        FOR UPDATE;`,
@@ -1244,6 +1260,18 @@ app.post("/aprovacoes/solicitacoes/:id/reprovar", mustAuth, requirePermission("a
       observacao: "Solicitacao reprovada.",
       payload: { justificativaAdmin },
     });
+    const origemRegularizacaoContagemId = extractOrigemFromSolicitacaoPayload(q.rows[0]?.payload || {});
+    if (origemRegularizacaoContagemId) {
+      await upsertRegularizacaoTransferenciaFluxo(client, {
+        contagemId: origemRegularizacaoContagemId,
+        statusFluxo: "ENCAMINHADA",
+        perfilId: req.user?.id ? String(req.user.id) : (q.rows[0]?.solicitantePerfilId || null),
+        solicitacaoAprovacaoId: null,
+        movimentacaoId: null,
+        observacoes: "Solicitacao de transferencia reprovada; item retornou para fila de encaminhamento.",
+        ultimoErro: null,
+      });
+    }
 
     await client.query("COMMIT");
     res.json({
@@ -3208,8 +3236,9 @@ app.post("/importar-geafin", mustAdmin, upload.single("arquivo"), async (req, re
 
 app.post("/movimentar", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
+  let p = null;
   try {
-    const p = validateMov(req.body || {}, { defaultPerfilId: req.user?.id || "" });
+    p = validateMov(req.body || {}, { defaultPerfilId: req.user?.id || "" });
     const movAcl = classifyMovPermissions(p);
     const canExecuteMov = movAcl.executePermissions.length
       ? movAcl.executePermissions.every((perm) => userHasPermission(req.user, perm))
@@ -3257,6 +3286,17 @@ app.post("/movimentar", mustAuth, async (req, res, next) => {
         snapshotBefore,
         expiraEm: nowPlusDays(15),
       });
+      if (p.origemRegularizacaoContagemId) {
+        await upsertRegularizacaoTransferenciaFluxo(client, {
+          contagemId: p.origemRegularizacaoContagemId,
+          statusFluxo: "AGUARDANDO_APROVACAO",
+          perfilId: req.user?.id ? String(req.user.id) : null,
+          solicitacaoAprovacaoId: solicitacao.id,
+          movimentacaoId: null,
+          observacoes: "Solicitacao de transferencia enviada para aprovacao administrativa.",
+          ultimoErro: null,
+        });
+      }
       await client.query("COMMIT");
       res.status(202).json({
         requestId: req.requestId,
@@ -3284,6 +3324,14 @@ app.post("/movimentar", mustAuth, async (req, res, next) => {
     if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
 
     const out = await executeMov(client, bem, p);
+    if (p.origemRegularizacaoContagemId && out?.mov?.id) {
+      await concluirRegularizacaoTransferencia(client, {
+        contagemId: p.origemRegularizacaoContagemId,
+        movimentacaoId: out.mov.id,
+        perfilId: req.user?.id ? String(req.user.id) : (p.executadaPorPerfilId || p.autorizadaPorPerfilId || null),
+        observacoes: "Regularizacao concluida apos transferencia formal em Movimentacoes.",
+      });
+    }
     await client.query("COMMIT");
     res.status(201).json({
       message: "Movimentacao registrada com sucesso.",
@@ -3293,6 +3341,23 @@ app.post("/movimentar", mustAuth, async (req, res, next) => {
     });
   } catch (error) {
     await safeRollback(client);
+    if (p?.origemRegularizacaoContagemId) {
+      try {
+        await client.query("BEGIN");
+        await upsertRegularizacaoTransferenciaFluxo(client, {
+          contagemId: p.origemRegularizacaoContagemId,
+          statusFluxo: "ERRO",
+          perfilId: req.user?.id ? String(req.user.id) : (p.executadaPorPerfilId || p.autorizadaPorPerfilId || null),
+          solicitacaoAprovacaoId: null,
+          movimentacaoId: null,
+          observacoes: "Falha ao processar transferencia formal em Movimentacoes.",
+          ultimoErro: String(error?.message || "Falha ao movimentar bem."),
+        });
+        await client.query("COMMIT");
+      } catch (_flowErr) {
+        await safeRollback(client);
+      }
+    }
     // Regra legal: bloqueio de movimentacao durante inventario - Art. 183 (AN303_Art183)
     if (error?.code === "P0001") {
       next(new HttpError(409, "MOVIMENTACAO_BLOQUEADA_INVENTARIO", "Movimentacao bloqueada por inventario em andamento.", { baseLegal: "Art. 183 (AN303_Art183)" }));
@@ -3357,11 +3422,13 @@ app.post("/movimentar/lote", mustAuth, async (req, res, next) => {
         : { numeroTombamento: itensRaw[idx] };
       const numeroTombamento = itemRaw?.numeroTombamento != null ? String(itemRaw.numeroTombamento) : "";
       const bemId = itemRaw?.bemId != null ? String(itemRaw.bemId) : "";
+      const origemRegularizacaoContagemId = normalizeOrigemRegularizacaoContagemId(itemRaw?.origemRegularizacaoContagemId);
       const pItem = validateMov(
         {
           ...basePayload,
           numeroTombamento: numeroTombamento || undefined,
           bemId: bemId || undefined,
+          origemRegularizacaoContagemId: origemRegularizacaoContagemId || undefined,
         },
         { defaultPerfilId: req.user?.id || "" },
       );
@@ -3382,6 +3449,14 @@ app.post("/movimentar/lote", mustAuth, async (req, res, next) => {
             if (!pItem.autorizadaPorPerfilId) pItem.autorizadaPorPerfilId = pItem.executadaPorPerfilId;
           }
           const out = await executeMov(client, bem, pItem);
+          if (pItem.origemRegularizacaoContagemId && out?.mov?.id) {
+            await concluirRegularizacaoTransferencia(client, {
+              contagemId: pItem.origemRegularizacaoContagemId,
+              movimentacaoId: out.mov.id,
+              perfilId: req.user?.id ? String(req.user.id) : (pItem.executadaPorPerfilId || pItem.autorizadaPorPerfilId || null),
+              observacoes: "Regularizacao concluida apos transferencia formal em Movimentacoes (lote).",
+            });
+          }
           await client.query("COMMIT");
           sucessos += 1;
           results.push({
@@ -3414,6 +3489,17 @@ app.post("/movimentar/lote", mustAuth, async (req, res, next) => {
             },
             expiraEm: nowPlusDays(15),
           });
+          if (pItem.origemRegularizacaoContagemId) {
+            await upsertRegularizacaoTransferenciaFluxo(client, {
+              contagemId: pItem.origemRegularizacaoContagemId,
+              statusFluxo: "AGUARDANDO_APROVACAO",
+              perfilId: req.user?.id ? String(req.user.id) : null,
+              solicitacaoAprovacaoId: solicitacao.id,
+              movimentacaoId: null,
+              observacoes: "Solicitacao de transferencia (lote) enviada para aprovacao administrativa.",
+              ultimoErro: null,
+            });
+          }
           await client.query("COMMIT");
           pendentes += 1;
           results.push({
@@ -3426,6 +3512,23 @@ app.post("/movimentar/lote", mustAuth, async (req, res, next) => {
         }
       } catch (itemError) {
         await safeRollback(client);
+        if (pItem?.origemRegularizacaoContagemId) {
+          try {
+            await client.query("BEGIN");
+            await upsertRegularizacaoTransferenciaFluxo(client, {
+              contagemId: pItem.origemRegularizacaoContagemId,
+              statusFluxo: "ERRO",
+              perfilId: req.user?.id ? String(req.user.id) : (pItem.executadaPorPerfilId || pItem.autorizadaPorPerfilId || null),
+              solicitacaoAprovacaoId: null,
+              movimentacaoId: null,
+              observacoes: "Falha ao processar transferencia formal em lote.",
+              ultimoErro: String(itemError?.message || "Falha ao processar item."),
+            });
+            await client.query("COMMIT");
+          } catch (_flowErr) {
+            await safeRollback(client);
+          }
+        }
         falhas += 1;
         const isInventario = itemError?.code === "P0001";
         results.push({
@@ -3496,6 +3599,10 @@ app.patch("/inventario/eventos/:id/status", mustAuth, inventario.patchEventoStat
 app.post("/inventario/sync", mustAuth, inventario.postSync);
 app.post("/inventario/bens-terceiros", mustAuth, inventario.postBemTerceiro);
 app.post("/inventario/regularizacoes", mustAdmin, inventario.postRegularizacao);
+app.post("/inventario/regularizacoes/lote", mustAdmin, inventario.postRegularizacaoLote);
+app.post("/inventario/regularizacoes/encaminhar-transferencia", mustAdmin, inventario.postEncaminharTransferencia);
+app.get("/inventario/regularizacoes/transferencias-pendentes", mustAuth, inventario.getTransferenciasPendentesRegularizacao);
+app.post("/inventario/regularizacoes/concluir-transferencias", mustAdmin, inventario.postConcluirTransferencias);
 
 /**
  * Registra bem "sem placa/não identificado" (Art. 175)
@@ -4945,6 +5052,14 @@ async function applyMovimentacaoSolicitada(client, { payload, solicitantePerfilI
   const bem = await lockBem(client, mov);
   if (!bem) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
   const out = await executeMov(client, bem, mov);
+  if (mov.origemRegularizacaoContagemId && out?.mov?.id) {
+    await concluirRegularizacaoTransferencia(client, {
+      contagemId: mov.origemRegularizacaoContagemId,
+      movimentacaoId: out.mov.id,
+      perfilId: aprovadorPerfilId || solicitantePerfilId || mov.executadaPorPerfilId || mov.autorizadaPorPerfilId || null,
+      observacoes: "Regularizacao concluida apos aprovacao administrativa da transferencia formal.",
+    });
+  }
   return out;
 }
 
@@ -5860,6 +5975,7 @@ function validateMov(body, opts) {
   const dataEfetivaDevolucao = parseDateTime(body.dataEfetivaDevolucao) || new Date();
   const manterResponsavelNoRetorno = parseBool(body.manterResponsavelNoRetorno, true);
   const justificativa = body.justificativa ? String(body.justificativa).trim() : null;
+  const origemRegularizacaoContagemId = normalizeOrigemRegularizacaoContagemId(body.origemRegularizacaoContagemId);
 
   if (!executadaPorPerfilId && defaultPerfilIdFinal) executadaPorPerfilId = defaultPerfilIdFinal;
   if (!autorizadaPorPerfilId && defaultPerfilIdFinal) autorizadaPorPerfilId = defaultPerfilIdFinal;
@@ -5895,6 +6011,7 @@ function validateMov(body, opts) {
     autorizadaPorPerfilId,
     executadaPorPerfilId,
     justificativa,
+    origemRegularizacaoContagemId,
   };
 }
 
@@ -6141,6 +6258,130 @@ function toSafeJson(value) {
   } catch (_error) {
     return null;
   }
+}
+
+function normalizeOrigemRegularizacaoContagemId(raw) {
+  const id = raw != null ? String(raw).trim() : "";
+  return id && UUID_RE.test(id) ? id : null;
+}
+
+function extractOrigemFromSolicitacaoPayload(payload) {
+  const p = payload && typeof payload === "object" ? payload : {};
+  return normalizeOrigemRegularizacaoContagemId(
+    p?.movimentacao?.origemRegularizacaoContagemId
+    || p?.origemRegularizacaoContagemId
+    || null,
+  );
+}
+
+async function upsertRegularizacaoTransferenciaFluxo(client, {
+  contagemId,
+  statusFluxo,
+  perfilId,
+  solicitacaoAprovacaoId = null,
+  movimentacaoId = null,
+  observacoes = null,
+  ultimoErro = null,
+}) {
+  const contagemQ = await client.query(
+    `SELECT id, bem_id
+     FROM contagens
+     WHERE id = $1
+     LIMIT 1;`,
+    [contagemId],
+  );
+  if (!contagemQ.rowCount) return false;
+  const contagem = contagemQ.rows[0];
+  const perfilFinal = perfilId && UUID_RE.test(String(perfilId)) ? String(perfilId) : null;
+  if (!perfilFinal) return false;
+
+  await client.query(
+    `INSERT INTO inventario_regularizacao_transferencias (
+       contagem_id, bem_id, status_fluxo, solicitacao_aprovacao_id, movimentacao_id,
+       encaminhado_por_perfil_id, encaminhado_em, atualizado_em, observacoes, ultimo_erro
+     ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), $7, $8)
+     ON CONFLICT (contagem_id) DO UPDATE
+     SET status_fluxo = EXCLUDED.status_fluxo,
+         solicitacao_aprovacao_id = EXCLUDED.solicitacao_aprovacao_id,
+         movimentacao_id = EXCLUDED.movimentacao_id,
+         observacoes = EXCLUDED.observacoes,
+         ultimo_erro = EXCLUDED.ultimo_erro,
+         atualizado_em = NOW();`,
+    [
+      contagemId,
+      contagem.bem_id,
+      statusFluxo,
+      solicitacaoAprovacaoId,
+      movimentacaoId,
+      perfilFinal,
+      observacoes,
+      ultimoErro,
+    ],
+  );
+  return true;
+}
+
+async function concluirRegularizacaoTransferencia(client, {
+  contagemId,
+  movimentacaoId,
+  perfilId,
+  observacoes = null,
+}) {
+  const c = await client.query(
+    `SELECT
+       c.id,
+       c.bem_id,
+       c.regularizacao_pendente,
+       c.tipo_ocorrencia::text AS tipo_ocorrencia,
+       ei.status::text AS status_evento
+     FROM contagens c
+     JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
+     WHERE c.id = $1
+     FOR UPDATE OF c;`,
+    [contagemId],
+  );
+  if (!c.rowCount) return false;
+  const row = c.rows[0];
+  if (row.tipo_ocorrencia !== "ENCONTRADO_EM_LOCAL_DIVERGENTE") return false;
+  if (row.status_evento !== "ENCERRADO") return false;
+
+  const m = await client.query(
+    `SELECT id, bem_id
+     FROM movimentacoes
+     WHERE id = $1
+     LIMIT 1;`,
+    [movimentacaoId],
+  );
+  if (!m.rowCount) return false;
+  if (String(m.rows[0].bem_id) !== String(row.bem_id)) return false;
+
+  const perfilFinal = perfilId && UUID_RE.test(String(perfilId)) ? String(perfilId) : null;
+  if (!perfilFinal) return false;
+
+  await client.query(
+    `UPDATE contagens
+     SET regularizacao_pendente = FALSE,
+         regularizado_em = NOW(),
+         regularizado_por_perfil_id = $2,
+         regularizacao_acao = 'TRANSFERIR_CARGA',
+         regularizacao_movimentacao_id = $3,
+         regularizacao_observacoes = $4,
+         updated_at = NOW()
+     WHERE id = $1
+       AND regularizacao_pendente = TRUE;`,
+    [contagemId, perfilFinal, movimentacaoId, observacoes],
+  );
+
+  await upsertRegularizacaoTransferenciaFluxo(client, {
+    contagemId,
+    statusFluxo: "CONCLUIDA",
+    perfilId: perfilFinal,
+    solicitacaoAprovacaoId: null,
+    movimentacaoId,
+    observacoes,
+    ultimoErro: null,
+  });
+  return true;
 }
 
 async function addSolicitacaoEvento(client, { solicitacaoId, status, perfilId, observacao, payload }) {

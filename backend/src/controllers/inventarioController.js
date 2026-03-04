@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getDivergenciasInterunidades: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, getIndicadoresAcuracidade: Function, getMinhaSessaoContagem: Function, getMonitoramentoContagem: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getDivergenciasInterunidades: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, getIndicadoresAcuracidade: Function, getMinhaSessaoContagem: Function, getMonitoramentoContagem: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function, postRegularizacaoLote: Function, postEncaminharTransferencia: Function, getTransferenciasPendentesRegularizacao: Function, postConcluirTransferencias: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -1702,11 +1702,17 @@ function createInventarioController(deps) {
           l.nome AS "localEsperadoNome",
           f.encontrado_em AS "encontradoEm",
           f.encontrado_por_perfil_id AS "encontradoPorPerfilId",
-          f.observacoes
+          f.observacoes,
+          rt.id AS "fluxoTransferenciaId",
+          rt.status_fluxo AS "fluxoTransferenciaStatus",
+          rt.solicitacao_aprovacao_id AS "solicitacaoAprovacaoId",
+          rt.movimentacao_id AS "movimentacaoId",
+          rt.atualizado_em AS "fluxoAtualizadoEm"
         FROM public.vw_forasteiros f
         JOIN public.bens b ON b.id = f.bem_id
         JOIN public.catalogo_bens cb ON cb.id = b.catalogo_bem_id
         LEFT JOIN public.locais l ON l.id = b.local_id
+        LEFT JOIN public.inventario_regularizacao_transferencias rt ON rt.contagem_id = f.contagem_id
         WHERE ${where.join(" AND ")}
         ORDER BY f.encontrado_em DESC
         LIMIT $${i};`;
@@ -2759,6 +2765,35 @@ function createInventarioController(deps) {
     }
   }
 
+  function normalizeContagemIds(raw, max = 300) {
+    const list = Array.isArray(raw) ? raw : [];
+    const unique = Array.from(new Set(list.map((x) => String(x || "").trim()).filter(Boolean)));
+    if (!unique.length) throw new HttpError(422, "CONTAGEM_IDS_OBRIGATORIOS", "Envie ao menos um contagemId.");
+    if (unique.length > max) throw new HttpError(422, "LIMITE_CONTAGEM_IDS", `Limite de ${max} itens por lote.`);
+    for (const id of unique) {
+      if (!UUID_RE.test(id)) throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "Todos os contagemIds devem ser UUID.");
+    }
+    return unique;
+  }
+
+  async function markTransferFlowCancelledIfAny(client, { contagemId, observacoes }) {
+    await client.query(
+      `UPDATE inventario_regularizacao_transferencias
+       SET status_fluxo = 'CANCELADA',
+           solicitacao_aprovacao_id = NULL,
+           observacoes = CASE
+             WHEN $2::text IS NULL OR $2::text = '' THEN observacoes
+             WHEN observacoes IS NULL OR observacoes = '' THEN $2::text
+             ELSE observacoes || E'\n' || $2::text
+           END,
+           ultimo_erro = NULL,
+           atualizado_em = NOW()
+       WHERE contagem_id = $1
+         AND status_fluxo IN ('ENCAMINHADA', 'AGUARDANDO_APROVACAO', 'ERRO');`,
+      [contagemId, observacoes || null],
+    );
+  }
+
   /**
    * Regulariza uma divergencia (forasteiro) apos o encerramento do inventario.
    *
@@ -2811,6 +2846,13 @@ function createInventarioController(deps) {
           : null;
       if (!acao) {
         throw new HttpError(422, "ACAO_INVALIDA", "acao deve ser TRANSFERIR_CARGA, MANTER_CARGA ou ATUALIZAR_LOCAL.");
+      }
+      if (acao === "TRANSFERIR_CARGA") {
+        throw new HttpError(
+          422,
+          "ACAO_EXIGE_FLUXO_MOVIMENTACOES",
+          "Transferencia deve ser formalizada no menu Movimentacoes (fluxo formal).",
+        );
       }
 
       const termoReferenciaRaw = body.termoReferencia != null ? String(body.termoReferencia).trim() : "";
@@ -3092,6 +3134,10 @@ function createInventarioController(deps) {
           [contagemId, regularizadoPorPerfilId, acao, observacoes],
         );
       }
+      await markTransferFlowCancelledIfAny(client, {
+        contagemId,
+        observacoes: "Fluxo formal de transferencia cancelado por regularizacao concluida sem transferencia.",
+      });
 
       await client.query("COMMIT");
       res.status(201).json({ requestId: req.requestId, contagemId, acao, movimentacao, bem, local });
@@ -3101,6 +3147,419 @@ function createInventarioController(deps) {
         next(new HttpError(409, "MOVIMENTACAO_BLOQUEADA_INVENTARIO", "Movimentacao bloqueada por inventario em andamento.", { baseLegal: "Art. 183 (AN303_Art183)" }));
         return;
       }
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async function postRegularizacaoLote(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const body = req.body || {};
+      const contagemIds = normalizeContagemIds(body.contagemIds, 300);
+      const acaoRaw = String(body.acao || body.tipo || "").trim().toUpperCase();
+      const acao = acaoRaw === "ATUALIZAR_LOCAL" || acaoRaw === "ATUALIZAR_LOCALIZACAO" || acaoRaw === "CORRIGIR_SALA"
+        ? "ATUALIZAR_LOCAL"
+        : acaoRaw === "MANTER" || acaoRaw === "MANTER_CARGA" || acaoRaw === "SEM_TRANSFERENCIA"
+          ? "MANTER_CARGA"
+          : null;
+      if (!acao) throw new HttpError(422, "ACAO_INVALIDA", "acao deve ser MANTER_CARGA ou ATUALIZAR_LOCAL.");
+
+      const regularizadoPorPerfilId = req.user?.id
+        ? String(req.user.id).trim()
+        : String(body.regularizadoPorPerfilId || body.perfilId || "").trim();
+      if (!regularizadoPorPerfilId || !UUID_RE.test(regularizadoPorPerfilId)) {
+        throw new HttpError(422, "REGULARIZADOR_INVALIDO", "regularizadoPorPerfilId (UUID) e obrigatorio.");
+      }
+      const obsRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
+      const observacoes = obsRaw ? obsRaw.slice(0, 2000) : null;
+      const localDestinoIdRaw = body.localDestinoId != null ? String(body.localDestinoId).trim() : "";
+      const localDestinoId = localDestinoIdRaw ? (UUID_RE.test(localDestinoIdRaw) ? localDestinoIdRaw : null) : null;
+      if (localDestinoIdRaw && !localDestinoId) throw new HttpError(422, "LOCAL_DESTINO_INVALIDO", "localDestinoId deve ser UUID quando informado.");
+
+      const items = [];
+      await client.query("BEGIN");
+      for (const contagemId of contagemIds) {
+        const sp = `sp_reg_lote_${contagemId.replace(/-/g, "")}`;
+        await client.query(`SAVEPOINT ${sp}`);
+        try {
+          const r = await client.query(
+            `SELECT
+               c.id AS contagem_id,
+               c.tipo_ocorrencia::text AS tipo_ocorrencia,
+               c.regularizacao_pendente,
+               c.unidade_encontrada_id,
+               c.sala_encontrada,
+               ei.status::text AS status_inventario,
+               ei.codigo_evento,
+               b.id AS bem_id,
+               b.unidade_dona_id,
+               b.local_fisico
+             FROM contagens c
+             JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
+             JOIN bens b ON b.id = c.bem_id
+             WHERE c.id = $1
+             FOR UPDATE OF c, b;`,
+            [contagemId],
+          );
+          if (!r.rowCount) throw new HttpError(404, "CONTAGEM_NAO_ENCONTRADA", "Contagem nao encontrada.");
+          const row = r.rows[0];
+          if (row.tipo_ocorrencia !== "ENCONTRADO_EM_LOCAL_DIVERGENTE") throw new HttpError(422, "CONTAGEM_NAO_DIVERGENTE", "Contagem informada nao e divergente.");
+          if (!row.regularizacao_pendente) throw new HttpError(409, "REGULARIZACAO_JA_FEITA", "Esta divergencia ja foi regularizada.");
+          if (row.status_inventario !== "ENCERRADO") throw new HttpError(409, "EVENTO_NAO_ENCERRADO", "Regularizacao so pode ocorrer apos ENCERRAR o inventario.");
+
+          await setDbContext(client, { changeOrigin: "APP", currentUserId: regularizadoPorPerfilId });
+          let movimentacaoId = null;
+
+          if (acao === "ATUALIZAR_LOCAL") {
+            const unidadeDonaId = Number(row.unidade_dona_id);
+            const unidadeEncontradaId = Number(row.unidade_encontrada_id);
+            if (unidadeDonaId !== unidadeEncontradaId) {
+              throw new HttpError(409, "ATUALIZACAO_LOCAL_EXIGE_MESMA_UNIDADE", "Atualizacao de sala/local so e permitida quando unidade dona e unidade encontrada sao iguais.");
+            }
+            const salaEncontrada = String(row.sala_encontrada || "").trim();
+            if (!salaEncontrada) throw new HttpError(422, "SALA_ENCONTRADA_INVALIDA", "salaEncontrada da contagem esta vazia.");
+
+            const salaNorm = normalizeRoomLabel(salaEncontrada);
+            let localDestino = null;
+            if (localDestinoId) {
+              const l = await client.query(
+                `SELECT id, nome, unidade_id
+                 FROM locais
+                 WHERE id = $1
+                   AND ativo = TRUE
+                 LIMIT 1;`,
+                [localDestinoId],
+              );
+              if (!l.rowCount) throw new HttpError(404, "LOCAL_DESTINO_NAO_ENCONTRADO", "localDestinoId nao encontrado ou inativo.");
+              if (Number(l.rows[0].unidade_id) !== unidadeEncontradaId) {
+                throw new HttpError(422, "LOCAL_DESTINO_UNIDADE_INVALIDA", "localDestinoId informado pertence a outra unidade.");
+              }
+              localDestino = l.rows[0];
+            } else {
+              const l = await client.query(
+                `SELECT id, nome, unidade_id
+                 FROM locais
+                 WHERE unidade_id = $1
+                   AND ativo = TRUE
+                   AND lower(regexp_replace(trim(nome), '\\s+', ' ', 'g')) = $2
+                 ORDER BY updated_at DESC, created_at DESC
+                 LIMIT 2;`,
+                [unidadeEncontradaId, salaNorm],
+              );
+              if (l.rowCount > 1) throw new HttpError(409, "LOCAL_DESTINO_AMBIGUO", "Foi encontrado mais de um local ativo para a sala informada. Informe localDestinoId para concluir a regularizacao.");
+              if (l.rowCount === 1) localDestino = l.rows[0];
+            }
+
+            await client.query(
+              `UPDATE bens
+               SET local_id = $1,
+                   local_fisico = $2,
+                   status = 'OK',
+                   updated_at = NOW()
+               WHERE id = $3;`,
+              [localDestino ? localDestino.id : null, salaEncontrada, row.bem_id],
+            );
+
+            const termoLocal = `REG_LOCAL_${String(row.codigo_evento || "INVENTARIO").slice(0, 60)}`;
+            const justLocal = `Regularizacao pos-inventario (correcao de sala/local). Antes: ${String(row.local_fisico || "-")}. Depois: ${salaEncontrada}. Contagem=${contagemId}, evento=${row.codigo_evento}.`;
+            const mov = await client.query(
+              `INSERT INTO movimentacoes (
+                 bem_id, tipo_movimentacao, status,
+                 unidade_origem_id, unidade_destino_id,
+                 termo_referencia, justificativa,
+                 autorizada_por_perfil_id, autorizada_em,
+                 executada_por_perfil_id, executada_em
+               ) VALUES (
+                 $1,'REGULARIZACAO_INVENTARIO','EXECUTADA',
+                 $2,$3,
+                 $4,$5,
+                 $6,NOW(),
+                 $7,NOW()
+               )
+               RETURNING id;`,
+              [row.bem_id, unidadeDonaId, unidadeDonaId, termoLocal, justLocal, regularizadoPorPerfilId, regularizadoPorPerfilId],
+            );
+            movimentacaoId = mov.rows[0]?.id || null;
+          }
+
+          await client.query(
+            `UPDATE contagens
+             SET regularizacao_pendente = FALSE,
+                 regularizado_em = NOW(),
+                 regularizado_por_perfil_id = $2,
+                 regularizacao_acao = $3,
+                 regularizacao_movimentacao_id = $4,
+                 regularizacao_observacoes = $5,
+                 updated_at = NOW()
+             WHERE id = $1;`,
+            [contagemId, regularizadoPorPerfilId, acao, movimentacaoId, observacoes],
+          );
+          await markTransferFlowCancelledIfAny(client, {
+            contagemId,
+            observacoes: "Fluxo formal de transferencia cancelado por regularizacao concluida sem transferencia.",
+          });
+          items.push({ contagemId, status: "REGULARIZADO", acao, movimentacaoId });
+        } catch (itemError) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+          items.push({
+            contagemId,
+            status: "ERRO",
+            code: itemError?.code || "ERRO",
+            message: String(itemError?.message || "Falha ao regularizar item."),
+          });
+        }
+      }
+      await client.query("COMMIT");
+      const summary = {
+        total: contagemIds.length,
+        regularizados: items.filter((x) => x.status === "REGULARIZADO").length,
+        erros: items.filter((x) => x.status === "ERRO").length,
+      };
+      res.status(201).json({ requestId: req.requestId, acao, summary, items });
+    } catch (error) {
+      await safeRollback(client);
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async function postEncaminharTransferencia(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const body = req.body || {};
+      const contagemIds = normalizeContagemIds(body.contagemIds, 300);
+      const encaminhadoPorPerfilId = req.user?.id
+        ? String(req.user.id).trim()
+        : String(body.encaminhadoPorPerfilId || body.perfilId || "").trim();
+      if (!encaminhadoPorPerfilId || !UUID_RE.test(encaminhadoPorPerfilId)) {
+        throw new HttpError(422, "ENCAMINHADOR_INVALIDO", "encaminhadoPorPerfilId (UUID) e obrigatorio.");
+      }
+      const obsRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
+      const observacoes = obsRaw ? obsRaw.slice(0, 2000) : null;
+
+      const items = [];
+      await client.query("BEGIN");
+      for (const contagemId of contagemIds) {
+        const sp = `sp_enc_transfer_${contagemId.replace(/-/g, "")}`;
+        await client.query(`SAVEPOINT ${sp}`);
+        try {
+          const r = await client.query(
+            `SELECT c.id AS contagem_id, c.regularizacao_pendente, c.tipo_ocorrencia::text AS tipo_ocorrencia,
+                    ei.status::text AS status_inventario, b.id AS bem_id, b.numero_tombamento,
+                    b.unidade_dona_id, c.unidade_encontrada_id, b.eh_bem_terceiro
+             FROM contagens c
+             JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
+             JOIN bens b ON b.id = c.bem_id
+             WHERE c.id = $1
+             FOR UPDATE OF c, b;`,
+            [contagemId],
+          );
+          if (!r.rowCount) throw new HttpError(404, "CONTAGEM_NAO_ENCONTRADA", "Contagem nao encontrada.");
+          const row = r.rows[0];
+          if (row.tipo_ocorrencia !== "ENCONTRADO_EM_LOCAL_DIVERGENTE") throw new HttpError(422, "CONTAGEM_NAO_DIVERGENTE", "Contagem informada nao e divergente.");
+          if (!row.regularizacao_pendente) throw new HttpError(409, "REGULARIZACAO_JA_FEITA", "Esta divergencia ja foi regularizada.");
+          if (row.status_inventario !== "ENCERRADO") throw new HttpError(409, "EVENTO_NAO_ENCERRADO", "Regularizacao so pode ocorrer apos ENCERRAR o inventario.");
+          if (row.eh_bem_terceiro) throw new HttpError(422, "TRANSFERENCIA_PROIBIDA_BEM_TERCEIRO", "Bens de terceiros nao podem ter carga transferida.");
+          if (Number(row.unidade_dona_id) === Number(row.unidade_encontrada_id)) {
+            throw new HttpError(409, "BEM_JA_CONFORME_UNIDADE", "Unidade dona ja esta conforme. Use regularizacao de sala/manter carga.");
+          }
+          await client.query(
+            `INSERT INTO inventario_regularizacao_transferencias (
+               contagem_id, bem_id, status_fluxo, solicitacao_aprovacao_id, movimentacao_id,
+               encaminhado_por_perfil_id, encaminhado_em, atualizado_em, observacoes, ultimo_erro
+             ) VALUES ($1, $2, 'ENCAMINHADA', NULL, NULL, $3, NOW(), NOW(), $4, NULL)
+             ON CONFLICT (contagem_id) DO UPDATE
+             SET status_fluxo = 'ENCAMINHADA',
+                 solicitacao_aprovacao_id = NULL,
+                 movimentacao_id = NULL,
+                 encaminhado_por_perfil_id = EXCLUDED.encaminhado_por_perfil_id,
+                 encaminhado_em = NOW(),
+                 atualizado_em = NOW(),
+                 observacoes = EXCLUDED.observacoes,
+                 ultimo_erro = NULL;`,
+            [contagemId, row.bem_id, encaminhadoPorPerfilId, observacoes],
+          );
+          items.push({ contagemId, status: "ENCAMINHADA", bemId: row.bem_id, numeroTombamento: row.numero_tombamento || null });
+        } catch (itemError) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+          items.push({
+            contagemId,
+            status: "ERRO",
+            code: itemError?.code || "ERRO",
+            message: String(itemError?.message || "Falha ao encaminhar item."),
+          });
+        }
+      }
+      await client.query("COMMIT");
+      const summary = {
+        total: contagemIds.length,
+        encaminhadas: items.filter((x) => x.status === "ENCAMINHADA").length,
+        erros: items.filter((x) => x.status === "ERRO").length,
+      };
+      res.status(201).json({ requestId: req.requestId, summary, items });
+    } catch (error) {
+      await safeRollback(client);
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  async function getTransferenciasPendentesRegularizacao(req, res, next) {
+    try {
+      const q = req.query || {};
+      const statusRaw = q.status != null ? String(q.status).trim().toUpperCase() : "";
+      const status = statusRaw || null;
+      const allowed = new Set(["ENCAMINHADA", "AGUARDANDO_APROVACAO", "ERRO", "CONCLUIDA", "CANCELADA"]);
+      if (status && !allowed.has(status)) {
+        throw new HttpError(422, "STATUS_INVALIDO", "status deve ser ENCAMINHADA, AGUARDANDO_APROVACAO, ERRO, CONCLUIDA ou CANCELADA.");
+      }
+      const limit = Math.max(1, Math.min(2000, Number.isFinite(Number(q.limit)) ? Math.trunc(Number(q.limit)) : 200));
+      const offset = Math.max(0, Number.isFinite(Number(q.offset)) ? Math.trunc(Number(q.offset)) : 0);
+
+      const where = ["c.regularizacao_pendente = TRUE"];
+      const params = [];
+      let i = 1;
+      if (status) {
+        where.push(`rt.status_fluxo = $${i}`);
+        params.push(status);
+        i += 1;
+      } else {
+        where.push(`rt.status_fluxo IN ('ENCAMINHADA', 'AGUARDANDO_APROVACAO', 'ERRO')`);
+      }
+
+      const r = await pool.query(
+        `SELECT
+           rt.id,
+           rt.contagem_id AS "contagemId",
+           rt.bem_id AS "bemId",
+           rt.status_fluxo AS "statusFluxo",
+           rt.solicitacao_aprovacao_id AS "solicitacaoAprovacaoId",
+           rt.movimentacao_id AS "movimentacaoId",
+           rt.encaminhado_por_perfil_id AS "encaminhadoPorPerfilId",
+           rt.encaminhado_em AS "encaminhadoEm",
+           rt.atualizado_em AS "atualizadoEm",
+           rt.observacoes,
+           rt.ultimo_erro AS "ultimoErro",
+           c.unidade_encontrada_id AS "unidadeEncontradaId",
+           c.sala_encontrada AS "salaEncontrada",
+           b.numero_tombamento AS "numeroTombamento",
+           b.nome_resumo AS "nomeResumo",
+           b.unidade_dona_id AS "unidadeDonaId",
+           ei.codigo_evento AS "codigoEvento"
+         FROM inventario_regularizacao_transferencias rt
+         JOIN contagens c ON c.id = rt.contagem_id
+         JOIN bens b ON b.id = rt.bem_id
+         JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
+         WHERE ${where.join(" AND ")}
+         ORDER BY rt.atualizado_em DESC
+         LIMIT $${i} OFFSET $${i + 1};`,
+        [...params, limit, offset],
+      );
+      res.json({ requestId: req.requestId, paging: { limit, offset, total: r.rows.length }, items: r.rows });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async function postConcluirTransferencias(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const body = req.body || {};
+      const itens = Array.isArray(body.itens) ? body.itens : [];
+      if (!itens.length) throw new HttpError(422, "ITENS_OBRIGATORIOS", "Envie ao menos um item em itens.");
+      if (itens.length > 300) throw new HttpError(422, "LIMITE_ITENS_EXCEDIDO", "Limite de 300 itens por lote.");
+      const regularizadoPorPerfilId = req.user?.id
+        ? String(req.user.id).trim()
+        : String(body.regularizadoPorPerfilId || body.perfilId || "").trim();
+      if (!regularizadoPorPerfilId || !UUID_RE.test(regularizadoPorPerfilId)) {
+        throw new HttpError(422, "REGULARIZADOR_INVALIDO", "regularizadoPorPerfilId (UUID) e obrigatorio.");
+      }
+      const obsRaw = body.observacoes != null ? String(body.observacoes).trim() : "";
+      const observacoes = obsRaw ? obsRaw.slice(0, 2000) : null;
+
+      const outItems = [];
+      await client.query("BEGIN");
+      await setDbContext(client, { changeOrigin: "APP", currentUserId: regularizadoPorPerfilId });
+      for (let idx = 0; idx < itens.length; idx += 1) {
+        const rowItem = itens[idx] || {};
+        const contagemId = String(rowItem.contagemId || "").trim();
+        const movimentacaoId = String(rowItem.movimentacaoId || "").trim();
+        if (!UUID_RE.test(contagemId) || !UUID_RE.test(movimentacaoId)) {
+          outItems.push({ index: idx, contagemId: contagemId || null, movimentacaoId: movimentacaoId || null, status: "ERRO", code: "PARAMETRO_INVALIDO", message: "contagemId e movimentacaoId devem ser UUID." });
+          continue;
+        }
+        const sp = `sp_concluir_reg_${idx}`;
+        await client.query(`SAVEPOINT ${sp}`);
+        try {
+          const c = await client.query(
+            `SELECT c.id, c.regularizacao_pendente, c.tipo_ocorrencia::text AS tipo_ocorrencia, c.bem_id, ei.status::text AS status_evento
+             FROM contagens c
+             JOIN eventos_inventario ei ON ei.id = c.evento_inventario_id
+             WHERE c.id = $1
+             FOR UPDATE OF c;`,
+            [contagemId],
+          );
+          if (!c.rowCount) throw new HttpError(404, "CONTAGEM_NAO_ENCONTRADA", "Contagem nao encontrada.");
+          const cr = c.rows[0];
+          if (cr.tipo_ocorrencia !== "ENCONTRADO_EM_LOCAL_DIVERGENTE") throw new HttpError(422, "CONTAGEM_NAO_DIVERGENTE", "Contagem informada nao e divergente.");
+          if (!cr.regularizacao_pendente) throw new HttpError(409, "REGULARIZACAO_JA_FEITA", "Esta divergencia ja foi regularizada.");
+          if (cr.status_evento !== "ENCERRADO") throw new HttpError(409, "EVENTO_NAO_ENCERRADO", "Regularizacao so pode ocorrer apos ENCERRAR o inventario.");
+
+          const m = await client.query(
+            `SELECT id, bem_id
+             FROM movimentacoes
+             WHERE id = $1
+             LIMIT 1;`,
+            [movimentacaoId],
+          );
+          if (!m.rowCount) throw new HttpError(404, "MOVIMENTACAO_NAO_ENCONTRADA", "Movimentacao nao encontrada.");
+          if (String(m.rows[0].bem_id) !== String(cr.bem_id)) throw new HttpError(422, "MOVIMENTACAO_BEM_INVALIDO", "movimentacaoId nao corresponde ao bem da contagem.");
+
+          await client.query(
+            `UPDATE contagens
+             SET regularizacao_pendente = FALSE,
+                 regularizado_em = NOW(),
+                 regularizado_por_perfil_id = $2,
+                 regularizacao_acao = 'TRANSFERIR_CARGA',
+                 regularizacao_movimentacao_id = $3,
+                 regularizacao_observacoes = $4,
+                 updated_at = NOW()
+             WHERE id = $1;`,
+            [contagemId, regularizadoPorPerfilId, movimentacaoId, observacoes],
+          );
+          await client.query(
+            `INSERT INTO inventario_regularizacao_transferencias (
+               contagem_id, bem_id, status_fluxo, solicitacao_aprovacao_id, movimentacao_id,
+               encaminhado_por_perfil_id, encaminhado_em, atualizado_em, observacoes, ultimo_erro
+             ) VALUES ($1, $2, 'CONCLUIDA', NULL, $3, $4, NOW(), NOW(), $5, NULL)
+             ON CONFLICT (contagem_id) DO UPDATE
+             SET status_fluxo = 'CONCLUIDA',
+                 movimentacao_id = EXCLUDED.movimentacao_id,
+                 solicitacao_aprovacao_id = NULL,
+                 observacoes = EXCLUDED.observacoes,
+                 ultimo_erro = NULL,
+                 atualizado_em = NOW();`,
+            [contagemId, cr.bem_id, movimentacaoId, regularizadoPorPerfilId, observacoes],
+          );
+          outItems.push({ index: idx, contagemId, movimentacaoId, status: "REGULARIZADO" });
+        } catch (itemError) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+          outItems.push({ index: idx, contagemId, movimentacaoId, status: "ERRO", code: itemError?.code || "ERRO", message: String(itemError?.message || "Falha ao concluir regularizacao.") });
+        }
+      }
+      await client.query("COMMIT");
+      const summary = {
+        total: itens.length,
+        regularizados: outItems.filter((x) => x.status === "REGULARIZADO").length,
+        erros: outItems.filter((x) => x.status === "ERRO").length,
+      };
+      res.status(201).json({ requestId: req.requestId, summary, items: outItems });
+    } catch (error) {
+      await safeRollback(client);
       next(error);
     } finally {
       client.release();
@@ -3269,6 +3728,10 @@ function createInventarioController(deps) {
     postSync,
     postBemTerceiro,
     postRegularizacao,
+    postRegularizacaoLote,
+    postEncaminharTransferencia,
+    getTransferenciasPendentesRegularizacao,
+    postConcluirTransferencias,
   };
 }
 

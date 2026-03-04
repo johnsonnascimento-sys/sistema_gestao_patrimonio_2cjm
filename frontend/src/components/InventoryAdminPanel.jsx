@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -30,12 +30,12 @@ function formatUnidade(id) {
 
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const INVENTARIO_PRESETS = [
-    { key: "inventario-geral", label: "Inventário geral", apply: { escopoTipo: "GERAL", tipoCiclo: "ADHOC", unidadeInventariadaId: "", escopoLocalIds: [] } },
+    { key: "inventario-geral", label: "InventÃ¡rio geral", apply: { escopoTipo: "GERAL", tipoCiclo: "ADHOC", unidadeInventariadaId: "", escopoLocalIds: [] } },
     { key: "ciclo-1aud", label: "Ciclo semanal 1a Aud", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "1", escopoLocalIds: [] } },
     { key: "ciclo-2aud", label: "Ciclo semanal 2a Aud", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "2", escopoLocalIds: [] } },
     { key: "ciclo-foro", label: "Ciclo semanal Foro", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "3", escopoLocalIds: [] } },
     { key: "ciclo-almox", label: "Ciclo semanal Almox", apply: { escopoTipo: "UNIDADE", tipoCiclo: "SEMANAL", unidadeInventariadaId: "4", escopoLocalIds: [] } },
-    { key: "por-sala", label: "Por sala", apply: { escopoTipo: "LOCAIS", tipoCiclo: "ADHOC" } },
+    { key: "por-sala", label: "Por endereço", apply: { escopoTipo: "LOCAIS", tipoCiclo: "ADHOC" } },
 ];
 
 function formatPerfilOption(perfil) {
@@ -288,7 +288,7 @@ export default function InventoryAdminPanel() {
             return ativos[0];
         }
 
-        // Fallback: quando o cache de ativos ainda não refletiu a reabertura,
+        // Fallback: quando o cache de ativos ainda nÃ£o refletiu a reabertura,
         // tenta resolver pelo evento selecionado no cache completo.
         if (selectedEventoId) {
             const all = todosEventosQuery.data || [];
@@ -337,11 +337,11 @@ export default function InventoryAdminPanel() {
 
             if (nextStatus === "ENCERRADO" && vars?.id) {
                 setRelatorioEventoId(String(vars.id));
-                setUiInfo("Inventário encerrado. Relatorio detalhado gerado abaixo.");
+                setUiInfo("InventÃ¡rio encerrado. Relatorio detalhado gerado abaixo.");
             } else if (nextStatus === "EM_ANDAMENTO" && vars?.id) {
                 setRelatorioEventoId(String(vars.id));
                 setSelectedEventoId(String(vars.id));
-                setUiInfo("Inventário reaberto com sucesso.");
+                setUiInfo("InventÃ¡rio reaberto com sucesso.");
             }
             await qc.invalidateQueries({ queryKey: ["inventarioEventos"] });
         },
@@ -456,8 +456,8 @@ export default function InventoryAdminPanel() {
         : 0;
     const divergenciaTipoData = [
         { k: "Unidade", v: Number(resumo.divergenciasUnidade || 0), color: "#f59e0b" },
-        { k: "Sala", v: Number(resumo.divergenciasSala || 0), color: "#06b6d4" },
-        { k: "Unidade + Sala", v: Number(resumo.divergenciasUnidadeESala || 0), color: "#fb7185" },
+        { k: "Endereço", v: Number(resumo.divergenciasSala || 0), color: "#06b6d4" },
+        { k: "Unidade + Endereço", v: Number(resumo.divergenciasUnidadeESala || 0), color: "#fb7185" },
     ];
     const regularizacaoData = [
         { k: "Pendentes", v: Number(resumo.regularizacoesPendentes || 0), color: "#f97316" },
@@ -565,7 +565,7 @@ export default function InventoryAdminPanel() {
                 return;
             }
             if (!escopoLocalIds.length) {
-                setUiError("Selecione ao menos uma sala para escopo LOCAIS.");
+                setUiError("Selecione ao menos um endereço para escopo LOCAIS.");
                 return;
             }
         }
@@ -686,7 +686,7 @@ export default function InventoryAdminPanel() {
     };
 
     const handleDeleteEvento = (ev) => {
-        const proceed = window.confirm(`CUIDADO: Excluir o evento ${ev.codigoEvento} removerá em cascata todas as suas contagens (forasteiros e regulares).\nDeseja continuar?`);
+        const proceed = window.confirm(`CUIDADO: Excluir o evento ${ev.codigoEvento} removerÃ¡ em cascata todas as suas contagens (forasteiros e regulares).\nDeseja continuar?`);
         if (!proceed) return;
         setUiError(null);
         excluirEventoMut.mutate(ev.id);
@@ -778,9 +778,9 @@ export default function InventoryAdminPanel() {
             <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
                 <header className="flex flex-wrap items-start justify-between gap-3 mb-5">
                     <div>
-                        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Inventário - Administração</h2>
+                        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">InventÃ¡rio - AdministraÃ§Ã£o</h2>
                         <p className="mt-2 text-sm text-slate-600">
-                            Controle operacional do inventário, monitoramento e regularização.
+                            Controle operacional do inventÃ¡rio, monitoramento e regularizaÃ§Ã£o.
                         </p>
                     </div>
                 </header>
@@ -798,10 +798,10 @@ export default function InventoryAdminPanel() {
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
                     <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex flex-col group">
-                        <h3 className="font-semibold select-none mb-3">Controle do Inventário</h3>
+                        <h3 className="font-semibold select-none mb-3">Controle do InventÃ¡rio</h3>
                         <div>
                             <p className="mt-1 text-xs text-slate-600 flex-1">
-                                Inventário ativo bloqueia mudança de carga (Art. 183).
+                                InventÃ¡rio ativo bloqueia mudanÃ§a de carga (Art. 183).
                             </p>
 
                             {auth.perfil ? (
@@ -829,7 +829,7 @@ export default function InventoryAdminPanel() {
                             {(eventosQuery.data || []).length > 0 ? (
                                 <div className="mt-3 space-y-3">
                                     <label className="block space-y-1">
-                                        <span className="text-xs text-slate-600">Inventário em andamento</span>
+                                        <span className="text-xs text-slate-600">InventÃ¡rio em andamento</span>
                                         <select
                                             value={selectedEventoIdFinal}
                                             onChange={(e) => {
@@ -866,7 +866,7 @@ export default function InventoryAdminPanel() {
                                     </div>
 
                                     <label className="block space-y-1">
-                                        <span className="text-xs text-slate-600">Observações para ação crítica (opcional)</span>
+                                        <span className="text-xs text-slate-600">ObservaÃ§Ãµes para aÃ§Ã£o crÃ­tica (opcional)</span>
                                         <textarea
                                             value={encerramentoObs}
                                             onChange={(e) => setEncerramentoObs(e.target.value)}
@@ -876,7 +876,7 @@ export default function InventoryAdminPanel() {
                                 </div>
                             ) : (
                                 <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                                    Sem inventário ativo. Use o formulário de criação abaixo.
+                                    Sem inventÃ¡rio ativo. Use o formulÃ¡rio de criaÃ§Ã£o abaixo.
                                 </p>
                             )}
 
@@ -895,7 +895,7 @@ export default function InventoryAdminPanel() {
                                     ))}
                                 </div>
                                 <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
-                                    Inventários por UNIDADE e LOCAIS podem rodar em paralelo entre unidades. Inventário GERAL é exclusivo.
+                                    InventÃ¡rios por UNIDADE e LOCAIS podem rodar em paralelo entre unidades. InventÃ¡rio GERAL Ã© exclusivo.
                                 </p>
 
                                 <div className="grid gap-3 md:grid-cols-2">
@@ -932,14 +932,14 @@ export default function InventoryAdminPanel() {
                                 {modoContagem === "CEGO" ? (
                                     <div className="space-y-1">
                                         <label className="block space-y-1">
-                                            <span className="text-xs text-slate-600">Operador único (buscar por matrícula ou nome)</span>
+                                            <span className="text-xs text-slate-600">Operador Ãºnico (buscar por matrÃ­cula ou nome)</span>
                                             <div className="relative">
                                                 <input
                                                     value={operadorUnicoQuery}
                                                     onChange={(e) => onOperadorUnicoInputChange(e.target.value)}
                                                     onFocus={() => setOperadorUnicoFocused(true)}
                                                     onBlur={() => setTimeout(() => setOperadorUnicoFocused(false), 120)}
-                                                    placeholder="Digite matrícula ou nome do operador"
+                                                    placeholder="Digite matrÃ­cula ou nome do operador"
                                                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                                 />
                                                 {operadorUnicoFocused ? (
@@ -960,7 +960,7 @@ export default function InventoryAdminPanel() {
                                                                 className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
                                                             >
                                                                 <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                                <div className="text-slate-600">MatrÃ­cula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
                                                             </button>
                                                         ))}
                                                     </div>
@@ -981,14 +981,14 @@ export default function InventoryAdminPanel() {
                                     <div className="grid gap-3 md:grid-cols-2">
                                         <div className="space-y-2">
                                             <label className="block space-y-1">
-                                                <span className="text-xs text-slate-600">Operador A (matrícula/nome)</span>
+                                                <span className="text-xs text-slate-600">Operador A (matrÃ­cula/nome)</span>
                                                 <div className="relative">
                                                     <input
                                                         value={operadorAQuery}
                                                         onChange={(e) => onOperadorAInputChange(e.target.value)}
                                                         onFocus={() => setOperadorAFocused(true)}
                                                         onBlur={() => setTimeout(() => setOperadorAFocused(false), 120)}
-                                                        placeholder="Digite matrícula ou nome"
+                                                        placeholder="Digite matrÃ­cula ou nome"
                                                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                                     />
                                                     {operadorAFocused ? (
@@ -1007,7 +1007,7 @@ export default function InventoryAdminPanel() {
                                                                     className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
                                                                 >
                                                                     <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                    <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                                    <div className="text-slate-600">MatrÃ­cula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
                                                                 </button>
                                                             ))}
                                                         </div>
@@ -1024,14 +1024,14 @@ export default function InventoryAdminPanel() {
                                         </div>
                                         <div className="space-y-2">
                                             <label className="block space-y-1">
-                                                <span className="text-xs text-slate-600">Operador B (matrícula/nome)</span>
+                                                <span className="text-xs text-slate-600">Operador B (matrÃ­cula/nome)</span>
                                                 <div className="relative">
                                                     <input
                                                         value={operadorBQuery}
                                                         onChange={(e) => onOperadorBInputChange(e.target.value)}
                                                         onFocus={() => setOperadorBFocused(true)}
                                                         onBlur={() => setTimeout(() => setOperadorBFocused(false), 120)}
-                                                        placeholder="Digite matrícula ou nome"
+                                                        placeholder="Digite matrÃ­cula ou nome"
                                                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                                     />
                                                     {operadorBFocused ? (
@@ -1050,7 +1050,7 @@ export default function InventoryAdminPanel() {
                                                                     className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
                                                                 >
                                                                     <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                    <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                                    <div className="text-slate-600">MatrÃ­cula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
                                                                 </button>
                                                             ))}
                                                         </div>
@@ -1087,7 +1087,7 @@ export default function InventoryAdminPanel() {
 
                                 {escopoTipo === "LOCAIS" ? (
                                     <div className="space-y-2">
-                                        <p className="text-xs text-slate-600">Salas do escopo</p>
+                                        <p className="text-xs text-slate-600">Endereços do escopo</p>
                                         <div className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-2">
                                             {(locaisEscopoQuery.data || []).map((l) => (
                                                 <label key={l.id} className="flex items-center gap-2 py-1 text-xs text-slate-700">
@@ -1100,7 +1100,7 @@ export default function InventoryAdminPanel() {
                                                     <span>{l.nome}</span>
                                                 </label>
                                             ))}
-                                            {!(locaisEscopoQuery.data || []).length ? <p className="text-xs text-slate-500">Nenhuma sala encontrada para a unidade selecionada.</p> : null}
+                                            {!(locaisEscopoQuery.data || []).length ? <p className="text-xs text-slate-500">Nenhum endereço encontrado para a unidade selecionada.</p> : null}
                                         </div>
                                     </div>
                                 ) : null}
@@ -1145,7 +1145,7 @@ export default function InventoryAdminPanel() {
                         {selectedEventoIdFinal && (
                             <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
                                 <h4 className="text-sm font-semibold">Monitoramento em tempo real</h4>
-                                <p className="mt-1 text-[11px] text-slate-600">Por sala, operador/rodada e pendências de desempate.</p>
+                                <p className="mt-1 text-[11px] text-slate-600">Por endereço, operador/rodada e pendÃªncias de desempate.</p>
                                 {monitoramentoQuery.isLoading ? (
                                     <p className="mt-2 text-xs text-slate-500">Carregando monitoramento...</p>
                                 ) : monitoramentoQuery.error ? (
@@ -1159,7 +1159,7 @@ export default function InventoryAdminPanel() {
                                             <table className="min-w-full text-xs">
                                                 <thead className="bg-slate-50 text-slate-600">
                                                     <tr>
-                                                        <th className="px-2 py-2 text-left">Sala</th>
+                                                        <th className="px-2 py-2 text-left">Endereço</th>
                                                         <th className="px-2 py-2 text-right">Esp.</th>
                                                         <th className="px-2 py-2 text-right">A</th>
                                                         <th className="px-2 py-2 text-right">B</th>
@@ -1237,8 +1237,8 @@ export default function InventoryAdminPanel() {
                                     <input value={interCodigoFiltro} onChange={(e) => setInterCodigoFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por codigo" />
                                 </label>
                                 <label className="space-y-1 text-xs text-slate-600">
-                                    <span>Sala</span>
-                                    <input value={interSalaFiltro} onChange={(e) => setInterSalaFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por sala" />
+                                    <span>Endereço</span>
+                                    <input value={interSalaFiltro} onChange={(e) => setInterSalaFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por endereço" />
                                 </label>
                             </div>
                             <div className="mt-2 flex justify-end">
@@ -1262,11 +1262,11 @@ export default function InventoryAdminPanel() {
                                         <table className="min-w-full text-xs">
                                             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
                                                 <tr>
-                                                    <th className="px-2 py-2 text-left font-semibold">Inventário</th>
+                                                    <th className="px-2 py-2 text-left font-semibold">InventÃ¡rio</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Tombo/Bem</th>
                                                     <th className="px-2 py-2 text-right font-semibold">Dona</th>
                                                     <th className="px-2 py-2 text-right font-semibold">Encontrada</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Sala</th>
+                                                    <th className="px-2 py-2 text-left font-semibold">Endereço</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Tipo</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Regularizacao</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Registro</th>
@@ -1316,7 +1316,7 @@ export default function InventoryAdminPanel() {
 
                         {(todosEventosQuery.data || []).length > 0 && (
                             <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex-1">
-                                <h4 className="text-sm font-semibold mb-2">Histórico Resumido</h4>
+                                <h4 className="text-sm font-semibold mb-2">HistÃ³rico Resumido</h4>
                                 <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
                                     {(todosEventosQuery.data || []).slice(0, 15).map(ev => {
                                         const isEditing = editingEventoId === ev.id;
@@ -1339,7 +1339,7 @@ export default function InventoryAdminPanel() {
                                                         <textarea
                                                             className="w-full h-12 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 mt-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
                                                             value={editForm.observacoes}
-                                                            placeholder="Observações..."
+                                                            placeholder="ObservaÃ§Ãµes..."
                                                             onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
                                                         />
                                                     ) : (
@@ -1365,11 +1365,11 @@ export default function InventoryAdminPanel() {
                                                                         onClick={() => {
                                                                             setSelectedEventoId(ev.id);
                                                                             setRelatorioEventoId(ev.id);
-                                                                            setUiInfo(`Relatório carregado para o evento ${ev.codigoEvento}.`);
+                                                                            setUiInfo(`RelatÃ³rio carregado para o evento ${ev.codigoEvento}.`);
                                                                         }}
                                                                         className="bg-violet-100 hover:bg-violet-200 text-violet-700 px-2 py-1 rounded transition-colors text-xs font-medium"
                                                                     >
-                                                                        Relatório
+                                                                        RelatÃ³rio
                                                                     </button>
                                                                     {ev.status !== "EM_ANDAMENTO" && (
                                                                         <button
@@ -1400,16 +1400,16 @@ export default function InventoryAdminPanel() {
             {criticalModal.open ? (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/45 p-4">
                     <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
-                        <h4 className="text-base font-semibold text-slate-900">Confirmação de ação crítica</h4>
+                        <h4 className="text-base font-semibold text-slate-900">ConfirmaÃ§Ã£o de aÃ§Ã£o crÃ­tica</h4>
                         <p className="mt-2 text-sm text-slate-700">
-                            Inventário: <strong>{criticalModal.eventoCodigo || "-"}</strong>
+                            InventÃ¡rio: <strong>{criticalModal.eventoCodigo || "-"}</strong>
                         </p>
                         <p className="mt-1 text-sm text-slate-700">
-                            Ação: <strong>{criticalModal.status === "ENCERRADO" ? "Encerrar inventário" : "Cancelar inventário"}</strong>
+                            AÃ§Ã£o: <strong>{criticalModal.status === "ENCERRADO" ? "Encerrar inventÃ¡rio" : "Cancelar inventÃ¡rio"}</strong>
                         </p>
                         <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">{criticalImpactText}</p>
                         <label className="mt-3 block space-y-1">
-                            <span className="text-xs text-slate-600">Observação (opcional)</span>
+                            <span className="text-xs text-slate-600">ObservaÃ§Ã£o (opcional)</span>
                             <textarea
                                 value={encerramentoObs}
                                 onChange={(e) => setEncerramentoObs(e.target.value)}
@@ -1457,7 +1457,7 @@ export default function InventoryAdminPanel() {
                     <div>
                         <h3 className="font-[Space_Grotesk] text-xl font-semibold">Acuracidade de Inventario</h3>
                         <p className="mt-1 text-xs text-slate-600">
-                            Painel operacional com Exact Match, tolerancia por sala e serie semanal/mensal.
+                            Painel operacional com Exact Match, tolerancia por endereço e serie semanal/mensal.
                         </p>
                     </div>
                     <button
@@ -1582,15 +1582,15 @@ export default function InventoryAdminPanel() {
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                            <p className="text-xs uppercase tracking-widest text-slate-500">Top salas criticas por erro relativo medio</p>
+                            <p className="text-xs uppercase tracking-widest text-slate-500">Top endereços criticas por erro relativo medio</p>
                             {!topSalasCriticasAcuracia.length ? (
-                                <p className="mt-2 text-sm text-slate-600">Sem salas avaliadas para o periodo.</p>
+                                <p className="mt-2 text-sm text-slate-600">Sem endereços avaliadas para o periodo.</p>
                             ) : (
                                 <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                                     <table className="min-w-full text-left text-xs">
                                         <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                                             <tr>
-                                                <th className="px-2 py-2">Sala</th>
+                                                <th className="px-2 py-2">Endereço</th>
                                                 <th className="px-2 py-2">Erro medio</th>
                                                 <th className="px-2 py-2">Cobertura</th>
                                                 <th className="px-2 py-2">Hit/Miss</th>
@@ -1620,9 +1620,9 @@ export default function InventoryAdminPanel() {
                 <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
                     <header className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">Relatório do Inventário (AN303/2008)</h3>
+                            <h3 className="font-[Space_Grotesk] text-xl font-semibold">RelatÃ³rio do InventÃ¡rio (AN303/2008)</h3>
                             <p className="mt-1 text-xs text-slate-600">
-                                Consolidado do evento selecionado (em andamento ou encerrado), com divergências de unidade/sala e pendências de regularização.
+                                Consolidado do evento selecionado (em andamento ou encerrado), com divergÃªncias de unidade/endereço e pendÃªncias de regularizaÃ§Ã£o.
                             </p>
                             <p className="mt-1 text-[11px] text-slate-500">
                                 Evento: {relatorioEncerramentoQuery.data?.evento?.codigoEvento || "-"} | Status: {relatorioEncerramentoQuery.data?.evento?.status || "-"}
@@ -1642,14 +1642,14 @@ export default function InventoryAdminPanel() {
                                 disabled={baixarCsvMut.isPending}
                                 className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                             >
-                                {baixarCsvMut.isPending ? "Exportando..." : "Exportar CSV editável"}
+                                {baixarCsvMut.isPending ? "Exportando..." : "Exportar CSV editÃ¡vel"}
                             </button>
                         </div>
                     </header>
 
-                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-600">Gerando relatório...</p>}
+                    {relatorioEncerramentoQuery.isLoading && <p className="mt-4 text-sm text-slate-600">Gerando relatÃ³rio...</p>}
                     {relatorioEncerramentoQuery.error && (
-                        <p className="mt-4 text-sm text-rose-700">Falha ao gerar relatório detalhado.</p>
+                        <p className="mt-4 text-sm text-rose-700">Falha ao gerar relatÃ³rio detalhado.</p>
                     )}
 
                     {!relatorioEncerramentoQuery.isLoading && !relatorioEncerramentoQuery.error && relatorioEncerramentoQuery.data && (
@@ -1657,19 +1657,19 @@ export default function InventoryAdminPanel() {
                             <div className="grid gap-3 md:grid-cols-4">
                                 <CardKpi k="Contagens" v={relatorioEncerramentoQuery.data.resumo?.totalContagens} />
                                 <CardKpi k="Conformes" v={relatorioEncerramentoQuery.data.resumo?.conformes} />
-                                <CardKpi k="Divergências" v={relatorioEncerramentoQuery.data.resumo?.totalDivergencias} />
-                                <CardKpi k="Pend. Regularização" v={relatorioEncerramentoQuery.data.resumo?.regularizacoesPendentes} />
+                                <CardKpi k="DivergÃªncias" v={relatorioEncerramentoQuery.data.resumo?.totalDivergencias} />
+                                <CardKpi k="Pend. RegularizaÃ§Ã£o" v={relatorioEncerramentoQuery.data.resumo?.regularizacoesPendentes} />
                             </div>
 
                             <div className="grid gap-3 lg:grid-cols-3">
                                 <DonutCard
-                                    title="Bens fora da Sala/Unidade"
+                                    title="Bens fora do Endereço/Unidade"
                                     subtitle={`Conformidade geral: ${conformidadePct}%`}
                                     total={totalDivergencias}
                                     items={divergenciaTipoData}
                                 />
                                 <StackedBarCard
-                                    title="Regularização pós-inventário"
+                                    title="RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio"
                                     subtitle="Pendentes x regularizadas"
                                     total={totalDivergencias}
                                     items={regularizacaoData}
@@ -1678,16 +1678,16 @@ export default function InventoryAdminPanel() {
                             </div>
 
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-500">Divergências por tipo</p>
+                                <p className="text-xs uppercase tracking-widest text-slate-500">DivergÃªncias por tipo</p>
                                 <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
                                     <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Unidade: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidade || 0}</strong></p>
-                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasSala || 0}</strong></p>
-                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Unidade + Sala: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidadeESala || 0}</strong></p>
+                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Endereço: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasSala || 0}</strong></p>
+                                    <p className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">Unidade + Endereço: <strong>{relatorioEncerramentoQuery.data.resumo?.divergenciasUnidadeESala || 0}</strong></p>
                                 </div>
                             </div>
 
                             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-xs uppercase tracking-widest text-slate-500">Divergências registradas</p>
+                                <p className="text-xs uppercase tracking-widest text-slate-500">DivergÃªncias registradas</p>
                                 <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
                                     <label className="inline-flex items-center gap-2">
                                         <input
@@ -1705,25 +1705,25 @@ export default function InventoryAdminPanel() {
                                             onChange={(e) => setShowCatalogPhotoRelatorio(e.target.checked)}
                                             className="h-4 w-4 accent-violet-600"
                                         />
-                                        Foto do catálogo
+                                        Foto do catÃ¡logo
                                     </label>
                                 </div>
                                 {(relatorioEncerramentoQuery.data.divergencias || []).length === 0 ? (
-                                    <p className="mt-2 text-sm text-slate-600">Nenhuma divergência registrada neste evento.</p>
+                                    <p className="mt-2 text-sm text-slate-600">Nenhuma divergÃªncia registrada neste evento.</p>
                                 ) : (
                                     <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                                         <table className="min-w-full text-left text-xs">
                                             <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                                                 <tr>
                                                     <th className="px-2 py-2">Tombo</th>
-                                                    <th className="px-2 py-2">Catálogo</th>
-                                                    <th className="px-2 py-2">Descrição / Resumo</th>
+                                                    <th className="px-2 py-2">CatÃ¡logo</th>
+                                                    <th className="px-2 py-2">DescriÃ§Ã£o / Resumo</th>
                                                     <th className="px-2 py-2">Tipo</th>
                                                     <th className="px-2 py-2">Unid. Dona</th>
                                                     <th className="px-2 py-2">Unid. Encontrada</th>
                                                     <th className="px-2 py-2">Esperado</th>
                                                     <th className="px-2 py-2">Encontrado</th>
-                                                    <th className="px-2 py-2">Regularização</th>
+                                                    <th className="px-2 py-2">RegularizaÃ§Ã£o</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-200">
@@ -1749,7 +1749,7 @@ export default function InventoryAdminPanel() {
                                                                     )}
                                                                     {showCatalogPhotoRelatorio && getFotoUrl(d.fotoReferenciaUrl || "") && (
                                                                         <a href={getFotoUrl(d.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
-                                                                            Foto catálogo
+                                                                            Foto catÃ¡logo
                                                                         </a>
                                                                     )}
                                                                 </div>
@@ -1938,9 +1938,9 @@ function TopRoomsCard({ rows }) {
     const maxDiv = Math.max(1, ...list.map((r) => Number(r?.divergencias || 0)));
     return (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-500">Top salas com divergencias</p>
+            <p className="text-xs uppercase tracking-widest text-slate-500">Top endereços com divergencias</p>
             {!list.length ? (
-                <p className="mt-3 text-sm text-slate-500">Sem divergencias por sala.</p>
+                <p className="mt-3 text-sm text-slate-500">Sem divergencias por endereço.</p>
             ) : (
                 <div className="mt-3 space-y-2">
                     {list.map((r) => {
@@ -1963,6 +1963,9 @@ function TopRoomsCard({ rows }) {
         </div>
     );
 }
+
+
+
 
 
 

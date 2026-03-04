@@ -1,7 +1,7 @@
 ﻿/**
  * Modulo: frontend/components
  * Arquivo: MovimentacoesPanel.jsx
- * Funcao no sistema: executar movimentacoes patrimoniais (transferencia/cautela) e regularizacao em lote por sala.
+ * Funcao no sistema: executar movimentacoes patrimoniais (transferencia/cautela) e regularizacao em lote por endereço.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -11,6 +11,7 @@ import {
   buscarPerfisDetentor,
   listarBens,
   listarLocais,
+  listarTransferenciasPendentesRegularizacao,
   movimentarBemLote,
   getEstatisticasLocais,
   resetLocais,
@@ -124,6 +125,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
   const showCadastroSala = section === "cadastro-sala";
 
   const [movState, setMovState] = useState({ loading: false, response: null, error: null });
+  const [movImportState, setMovImportState] = useState({ loading: false, info: null, error: null });
   const [movQueueInput, setMovQueueInput] = useState("");
   const [movQueueItems, setMovQueueItems] = useState([]);
   const [movShowScanner, setMovShowScanner] = useState(false);
@@ -217,7 +219,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       return "Transferencia muda carga (Arts. 124 e 127). Requer unidade destino e termo.";
     }
     if (movPayload.tipoMovimentacao === "CAUTELA_SAIDA") {
-      return "Cautela não muda carga. Requer detentor temporario e local (Sala destino ou Externo); data prevista de devolucao e opcional. Ao registrar cautela, o responsavel patrimonial passa a ser o detentor.";
+      return "Cautela não muda carga. Requer detentor temporario e local (Endereço destino ou Externo); data prevista de devolucao e opcional. Ao registrar cautela, o responsavel patrimonial passa a ser o detentor.";
     }
     return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional). Ao confirmar, o sistema pergunta se deve manter o mesmo responsavel patrimonial.";
   }, [movPayload.tipoMovimentacao]);
@@ -369,7 +371,12 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
   const upsertMovQueueItem = (item) => {
     setMovQueueItems((prev) => {
-      const idx = prev.findIndex((x) => String(x.bemId || "") === String(item.bemId || ""));
+      const idx = prev.findIndex((x) => {
+        const keyA = String(x.origemRegularizacaoContagemId || "");
+        const keyB = String(item.origemRegularizacaoContagemId || "");
+        if (keyA && keyB) return keyA === keyB;
+        return String(x.bemId || "") === String(item.bemId || "");
+      });
       if (idx < 0) return [item, ...prev];
       const updated = [...prev];
       updated[idx] = { ...updated[idx], ...item, repeticoes: Number(updated[idx].repeticoes || 1) + 1 };
@@ -377,9 +384,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     });
   };
 
-  const removeMovQueueItem = (bemId, numeroTombamento) => {
+  const removeMovQueueItem = (bemId, numeroTombamento, origemRegularizacaoContagemId) => {
     setMovQueueItems((prev) =>
-      prev.filter((row) => String(row.bemId || "") !== String(bemId || "") && String(row.numeroTombamento || "") !== String(numeroTombamento || "")));
+      prev.filter((row) => {
+        if (origemRegularizacaoContagemId && row.origemRegularizacaoContagemId) {
+          return String(row.origemRegularizacaoContagemId) !== String(origemRegularizacaoContagemId);
+        }
+        return String(row.bemId || "") !== String(bemId || "") && String(row.numeroTombamento || "") !== String(numeroTombamento || "");
+      }));
   };
 
   const clearMovQueueComConfirmacao = () => {
@@ -475,6 +487,56 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     }
   };
 
+  const onImportarPendenciasRegularizacao = async () => {
+    if (movPayload.tipoMovimentacao !== "TRANSFERENCIA") {
+      setMovImportState({
+        loading: false,
+        info: null,
+        error: "A importacao de pendencias da regularizacao exige tipo TRANSFERENCIA.",
+      });
+      return;
+    }
+    setMovImportState({ loading: true, info: null, error: null });
+    try {
+      const data = await listarTransferenciasPendentesRegularizacao({
+        status: "ENCAMINHADA",
+        limit: 500,
+        offset: 0,
+      });
+      const items = Array.isArray(data?.items) ? data.items : [];
+      let added = 0;
+      for (const row of items) {
+        const bemId = row?.bemId ? String(row.bemId) : "";
+        const contagemId = row?.contagemId ? String(row.contagemId) : "";
+        if (!bemId || !contagemId) continue;
+        upsertMovQueueItem({
+          bemId,
+          origemRegularizacaoContagemId: contagemId,
+          numeroTombamento: row?.numeroTombamento || "",
+          descricao: row?.nomeResumo || row?.salaEncontrada || "Divergencia de inventario",
+          unidadeDonaId: row?.unidadeDonaId || null,
+          statusAtual: "PENDENTE_REGULARIZACAO",
+          repeticoes: 1,
+          erro: null,
+        });
+        added += 1;
+      }
+      setMovImportState({
+        loading: false,
+        info: added
+          ? `${added} item(ns) importado(s) da fila de regularizacao.`
+          : "Nenhuma pendencia de regularizacao encontrada para importar.",
+        error: null,
+      });
+    } catch (error) {
+      setMovImportState({
+        loading: false,
+        info: null,
+        error: formatApiError(error),
+      });
+    }
+  };
+
   const handleMovQueueKeyDown = (event) => {
     const key = String(event.key || "");
     const lower = key.toLowerCase();
@@ -515,7 +577,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         setMovState({
           loading: false,
           response: null,
-          error: "Para CAUTELA_SAIDA, informe a Sala destino ou marque a opcao Externo.",
+          error: "Para CAUTELA_SAIDA, informe o Endereço de destino ou marque a opcao Externo.",
         });
         return;
       }
@@ -543,6 +605,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         itens: movQueueItems.map((row) => ({
           bemId: row.bemId || undefined,
           numeroTombamento: row.numeroTombamento || undefined,
+          origemRegularizacaoContagemId: row.origemRegularizacaoContagemId || undefined,
         })),
       };
       const data = await movimentarBemLote(payload);
@@ -709,7 +772,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       return;
     }
     if (!selectedLocal) {
-      failScanInput("Selecione primeiro a sala/local de destino.");
+      failScanInput("Selecione primeiro o endereço de destino.");
       return;
     }
     setLoteState((prev) => ({ ...prev, loading: true, error: null, info: null }));
@@ -733,8 +796,8 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
         manterOutraUnidade = window.confirm(
           `Divergencia de unidade detectada para o tombo ${tombo}.\n` +
           `Unidade de carga do bem: ${unidadeBem}\n` +
-          `Unidade da sala escolhida: ${unidadeSala}\n\n` +
-          "Deseja manter este item de outra unidade na sala escolhida?",
+          `Unidade do endereço escolhido: ${unidadeSala}\n\n` +
+          "Deseja manter este item de outra unidade no endereço escolhido?",
         );
       }
 
@@ -790,11 +853,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
   const onSalvarLote = async () => {
     if (!canExecuteOperacional && !canRequestOperacional) {
-      setLoteState({ loading: false, response: null, error: "Voce não tem permissao para alterar localizacao por sala.", info: null });
+      setLoteState({ loading: false, response: null, error: "Voce não tem permissao para alterar localizacao por endereço.", info: null });
       return;
     }
     if (!selectedLocal) {
-      setLoteState({ loading: false, response: null, error: "Selecione a sala/local de destino.", info: null });
+      setLoteState({ loading: false, response: null, error: "Selecione o endereço de destino.", info: null });
       return;
     }
     if (!loteItens.length) {
@@ -820,7 +883,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     const divergentes = elegiveis.filter((x) => x.divergenciaUnidade);
     if (divergentes.length) {
       const ok = window.confirm(
-        `Voce esta prestes a manter ${divergentes.length} item(ns) de outra unidade na sala selecionada.\n` +
+        `Voce esta prestes a manter ${divergentes.length} item(ns) de outra unidade no endereço selecionado.\n` +
         "Deseja continuar?",
       );
       if (!ok) return;
@@ -871,11 +934,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     <section className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">
-          {showCadastroSala ? "Cadastrar bens por sala" : "Movimentações"}
+          {showCadastroSala ? "Cadastrar bens por Endereço" : "Movimentações"}
         </h2>
         <p className="mt-2 text-sm text-slate-600">
           {showCadastroSala
-            ? "Regularizacao em lote por sala, com leitura por scanner/camera e confirmacao de divergencias."
+            ? "Regularizacao em lote por endereço, com leitura por scanner/camera e confirmacao de divergencias."
             : helperText}
         </p>
       </header>
@@ -954,6 +1017,15 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                 </button>
                 <button
                   type="button"
+                  onClick={onImportarPendenciasRegularizacao}
+                  className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                  disabled={movState.loading || movImportState.loading || movPayload.tipoMovimentacao !== "TRANSFERENCIA"}
+                  title={movPayload.tipoMovimentacao === "TRANSFERENCIA" ? "Importa fila de transferencias encaminhadas pela regularizacao" : "Disponivel apenas para TRANSFERENCIA"}
+                >
+                  {movImportState.loading ? "Importando..." : "Importar pendências da Regularização"}
+                </button>
+                <button
+                  type="button"
                   onClick={clearMovQueueComConfirmacao}
                   className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
                   disabled={movState.loading || !movQueueItems.length}
@@ -964,10 +1036,13 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
               <p className="text-xs text-slate-600">
                 Total na fila: <strong>{movQueueItems.length}</strong> item(ns).
               </p>
+              {movImportState.error ? <p className="text-xs text-rose-700">{movImportState.error}</p> : null}
+              {movImportState.info ? <p className="text-xs text-emerald-700">{movImportState.info}</p> : null}
               <div className="max-h-44 overflow-auto rounded-lg border border-slate-200">
                 <table className="min-w-full text-xs">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
+                      <th className="px-3 py-2 text-left font-medium">Origem</th>
                       <th className="px-3 py-2 text-left font-medium">Tombamento</th>
                       <th className="px-3 py-2 text-left font-medium">Descricao</th>
                       <th className="px-3 py-2 text-left font-medium">Unid.</th>
@@ -976,14 +1051,17 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {movQueueItems.map((row) => (
-                      <tr key={`${row.bemId || row.numeroTombamento}`}>
+                      <tr key={`${row.origemRegularizacaoContagemId || row.bemId || row.numeroTombamento}`}>
+                        <td className="px-3 py-2 text-slate-700">
+                          {row.origemRegularizacaoContagemId ? "Regularização" : "Manual"}
+                        </td>
                         <td className="px-3 py-2 font-mono text-slate-800">{row.numeroTombamento || "-"}</td>
                         <td className="px-3 py-2 text-slate-700">{row.descricao || "-"}</td>
                         <td className="px-3 py-2 text-slate-700">{row.unidadeDonaId || "-"}</td>
                         <td className="px-3 py-2">
                           <button
                             type="button"
-                            onClick={() => removeMovQueueItem(row.bemId, row.numeroTombamento)}
+                            onClick={() => removeMovQueueItem(row.bemId, row.numeroTombamento, row.origemRegularizacaoContagemId)}
                             className="rounded border border-slate-300 px-2 py-1 text-[11px] hover:bg-slate-100"
                             disabled={movState.loading}
                           >
@@ -994,7 +1072,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                     ))}
                     {!movQueueItems.length ? (
                       <tr>
-                        <td colSpan={4} className="px-3 py-3 text-center text-slate-500">
+                        <td colSpan={5} className="px-3 py-3 text-center text-slate-500">
                           Nenhum item na fila.
                         </td>
                       </tr>
@@ -1101,11 +1179,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
             {movPayload.tipoMovimentacao === "CAUTELA_SAIDA" ? (
               <div className="space-y-1">
-                <span className="text-xs text-slate-600">Sala destino da cautela</span>
+                <span className="text-xs text-slate-600">Endereço destino da cautela</span>
                 <input
                   value={movPayload.cautelaSalaDestino}
                   onChange={(event) => setMovField("cautelaSalaDestino", event.target.value)}
-                  placeholder="Ex.: Gabinete 2A, Sala 305, Arquivo"
+                  placeholder="Ex.: Gabinete 2A, Endereço 305, Arquivo"
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={movState.loading || movPayload.cautelaExterno}
                 />
@@ -1124,7 +1202,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   Externo (bem saiu do predio com o detentor)
                 </label>
                 <p className="text-xs text-slate-600">
-                  Obrigatorio informar Sala destino ou marcar Externo.
+                  Obrigatorio informar Endereço destino ou marcar Externo.
                 </p>
               </div>
             ) : null}
@@ -1203,10 +1281,10 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
       {showCadastroSala ? (
         <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="font-semibold">Cadastrar bens por sala (regularizacao em lote)</h3>
+          <h3 className="font-semibold">Cadastrar bens por Endereço (regularizacao em lote)</h3>
           <p className="mt-1 text-xs text-slate-600">
-            Selecione unidade e sala de destino, bipa os itens encontrados (teclado/scanner/camera) e salve em lote.
-            Em divergencia de unidade, o sistema pergunta se deseja manter o item na sala escolhida.
+            Selecione unidade e endereço de destino, bipa os itens encontrados (teclado/scanner/camera) e salve em lote.
+            Em divergencia de unidade, o sistema pergunta se deseja manter o item no endereço escolhido.
           </p>
 
           {!canAdmin ? (
@@ -1229,7 +1307,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                         Progresso de Cadastro {unidadeSalaId ? `(Unidade ${unidadeSalaId})` : "(Geral)"}
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Bens com local atualizado vs. pendentes de sala
+                        Bens com local atualizado vs. pendentes de endereço
                       </p>
                     </div>
                     <div className="text-right">
@@ -1352,21 +1430,21 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           >
                             <option value="todas">Todas as unidades</option>
                             <option value="unidade">Somente uma unidade</option>
-                            <option value="salas">Salas selecionadas (uma ou várias)</option>
+                            <option value="salas">Endereços selecionados (um ou vários)</option>
                           </select>
                           <p className="mt-1 text-xs text-slate-500">
                             {resetModal.escopo === "todas"
-                              ? "Isso vai remover a sala de todos os bens de todas as unidades."
+                              ? "Isso vai remover o endereço de todos os bens de todas as unidades."
                               : resetModal.escopo === "unidade"
-                                ? "Isso vai remover a sala de todos os bens da unidade selecionada."
-                                : "Isso vai remover a sala apenas dos bens vinculados às salas selecionadas."}
+                                ? "Isso vai remover o endereço de todos os bens da unidade selecionada."
+                                : "Isso vai remover o endereço apenas dos bens vinculados aos endereços selecionados."}
                           </p>
                         </div>
 
                         {(resetModal.escopo === "unidade" || resetModal.escopo === "salas") ? (
                           <div>
                             <label className="mb-1 block text-xs font-medium text-slate-600">
-                              {resetModal.escopo === "unidade" ? "Unidade" : "Filtrar salas por unidade (opcional)"}
+                              {resetModal.escopo === "unidade" ? "Unidade" : "Filtrar endereços por unidade (opcional)"}
                             </label>
                             <select
                               value={resetModal.unidadeId}
@@ -1409,11 +1487,11 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                                 );
                               })}
                               {!resetLocaisOptions.length ? (
-                                <p className="py-2 text-xs text-slate-500">Nenhuma sala encontrada para o filtro atual.</p>
+                                <p className="py-2 text-xs text-slate-500">Nenhum endereço encontrado para o filtro atual.</p>
                               ) : null}
                             </div>
                             <p className="text-xs text-slate-600">
-                              Salas selecionadas: <strong>{Array.isArray(resetModal.localIds) ? resetModal.localIds.length : 0}</strong>
+                              Endereços selecionados: <strong>{Array.isArray(resetModal.localIds) ? resetModal.localIds.length : 0}</strong>
                             </p>
                           </div>
                         ) : null}
@@ -1472,7 +1550,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                                 return;
                               }
                               if (resetModal.escopo === "salas" && !(Array.isArray(resetModal.localIds) && resetModal.localIds.length)) {
-                                setResetModal((s) => ({ ...s, erroReset: "Selecione ao menos uma sala para resetar." }));
+                                setResetModal((s) => ({ ...s, erroReset: "Selecione ao menos um endereço para resetar." }));
                                 return;
                               }
                               setResetModal((s) => ({ ...s, loading: true, erroReset: null }));
@@ -1529,7 +1607,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                           : "text-slate-500 hover:bg-slate-50"
                           }`}
                       >
-                        {tab === "sem_local" ? "Pendentes (sem sala)" : "Concluídos (com sala)"}
+                        {tab === "sem_local" ? "Pendentes (sem endereço)" : "Concluídos (com endereço)"}
                         {bensLoc.data && bensLoc.tabAtiva === tab ? ` · ${bensLoc.data.total}` : ""}
                       </button>
                     ))}
@@ -1538,7 +1616,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                       onClick={() => setBensLoc({ loading: false, data: null, error: null, tabAtiva: "sem_local", offset: 0 })}
                       className="px-3 text-slate-400 hover:text-slate-700"
                       title="Fechar"
-                    >✕</button>
+                    >?</button>
                   </div>
 
                   {bensLoc.loading && (
@@ -1556,7 +1634,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                               <th className="px-3 py-2 text-left font-medium">Tombamento</th>
                               <th className="px-3 py-2 text-left font-medium">Nome</th>
                               <th className="px-3 py-2 text-center font-medium">Unid.</th>
-                              <th className="px-3 py-2 text-left font-medium">Sala</th>
+                              <th className="px-3 py-2 text-left font-medium">Endereço</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -1599,7 +1677,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                               }
                             }}
                             className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-40"
-                          >← Anterior</button>
+                          >? Anterior</button>
                           <button
                             type="button"
                             disabled={bensLoc.data.offset + bensLoc.data.limit >= bensLoc.data.total}
@@ -1619,7 +1697,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                               }
                             }}
                             className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-40"
-                          >Próxima →</button>
+                          >Próxima ?</button>
                         </div>
                       </div>
                     </>
@@ -1629,7 +1707,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Unidade da sala</span>
+                  <span className="text-xs text-slate-600">Unidade do endereço</span>
                   <select
                     value={unidadeSalaId}
                     onChange={(e) => {
@@ -1647,7 +1725,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   </select>
                 </label>
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Sala/Local de destino</span>
+                  <span className="text-xs text-slate-600">Endereço de destino</span>
                   <select
                     value={localSalaId}
                     onChange={(e) => setLocalSalaId(e.target.value)}
@@ -1708,7 +1786,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                   disabled={loteState.loading || !loteItens.length || !selectedLocal}
                 >
-                  {loteState.loading ? "Salvando..." : "Salvar lote na sala"}
+                  {loteState.loading ? "Salvando..." : "Salvar lote no endereço"}
                 </button>
                 <button
                   type="button"
@@ -1728,7 +1806,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                     onChange={(e) => setJustificativaSolicitante(e.target.value)}
                     rows={2}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                    placeholder="Descreva por que a alteracao de sala/local e necessaria."
+                    placeholder="Descreva por que a alteracao de endereço e necessaria."
                     disabled={loteState.loading}
                   />
                 </label>
@@ -1958,4 +2036,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     </section>
   );
 }
+
+
+
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Modulo: frontend
  * Arquivo: App.jsx
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
@@ -33,18 +33,18 @@ const NAV_STRUCTURE = [
   {
     type: "group",
     id: "operacoes",
-    label: "Operações Patrimoniais",
+    label: "OperaÃ§Ãµes Patrimoniais",
     items: [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
-      { id: "movimentacoes", label: "Movimentações", short: "Mov." },
-      { id: "operacoes-cadastro-sala", label: "Cadastrar Bens por Sala", short: "Sala" },
-      { id: "inventario-contagem", label: "Inventário - Contagem", short: "Contagem" },
-      { id: "inventario-admin", label: "Inventário - Administração", short: "Inv. Admin" },
+      { id: "movimentacoes", label: "MovimentaÃ§Ãµes", short: "Mov." },
+      { id: "operacoes-cadastro-sala", label: "Cadastrar bens por Endereço", short: "Endereço" },
+      { id: "inventario-contagem", label: "InventÃ¡rio - Contagem", short: "Contagem" },
+      { id: "inventario-admin", label: "InventÃ¡rio - AdministraÃ§Ã£o", short: "Inv. Admin" },
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
-      { id: "classificacoes-siafi", label: "Classificação SIAFI", short: "SIAFI" },
-      { id: "normas", label: "Gestão de Normas", short: "Normas" },
-      { id: "importacoes-geafin", label: "Importação GEAFIN (CSV Latin1)", short: "GEAFIN" },
+      { id: "classificacoes-siafi", label: "ClassificaÃ§Ã£o SIAFI", short: "SIAFI" },
+      { id: "normas", label: "GestÃ£o de Normas", short: "Normas" },
+      { id: "importacoes-geafin", label: "ImportaÃ§Ã£o GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
   },
   {
@@ -52,21 +52,21 @@ const NAV_STRUCTURE = [
     id: "auditoria",
     label: "Auditoria e Logs",
     items: [
-      { id: "auditoria-changelog", label: "Log Geral de Alterações", short: "Log Geral" },
-      { id: "auditoria-patrimonio", label: "Auditoria Patrimonial (Global)", short: "Patrimônio" },
+      { id: "auditoria-changelog", label: "Log Geral de AlteraÃ§Ãµes", short: "Log Geral" },
+      { id: "auditoria-patrimonio", label: "Auditoria Patrimonial (Global)", short: "PatrimÃ´nio" },
       { id: "auditoria-erros", label: "Log de Erros Runtime", short: "Erros" },
     ],
   },
   {
     type: "group",
     id: "admin",
-    label: "Administração do Painel",
+    label: "AdministraÃ§Ã£o do Painel",
     items: [
-      { id: "admin-locais", label: "Locais (salas) cadastrados", short: "Locais" },
+      { id: "admin-locais", label: "Locais (endereços) cadastrados", short: "Locais" },
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
       { id: "admin-perfis", label: "Perfis e Acessos", short: "Perfis" },
-      { id: "admin-aprovacoes", label: "Aprovações Pendentes", short: "Aprov." },
+      { id: "admin-aprovacoes", label: "AprovaÃ§Ãµes Pendentes", short: "Aprov." },
     ],
   },
   { type: "item", item: { id: "wiki", label: "Wiki / Manual", short: "Wiki" } },
@@ -243,7 +243,7 @@ class SectionErrorBoundary extends Component {
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
-      errorMessage: String(error?.message || "Erro interno na renderizacao desta seção."),
+      errorMessage: String(error?.message || "Erro interno na renderizacao desta seÃ§Ã£o."),
     };
   }
 
@@ -259,7 +259,7 @@ class SectionErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div className="space-y-3 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-rose-800">
-          <p>Falha ao renderizar esta seção.</p>
+          <p>Falha ao renderizar esta seÃ§Ã£o.</p>
           {this.state.errorMessage ? (
             <p className="break-words text-xs text-rose-700">Detalhe tecnico: {this.state.errorMessage}</p>
           ) : null}
@@ -348,14 +348,14 @@ function AppShell() {
     if (inventoryStatus === "EM_ANDAMENTO") {
       const n = activeEvents.length;
       if (n > 1) {
-        return `Inventário ativo em ${n} eventos (por unidade): transferências ficam bloqueadas no escopo do Art. 183 (AN303_Art183).`;
+        return `InventÃ¡rio ativo em ${n} eventos (por unidade): transferÃªncias ficam bloqueadas no escopo do Art. 183 (AN303_Art183).`;
       }
-      return "Inventário ativo: movimentações de transferência ficam bloqueadas pelo Art. 183 (AN303_Art183).";
+      return "InventÃ¡rio ativo: movimentaÃ§Ãµes de transferÃªncia ficam bloqueadas pelo Art. 183 (AN303_Art183).";
     }
     if (inventoryStatus === "CARREGANDO") {
       return "Consultando status do inventario no banco...";
     }
-    return "Sem evento ativo: transferências e regularizações podem ser executadas.";
+    return "Sem evento ativo: transferÃªncias e regularizaÃ§Ãµes podem ser executadas.";
   }, [inventoryStatus, activeEvents.length]);
 
   const toggleNavGroup = (groupId) =>
@@ -494,7 +494,7 @@ function AppShell() {
       const data = await listarBens({ numeroTombamento: tombo, limit: 1, offset: 0 });
       const it = (data.items || [])[0] || null;
       if (!it) {
-        setWizardPersistErr("Bem não encontrado para este tombamento.");
+        setWizardPersistErr("Bem nÃ£o encontrado para este tombamento.");
         return;
       }
       setWizardBem(it);
@@ -509,7 +509,7 @@ function AppShell() {
         <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
           <div className="border-b border-slate-200 px-5 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">2a CJM</p>
-            <h1 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Patrimônio</h1>
+            <h1 className="mt-2 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">PatrimÃ´nio</h1>
           </div>
 
           <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
@@ -595,7 +595,7 @@ function AppShell() {
           <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 md:px-8">
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Status Inventário</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Status InventÃ¡rio</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
                     {inventoryStatus}
@@ -982,4 +982,7 @@ export default function App() {
 
   return <AppShell />;
 }
+
+
+
 

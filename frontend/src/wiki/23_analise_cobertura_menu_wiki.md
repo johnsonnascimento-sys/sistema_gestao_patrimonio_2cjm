@@ -19,8 +19,8 @@ Funcao no sistema: registrar analise faseada de cobertura entre menu real da apl
 | Raiz | Dashboard | `DashboardPanel` | `19_dashboard.md` | OK |
 | Opera?es Patrimoniais | Consulta de Bens | `AssetsExplorer` | `03_consulta_bens.md` | OK |
 | Opera?es Patrimoniais | Movimenta?es | `Movimenta?esPanel` (`section=movimenta?es`) | `05_movimenta?es.md` | OK |
-| Opera?es Patrimoniais | Cadastrar Bens por Sala | `Movimenta?esPanel` (`section=cadastro-sala`) | `05_movimenta?es.md` + `06_inventario_sala_a_sala.md` | OK |
-| Opera?es Patrimoniais | Invent?rio - Contagem | `InventoryRoomPanel` | `06_inventario_sala_a_sala.md` | OK |
+| Opera?es Patrimoniais | Cadastrar Bens por endereço | `Movimenta?esPanel` (`section=cadastro-endereço`) | `05_movimenta?es.md` + `06_inventario_endereço_a_endereço.md` | OK |
+| Opera?es Patrimoniais | Invent?rio - Contagem | `InventoryRoomPanel` | `06_inventario_endereço_a_endereço.md` | OK |
 | Opera?es Patrimoniais | Invent?rio - Administra?o | `InventoryAdminPanel` | `22_inventario_administra?o.md` | OK |
 | Opera?es Patrimoniais | Wizard Art. 141 | Painel do wizard em `App.jsx` + `ClassificationWizard` | `08_wizard_art141.md` | OK |
 | Opera?es Patrimoniais | Material (SKU) | `Cat?logoAdminPanel` | `20_material_sku.md` | OK |
@@ -29,7 +29,7 @@ Funcao no sistema: registrar analise faseada de cobertura entre menu real da apl
 | Auditoria e Logs | Log Geral de Altera?es | `AuditoriaLogsPanel` (`auditoria-changelog`) | `09_relatorios_auditoria.md` | OK |
 | Auditoria e Logs | Auditoria Patrimonial (Global) | `AuditoriaLogsPanel` (`auditoria-patrimonio`) | `09_relatorios_auditoria.md` | OK |
 | Auditoria e Logs | Log de Erros Runtime | `AuditoriaLogsPanel` (`auditoria-erros`) | `09_relatorios_auditoria.md` + `10_solucao_problemas.md` | OK |
-| Administra?o do Painel | Locais (salas) cadastrados | `OperationsPanel` (`admin-locais`) | `14_admin_opera?o_vps.md` + `06_inventario_sala_a_sala.md` | OK |
+| Administra?o do Painel | Locais (endereços) cadastrados | `OperationsPanel` (`admin-locais`) | `14_admin_opera?o_vps.md` + `06_inventario_endereço_a_endereço.md` | OK |
 | Administra?o do Painel | Backup e Restore | `OperationsPanel` (`admin-backup`) | `14_admin_opera?o_vps.md` | OK |
 | Administra?o do Painel | Conectividade Backend | `OperationsPanel` (`admin-health`) | `14_admin_opera?o_vps.md` + `10_solucao_problemas.md` | OK |
 | Administra?o do Painel | Perfis e Acessos | `OperationsPanel` (`admin-perfis`) | `02_perfis_acesso.md` | OK |
@@ -44,8 +44,8 @@ Funcao no sistema: registrar analise faseada de cobertura entre menu real da apl
 | `02_perfis_acesso.md` | fluxo de perfis, login e papeis | Administra?o do Painel -> Perfis e Acessos |
 | `03_consulta_bens.md` | opera?o da consulta e modal de detalhes | Opera?es Patrimoniais -> Consulta de Bens |
 | `04_importa?o_geafin.md` | importa?o GEAFIN por sessao | Opera?es Patrimoniais -> Importa?o GEAFIN |
-| `05_movimenta?es.md` | transferencia, cautela e cadastro por sala | Opera?es Patrimoniais -> Movimenta?es / Cadastrar Bens por Sala |
-| `06_inventario_sala_a_sala.md` | contagem operacional e progresso por sala | Opera?es Patrimoniais -> Invent?rio - Contagem |
+| `05_movimenta?es.md` | transferencia, cautela e cadastro por endereço | Opera?es Patrimoniais -> Movimenta?es / Cadastrar Bens por endereço |
+| `06_inventario_endereço_a_endereço.md` | contagem operacional e progresso por endereço | Opera?es Patrimoniais -> Invent?rio - Contagem |
 | `07_intrusos_bens_de_terceiros.md` | conceito de intruso, terceiro e sem placa | Invent?rio - Contagem / Invent?rio - Administra?o |
 | `08_wizard_art141.md` | classifica?o de inserviveis Art. 141 | Opera?es Patrimoniais -> Wizard Art. 141 |
 | `09_relatorios_auditoria.md` | trilhas de auditoria e logs | Auditoria e Logs |
@@ -88,3 +88,4 @@ Atualiza?es aplicadas neste ciclo:
   - `05_movimenta?es.md`
   - `10_solucao_problemas.md`
   - `15_referencia_api.md`
+

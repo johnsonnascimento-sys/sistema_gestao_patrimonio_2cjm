@@ -1,101 +1,74 @@
-<!--
-Módulo: wiki
+﻿<!--
+MÃ³dulo: wiki
 Arquivo: frontend/src/wiki/17_regularizacao_pos_inventario.md
-Função no sistema: explicar o fluxo de regularização pós-inventário e o tratamento de divergências.
+FunÃ§Ã£o no sistema: explicar o fluxo oficial de regularizaÃ§Ã£o pÃ³s-inventÃ¡rio sem transferÃªncia direta.
 -->
 
-# Regularização pós-inventário
+# RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio
 
-## 1) O que é regularização
+## 1) Regra operacional oficial
 
-Durante o inventário, o sistema registra fatos de localização e unidade encontrada.
+A tela **RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio (DivergÃªncias)** nÃ£o executa transferÃªncia direta de carga.
 
-Quando há divergência, a ocorrência fica pendente para tratamento posterior, em aderência ao:
+Quando houver necessidade de transferÃªncia entre unidades:
 
-- Art. 185 (AN303_Art185).
+- a aÃ§Ã£o correta Ã© **Encaminhar transferÃªncia formal**;
+- a execuÃ§Ã£o ocorre no menu **MovimentaÃ§Ãµes**;
+- a divergÃªncia fica **pendente** atÃ© o procedimento formal ser concluÃ­do.
 
-Regularização é o processo pós-inventário para encerrar pendências com trilha auditável.
+Base legal:
 
-## 2) Por que não regularizar durante o inventário
+- Art. 185 (AN303_Art185);
+- Art. 124 (AN303_Art124);
+- Art. 127 (AN303_Art127).
 
-Com inventário `EM_ANDAMENTO`, mudança de carga fica bloqueada:
+## 2) AÃ§Ãµes em lote na regularizaÃ§Ã£o
 
-- Art. 183 (AN303_Art183).
+A tela permite seleÃ§Ã£o mÃºltipla (checkbox) para processar vÃ¡rios bens de uma vez:
 
-Na prática:
-
-- durante contagem: registrar divergência;
-- após encerramento: regularizar formalmente.
-
-## 3) Onde fazer no sistema
-
-Caminho:
-
-- `Operações Patrimoniais -> Inventário - Administração`
-- seção: `Regularização pós-inventário (Divergências)`.
+- **Manter carga (selecionados)**: encerra pendÃªncia sem transferir unidade.
+- **endereço: manter cadastrada**: equivalente operacional de manter carga.
+- **endereço: trocar para endereço encontrada**: corrige endereço/local sem transferir unidade.
+- **Encaminhar transferÃªncia formal**: envia os itens para fila formal de transferÃªncia.
 
 Importante:
 
-- a fila operacional de regularização aparece após o evento `ENCERRADO`.
+- `ATUALIZAR_LOCAL` sÃ³ Ã© vÃ¡lido quando unidade dona = unidade encontrada.
+- bens de terceiros nÃ£o entram em transferÃªncia de carga.
 
-## 4) Ações disponíveis
+## 3) RetenÃ§Ã£o de pendÃªncia de transferÃªncia
 
-### 4.1) Manter carga
+ApÃ³s encaminhar para transferÃªncia formal, o sistema grava status de fluxo por item:
 
-Quando usar:
+- `ENCAMINHADA`
+- `AGUARDANDO_APROVACAO`
+- `ERRO`
+- `CONCLUIDA`
+- `CANCELADA`
 
-- bem pertence à unidade dona correta, mas foi encontrado em local divergente.
+Enquanto o fluxo nÃ£o estiver concluÃ­do (`CONCLUIDA`), a divergÃªncia permanece na regularizaÃ§Ã£o.
 
-Efeito:
+## 4) IntegraÃ§Ã£o com MovimentaÃ§Ãµes
 
-- encerra pendência sem transferir titularidade.
+No menu **MovimentaÃ§Ãµes**, use:
 
-### 4.2) Transferir carga
+- botÃ£o **Importar pendÃªncias da RegularizaÃ§Ã£o**.
 
-Quando usar:
+Isso carrega a fila de bens encaminhados (`ENCAMINHADA`) para executar transferÃªncia formal.
 
-- bem deve mudar unidade dona com formalização.
+Resultado esperado:
 
-Efeito:
+- transferÃªncia executada/aprovada: regularizaÃ§Ã£o Ã© concluÃ­da automaticamente;
+- falha: status do fluxo volta para `ERRO`;
+- reprovaÃ§Ã£o administrativa: status retorna para `ENCAMINHADA`.
 
-- atualiza unidade dona, gera movimentação e histórico, encerra pendência.
+## 5) SituaÃ§Ãµes de erro comuns
 
-Requisito:
+- `ACAO_EXIGE_FLUXO_MOVIMENTACOES`:
+  tentativa de usar `TRANSFERIR_CARGA` direto no endpoint de regularizaÃ§Ã£o.
+- `ATUALIZACAO_LOCAL_EXIGE_MESMA_UNIDADE`:
+  tentativa de trocar endereço em divergÃªncia de unidade.
+- `EVENTO_NAO_ENCERRADO`:
+  regularizaÃ§Ã£o sÃ³ ocorre para inventÃ¡rio `ENCERRADO`.
 
-- `termoReferencia` obrigatório.
 
-### 4.3) Corrigir sala/local (sem transferir carga)
-
-Quando usar:
-
-- unidade dona e unidade encontrada são iguais, divergindo apenas sala/local.
-
-Efeito:
-
-- atualiza localização física e encerra pendência sem alterar carga.
-
-## 5) Auditoria registrada
-
-Sempre fica registrado:
-
-- quem regularizou;
-- quando regularizou;
-- qual ação foi aplicada;
-- movimentação associada (quando houver transferência).
-
-## 6) Inventários concomitantes e divergências interunidades
-
-Em inventários paralelos por unidade:
-
-- divergências cruzadas ficam visíveis para as unidades envolvidas;
-- monitoramento ocorre em tempo real;
-- regularização permanece em fluxo formal pós-encerramento.
-
-Painel de apoio:
-
-- `Divergências interunidades (tempo real)` em `Inventário - Administração`.
-
-Observação:
-
-- painel é de leitura e priorização;
-- execução da regularização segue neste fluxo.

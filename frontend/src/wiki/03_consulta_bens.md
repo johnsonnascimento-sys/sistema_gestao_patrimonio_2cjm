@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/03_consulta_bens.md
 Funcao no sistema: orientar uso da tela "Consulta de Bens" e detalhamento.
@@ -8,24 +8,24 @@ Funcao no sistema: orientar uso da tela "Consulta de Bens" e detalhamento.
 
 ## Para que serve
 
-Esta é a tela do dia a dia para:
+Esta Ã© a tela do dia a dia para:
 
 - Encontrar um bem pelo tombamento (10 digitos).
-- Pesquisar por palavras na descrição.
-- Ver unidade (carga), local físico e status.
-- Abrir detalhes completos quando precisar auditar/entender o histórico.
+- Pesquisar por palavras na descriÃ§Ã£o.
+- Ver unidade (carga), local fÃ­sico e status.
+- Abrir detalhes completos quando precisar auditar/entender o histÃ³rico.
 
 ## Como pesquisar corretamente
 
-### 1) Tombamento (10 dígitos)
+### 1) Tombamento (10 dÃ­gitos)
 
-- Digite **somente números**, com **10 dígitos**.
+- Digite **somente nÃºmeros**, com **10 dÃ­gitos**.
 - Exemplo valido: `1290001788`
-- Exemplo inválido: `TMB-00772` (isso não é tombamento GEAFIN; é outro tipo de numeração/etiqueta)
+- Exemplo invÃ¡lido: `TMB-00772` (isso nÃ£o Ã© tombamento GEAFIN; Ã© outro tipo de numeraÃ§Ã£o/etiqueta)
 
-Se você colar algo com espaços/pontos/traços, o sistema pode limpar e manter apenas os dígitos. Se ainda assim não der 10 dígitos, vai avisar.
+Se vocÃª colar algo com espaÃ§os/pontos/traÃ§os, o sistema pode limpar e manter apenas os dÃ­gitos. Se ainda assim nÃ£o der 10 dÃ­gitos, vai avisar.
 
-### 2) Texto na descrição
+### 2) Texto na descriÃ§Ã£o
 
 Use termos de busca:
 
@@ -33,25 +33,25 @@ Use termos de busca:
 - "NOTEBOOK"
 - "ARMARIO"
 
-Recomendação: use palavras bem distintivas para reduzir resultados.
+RecomendaÃ§Ã£o: use palavras bem distintivas para reduzir resultados.
 
 ### 3) Local (texto do GEAFIN / local_fisico)
 
-Use este campo para filtrar pelo **texto** de localização que veio do GEAFIN (coluna `local_fisico`).
+Use este campo para filtrar pelo **texto** de localizaÃ§Ã£o que veio do GEAFIN (coluna `local_fisico`).
 
 Exemplos:
 
-- "Sala 101"
-- "Hall 6º Andar"
+- "endereço 101"
+- "Hall 6Âº Andar"
 - "Almox"
 
 Importante:
 
-- Este campo é **separado** da descrição do bem. Não use "descrição" para procurar local.
+- Este campo Ã© **separado** da descriÃ§Ã£o do bem. NÃ£o use "descriÃ§Ã£o" para procurar local.
 
 ### 4) Filtro por unidade
 
-Use quando você quer ver apenas itens de uma unidade (carga).
+Use quando vocÃª quer ver apenas itens de uma unidade (carga).
 
 
 ### 5) Filtro por responsavel
@@ -64,37 +64,37 @@ Use quando você quer ver apenas itens de uma unidade (carga).
 
 As colunas visiveis na lista sao um "resumo operacional". O sistema guarda mais campos no detalhe.
 
-Campos típicos no resumo:
+Campos tÃ­picos no resumo:
 
 - Tombo (tombamento)
-- Descrição (do catálogo ou descrição consolidada)
+- DescriÃ§Ã£o (do catÃ¡logo ou descriÃ§Ã£o consolidada)
 - Unidade (carga)
 - Local (local fisico)
 - Responsavel (matr?cula/nome)
 - Tombo antigo (Azul) (`cod2Aud`)
-- Cat�logo (SKU)
+- Catï¿½logo (SKU)
 - Status (OK/EM_CAUTELA/BAIXADO/AGUARDANDO_RECEBIMENTO quando aplicavel)
 
-Na grade de resultados, voc� pode habilitar:
+Na grade de resultados, vocï¿½ pode habilitar:
 
 - Foto do item
-- Foto do cat�logo
+- Foto do catï¿½logo
 
-Essas op��es ficam acima da tabela e valem para toda a listagem (n�o apenas no modal).
+Essas opï¿½ï¿½es ficam acima da tabela e valem para toda a listagem (nï¿½o apenas no modal).
 
 ## Ver mais detalhes (modal "Detalhes")
 
-Quando você clicar em **Detalhes**, o sistema abre um painel com:
+Quando vocÃª clicar em **Detalhes**, o sistema abre um painel com:
 
 - Dados completos do bem
-- Dados do catálogo (marca/modelo/descrição única)
-- Histórico de movimentações (cautela/transferência)
-- Histórico de transferências de carga (quando aplicável)
+- Dados do catÃ¡logo (marca/modelo/descriÃ§Ã£o Ãºnica)
+- HistÃ³rico de movimentaÃ§Ãµes (cautela/transferÃªncia)
+- HistÃ³rico de transferÃªncias de carga (quando aplicÃ¡vel)
 
 Use isso quando precisar:
 
 - Confirmar que um bem mudou de unidade (auditoria).
-- Entender se está em cautela e com quem.
+- Entender se estÃ¡ em cautela e com quem.
 - Checar o que aconteceu em datas anteriores.
 Quando o status do bem for `EM_CAUTELA`, o modal mostra o bloco **Cautela atual** com:
 
@@ -122,7 +122,7 @@ Modo de reversao item-a-item (ADMIN):
 No modal de detalhes, usuarios `ADMIN` podem editar os campos operacionais do bem (exceto chaves), incluindo:
 
 - Material (SKU) via busca por codigo
-- Sala/Local (padronizado) via tabela locais
+- endereço/Local (padronizado) via tabela locais
 - Responsavel patrimonial por busca de matr?cula ou nome (com dupla confirma?o na associa?o)
 - Contrato / data / valor de aquisicao
 - Observa?es (texto livre relacionado ao bem)
@@ -144,15 +144,15 @@ Importante no modal:
 No mesmo modal, o `ADMIN` pode:
 
 - **Tirar foto** na hora (celular) ou **Enviar arquivo** (galeria/computador).
-- A imagem é **automaticamente otimizada** (redimensionada para max 1200px e convertida para WebP) e salva no servidor VPS.
-- **Remover foto**: Clique no botão "Remover foto" para desvincular a imagem do bem. A alteração será efetivada ao clicar em "Salvar alterações do bem".
+- A imagem Ã© **automaticamente otimizada** (redimensionada para max 1200px e convertida para WebP) e salva no servidor VPS.
+- **Remover foto**: Clique no botÃ£o "Remover foto" para desvincular a imagem do bem. A alteraÃ§Ã£o serÃ¡ efetivada ao clicar em "Salvar alteraÃ§Ãµes do bem".
 
 OBS: O sistema armazena as fotos localmente no servidor para maior performance e privacidade.
 
 ## Dicas de uso (opera?o rapida)
 
-- Se você estiver no inventário e não encontrou um item, use a Consulta para ver "onde deveria estar" e "onde está cadastrado".
-- Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda não foi localizado/recebido fisicamente.
+- Se vocÃª estiver no inventÃ¡rio e nÃ£o encontrou um item, use a Consulta para ver "onde deveria estar" e "onde estÃ¡ cadastrado".
+- Se o bem aparecer com status `AGUARDANDO_RECEBIMENTO`, significa que veio do GEAFIN mas ainda nÃ£o foi localizado/recebido fisicamente.
 ## Leitor de codigo de barras (scanner fisico)
 
 No campo **Tombamento (10) ou Etiqueta (4)**:
@@ -162,6 +162,7 @@ No campo **Tombamento (10) ou Etiqueta (4)**:
 - Apos cada leitura, o foco volta para o mesmo campo para o proximo bip.
 
 - Observa?o: alguns leitores wireless enviam Ctrl+J; o sistema bloqueia o atalho de Downloads do navegador durante a leitura.
+
 
 
 

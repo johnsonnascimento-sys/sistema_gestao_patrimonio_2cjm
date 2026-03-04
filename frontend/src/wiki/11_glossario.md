@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/11_glossario.md
 Funcao no sistema: glossario dos termos usados nas telas e documentos.
@@ -26,7 +26,7 @@ Unidade responsavel pelo bem no cadastro (propriedade/carga patrimonial).
 
 Pessoa vinculada ao bem para indicar posse operacional no dia a dia, sem cautela ativa.
 
-## Local fisico / Sala
+## Local fisico / endereço
 
 Ambiente onde o bem esta (ou deveria estar) no predio.
 
@@ -49,3 +49,4 @@ Saida fisica formal do bem sem mudar carga, registrada em Movimenta?es (detentor
 ## Transferencia
 
 Mudanca de carga (unidade dona). Exige formaliza?o.
+

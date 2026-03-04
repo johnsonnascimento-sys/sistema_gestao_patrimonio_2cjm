@@ -1,63 +1,63 @@
-<!--
+﻿<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/09_relatorios_auditoria.md
 Funcao no sistema: orientar como extrair evidencias e entender trilhas (historicos, importa?o GEAFIN, inventario, documentos).
 Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
-# Relatórios e auditoria
+# RelatÃ³rios e auditoria
 
 ## Objetivo
 
-Este sistema foi desenhado para “aguentar auditoria”. Isso significa:
+Este sistema foi desenhado para â€œaguentar auditoriaâ€. Isso significa:
 
-- ser possível provar o que foi importado (GEAFIN),
-- ser possível provar quando e por que um bem mudou de carga,
-- ser possível listar divergências de inventário (intrusos) sem alterar carga no ato,
-- ser possível vincular evidências (Drive/PDF) às operações relevantes.
+- ser possÃ­vel provar o que foi importado (GEAFIN),
+- ser possÃ­vel provar quando e por que um bem mudou de carga,
+- ser possÃ­vel listar divergÃªncias de inventÃ¡rio (intrusos) sem alterar carga no ato,
+- ser possÃ­vel vincular evidÃªncias (Drive/PDF) Ã s operaÃ§Ãµes relevantes.
 
-## 1) Auditoria de importação GEAFIN
+## 1) Auditoria de importaÃ§Ã£o GEAFIN
 
-Evidências:
+EvidÃªncias:
 
 - registro do arquivo (nome, hash, bytes, data/hora, total de linhas, status),
-- linhas espelho (conteúdo do CSV como chegou),
-- contadores (ok/falha persistência/falha normalização).
+- linhas espelho (conteÃºdo do CSV como chegou),
+- contadores (ok/falha persistÃªncia/falha normalizaÃ§Ã£o).
 
-Uso típico:
+Uso tÃ­pico:
 
-- “as 3833 linhas do CSV foram processadas?”: verificar `status=CONCLUIDO` e `percent=100` em `GET /importa?es/geafin/ultimo`.
+- â€œas 3833 linhas do CSV foram processadas?â€: verificar `status=CONCLUIDO` e `percent=100` em `GET /importa?es/geafin/ultimo`.
 
-## 2) Auditoria de mudança de carga (transferências)
+## 2) Auditoria de mudanÃ§a de carga (transferÃªncias)
 
-Quando uma transferência acontece (mudança de `bens.unidade_dona_id`), o banco registra histórico dedicado.
+Quando uma transferÃªncia acontece (mudanÃ§a de `bens.unidade_dona_id`), o banco registra histÃ³rico dedicado.
 
-Evidências:
+EvidÃªncias:
 
 - bem (tombamento),
 - unidade antiga e nova,
 - data/hora,
 - origem (IMPORTACAO/APP/SISTEMA),
-- usuário (quando aplicável).
+- usuÃ¡rio (quando aplicÃ¡vel).
 
 Base legal:
 
 - Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
 
-## 3) Forasteiros / intrusos (inventário)
+## 3) Forasteiros / intrusos (inventÃ¡rio)
 
-Um “forasteiro” é uma divergência registrada no inventário:
+Um â€œforasteiroâ€ Ã© uma divergÃªncia registrada no inventÃ¡rio:
 
 - `tipo_ocorrencia = ENCONTRADO_EM_LOCAL_DIVERGENTE`
 - `regulariza?o_pendente = true`
 
-Relatório típico:
+RelatÃ³rio tÃ­pico:
 
-- lista de bens com unidade dona diferente da unidade encontrada no inventário.
+- lista de bens com unidade dona diferente da unidade encontrada no inventÃ¡rio.
 
-Observação:
+ObservaÃ§Ã£o:
 
-- o sistema deriva isso de `contagens` (fato do inventário), não de coluna “unidade_local_atual” no bem.
+- o sistema deriva isso de `contagens` (fato do inventÃ¡rio), nÃ£o de coluna â€œunidade_local_atualâ€ no bem.
 
 Base legal:
 
@@ -68,15 +68,15 @@ Base legal:
 Quando o evento ? encerrado, a tela de Administra?o apresenta um relat?rio consolidado com:
 
 - contagens totais e conformidades
-- diverg?ncias de unidade/sala (incluindo `UNIDADE_E_SALA`)
+- diverg?ncias de unidade/endereço (incluindo `UNIDADE_E_endereço`)
 - pend?ncias de regulariza?o p?s-invent?rio
 - evid?ncias de ader?ncia aos Arts. 183/185/124/127
 
 Gr?ficos no painel:
 
-- pizza de diverg?ncias por tipo (Unidade, Sala, Unidade+Sala)
+- pizza de diverg?ncias por tipo (Unidade, endereço, Unidade+endereço)
 - barra de regulariza?o (pendentes x regularizadas)
-- ranking de salas com mais diverg?ncias
+- ranking de endereços com mais diverg?ncias
 
 Exporta?o edit?vel:
 
@@ -99,7 +99,7 @@ Na tela de detalhes do bem (Consulta de Bens), a trilha de auditoria segue estes
 
 ## 4) Bens de terceiros (controle segregado)
 
-“Bem de terceiro” é ocorrência segregada, sem tombamento GEAFIN:
+â€œBem de terceiroâ€ Ã© ocorrÃªncia segregada, sem tombamento GEAFIN:
 
 - `bens.eh_bem_terceiro=true`
 - `contagens.tipo_ocorrencia='BEM_DE_TERCEIRO'`
@@ -113,36 +113,36 @@ Base legal (controle segregado):
 
 - Art. 99 (AN303_Art99), Art. 110, VI (AN303_Art110_VI), Art. 175, IX (AN303_Art175_IX).
 
-## 5) Documentos (termos e evidências)
+## 5) Documentos (termos e evidÃªncias)
 
-O sistema **não armazena PDF no banco**. Ele armazena metadados em `documentos`:
+O sistema **nÃ£o armazena PDF no banco**. Ele armazena metadados em `documentos`:
 
 - `drive_url` / `drive_file_id`
 - `sha256` (opcional)
-- vínculo com `movimenta?es` e/ou `contagens`
-- (opcional) vínculo com `avalia?es_inserviveis` (Wizard Art. 141) via `avalia?o_inservivel_id` (migration 013)
+- vÃ­nculo com `movimenta?es` e/ou `contagens`
+- (opcional) vÃ­nculo com `avalia?es_inserviveis` (Wizard Art. 141) via `avalia?o_inservivel_id` (migration 013)
 
-Isso permite auditoria sem carregar binários no Postgres.
+Isso permite auditoria sem carregar binÃ¡rios no Postgres.
 
-## 6) Saídas oficiais (n8n + Drive)
+## 6) SaÃ­das oficiais (n8n + Drive)
 
 Workflows n8n ficam em `automations/`:
 
 - `n8n_relatorio_forasteiros_pdf.json`: gera PDF via API (`GET /api/pdf/forasteiros`) e faz upload no Drive.
 - `n8n_gerador_termos_pdf.json`: gera PDF via API (`POST /api/pdf/termos`) e faz upload no Drive.
 
-Pré-requisitos dos workflows PDF via API:
+PrÃ©-requisitos dos workflows PDF via API:
 
-- autenticação ativa no backend (JWT),
-- variáveis de ambiente no n8n:
+- autenticaÃ§Ã£o ativa no backend (JWT),
+- variÃ¡veis de ambiente no n8n:
   - `PATRIMONIO_ADMIN_MATRICULA`
   - `PATRIMONIO_ADMIN_SENHA`
 
-## 7) Boas práticas para auditoria
+## 7) Boas prÃ¡ticas para auditoria
 
-- Guarde sempre o CSV original importado (fora do repositório).
-- Registre quem executa operações críticas (perfil).
-- Não use “transferência” para “consertar inventário” durante o congelamento: registre divergência e regularize depois.
+- Guarde sempre o CSV original importado (fora do repositÃ³rio).
+- Registre quem executa operaÃ§Ãµes crÃ­ticas (perfil).
+- NÃ£o use â€œtransferÃªnciaâ€ para â€œconsertar inventÃ¡rioâ€ durante o congelamento: registre divergÃªncia e regularize depois.
 
 ## 8) Logs consolidados (projeto x patrimonio)
 
@@ -195,3 +195,4 @@ Consulta recomendada no menu:
 - Auditoria e Logs -> Log de Erros Runtime
 
 Esse agrupamento separa auditoria operacional da Administra?o de Infra.
+
