@@ -837,7 +837,7 @@ export default function AdminPerfisPanel({ canAdmin }) {
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Acoes</h5>
             <p className="mt-1 text-[11px] text-slate-500">
-              Em “responsável”, a permissão trata do responsável patrimonial (posse operacional), não de transferência de carga.
+              Em "responsável", a permissão trata do responsável patrimonial (posse operacional), não de transferência de carga.
             </p>
             <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700">
               <p className="font-semibold text-slate-800">Mapa de Movimentações (menu Movimentações)</p>

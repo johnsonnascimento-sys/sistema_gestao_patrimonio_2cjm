@@ -1,47 +1,47 @@
-﻿<!--
+<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/00_indice.md
 Funcao no sistema: indice navegavel do manual/wiki self-hosted do patrimonio2cjm.
 -->
 
-# Ãndice (Manual do Sistema)
+# Índice (Manual do Sistema)
 
-Este Wiki Ã© o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele foi feito para:
+Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele foi feito para:
 
-- UsuÃ¡rios operacionais (inventÃ¡rio, consulta, cautela, transferÃªncias).
-- Administradores (importaÃ§Ã£o GEAFIN, governanÃ§a, auditoria, operaÃ§Ã£o na VPS).
+- Usuários operacionais (inventário, consulta, cautela, transferências).
+- Administradores (importação GEAFIN, governança, auditoria, operação na VPS).
 - Auditoria/Compliance (rastreabilidade e regras ATN 303/2008).
 
 ## Como usar o Wiki
 
 - Use a busca na barra lateral para encontrar o tema.
-- Use o "Link desta pÃ¡gina" para guardar um atalho (o ID fica no `#hash` do navegador).
+- Use o "Link desta página" para guardar um atalho (o ID fica no `#hash` do navegador).
 
 ## Paginas
 
-- VisÃ£o geral do sistema
+- Visão geral do sistema
 - Dashboard
 - Perfis e acesso
 - Consulta de bens
-- ImportaÃ§Ã£o GEAFIN (CSV)
-- MovimentaÃ§Ãµes: cautela x transferÃªncia
-- InventÃ¡rio - Contagem
-- InventÃ¡rio - AdministraÃ§Ã£o
+- Importação GEAFIN (CSV)
+- Movimentações: cautela x transferência
+- Inventário - Contagem
+- Inventário - Administração
 - Material (SKU)
 - Classifica?o SIAFI
-- GestÃ£o de Normas
+- Gestão de Normas
 - Intrusos e bens de terceiros ("bem de terceiro")
-- RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio (forasteiros)
+- Regularização pós-inventário (forasteiros)
 - Wizard Art. 141 (inserviveis)
-- RelatÃ³rios e auditoria
-- SoluÃ§Ã£o de problemas (erros comuns)
-- Checklist de migraÃ§Ãµes (Supabase)
-- GlossÃ¡rio
-- SeguranÃ§a e sigilo operacional
+- Relatórios e auditoria
+- Solução de problemas (erros comuns)
+- Checklist de migrações (Supabase)
+- Glossário
+- Segurança e sigilo operacional
 - Compliance ATN 303/2008 (resumo operacional + cita?es)
 - Matriz de compliance (ATN 303/2008)
-- Admin: operaÃ§Ã£o na VPS (Docker/Nginx)
-- ReferÃªncia rÃ¡pida da API
+- Admin: operação na VPS (Docker/Nginx)
+- Referência rápida da API
 - Analise de cobertura menu x wiki (faseada)
 
 ## Atualiza?o 2026-02-26 - Navega?o principal

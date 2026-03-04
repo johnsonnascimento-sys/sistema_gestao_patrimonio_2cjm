@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Modulo: frontend/components
  * Arquivo: MovimentacoesPanel.jsx
  * Funcao no sistema: executar movimentacoes patrimoniais (transferencia/cautela) e regularizacao em lote por endereço.

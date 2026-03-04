@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/23_analise_cobertura_menu_wiki.md
 Funcao no sistema: registrar analise faseada de cobertura entre menu real da aplica?o e paginas do Wiki para manter conformidade Wiki-First.

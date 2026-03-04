@@ -1,14 +1,14 @@
-﻿<!--
+<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/14_admin_opera?o_vps.md
 Funcao no sistema: manual de opera?o para administradores (VPS + Docker + Nginx), sem segredos.
 -->
 
-# Admin: operaÃ§Ã£o na VPS (Docker/Nginx)
+# Admin: operação na VPS (Docker/Nginx)
 
-Esta pÃ¡gina Ã© para quem administra o servidor (VPS Hostinger + CloudPanel).
+Esta página é para quem administra o servidor (VPS Hostinger + CloudPanel).
 
-## Premissas (o que nÃ£o mudar sem motivo)
+## Premissas (o que não mudar sem motivo)
 
 - Docker Compose roda com `network_mode: host`.
 - Frontend (container Nginx) atende em `127.0.0.1:8080`.
@@ -18,14 +18,14 @@ Esta pÃ¡gina Ã© para quem administra o servidor (VPS Hostinger + CloudPanel)
   - reverse proxy para `127.0.0.1:8080`
   - proxy dedicado `/api/` para `127.0.0.1:3001` (recomendado para evitar 504)
 
-## Ver se o site estÃ¡ de pÃ©
+## Ver se o site está de pé
 
 No host:
 
 - `curl -i https://patrimonio2cjm.johnsontn.com.br/` deve retornar `200` e HTML da SPA.
 - `curl -i https://patrimonio2cjm.johnsontn.com.br/api/health` deve retornar `200`.
 
-## Logs (diagnÃ³stico)
+## Logs (diagnóstico)
 
 Docker:
 
@@ -40,14 +40,14 @@ Nginx host:
 
 ## Deploy recomendado (script)
 
-O jeito mais simples e consistente Ã© usar o script de deploy do repositÃ³rio:
+O jeito mais simples e consistente é usar o script de deploy do repositório:
 
 ```bash
 cd /opt/cjm-patrimonio/current
 ./scripts/vps_deploy.sh all
 ```
 
-Para subir sÃ³ uma parte:
+Para subir só uma parte:
 
 ```bash
 ./scripts/vps_deploy.sh backend
@@ -58,17 +58,17 @@ O script faz:
 
 - `git pull` (ff-only)
 - rebuild
-- recriaÃ§Ã£o **somente** do(s) container(s) do alvo escolhido:
+- recriação **somente** do(s) container(s) do alvo escolhido:
   - `frontend` recria apenas `cjm_frontend` (o backend deve permanecer no ar).
   - `backend` recria apenas `cjm_backend` (o frontend deve permanecer no ar).
-- (quando `backend` ou `all`) aguarda o backend responder `GET /health` para evitar 502 logo apÃ³s o restart.
+- (quando `backend` ou `all`) aguarda o backend responder `GET /health` para evitar 502 logo após o restart.
 
-Se apÃ³s um deploy vocÃª vir `502 Bad Gateway` na UI (especialmente em "Consulta de Bens"):
+Se após um deploy você vir `502 Bad Gateway` na UI (especialmente em "Consulta de Bens"):
 - o backend pode ter sido derrubado; rode `./scripts/vps_deploy.sh all` para subir tudo novamente.
 
 ## Rebuild/restart (manual)
 
-Se vocÃª preferir executar manualmente, rode no diretÃ³rio do repositÃ³rio na VPS (exemplo):
+Se você preferir executar manualmente, rode no diretório do repositório na VPS (exemplo):
 
 ```bash
 cd /opt/cjm-patrimonio/current
@@ -78,48 +78,48 @@ docker compose -f docker-compose.vps.yml build frontend
 docker compose -f docker-compose.vps.yml up -d --no-deps --force-recreate frontend
 ```
 
-ObservaÃ§Ã£o:
+Observação:
 
 - Rebuild do frontend troca os arquivos estaticos.
 - Por causa do Service Worker (PWA), alguns navegadores podem manter cache. Use hard refresh.
 
 ## Importa?o GEAFIN e timeouts
 
-ImportaÃ§Ã£o pode demorar (milhares de linhas). Para evitar 504:
+Importação pode demorar (milhares de linhas). Para evitar 504:
 
 - Aumente timeouts no Nginx (host e/ou container).
 - Garanta `proxy_request_buffering off` no `location /api/`.
 - Garanta `client_max_body_size` adequado (ex.: 15m).
 
-## Onde ficam variÃ¡veis de ambiente
+## Onde ficam variáveis de ambiente
 
-Por padrÃ£o:
+Por padrão:
 
-- `.env` fica apenas na VPS, nÃ£o versionado.
+- `.env` fica apenas na VPS, não versionado.
 - `DATABASE_URL` aponta para Supabase (Postgres).
 
 ## Upload de fotos (VPS Local)
 
 Uso:
 
-- A UI permite anexar/remover **foto do item** e **foto de referÃªncia do SKU** no modal de "Detalhes do bem".
-- As imagens sÃ£o enviadas diretamente ao backend, otimizadas (WebP) e salvas localmente em `./data/fotos/`.
+- A UI permite anexar/remover **foto do item** e **foto de referência do SKU** no modal de "Detalhes do bem".
+- As imagens são enviadas diretamente ao backend, otimizadas (WebP) e salvas localmente em `./data/fotos/`.
 - O banco guarda apenas o caminho relativo.
 
-ManutenÃ§Ã£o:
+Manutenção:
 
 - As fotos ficam em `./data/fotos` (volume persistido do Docker).
 - Backup: incluir `./data/fotos` nas rotinas de backup.
 
 
-## Ativar autenticaÃ§Ã£o (login) em produÃ§Ã£o
+## Ativar autenticação (login) em produção
 
-PrÃ©-requisitos:
+Pré-requisitos:
 
-1. Banco (Supabase) precisa ter as colunas de autenticaÃ§Ã£o em `perfis`.
-   - MigraÃ§Ã£o: `database/006_auth_and_access.sql`
+1. Banco (Supabase) precisa ter as colunas de autenticação em `perfis`.
+   - Migração: `database/006_auth_and_access.sql`
 2. Backend precisa de um segredo JWT configurado no `.env`.
-3. O `docker-compose.vps.yml` precisa repassar `AUTH_*` para o serviÃ§o `backend` (jÃ¡ previsto no repo).
+3. O `docker-compose.vps.yml` precisa repassar `AUTH_*` para o serviço `backend` (já previsto no repo).
 
 Passo a passo (VPS):
 
@@ -149,26 +149,26 @@ AUTH_JWT_EXPIRES_IN=12h
 - `curl -sS https://patrimonio2cjm.johnsontn.com.br/api/health` retorna `authEnabled: true`.
 - Abrir o site e confirmar que aparece a tela de **Login**.
 
-OperaÃ§Ã£o:
+Operação:
 
-- Um perfil existente (matrÃ­cula jÃ¡ cadastrada) usa "Primeiro acesso" para definir senha.
-- O primeiro "primeiro acesso" vira `ADMIN` se ainda nÃ£o existir nenhum `ADMIN` cadastrado (bootstrap controlado).
+- Um perfil existente (matrícula já cadastrada) usa "Primeiro acesso" para definir senha.
+- O primeiro "primeiro acesso" vira `ADMIN` se ainda não existir nenhum `ADMIN` cadastrado (bootstrap controlado).
 
-## PadronizaÃ§Ã£o do diretÃ³rio "current" (governanÃ§a)
+## Padronização do diretório "current" (governança)
 
 Regra operacional:
 
-- **Sempre** subir backend/frontend a partir de um Ãºnico diretÃ³rio: `/opt/cjm-patrimonio/current`.
-- NÃ£o misturar "deploy" entre caminhos diferentes (ex.: `/opt/cjm-patrimonio/current` e `/opt/cjm-patrimonio/releases/...`).
+- **Sempre** subir backend/frontend a partir de um único diretório: `/opt/cjm-patrimonio/current`.
+- Não misturar "deploy" entre caminhos diferentes (ex.: `/opt/cjm-patrimonio/current` e `/opt/cjm-patrimonio/releases/...`).
 
-Se vocÃª herdou uma VPS com mÃºltiplos diretÃ³rios, o alvo Ã©:
+Se você herdou uma VPS com múltiplos diretórios, o alvo é:
 
 1. Ter um repo Git em `/opt/cjm-patrimonio/current` (com `.git`, `docker-compose.vps.yml` e `scripts/vps_deploy.sh`).
 2. Rodar deploys sempre desse caminho.
 
-Nunca coloque segredos no repositÃ³rio nem no Wiki.
+Nunca coloque segredos no repositório nem no Wiki.
 
-## RecuperaÃ§Ã£o rÃ¡pida (checklist)
+## Recuperação rápida (checklist)
 
 Se "Failed to fetch" aparecer no site:
 

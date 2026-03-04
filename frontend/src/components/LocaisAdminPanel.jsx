@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Modulo: frontend/components
  * Arquivo: LocaisAdminPanel.jsx
  * Funcao no sistema: administrar locais (CRUD + vinculo em lote de bens.local_id) no fluxo operacional.

@@ -1,34 +1,34 @@
-﻿<!--
+<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/05_movimenta?es.md
 Funcao no sistema: explicar cautela vs transferencia e como manter evidencia auditavel.
 -->
 
-# MovimentaÃ§Ãµes: cautela x transferÃªncia
+# Movimentações: cautela x transferência
 
 ## Onde executar no sistema
 
-Na UI, use a aba **MovimentaÃ§Ãµes**.
+Na UI, use a aba **Movimentações**.
 
 Essa aba chama o endpoint `POST /movimentar` e aplica as regras do backend (incluindo bloqueio do Art. 183).
 
-## Por que isso Ã© importante
+## Por que isso é importante
 
 O ATN 303 distingue claramente:
 
-- **TransferÃªncia**: muda a **carga** (unidade dona).
-- **Cautela**: o bem sai fisicamente (conserto/home office/etc), mas a **carga nÃ£o muda**.
+- **Transferência**: muda a **carga** (unidade dona).
+- **Cautela**: o bem sai fisicamente (conserto/home office/etc), mas a **carga não muda**.
 
-Essa distinÃ§Ã£o evita:
+Essa distinção evita:
 
 - Perder a responsabilidade do bem.
-- Transferir sem documento durante inventÃ¡rio (o banco bloqueia).
+- Transferir sem documento durante inventário (o banco bloqueia).
 
-## TransferÃªncia (muda carga)
+## Transferência (muda carga)
 
 Quando usar:
 
-- O bem vai passar a ser responsabilidade de outra unidade (mudanÃ§a definitiva).
+- O bem vai passar a ser responsabilidade de outra unidade (mudança definitiva).
 
 Efeito no sistema:
 
@@ -37,22 +37,22 @@ Efeito no sistema:
 
 Regras legais:
 
-- TransferÃªncia muda carga: Art. 124 (AN303_Art124).
-- Exige formalizaÃ§Ã£o/termo: Art. 127 (AN303_Art127).
+- Transferência muda carga: Art. 124 (AN303_Art124).
+- Exige formalização/termo: Art. 127 (AN303_Art127).
 
-### Bloqueio durante inventÃ¡rio
+### Bloqueio durante inventário
 
-Se existir inventÃ¡rio `EM_ANDAMENTO`, o banco impede a transferÃªncia:
+Se existir inventário `EM_ANDAMENTO`, o banco impede a transferência:
 
-`// Regra legal: bloqueio de movimentaÃ§Ã£o em inventÃ¡rio - Art. 183 (AN303_Art183)`
+`// Regra legal: bloqueio de movimentação em inventário - Art. 183 (AN303_Art183)`
 
-## Cautela (nÃ£o muda carga)
+## Cautela (não muda carga)
 
 Quando usar:
 
-- ManutenÃ§Ã£o/conserto.
-- EmprÃ©stimo controlado.
-- Trabalho externo (quando aplicÃ¡vel).
+- Manutenção/conserto.
+- Empréstimo controlado.
+- Trabalho externo (quando aplicável).
 
 Efeito no sistema:
 
@@ -62,33 +62,33 @@ Efeito no sistema:
 - Em `CAUTELA_SAIDA`, o responsavel patrimonial do bem passa automaticamente a ser o detentor temporario selecionado.
 - Em `CAUTELA_RETORNO`, o sistema pergunta se deve manter o mesmo responsavel patrimonial (se n?o, limpa o responsavel do bem).
 
-Detentor temporÃ¡rio (UX):
+Detentor temporário (UX):
 
 - O campo aceita busca por `matr?cula`, `nome` ou `perfilId UUID`.
 - Para aparecer na busca, a pessoa precisa estar cadastrada em `Administra?o do Painel -> Perfis e Acessos`.
-- Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleÃ§Ã£o.
+- Enquanto digita (ex.: `Joh` ou `9156`), a UI sugere perfis para seleção.
 - Ao selecionar, o sistema envia o `detentorTemporarioPerfilId` correto no payload.
 
-Local da cautela (obrigatÃ³rio na saÃ­da):
+Local da cautela (obrigatório na saída):
 
-- Campo `endereço destino da cautela`: use quando o item permanece no prÃ©dio (ex.: gabinete/endereço).
-- OpÃ§Ã£o `Externo`: use quando o item saiu do prÃ©dio com o detentor.
-- O backend rejeita `CAUTELA_SAIDA` sem uma dessas informaÃ§Ãµes.
+- Campo `endereço destino da cautela`: use quando o item permanece no prédio (ex.: gabinete/endereço).
+- Opção `Externo`: use quando o item saiu do prédio com o detentor.
+- O backend rejeita `CAUTELA_SAIDA` sem uma dessas informações.
 
-## RecomendaÃ§Ãµes prÃ¡ticas (operaÃ§Ã£o)
+## Recomendações práticas (operação)
 
-- Se a dÃºvida for "o bem vai sair do prÃ©dio mas continua sendo da unidade": Ã© cautela.
-- Se a dÃºvida for "o bem vai mudar de responsÃ¡vel/patrimÃ´nio da unidade": Ã© transferÃªncia.
-- Nunca use transferÃªncia para "ajustar inventÃ¡rio" durante contagem. No inventÃ¡rio, registre divergÃªncia e regularize depois.
+- Se a dúvida for "o bem vai sair do prédio mas continua sendo da unidade": é cautela.
+- Se a dúvida for "o bem vai mudar de responsável/patrimônio da unidade": é transferência.
+- Nunca use transferência para "ajustar inventário" durante contagem. No inventário, registre divergência e regularize depois.
 
-## EvidÃªncia documental (PDF/Drive)
+## Evidência documental (PDF/Drive)
 
-Para auditoria, toda movimentaÃ§Ã£o relevante deve ter evidÃªncia:
+Para auditoria, toda movimentação relevante deve ter evidência:
 
 - Termo (PDF) gerado no n8n e salvo no Google Drive.
 - Registro dos metadados do documento no sistema (link/ID/hash), sem armazenar o PDF no banco.
 
-No sistema, isso Ã© registrado em:
+No sistema, isso é registrado em:
 
 - Tabela `documentos` (metadados do Drive), vinculada a `movimenta?es` e/ou `contagens`.
 
@@ -194,21 +194,21 @@ Observa??o operacional:
 
 - neste endpoint, a abertura autom?tica de solicita??o pendente n?o est? habilitada na vers?o atual; a execu??o deve ser feita por perfil autorizado.
 
-## IntegraÃ§Ã£o com RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio (transferÃªncia formal)
+## Integração com Regularização pós-inventário (transferência formal)
 
-Quando a divergÃªncia foi encaminhada pela tela de RegularizaÃ§Ã£o, a execuÃ§Ã£o deve ocorrer aqui:
+Quando a divergência foi encaminhada pela tela de Regularização, a execução deve ocorrer aqui:
 
 - no tipo `TRANSFERENCIA`;
-- botÃ£o `Importar pendÃªncias da RegularizaÃ§Ã£o`.
+- botão `Importar pendências da Regularização`.
 
 Comportamento:
 
 - a fila importa itens com `origemRegularizacaoContagemId`;
-- ao executar com sucesso, o sistema conclui a regularizaÃ§Ã£o automaticamente;
-- se ficar pendente de aprovaÃ§Ã£o, o fluxo fica em `AGUARDANDO_APROVACAO`;
+- ao executar com sucesso, o sistema conclui a regularização automaticamente;
+- se ficar pendente de aprovação, o fluxo fica em `AGUARDANDO_APROVACAO`;
 - se houver erro, o fluxo fica em `ERRO`.
 
 Resultado operacional:
 
-- a divergÃªncia sÃ³ sai da regularizaÃ§Ã£o depois da transferÃªncia formal concluÃ­da.
+- a divergência só sai da regularização depois da transferência formal concluída.
 

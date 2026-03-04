@@ -1,41 +1,41 @@
-﻿<!--
-MÃ³dulo: wiki
+<!--
+Módulo: wiki
 Arquivo: frontend/src/wiki/22_inventario_administracao.md
-FunÃ§Ã£o no sistema: orientar a operaÃ§Ã£o no menu InventÃ¡rio - AdministraÃ§Ã£o.
+Função no sistema: orientar a operação no menu Inventário - Administração.
 -->
 
-# InventÃ¡rio - AdministraÃ§Ã£o
+# Inventário - Administração
 
 ## Objetivo da tela
 
-A tela **InventÃ¡rio - AdministraÃ§Ã£o** concentra quatro tarefas:
+A tela **Inventário - Administração** concentra quatro tarefas:
 
-1. controlar inventÃ¡rio em andamento (encerrar, cancelar, reabrir);
-2. abrir novo inventÃ¡rio em formulÃ¡rio Ãºnico;
-3. monitorar divergÃªncias interunidades em tempo real;
-4. acompanhar histÃ³rico e relatÃ³rio consolidado.
+1. controlar inventário em andamento (encerrar, cancelar, reabrir);
+2. abrir novo inventário em formulário único;
+3. monitorar divergências interunidades em tempo real;
+4. acompanhar histórico e relatório consolidado.
 
-## Estrutura da pÃ¡gina
+## Estrutura da página
 
-### 1) Controle do InventÃ¡rio
+### 1) Controle do Inventário
 
-- mostra se existe inventÃ¡rio ativo;
-- permite selecionar o inventÃ¡rio em andamento;
-- exibe resumo operacional: cÃ³digo, escopo, modo e unidade;
-- aÃ§Ãµes crÃ­ticas:
-  - `Encerrar inventÃ¡rio`
-  - `Cancelar inventÃ¡rio`
-- essas aÃ§Ãµes usam confirmaÃ§Ã£o forte em modal (sem `window.confirm`).
+- mostra se existe inventário ativo;
+- permite selecionar o inventário em andamento;
+- exibe resumo operacional: código, escopo, modo e unidade;
+- ações críticas:
+  - `Encerrar inventário`
+  - `Cancelar inventário`
+- essas ações usam confirmação forte em modal (sem `window.confirm`).
 
-### 2) Novo inventÃ¡rio (formulÃ¡rio Ãºnico)
+### 2) Novo inventário (formulário único)
 
-Substitui a duplicidade antiga de "abrir evento" + "novo micro-inventÃ¡rio".
+Substitui a duplicidade antiga de "abrir evento" + "novo micro-inventário".
 
-Presets rÃ¡pidos:
+Presets rápidos:
 
-- `InventÃ¡rio geral`
-- `Ciclo semanal 1Âª Aud`
-- `Ciclo semanal 2Âª Aud`
+- `Inventário geral`
+- `Ciclo semanal 1ª Aud`
+- `Ciclo semanal 2ª Aud`
 - `Ciclo semanal Foro`
 - `Ciclo semanal Almox`
 - `Por endereço`
@@ -45,97 +45,97 @@ Comportamento por escopo:
 - `GERAL`:
   - oculta `Tipo de ciclo`;
   - oculta `Unidade inventariada`;
-  - CTA: `Abrir inventÃ¡rio geral`.
+  - CTA: `Abrir inventário geral`.
 - `UNIDADE`:
   - mostra `Tipo de ciclo`;
   - mostra `Unidade inventariada`;
-  - CTA: `Abrir micro-inventÃ¡rio`.
+  - CTA: `Abrir micro-inventário`.
 - `LOCAIS`:
   - mostra `Tipo de ciclo`;
   - mostra `Unidade inventariada`;
-  - mostra seleÃ§Ã£o de endereços;
-  - CTA: `Abrir micro-inventÃ¡rio`.
+  - mostra seleção de endereços;
+  - CTA: `Abrir micro-inventário`.
 
-### 3) SugestÃµes de ciclo
+### 3) Sugestões de ciclo
 
-- clique na sugestÃ£o preenche automaticamente o formulÃ¡rio com:
+- clique na sugestão preenche automaticamente o formulário com:
   - `escopoTipo=LOCAIS`
   - `tipoCiclo=SEMANAL`
   - unidade e endereço sugeridas.
 
 ### 4) Lateral operacional
 
-- progresso do inventÃ¡rio;
+- progresso do inventário;
 - monitoramento por endereço e rodada (A, B, DESEMPATE);
-- painel `DivergÃªncias interunidades (tempo real)`;
-- histÃ³rico resumido.
+- painel `Divergências interunidades (tempo real)`;
+- histórico resumido.
 
-## ConcomitÃ¢ncia de inventÃ¡rios por unidade
+## Concomitância de inventários por unidade
 
 Regra operacional exibida na UI:
 
-- inventÃ¡rios `UNIDADE` e `LOCAIS` podem rodar em paralelo entre unidades;
-- inventÃ¡rio `GERAL` Ã© exclusivo.
+- inventários `UNIDADE` e `LOCAIS` podem rodar em paralelo entre unidades;
+- inventário `GERAL` é exclusivo.
 
 Exemplos:
 
 - Unidade 2 e Unidade 3 podem inventariar ao mesmo tempo.
-- NÃ£o pode haver dois inventÃ¡rios ativos da mesma unidade.
-- Se existir inventÃ¡rio `GERAL` ativo, nenhum inventÃ¡rio por unidade ou local deve abrir.
+- Não pode haver dois inventários ativos da mesma unidade.
+- Se existir inventário `GERAL` ativo, nenhum inventário por unidade ou local deve abrir.
 
-## DivergÃªncias interunidades (tempo real)
+## Divergências interunidades (tempo real)
 
 Painel de monitoramento cruzado:
 
-- visÃ£o `Da minha unidade encontradas fora`;
-- visÃ£o `Outras unidades encontradas na minha`;
+- visão `Da minha unidade encontradas fora`;
+- visão `Outras unidades encontradas na minha`;
 - KPIs operacionais de `Pendentes`, `Regularizadas`, `Em andamento` e `Encerrado`;
 - filtros:
-  - status do inventÃ¡rio (`TODOS`, `EM_ANDAMENTO`, `ENCERRADO`);
+  - status do inventário (`TODOS`, `EM_ANDAMENTO`, `ENCERRADO`);
   - unidade relacionada;
-  - cÃ³digo do inventÃ¡rio;
+  - código do inventário;
   - endereço;
-- aÃ§Ã£o rÃ¡pida `Limpar filtros`;
-- tabela com badges visuais para status do inventÃ¡rio, tipo de divergÃªncia e situaÃ§Ã£o de regularizaÃ§Ã£o.
+- ação rápida `Limpar filtros`;
+- tabela com badges visuais para status do inventário, tipo de divergência e situação de regularização.
 
 Importante:
 
-- este painel Ã© de leitura;
-- a regularizaÃ§Ã£o continua no fluxo pÃ³s-inventÃ¡rio (Art. 185).
+- este painel é de leitura;
+- a regularização continua no fluxo pós-inventário (Art. 185).
 
 ## Modos de contagem
 
 ### `PADRAO`
 
 - sem isolamento de rodada;
-- fluxo de inventÃ¡rio tradicional.
+- fluxo de inventário tradicional.
 
 ### `CEGO`
 
 - exige 1 operador (`OPERADOR_UNICO`);
-- operador nÃ£o vÃª esperado nem diferenÃ§a;
+- operador não vê esperado nem diferença;
 - admin monitora progresso sem quebrar a cegueira.
 
 ### `DUPLO_CEGO`
 
 - exige 2 operadores (`OPERADOR_A` e `OPERADOR_B`);
 - cada operador grava apenas sua rodada;
-- divergÃªncias A/B geram pendÃªncia de desempate;
-- desempate Ã© feito por perfil autorizado.
+- divergências A/B geram pendência de desempate;
+- desempate é feito por perfil autorizado.
 
-## ConfirmaÃ§Ã£o forte (aÃ§Ãµes crÃ­ticas)
+## Confirmação forte (ações críticas)
 
 Ao encerrar ou cancelar:
 
-- modal mostra inventÃ¡rio alvo e impacto da aÃ§Ã£o;
-- campo de observaÃ§Ã£o opcional;
-- somente apÃ³s confirmaÃ§Ã£o explÃ­cita a aÃ§Ã£o Ã© enviada.
+- modal mostra inventário alvo e impacto da ação;
+- campo de observação opcional;
+- somente após confirmação explícita a ação é enviada.
 
 ## Compliance preservado
 
-- Art. 183 (AN303_Art183): inventÃ¡rio ativo bloqueia mudanÃ§a de carga.
-- Art. 185 (AN303_Art185): divergÃªncia nÃ£o transfere carga automaticamente.
-- Art. 175 (AN303_Art175): itens sem identificaÃ§Ã£o exigem evidÃªncia visual.
+- Art. 183 (AN303_Art183): inventário ativo bloqueia mudança de carga.
+- Art. 185 (AN303_Art185): divergência não transfere carga automaticamente.
+- Art. 175 (AN303_Art175): itens sem identificação exigem evidência visual.
 
 ## Painel de Acuracidade
 

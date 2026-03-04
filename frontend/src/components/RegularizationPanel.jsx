@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Modulo: frontend/components
  * Arquivo: RegularizationPanel.jsx
  * Funcao no sistema: painel de regularizacao pos-inventario (divergencias) com fluxo formal de transferencia.
@@ -72,8 +72,8 @@ function describeDivergence(item) {
 }
 
 function formatUnidade(id) {
-  if (id === 1) return "1 (1Âª Aud)";
-  if (id === 2) return "2 (2Âª Aud)";
+  if (id === 1) return "1 (1ª Aud)";
+  if (id === 2) return "2 (2ª Aud)";
   if (id === 3) return "3 (Foro)";
   if (id === 4) return "4 (Almox)";
   return String(id || "");
@@ -82,10 +82,10 @@ function formatUnidade(id) {
 function fluxoBadge(status) {
   const s = String(status || "").toUpperCase();
   if (s === "ENCAMINHADA") return { label: "ENCAMINHADA", cls: "border-amber-300/40 bg-amber-100 text-amber-800" };
-  if (s === "AGUARDANDO_APROVACAO") return { label: "AGUARDANDO APROVAÃ‡ÃƒO", cls: "border-sky-300/40 bg-sky-100 text-sky-800" };
+  if (s === "AGUARDANDO_APROVACAO") return { label: "AGUARDANDO APROVAÇÃO", cls: "border-sky-300/40 bg-sky-100 text-sky-800" };
   if (s === "ERRO") return { label: "ERRO", cls: "border-rose-300/40 bg-rose-100 text-rose-800" };
-  if (s === "CONCLUIDA") return { label: "CONCLUÃDA", cls: "border-emerald-300/40 bg-emerald-100 text-emerald-800" };
-  return { label: "NÃƒO ENCAMINHADA", cls: "border-slate-300 bg-slate-100 text-slate-700" };
+  if (s === "CONCLUIDA") return { label: "CONCLUÍDA", cls: "border-emerald-300/40 bg-emerald-100 text-emerald-800" };
+  return { label: "NÃO ENCAMINHADA", cls: "border-slate-300 bg-slate-100 text-slate-700" };
 }
 
 export default function RegularizationPanel() {
@@ -201,11 +201,11 @@ export default function RegularizationPanel() {
       }
     }
     const labels = {
-      MANTER_CARGA: "manter carga (encerrar pendÃªncia sem transferir unidade)",
+      MANTER_CARGA: "manter carga (encerrar pendência sem transferir unidade)",
       ATUALIZAR_LOCAL: "trocar para endereço encontrado (sem transferir unidade)",
-      ENCAMINHAR_TRANSFERENCIA: "encaminhar transferÃªncia formal (sem mudar carga aqui)",
+      ENCAMINHAR_TRANSFERENCIA: "encaminhar transferência formal (sem mudar carga aqui)",
     };
-    const ok = window.confirm(`Confirmar aÃ§Ã£o em lote para ${selectedItems.length} item(ns): ${labels[kind]}?`);
+    const ok = window.confirm(`Confirmar ação em lote para ${selectedItems.length} item(ns): ${labels[kind]}?`);
     if (!ok) return;
     actionMut.mutate({
       kind,
@@ -220,27 +220,27 @@ export default function RegularizationPanel() {
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio (DivergÃªncias)</h2>
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Regularização pós-inventário (Divergências)</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            TransferÃªncia sÃ³ no menu MovimentaÃ§Ãµes (procedimento formal). Enquanto nÃ£o concluir o procedimento de transferÃªncia,
-            o bem permanece pendente em RegularizaÃ§Ã£o.
+            Transferência só no menu Movimentações (procedimento formal). Enquanto não concluir o procedimento de transferência,
+            o bem permanece pendente em Regularização.
           </p>
-          <p className="mt-1 text-xs text-slate-500">Regra legal: Art. 185 (AN303_Art185). TransferÃªncia formal: Arts. 124 e 127.</p>
+          <p className="mt-1 text-xs text-slate-500">Regra legal: Art. 185 (AN303_Art185). Transferência formal: Arts. 124 e 127.</p>
         </div>
         <div className="text-right text-xs text-slate-600">
-          PendÃªncias filtradas: <span className="font-semibold text-amber-800">{enrichedItems.length}</span>
+          Pendências filtradas: <span className="font-semibold text-amber-800">{enrichedItems.length}</span>
         </div>
       </header>
 
       {eventosAtivos.length > 0 && (
         <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-100/10 p-3 text-sm text-amber-800">
-          HÃ¡ inventÃ¡rio em andamento no sistema. RegularizaÃ§Ãµes sÃ³ sÃ£o aceitas para eventos jÃ¡ ENCERRADOS (Art. 185).
+          Há inventário em andamento no sistema. Regularizações só são aceitas para eventos já ENCERRADOS (Art. 185).
         </div>
       )}
 
       {!canAdmin && auth.authEnabled && (
         <div className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-700">
-          RegularizaÃ§Ã£o Ã© uma operaÃ§Ã£o administrativa. FaÃ§a login com um perfil <strong>ADMIN</strong>.
+          Regularização é uma operação administrativa. Faça login com um perfil <strong>ADMIN</strong>.
         </div>
       )}
 
@@ -265,14 +265,14 @@ export default function RegularizationPanel() {
           <input value={filterSala} onChange={(e) => setFilterSala(e.target.value)} placeholder="Ex.: Endereço 605" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
         </label>
         <label className="block space-y-1">
-          <span className="text-xs text-slate-600">Filtro: fluxo de transferÃªncia</span>
+          <span className="text-xs text-slate-600">Filtro: fluxo de transferência</span>
           <select value={filterFluxo} onChange={(e) => setFilterFluxo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
             <option value="TODOS">Todos</option>
-            <option value="NAO_ENCAMINHADA">NÃ£o encaminhada</option>
+            <option value="NAO_ENCAMINHADA">Não encaminhada</option>
             <option value="ENCAMINHADA">Encaminhada</option>
-            <option value="AGUARDANDO_APROVACAO">Aguardando aprovaÃ§Ã£o</option>
+            <option value="AGUARDANDO_APROVACAO">Aguardando aprovação</option>
             <option value="ERRO">Erro</option>
-            <option value="CONCLUIDA">ConcluÃ­da</option>
+            <option value="CONCLUIDA">Concluída</option>
           </select>
         </label>
       </div>
@@ -284,7 +284,7 @@ export default function RegularizationPanel() {
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="checkbox" checked={showCatalogPhoto} onChange={(e) => setShowCatalogPhoto(e.target.checked)} className="h-4 w-4 accent-violet-600" />
-          Foto do catÃ¡logo
+          Foto do catálogo
         </label>
       </div>
 
@@ -293,13 +293,13 @@ export default function RegularizationPanel() {
           <button type="button" onClick={() => runBatchAction("MANTER_CARGA")} disabled={actionMut.isPending || !selectedItems.length || !canAdmin || !canUsePerfil} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100 disabled:opacity-50">Manter carga (selecionados)</button>
           <button type="button" onClick={() => runBatchAction("MANTER_CARGA")} disabled={actionMut.isPending || !selectedItems.length || !canAdmin || !canUsePerfil} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50">Endereço: manter cadastrada</button>
           <button type="button" onClick={() => runBatchAction("ATUALIZAR_LOCAL")} disabled={actionMut.isPending || !selectedItems.length || !canAdmin || !canUsePerfil} className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800 hover:bg-violet-100 disabled:opacity-50">Endereço: trocar para endereço encontrado</button>
-          <button type="button" onClick={() => runBatchAction("ENCAMINHAR_TRANSFERENCIA")} disabled={actionMut.isPending || !selectedItems.length || !canAdmin || !canUsePerfil} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">Encaminhar transferÃªncia formal</button>
-          <button type="button" onClick={() => setSelectedIds([])} disabled={actionMut.isPending || !selectedItems.length} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100 disabled:opacity-50">Limpar seleÃ§Ã£o</button>
+          <button type="button" onClick={() => runBatchAction("ENCAMINHAR_TRANSFERENCIA")} disabled={actionMut.isPending || !selectedItems.length || !canAdmin || !canUsePerfil} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">Encaminhar transferência formal</button>
+          <button type="button" onClick={() => setSelectedIds([])} disabled={actionMut.isPending || !selectedItems.length} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100 disabled:opacity-50">Limpar seleção</button>
         </div>
         <p className="mt-2 text-xs text-slate-600">Selecionados: <strong>{selectedItems.length}</strong></p>
       </div>
 
-      {actionMut.error ? <p className="mt-3 text-sm text-rose-700">{String(actionMut.error.message || "Falha na aÃ§Ã£o em lote.")}</p> : null}
+      {actionMut.error ? <p className="mt-3 text-sm text-rose-700">{String(actionMut.error.message || "Falha na ação em lote.")}</p> : null}
       {actionMut.data?.summary ? (
         <p className="mt-3 text-sm text-emerald-700">
           Processado. Total: {actionMut.data.summary.total || 0}, sucesso: {actionMut.data.summary.regularizados ?? actionMut.data.summary.encaminhadas ?? 0}, erros: {actionMut.data.summary.erros || 0}.
@@ -308,7 +308,7 @@ export default function RegularizationPanel() {
 
       {(forasteirosQuery.isLoading || eventosAtivosQuery.isLoading) && <p className="mt-4 text-sm text-slate-600">Carregando dados...</p>}
       {!forasteirosQuery.isLoading && enrichedItems.length === 0 && (
-        <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Nenhuma divergÃªncia pendente de regularizaÃ§Ã£o encontrada.</p>
+        <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Nenhuma divergência pendente de regularização encontrada.</p>
       )}
 
       {enrichedItems.length > 0 && (
@@ -321,12 +321,12 @@ export default function RegularizationPanel() {
                 </th>
                 <th className="w-[11rem] px-3 py-3 text-left">Evento</th>
                 <th className="w-[8rem] px-3 py-3 text-left">Tombo</th>
-                <th className="px-3 py-3 text-left">DescriÃ§Ã£o / Resumo</th>
+                <th className="px-3 py-3 text-left">Descrição / Resumo</th>
                 <th className="px-3 py-3 text-left">Unid. dona</th>
                 <th className="px-3 py-3 text-left">Unid. encontrada</th>
                 <th className="px-3 py-3 text-left">Endereço</th>
-                <th className="px-3 py-3 text-left">DivergÃªncia</th>
-                <th className="px-3 py-3 text-left">Fluxo transferÃªncia</th>
+                <th className="px-3 py-3 text-left">Divergência</th>
+                <th className="px-3 py-3 text-left">Fluxo transferência</th>
                 <th className="px-3 py-3 text-left">Encontrado em</th>
               </tr>
             </thead>
@@ -348,7 +348,7 @@ export default function RegularizationPanel() {
                       <div className="font-semibold text-slate-900 break-words">{it.descricaoResumo.titulo}</div>
                       {it.descricaoResumo.detalhe && <div className="mt-1 text-[11px] italic text-slate-600 break-words">{it.descricaoResumo.detalhe}</div>}
                       {showItemPhoto && getFotoUrl(it.fotoUrl || "") && <div className="mt-2"><a href={getFotoUrl(it.fotoUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 text-[11px] font-semibold text-violet-700 hover:bg-slate-100">Ver foto</a></div>}
-                      {showCatalogPhoto && getFotoUrl(it.fotoReferenciaUrl || "") && <div className="mt-2"><a href={getFotoUrl(it.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">Foto catÃ¡logo</a></div>}
+                      {showCatalogPhoto && getFotoUrl(it.fotoReferenciaUrl || "") && <div className="mt-2"><a href={getFotoUrl(it.fotoReferenciaUrl || "")} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">Foto catálogo</a></div>}
                     </td>
                     <td className="px-3 py-3 text-slate-800">{formatUnidade(Number(it.unidadeDonaId))}</td>
                     <td className="px-3 py-3 text-amber-800 font-medium">{formatUnidade(Number(it.unidadeEncontradaId))}</td>

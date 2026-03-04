@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Modulo: frontend/components
  * Arquivo: AuthLogin.jsx
  * Funcao no sistema: tela de login/primeiro acesso (quando AUTH_ENABLED=true no backend).

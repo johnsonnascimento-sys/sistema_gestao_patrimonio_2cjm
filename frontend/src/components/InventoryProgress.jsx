@@ -1,4 +1,4 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getProgressoInventario } from "../services/apiClient.js";
 
 export default function InventoryProgress({ eventoInventarioId }) {
@@ -14,7 +14,7 @@ export default function InventoryProgress({ eventoInventarioId }) {
 
     return (
         <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex flex-col group" open>
-            <summary className="font-semibold cursor-pointer select-none">Progresso do InventÃ¡rio</summary>
+            <summary className="font-semibold cursor-pointer select-none">Progresso do Inventário</summary>
             <div className="mt-3 group-open:block">
                 <p className="text-xs text-slate-600 mb-3">
                     Itens esperados vs inventariados por endereço.

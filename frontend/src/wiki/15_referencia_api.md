@@ -1,25 +1,25 @@
-﻿<!--
-MÃ³dulo: wiki
+<!--
+Módulo: wiki
 Arquivo: frontend/src/wiki/15_referencia_api.md
-FunÃ§Ã£o no sistema: referÃªncia resumida dos principais contratos HTTP.
+Função no sistema: referência resumida dos principais contratos HTTP.
 -->
 
-# ReferÃªncia de API
+# Referência de API
 
-## PadrÃµes gerais
+## Padrões gerais
 
-- AutenticaÃ§Ã£o: JWT via middleware `mustAuth` (ou `mustAdmin` quando aplicÃ¡vel).
+- Autenticação: JWT via middleware `mustAuth` (ou `mustAdmin` quando aplicável).
 - Formato de resposta: JSON com `requestId`.
-- Erros de validaÃ§Ã£o: normalmente `422`.
-- Falta de permissÃ£o: `403`.
+- Erros de validação: normalmente `422`.
+- Falta de permissão: `403`.
 
-## Locais: estatÃ­sticas, listagem e reset
+## Locais: estatísticas, listagem e reset
 
 ### GET `/locais/estatisticas`
 
 Uso:
 
-- retorna progresso de vinculaÃ§Ã£o de endereço (`total`, `comLocal`, `semLocal`).
+- retorna progresso de vinculação de endereço (`total`, `comLocal`, `semLocal`).
 
 Query opcional:
 
@@ -29,11 +29,11 @@ Query opcional:
 
 Uso:
 
-- lista bens por situaÃ§Ã£o de localizaÃ§Ã£o fÃ­sica.
+- lista bens por situação de localização física.
 
 Query:
 
-- `statusLocal`: `com_local` ou `sem_local` (obrigatÃ³rio);
+- `statusLocal`: `com_local` ou `sem_local` (obrigatório);
 - `unidadeId` (opcional);
 - `limit`, `offset` (opcionais).
 
@@ -49,7 +49,7 @@ Uso:
 
 Acesso:
 
-- `mustAdmin` + validaÃ§Ã£o de `adminPassword`.
+- `mustAdmin` + validação de `adminPassword`.
 
 Query opcional:
 
@@ -61,13 +61,13 @@ Body:
 { "adminPassword": "senha_do_administrador" }
 ```
 
-## InventÃ¡rio: criaÃ§Ã£o, contagem e monitoramento
+## Inventário: criação, contagem e monitoramento
 
 ### POST `/inventario/eventos`
 
 Uso:
 
-- cria inventÃ¡rio (inclusive micro-inventÃ¡rio cÃ­clico).
+- cria inventário (inclusive micro-inventário cíclico).
 
 Campos principais:
 
@@ -101,13 +101,13 @@ Uso:
 Campos relevantes:
 
 - `eventoInventarioId`
-- `rodada`: `A|B|DESEMPATE` (obrigatÃ³ria em modos cegos)
+- `rodada`: `A|B|DESEMPATE` (obrigatória em modos cegos)
 - `unidadeEncontradaId`
 - `endereçoEncontrada`
 - `localEncontradoId`
 - `itens[]`
 
-ValidaÃ§Ãµes importantes:
+Validações importantes:
 
 - escopo de unidade/local do evento;
 - operador designado em modo cego;
@@ -117,9 +117,9 @@ ValidaÃ§Ãµes importantes:
 
 Uso:
 
-- retorna contexto do usuÃ¡rio no inventÃ¡rio.
+- retorna contexto do usuário no inventário.
 
-Resposta tÃ­pica:
+Resposta típica:
 
 - `modoContagem`
 - `papel`
@@ -132,7 +132,7 @@ Resposta tÃ­pica:
 
 Uso:
 
-- visÃ£o administrativa em tempo real por endereço e rodadas.
+- visão administrativa em tempo real por endereço e rodadas.
 
 Acesso:
 
@@ -142,7 +142,7 @@ Acesso:
 
 Uso:
 
-- lista divergÃªncias com visibilidade cruzada entre unidade dona e unidade encontrada.
+- lista divergências com visibilidade cruzada entre unidade dona e unidade encontrada.
 
 Filtros:
 
@@ -155,22 +155,22 @@ Filtros:
 
 Acesso:
 
-- usuÃ¡rio comum: vÃª apenas divergÃªncias relacionadas Ã  prÃ³pria unidade;
+- usuário comum: vê apenas divergências relacionadas à própria unidade;
 - admin: pode ver todas.
 
-## ClassificaÃ§Ãµes SIAFI e CatÃ¡logo
+## Classificações SIAFI e Catálogo
 
 ### GET `/classificacoes-siafi`
 
 Uso:
 
-- lista classificaÃ§Ãµes SIAFI para uso no catÃ¡logo.
+- lista classificações SIAFI para uso no catálogo.
 
 ### POST `/classificacoes-siafi`
 
 Uso:
 
-- cria classificaÃ§Ã£o SIAFI.
+- cria classificação SIAFI.
 
 Acesso:
 
@@ -180,7 +180,7 @@ Acesso:
 
 Uso:
 
-- edita classificaÃ§Ã£o SIAFI.
+- edita classificação SIAFI.
 
 Acesso:
 
@@ -190,38 +190,38 @@ Acesso:
 
 Uso:
 
-- cria item de catÃ¡logo.
+- cria item de catálogo.
 
 Regra:
 
-- campo `grupo` deve referenciar classificaÃ§Ã£o SIAFI vÃ¡lida e ativa.
+- campo `grupo` deve referenciar classificação SIAFI válida e ativa.
 
 ### PATCH `/catalogo-bens/:id`
 
 Uso:
 
-- edita item de catÃ¡logo.
+- edita item de catálogo.
 
 Regras adicionais:
 
-- confirmaÃ§Ã£o explÃ­cita de ediÃ§Ã£o;
-- senha admin quando autenticaÃ§Ã£o estiver ativa.
+- confirmação explícita de edição;
+- senha admin quando autenticação estiver ativa.
 
-## RBAC e AprovaÃ§Ãµes
+## RBAC e Aprovações
 
 ### GET `/auth/acl`
 
 Uso:
 
-- retorna ACL efetiva do usuÃ¡rio (`roles`, `permissions`, `menuPermissions`).
+- retorna ACL efetiva do usuário (`roles`, `permissions`, `menuPermissions`).
 
 ### GET `/aprovacoes/solicitacoes`
 
 Uso:
 
-- lista solicitaÃ§Ãµes de aprovaÃ§Ã£o.
+- lista solicitações de aprovação.
 
-PermissÃ£o:
+Permissão:
 
 - `action.aprovacao.listar`.
 
@@ -229,9 +229,9 @@ PermissÃ£o:
 
 Uso:
 
-- aprova e aplica solicitaÃ§Ã£o pendente.
+- aprova e aplica solicitação pendente.
 
-PermissÃ£o:
+Permissão:
 
 - `action.aprovacao.aprovar` + `adminPassword`.
 
@@ -239,13 +239,13 @@ PermissÃ£o:
 
 Uso:
 
-- reprova solicitaÃ§Ã£o pendente.
+- reprova solicitação pendente.
 
-PermissÃ£o:
+Permissão:
 
 - `action.aprovacao.reprovar` + `adminPassword`.
 
-## MovimentaÃ§Ãµes
+## Movimentações
 
 ### POST `/movimentar`
 
@@ -253,26 +253,26 @@ Uso:
 
 - executa `TRANSFERENCIA`, `CAUTELA_SAIDA` e `CAUTELA_RETORNO`.
 
-AutenticaÃ§Ã£o:
+Autenticação:
 
 - `mustAuth`.
 
-PermissÃµes ACL de execuÃ§Ã£o:
+Permissões ACL de execução:
 
 - `TRANSFERENCIA`: `action.bem.alterar_responsavel.execute`
 - `CAUTELA_SAIDA`: `action.bem.alterar_status.execute` + `action.bem.alterar_responsavel.execute`
-- `CAUTELA_RETORNO`: `action.bem.alterar_status.execute` (e tambÃ©m `action.bem.alterar_responsavel.execute` quando remover responsÃ¡vel)
+- `CAUTELA_RETORNO`: `action.bem.alterar_status.execute` (e também `action.bem.alterar_responsavel.execute` quando remover responsável)
 
 Erros relevantes:
 
-- `403 SEM_PERMISSAO`: usuÃ¡rio sem permissÃ£o para o tipo de movimentaÃ§Ã£o.
-- `403 APROVACAO_OBRIGATORIA`: perfil tem somente permissÃ£o de solicitaÃ§Ã£o (`request`) e nÃ£o pode executar diretamente.
+- `403 SEM_PERMISSAO`: usuário sem permissão para o tipo de movimentação.
+- `403 APROVACAO_OBRIGATORIA`: perfil tem somente permissão de solicitação (`request`) e não pode executar diretamente.
 
 ### GET `/roles-acesso`
 
 Uso:
 
-- lista catÃ¡logo de roles ACL.
+- lista catálogo de roles ACL.
 
 ### PUT `/perfis/:id/role-acesso`
 
@@ -290,13 +290,13 @@ Body:
 
 Uso:
 
-- carrega matriz role x permissÃµes para ediÃ§Ã£o visual.
+- carrega matriz role x permissões para edição visual.
 
 ### PUT `/roles-acesso/:codigo/permissoes`
 
 Uso:
 
-- substitui permissÃµes de uma role.
+- substitui permissões de uma role.
 
 Body:
 

@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/11_glossario.md
 Funcao no sistema: glossario dos termos usados nas telas e documentos.

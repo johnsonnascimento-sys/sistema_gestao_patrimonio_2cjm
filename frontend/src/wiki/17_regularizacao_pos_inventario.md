@@ -1,20 +1,20 @@
-﻿<!--
-MÃ³dulo: wiki
+<!--
+Módulo: wiki
 Arquivo: frontend/src/wiki/17_regularizacao_pos_inventario.md
-FunÃ§Ã£o no sistema: explicar o fluxo oficial de regularizaÃ§Ã£o pÃ³s-inventÃ¡rio sem transferÃªncia direta.
+Função no sistema: explicar o fluxo oficial de regularização pós-inventário sem transferência direta.
 -->
 
-# RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio
+# Regularização pós-inventário
 
 ## 1) Regra operacional oficial
 
-A tela **RegularizaÃ§Ã£o pÃ³s-inventÃ¡rio (DivergÃªncias)** nÃ£o executa transferÃªncia direta de carga.
+A tela **Regularização pós-inventário (Divergências)** não executa transferência direta de carga.
 
-Quando houver necessidade de transferÃªncia entre unidades:
+Quando houver necessidade de transferência entre unidades:
 
-- a aÃ§Ã£o correta Ã© **Encaminhar transferÃªncia formal**;
-- a execuÃ§Ã£o ocorre no menu **MovimentaÃ§Ãµes**;
-- a divergÃªncia fica **pendente** atÃ© o procedimento formal ser concluÃ­do.
+- a ação correta é **Encaminhar transferência formal**;
+- a execução ocorre no menu **Movimentações**;
+- a divergência fica **pendente** até o procedimento formal ser concluído.
 
 Base legal:
 
@@ -22,23 +22,23 @@ Base legal:
 - Art. 124 (AN303_Art124);
 - Art. 127 (AN303_Art127).
 
-## 2) AÃ§Ãµes em lote na regularizaÃ§Ã£o
+## 2) Ações em lote na regularização
 
-A tela permite seleÃ§Ã£o mÃºltipla (checkbox) para processar vÃ¡rios bens de uma vez:
+A tela permite seleção múltipla (checkbox) para processar vários bens de uma vez:
 
-- **Manter carga (selecionados)**: encerra pendÃªncia sem transferir unidade.
+- **Manter carga (selecionados)**: encerra pendência sem transferir unidade.
 - **endereço: manter cadastrada**: equivalente operacional de manter carga.
 - **endereço: trocar para endereço encontrada**: corrige endereço/local sem transferir unidade.
-- **Encaminhar transferÃªncia formal**: envia os itens para fila formal de transferÃªncia.
+- **Encaminhar transferência formal**: envia os itens para fila formal de transferência.
 
 Importante:
 
-- `ATUALIZAR_LOCAL` sÃ³ Ã© vÃ¡lido quando unidade dona = unidade encontrada.
-- bens de terceiros nÃ£o entram em transferÃªncia de carga.
+- `ATUALIZAR_LOCAL` só é válido quando unidade dona = unidade encontrada.
+- bens de terceiros não entram em transferência de carga.
 
-## 3) RetenÃ§Ã£o de pendÃªncia de transferÃªncia
+## 3) Retenção de pendência de transferência
 
-ApÃ³s encaminhar para transferÃªncia formal, o sistema grava status de fluxo por item:
+Após encaminhar para transferência formal, o sistema grava status de fluxo por item:
 
 - `ENCAMINHADA`
 - `AGUARDANDO_APROVACAO`
@@ -46,29 +46,29 @@ ApÃ³s encaminhar para transferÃªncia formal, o sistema grava status de fluxo
 - `CONCLUIDA`
 - `CANCELADA`
 
-Enquanto o fluxo nÃ£o estiver concluÃ­do (`CONCLUIDA`), a divergÃªncia permanece na regularizaÃ§Ã£o.
+Enquanto o fluxo não estiver concluído (`CONCLUIDA`), a divergência permanece na regularização.
 
-## 4) IntegraÃ§Ã£o com MovimentaÃ§Ãµes
+## 4) Integração com Movimentações
 
-No menu **MovimentaÃ§Ãµes**, use:
+No menu **Movimentações**, use:
 
-- botÃ£o **Importar pendÃªncias da RegularizaÃ§Ã£o**.
+- botão **Importar pendências da Regularização**.
 
-Isso carrega a fila de bens encaminhados (`ENCAMINHADA`) para executar transferÃªncia formal.
+Isso carrega a fila de bens encaminhados (`ENCAMINHADA`) para executar transferência formal.
 
 Resultado esperado:
 
-- transferÃªncia executada/aprovada: regularizaÃ§Ã£o Ã© concluÃ­da automaticamente;
+- transferência executada/aprovada: regularização é concluída automaticamente;
 - falha: status do fluxo volta para `ERRO`;
-- reprovaÃ§Ã£o administrativa: status retorna para `ENCAMINHADA`.
+- reprovação administrativa: status retorna para `ENCAMINHADA`.
 
-## 5) SituaÃ§Ãµes de erro comuns
+## 5) Situações de erro comuns
 
 - `ACAO_EXIGE_FLUXO_MOVIMENTACOES`:
-  tentativa de usar `TRANSFERIR_CARGA` direto no endpoint de regularizaÃ§Ã£o.
+  tentativa de usar `TRANSFERIR_CARGA` direto no endpoint de regularização.
 - `ATUALIZACAO_LOCAL_EXIGE_MESMA_UNIDADE`:
-  tentativa de trocar endereço em divergÃªncia de unidade.
+  tentativa de trocar endereço em divergência de unidade.
 - `EVENTO_NAO_ENCERRADO`:
-  regularizaÃ§Ã£o sÃ³ ocorre para inventÃ¡rio `ENCERRADO`.
+  regularização só ocorre para inventário `ENCERRADO`.
 
 

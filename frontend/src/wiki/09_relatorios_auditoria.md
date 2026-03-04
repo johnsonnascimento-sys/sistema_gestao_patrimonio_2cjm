@@ -1,63 +1,63 @@
-﻿<!--
+<!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/09_relatorios_auditoria.md
 Funcao no sistema: orientar como extrair evidencias e entender trilhas (historicos, importa?o GEAFIN, inventario, documentos).
 Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
 -->
 
-# RelatÃ³rios e auditoria
+# Relatórios e auditoria
 
 ## Objetivo
 
-Este sistema foi desenhado para â€œaguentar auditoriaâ€. Isso significa:
+Este sistema foi desenhado para "aguentar auditoria". Isso significa:
 
-- ser possÃ­vel provar o que foi importado (GEAFIN),
-- ser possÃ­vel provar quando e por que um bem mudou de carga,
-- ser possÃ­vel listar divergÃªncias de inventÃ¡rio (intrusos) sem alterar carga no ato,
-- ser possÃ­vel vincular evidÃªncias (Drive/PDF) Ã s operaÃ§Ãµes relevantes.
+- ser possível provar o que foi importado (GEAFIN),
+- ser possível provar quando e por que um bem mudou de carga,
+- ser possível listar divergências de inventário (intrusos) sem alterar carga no ato,
+- ser possível vincular evidências (Drive/PDF) às operações relevantes.
 
-## 1) Auditoria de importaÃ§Ã£o GEAFIN
+## 1) Auditoria de importação GEAFIN
 
-EvidÃªncias:
+Evidências:
 
 - registro do arquivo (nome, hash, bytes, data/hora, total de linhas, status),
-- linhas espelho (conteÃºdo do CSV como chegou),
-- contadores (ok/falha persistÃªncia/falha normalizaÃ§Ã£o).
+- linhas espelho (conteúdo do CSV como chegou),
+- contadores (ok/falha persistência/falha normalização).
 
-Uso tÃ­pico:
+Uso típico:
 
-- â€œas 3833 linhas do CSV foram processadas?â€: verificar `status=CONCLUIDO` e `percent=100` em `GET /importa?es/geafin/ultimo`.
+- "as 3833 linhas do CSV foram processadas?": verificar `status=CONCLUIDO` e `percent=100` em `GET /importa?es/geafin/ultimo`.
 
-## 2) Auditoria de mudanÃ§a de carga (transferÃªncias)
+## 2) Auditoria de mudança de carga (transferências)
 
-Quando uma transferÃªncia acontece (mudanÃ§a de `bens.unidade_dona_id`), o banco registra histÃ³rico dedicado.
+Quando uma transferência acontece (mudança de `bens.unidade_dona_id`), o banco registra histórico dedicado.
 
-EvidÃªncias:
+Evidências:
 
 - bem (tombamento),
 - unidade antiga e nova,
 - data/hora,
 - origem (IMPORTACAO/APP/SISTEMA),
-- usuÃ¡rio (quando aplicÃ¡vel).
+- usuário (quando aplicável).
 
 Base legal:
 
 - Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127).
 
-## 3) Forasteiros / intrusos (inventÃ¡rio)
+## 3) Forasteiros / intrusos (inventário)
 
-Um â€œforasteiroâ€ Ã© uma divergÃªncia registrada no inventÃ¡rio:
+Um "forasteiro" é uma divergência registrada no inventário:
 
 - `tipo_ocorrencia = ENCONTRADO_EM_LOCAL_DIVERGENTE`
 - `regulariza?o_pendente = true`
 
-RelatÃ³rio tÃ­pico:
+Relatório típico:
 
-- lista de bens com unidade dona diferente da unidade encontrada no inventÃ¡rio.
+- lista de bens com unidade dona diferente da unidade encontrada no inventário.
 
-ObservaÃ§Ã£o:
+Observação:
 
-- o sistema deriva isso de `contagens` (fato do inventÃ¡rio), nÃ£o de coluna â€œunidade_local_atualâ€ no bem.
+- o sistema deriva isso de `contagens` (fato do inventário), não de coluna "unidade_local_atual" no bem.
 
 Base legal:
 
@@ -99,7 +99,7 @@ Na tela de detalhes do bem (Consulta de Bens), a trilha de auditoria segue estes
 
 ## 4) Bens de terceiros (controle segregado)
 
-â€œBem de terceiroâ€ Ã© ocorrÃªncia segregada, sem tombamento GEAFIN:
+"Bem de terceiro" é ocorrência segregada, sem tombamento GEAFIN:
 
 - `bens.eh_bem_terceiro=true`
 - `contagens.tipo_ocorrencia='BEM_DE_TERCEIRO'`
@@ -113,36 +113,36 @@ Base legal (controle segregado):
 
 - Art. 99 (AN303_Art99), Art. 110, VI (AN303_Art110_VI), Art. 175, IX (AN303_Art175_IX).
 
-## 5) Documentos (termos e evidÃªncias)
+## 5) Documentos (termos e evidências)
 
-O sistema **nÃ£o armazena PDF no banco**. Ele armazena metadados em `documentos`:
+O sistema **não armazena PDF no banco**. Ele armazena metadados em `documentos`:
 
 - `drive_url` / `drive_file_id`
 - `sha256` (opcional)
-- vÃ­nculo com `movimenta?es` e/ou `contagens`
-- (opcional) vÃ­nculo com `avalia?es_inserviveis` (Wizard Art. 141) via `avalia?o_inservivel_id` (migration 013)
+- vínculo com `movimenta?es` e/ou `contagens`
+- (opcional) vínculo com `avalia?es_inserviveis` (Wizard Art. 141) via `avalia?o_inservivel_id` (migration 013)
 
-Isso permite auditoria sem carregar binÃ¡rios no Postgres.
+Isso permite auditoria sem carregar binários no Postgres.
 
-## 6) SaÃ­das oficiais (n8n + Drive)
+## 6) Saídas oficiais (n8n + Drive)
 
 Workflows n8n ficam em `automations/`:
 
 - `n8n_relatorio_forasteiros_pdf.json`: gera PDF via API (`GET /api/pdf/forasteiros`) e faz upload no Drive.
 - `n8n_gerador_termos_pdf.json`: gera PDF via API (`POST /api/pdf/termos`) e faz upload no Drive.
 
-PrÃ©-requisitos dos workflows PDF via API:
+Pré-requisitos dos workflows PDF via API:
 
-- autenticaÃ§Ã£o ativa no backend (JWT),
-- variÃ¡veis de ambiente no n8n:
+- autenticação ativa no backend (JWT),
+- variáveis de ambiente no n8n:
   - `PATRIMONIO_ADMIN_MATRICULA`
   - `PATRIMONIO_ADMIN_SENHA`
 
-## 7) Boas prÃ¡ticas para auditoria
+## 7) Boas práticas para auditoria
 
-- Guarde sempre o CSV original importado (fora do repositÃ³rio).
-- Registre quem executa operaÃ§Ãµes crÃ­ticas (perfil).
-- NÃ£o use â€œtransferÃªnciaâ€ para â€œconsertar inventÃ¡rioâ€ durante o congelamento: registre divergÃªncia e regularize depois.
+- Guarde sempre o CSV original importado (fora do repositório).
+- Registre quem executa operações críticas (perfil).
+- Não use "transferência" para "consertar inventário" durante o congelamento: registre divergência e regularize depois.
 
 ## 8) Logs consolidados (projeto x patrimonio)
 

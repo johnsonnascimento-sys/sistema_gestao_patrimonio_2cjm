@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Modulo: frontend/components
  * Arquivo: DashboardPanel.jsx
  * Funcao no sistema: dashboard executivo operacional de abertura da aplicacao.
@@ -239,9 +239,9 @@ export default function DashboardPanel({ onNavigate }) {
 
   const quickActions = [
     { id: "bens", label: "Consulta de Bens" },
-    { id: "movimentacoes", label: "MovimentaÃ§Ãµes" },
+    { id: "movimentacoes", label: "Movimentações" },
     { id: "operacoes-cadastro-sala", label: "Cadastrar bens por Endereço" },
-    { id: "inventario-contagem", label: "InventÃ¡rio - Contagem" },
+    { id: "inventario-contagem", label: "Inventário - Contagem" },
     { id: "importacoes-geafin", label: "Importacao GEAFIN" },
   ];
   const activeFloor = hoveredFloor || selectedFloor;
@@ -373,7 +373,7 @@ export default function DashboardPanel({ onNavigate }) {
 
       <div className={`grid gap-6 ${canListarAprovacoes ? "xl:grid-cols-3" : "xl:grid-cols-[0.9fr_1.1fr]"}`}>
         <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="font-semibold text-slate-900">InventÃ¡rio ativo</h3>
+          <h3 className="font-semibold text-slate-900">Inventário ativo</h3>
           {eventosAtivosQuery.isLoading ? (
             <p className="mt-3 text-sm text-slate-600">Carregando status...</p>
           ) : eventosAtivos.length ? (
@@ -397,7 +397,7 @@ export default function DashboardPanel({ onNavigate }) {
                 onClick={() => onNavigate?.("inventario-admin")}
                 className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
-                Abrir InventÃ¡rio - AdministraÃ§Ã£o
+                Abrir Inventário - Administração
               </button>
             </div>
           ) : (
@@ -457,7 +457,7 @@ export default function DashboardPanel({ onNavigate }) {
         {canListarAprovacoes ? (
           <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold text-slate-900">AprovaÃ§Ãµes pendentes</h3>
+              <h3 className="font-semibold text-slate-900">Aprovações pendentes</h3>
               <button
                 type="button"
                 onClick={() => onNavigate?.("admin-aprovacoes")}
@@ -467,7 +467,7 @@ export default function DashboardPanel({ onNavigate }) {
               </button>
             </div>
             {aprovacoesPendentesQuery.isLoading ? (
-              <p className="mt-3 text-sm text-slate-600">Carregando pendÃªncias...</p>
+              <p className="mt-3 text-sm text-slate-600">Carregando pendências...</p>
             ) : (
               <>
                 <p className="mt-2 text-sm text-slate-600">
@@ -497,7 +497,7 @@ export default function DashboardPanel({ onNavigate }) {
                       {!(aprovacoesPendentesQuery.data?.items || []).length ? (
                         <tr>
                           <td className="px-3 py-4 text-slate-600" colSpan={3}>
-                            Nenhuma aprovaÃ§Ã£o pendente no momento.
+                            Nenhuma aprovação pendente no momento.
                           </td>
                         </tr>
                       ) : null}
