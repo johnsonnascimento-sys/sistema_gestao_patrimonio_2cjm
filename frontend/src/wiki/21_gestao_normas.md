@@ -1,14 +1,14 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/21_gestao_normas.md
-Funcao no sistema: documentar o menu Gestão de Normas.
+Funcao no sistema: documentar o menu Normas.
 -->
 
-# Gestão de Normas
+# Normas
 
 ## Objetivo
 
-A seção Gestão de Normas concentra o acervo normativo usado na operação patrimonial.
+A seção Normas concentra o acervo normativo usado na operação patrimonial.
 
 Ela serve para consulta rapida das regras internas e referencias legais aplicadas no sistema.
 
@@ -27,6 +27,6 @@ Ela serve para consulta rapida das regras internas e referencias legais aplicada
 ## Governanca
 
 - Mudanca de regra de negocio deve refletir em:
-  - Gestão de Normas
+  - Normas
   - Wiki operacional
   - Log geral de alterações

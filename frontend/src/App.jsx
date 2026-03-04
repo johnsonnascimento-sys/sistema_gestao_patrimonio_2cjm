@@ -43,7 +43,6 @@ const NAV_STRUCTURE = [
       { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
       { id: "classificacoes-siafi", label: "Classificação SIAFI", short: "SIAFI" },
-      { id: "normas", label: "Gestão de Normas", short: "Normas" },
       { id: "importacoes-geafin", label: "Importação GEAFIN (CSV Latin1)", short: "GEAFIN" },
     ],
   },
@@ -69,7 +68,8 @@ const NAV_STRUCTURE = [
       { id: "admin-aprovacoes", label: "Aprovações Pendentes", short: "Aprov." },
     ],
   },
-  { type: "item", item: { id: "wiki", label: "Wiki / Manual", short: "Wiki" } },
+  { type: "item", item: { id: "wiki", label: "Wiki / Manual do Sistema", short: "Wiki" } },
+  { type: "item", item: { id: "normas", label: "Normas", short: "Normas" } },
 ];
 
 const TAB_PERMISSION_MAP = Object.freeze({
@@ -982,6 +982,5 @@ export default function App() {
 
   return <AppShell />;
 }
-
 
 

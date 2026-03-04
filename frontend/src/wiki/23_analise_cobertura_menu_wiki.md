@@ -24,7 +24,7 @@ Funcao no sistema: registrar analise faseada de cobertura entre menu real da apl
 | Operações Patrimoniais | Inventário - Administração | `InventoryAdminPanel` | `22_inventario_administracao.md` | OK |
 | Operações Patrimoniais | Wizard Art. 141 | Painel do wizard em `App.jsx` + `ClassificationWizard` | `08_wizard_art141.md` | OK |
 | Operações Patrimoniais | Material (SKU) | `CatálogoAdminPanel` | `20_material_sku.md` | OK |
-| Operações Patrimoniais | Gestão de Normas | `NormsPage` | `21_gestao_normas.md` | OK |
+| Raiz | Normas | `NormsPage` | `21_gestao_normas.md` | OK |
 | Operações Patrimoniais | Importação GEAFIN (CSV Latin1) | `ImportacoesPanel` | `04_importacao_geafin.md` | OK |
 | Auditoria e Logs | Log Geral de Alterações | `AuditoriaLogsPanel` (`auditoria-changelog`) | `09_relatorios_auditoria.md` | OK |
 | Auditoria e Logs | Auditoria Patrimonial (Global) | `AuditoriaLogsPanel` (`auditoria-patrimonio`) | `09_relatorios_auditoria.md` | OK |
@@ -33,13 +33,13 @@ Funcao no sistema: registrar analise faseada de cobertura entre menu real da apl
 | Administração do Painel | Backup e Restore | `OperationsPanel` (`admin-backup`) | `14_admin_operacao_vps.md` | OK |
 | Administração do Painel | Conectividade Backend | `OperationsPanel` (`admin-health`) | `14_admin_operacao_vps.md` + `10_solucao_problemas.md` | OK |
 | Administração do Painel | Perfis e Acessos | `OperationsPanel` (`admin-perfis`) | `02_perfis_acesso.md` | OK |
-| Raiz | Wiki / Manual | `WikiManual` | `00_indice.md` | OK |
+| Raiz | Wiki / Manual do Sistema | `WikiManual` | `00_indice.md` | OK |
 
 ## Fase 2 - Pagina por pagina (cobertura e papel)
 
 | Pagina wiki | Papel principal | Menu relacionado |
 |---|---|---|
-| `00_indice.md` | indice oficial do manual | Wiki / Manual |
+| `00_indice.md` | indice oficial do manual | Wiki / Manual do Sistema |
 | `01_visao_geral.md` | visao macro de modulos e regras | transversal |
 | `02_perfis_acesso.md` | fluxo de perfis, login e papeis | Administração do Painel -> Perfis e Acessos |
 | `03_consulta_bens.md` | operação da consulta e modal de detalhes | Operações Patrimoniais -> Consulta de Bens |
@@ -60,9 +60,9 @@ Funcao no sistema: registrar analise faseada de cobertura entre menu real da apl
 | `18_checklist_migracoes.md` | sequencia e validação de migrações SQL | transversal tecnico |
 | `19_dashboard.md` | tela inicial e atalho operacional | Dashboard |
 | `20_material_sku.md` | catálogo de materiais e associação de bens | Operações Patrimoniais -> Material (SKU) |
-| `21_gestao_normas.md` | acervo normativo e governanca | Operações Patrimoniais -> Gestão de Normas |
+| `21_gestao_normas.md` | acervo normativo e governanca | Normas |
 | `22_inventario_administracao.md` | governanca de eventos/ciclos de inventario | Operações Patrimoniais -> Inventário - Administração |
-| `23_analise_cobertura_menu_wiki.md` | rastreabilidade da aderencia menu x wiki | Wiki / Manual |
+| `23_analise_cobertura_menu_wiki.md` | rastreabilidade da aderencia menu x wiki | Wiki / Manual do Sistema |
 
 ## Fase 3 - Ajustes aplicados neste ciclo
 
@@ -88,4 +88,5 @@ Atualizações aplicadas neste ciclo:
   - `05_movimentacoes.md`
   - `10_solucao_problemas.md`
   - `15_referencia_api.md`
+
 
