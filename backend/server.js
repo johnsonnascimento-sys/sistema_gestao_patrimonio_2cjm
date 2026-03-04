@@ -3208,6 +3208,23 @@ app.post("/movimentar", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
     const p = validateMov(req.body || {}, { defaultPerfilId: req.user?.id || "" });
+    const movAcl = classifyMovPermissions(p);
+    const canExecuteMov = movAcl.executePermissions.length
+      ? movAcl.executePermissions.every((perm) => userHasPermission(req.user, perm))
+      : false;
+    const canRequestMov = movAcl.requestPermissions.length
+      ? movAcl.requestPermissions.every((perm) => userHasPermission(req.user, perm))
+      : false;
+    if (!canExecuteMov && !canRequestMov) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para executar esta movimentacao.");
+    }
+    if (!canExecuteMov && canRequestMov) {
+      throw new HttpError(
+        403,
+        "APROVACAO_OBRIGATORIA",
+        "Seu perfil exige aprovacao administrativa para este tipo de movimentacao.",
+      );
+    }
 
     // Regra operacional (controle de acesso real):
     // - Quando autenticacao estiver ativa, o executor deve ser SEMPRE o usuario autenticado (evita forjar perfilId).
@@ -3261,7 +3278,6 @@ const inventario = createInventarioController({
 app.get("/inventario/eventos", mustAuth, inventario.getEventos);
 app.get("/inventario/divergencias-interunidades", mustAuth, inventario.getDivergenciasInterunidades);
 app.get("/inventario/contagens", mustAuth, inventario.getContagens);
-app.get("/inventario/divergencias-interunidades", mustAuth, inventario.getDivergenciasInterunidades);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.get("/inventario/sugestoes-ciclo", mustAuth, inventario.getSugestoesCiclo);
@@ -5969,6 +5985,36 @@ function classifyBemPatchPermissions(body) {
   }
 
   return { executePermissions: uniqStrings(exec), requestPermissions: uniqStrings(req) };
+}
+
+function classifyMovPermissions(payload) {
+  const tipo = String(payload?.tipoMovimentacao || "").trim().toUpperCase();
+  const exec = [];
+  const req = [];
+
+  if (tipo === "TRANSFERENCIA") {
+    exec.push("action.bem.alterar_responsavel.execute");
+    req.push("action.bem.alterar_responsavel.request");
+    return { executePermissions: uniqStrings(exec), requestPermissions: uniqStrings(req) };
+  }
+
+  if (tipo === "CAUTELA_SAIDA") {
+    exec.push("action.bem.alterar_status.execute", "action.bem.alterar_responsavel.execute");
+    req.push("action.bem.alterar_status.request", "action.bem.alterar_responsavel.request");
+    return { executePermissions: uniqStrings(exec), requestPermissions: uniqStrings(req) };
+  }
+
+  if (tipo === "CAUTELA_RETORNO") {
+    exec.push("action.bem.alterar_status.execute");
+    req.push("action.bem.alterar_status.request");
+    if (!payload?.manterResponsavelNoRetorno) {
+      exec.push("action.bem.alterar_responsavel.execute");
+      req.push("action.bem.alterar_responsavel.request");
+    }
+    return { executePermissions: uniqStrings(exec), requestPermissions: uniqStrings(req) };
+  }
+
+  return { executePermissions: [], requestPermissions: [] };
 }
 
 function ensureAnyPermissionOrThrow(user, permissions, modeLabel) {

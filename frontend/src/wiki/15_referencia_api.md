@@ -245,6 +245,29 @@ Permissão:
 
 - `action.aprovacao.reprovar` + `adminPassword`.
 
+## Movimentações
+
+### POST `/movimentar`
+
+Uso:
+
+- executa `TRANSFERENCIA`, `CAUTELA_SAIDA` e `CAUTELA_RETORNO`.
+
+Autenticação:
+
+- `mustAuth`.
+
+Permissões ACL de execução:
+
+- `TRANSFERENCIA`: `action.bem.alterar_responsavel.execute`
+- `CAUTELA_SAIDA`: `action.bem.alterar_status.execute` + `action.bem.alterar_responsavel.execute`
+- `CAUTELA_RETORNO`: `action.bem.alterar_status.execute` (e também `action.bem.alterar_responsavel.execute` quando remover responsável)
+
+Erros relevantes:
+
+- `403 SEM_PERMISSAO`: usuário sem permissão para o tipo de movimentação.
+- `403 APROVACAO_OBRIGATORIA`: perfil tem somente permissão de solicitação (`request`) e não pode executar diretamente.
+
 ### GET `/roles-acesso`
 
 Uso:

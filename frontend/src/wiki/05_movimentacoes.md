@@ -176,3 +176,20 @@ Fluxo de decisao:
 
 - Menu: `Administra?o do Painel -> Aprova?es Pendentes`.
 - Admin decide com senha (aprovar/reprovar).
+
+## Regra de permiss?o para `/movimentar` (incidente 2026-03-04)
+
+Para proteger transfer?ncia e cautela, o endpoint `POST /movimentar` passou a exigir permiss?es ACL de execu??o:
+
+- `TRANSFERENCIA`: exige `action.bem.alterar_responsavel.execute`.
+- `CAUTELA_SAIDA`: exige `action.bem.alterar_status.execute` e `action.bem.alterar_responsavel.execute`.
+- `CAUTELA_RETORNO`: exige `action.bem.alterar_status.execute` (e tamb?m `action.bem.alterar_responsavel.execute` quando limpar respons?vel).
+
+Comportamento:
+
+- sem permiss?o `execute` e sem `request`: retorna `403 SEM_PERMISSAO`;
+- com `request` e sem `execute`: retorna `403 APROVACAO_OBRIGATORIA`.
+
+Observa??o operacional:
+
+- neste endpoint, a abertura autom?tica de solicita??o pendente n?o est? habilitada na vers?o atual; a execu??o deve ser feita por perfil autorizado.
