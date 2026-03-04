@@ -2426,11 +2426,14 @@ const inventario = createInventarioController({
 });
 
 app.get("/inventario/eventos", mustAuth, inventario.getEventos);
+app.get("/inventario/divergencias-interunidades", mustAuth, inventario.getDivergenciasInterunidades);
 app.get("/inventario/contagens", mustAuth, inventario.getContagens);
 app.get("/inventario/forasteiros", mustAuth, inventario.getForasteiros);
 app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.get("/inventario/sugestoes-ciclo", mustAuth, inventario.getSugestoesCiclo);
 app.get("/inventario/eventos/:id/progresso", mustAuth, inventario.getProgresso);
+app.get("/inventario/eventos/:id/minha-sessao-contagem", mustAuth, inventario.getMinhaSessaoContagem);
+app.get("/inventario/eventos/:id/monitoramento-contagem", mustAdmin, inventario.getMonitoramentoContagem);
 app.get("/inventario/eventos/:id/relatorio-encerramento", mustAuth, inventario.getRelatorioEncerramento);
 app.get("/inventario/eventos/:id/relatorio-encerramento.csv", mustAuth, inventario.exportRelatorioEncerramentoCsv);
 app.post("/inventario/eventos", mustAuth, inventario.postEvento);
