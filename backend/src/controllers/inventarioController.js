@@ -17,7 +17,7 @@
  * @param {(client: import("pg").PoolClient, ctx: {changeOrigin?: string|null, currentUserId?: string|null}) => Promise<void>} deps.setDbContext Define contexto de DB para triggers (origem/ator).
  * @param {(client: import("pg").PoolClient) => Promise<void>} deps.safeRollback Rollback seguro.
  * @param {(error: any) => string} deps.dbError Normalizador de erro de banco para mensagem curta.
- * @returns {{getEventos: Function, getContagens: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
+ * @returns {{getEventos: Function, getContagens: Function, getDivergenciasInterunidades: Function, getForasteiros: Function, getBensTerceiros: Function, getProgresso: Function, getRelatorioEncerramento: Function, exportRelatorioEncerramentoCsv: Function, getSugestoesCiclo: Function, getMinhaSessaoContagem: Function, getMonitoramentoContagem: Function, postEvento: Function, patchEventoStatus: Function, postSync: Function, postBemTerceiro: Function, postRegularizacao: Function}} Handlers Express.
  */
 function createInventarioController(deps) {
   const {
@@ -37,6 +37,9 @@ function createInventarioController(deps) {
   const unitLabel = (unitId) => (unitId == null ? "GERAL" : String(unitId));
   const VALID_CICLOS = new Set(["SEMANAL", "MENSAL", "ANUAL", "ADHOC"]);
   const VALID_ESCOPO = new Set(["GERAL", "UNIDADE", "LOCAIS"]);
+  const VALID_MODO_CONTAGEM = new Set(["PADRAO", "CEGO", "DUPLO_CEGO"]);
+  const VALID_PAPEL_CONTAGEM = new Set(["OPERADOR_UNICO", "OPERADOR_A", "OPERADOR_B"]);
+  const VALID_RODADA = new Set(["A", "B", "DESEMPATE"]);
   let _invSchemaCaps = null;
 
   async function getInvSchemaCaps() {
@@ -62,15 +65,163 @@ function createInventarioController(deps) {
            SELECT 1
            FROM information_schema.tables
            WHERE table_schema='public' AND table_name='eventos_inventario_locais'
-         ) AS "hasEventosLocais";`,
+         ) AS "hasEventosLocais",
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='eventos_inventario' AND column_name='modo_contagem'
+         ) AS "hasModoContagem",
+         EXISTS (
+           SELECT 1
+           FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='eventos_inventario_operadores'
+         ) AS "hasOperadoresEvento",
+         EXISTS (
+           SELECT 1
+           FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='contagens_rodadas'
+         ) AS "hasContagensRodadas";`,
     );
     _invSchemaCaps = q.rows[0] || {
       hasTipoCiclo: false,
       hasEscopoTipo: false,
       hasDataUltimaContagem: false,
       hasEventosLocais: false,
+      hasModoContagem: false,
+      hasOperadoresEvento: false,
+      hasContagensRodadas: false,
     };
     return _invSchemaCaps;
+  }
+
+  async function listOperadoresEvento(client, eventoId) {
+    const r = await client.query(
+      `SELECT
+         eo.id,
+         eo.evento_inventario_id AS "eventoInventarioId",
+         eo.perfil_id AS "perfilId",
+         p.nome AS "perfilNome",
+         p.matricula AS "perfilMatricula",
+         eo.papel_contagem::text AS "papelContagem",
+         eo.ativo,
+         eo.permite_desempate AS "permiteDesempate",
+         eo.created_at AS "createdAt"
+       FROM eventos_inventario_operadores eo
+       JOIN perfis p ON p.id = eo.perfil_id
+       WHERE eo.evento_inventario_id = $1
+       ORDER BY eo.created_at ASC;`,
+      [eventoId],
+    );
+    return r.rows;
+  }
+
+  function normalizeOperadoresDesignados(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const row of raw) {
+      const perfilId = String(row?.perfilId || "").trim();
+      const papelContagem = String(row?.papelContagem || "").trim().toUpperCase();
+      if (!perfilId || !UUID_RE.test(perfilId)) continue;
+      if (!VALID_PAPEL_CONTAGEM.has(papelContagem)) continue;
+      out.push({
+        perfilId,
+        papelContagem,
+        permiteDesempate: Boolean(row?.permiteDesempate),
+      });
+    }
+    return out;
+  }
+
+  function validateOperadoresByMode(modoContagem, operadoresDesignados) {
+    const ativos = Array.isArray(operadoresDesignados) ? operadoresDesignados : [];
+    if (modoContagem === "PADRAO") return;
+    if (modoContagem === "CEGO") {
+      if (ativos.length !== 1 || ativos[0].papelContagem !== "OPERADOR_UNICO") {
+        throw new HttpError(422, "OPERADORES_INVALIDOS_CEGO", "Modo CEGO exige exatamente 1 operador com papel OPERADOR_UNICO.");
+      }
+      return;
+    }
+    if (modoContagem === "DUPLO_CEGO") {
+      if (ativos.length !== 2) {
+        throw new HttpError(422, "OPERADORES_INVALIDOS_DUPLO_CEGO", "Modo DUPLO_CEGO exige exatamente 2 operadores (A/B).");
+      }
+      const hasA = ativos.some((x) => x.papelContagem === "OPERADOR_A");
+      const hasB = ativos.some((x) => x.papelContagem === "OPERADOR_B");
+      if (!hasA || !hasB) {
+        throw new HttpError(422, "OPERADORES_INVALIDOS_DUPLO_CEGO", "Modo DUPLO_CEGO exige OPERADOR_A e OPERADOR_B.");
+      }
+    }
+  }
+
+  async function resolveSessaoContagem(client, eventoId, perfilId, reqUserRole) {
+    const caps = await getInvSchemaCaps();
+    const ev = await client.query(
+      `SELECT
+         id,
+         status::text AS status,
+         unidade_inventariada_id AS "unidadeInventariadaId",
+         COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo",
+         ${caps.hasModoContagem ? "modo_contagem::text" : "'PADRAO'"} AS "modoContagem"
+       FROM eventos_inventario
+       WHERE id = $1
+       LIMIT 1;`,
+      [eventoId],
+    );
+    if (!ev.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento de inventario nao encontrado.");
+    const evento = ev.rows[0];
+    const modoContagem = String(evento.modoContagem || "PADRAO").toUpperCase();
+
+    if (!caps.hasOperadoresEvento || modoContagem === "PADRAO") {
+      return {
+        evento,
+        perfilDesignado: null,
+        papel: null,
+        podeDesempate: String(reqUserRole || "").toUpperCase() === "ADMIN",
+        rodadasPermitidas: ["A"],
+        uiReduzida: false,
+      };
+    }
+
+    const op = await client.query(
+      `SELECT
+         papel_contagem::text AS "papelContagem",
+         permite_desempate AS "permiteDesempate",
+         ativo
+       FROM eventos_inventario_operadores
+       WHERE evento_inventario_id = $1
+         AND perfil_id = $2
+       LIMIT 1;`,
+      [eventoId, perfilId],
+    );
+    const designado = op.rows[0] || null;
+    const isAdmin = String(reqUserRole || "").toUpperCase() === "ADMIN";
+    if (!designado || !designado.ativo) {
+      return {
+        evento,
+        perfilDesignado: null,
+        papel: null,
+        podeDesempate: isAdmin,
+        rodadasPermitidas: [],
+        uiReduzida: modoContagem === "CEGO" || modoContagem === "DUPLO_CEGO",
+      };
+    }
+
+    let rodadasPermitidas = [];
+    if (modoContagem === "CEGO") rodadasPermitidas = ["A"];
+    else if (modoContagem === "DUPLO_CEGO") {
+      if (designado.papelContagem === "OPERADOR_A") rodadasPermitidas = ["A"];
+      if (designado.papelContagem === "OPERADOR_B") rodadasPermitidas = ["B"];
+      if (designado.papelContagem === "OPERADOR_UNICO") rodadasPermitidas = ["A"];
+    }
+
+    return {
+      evento,
+      perfilDesignado: designado,
+      papel: designado.papelContagem,
+      podeDesempate: isAdmin || Boolean(designado.permiteDesempate),
+      rodadasPermitidas,
+      uiReduzida: modoContagem === "CEGO" || modoContagem === "DUPLO_CEGO",
+    };
   }
 
   /**
@@ -115,6 +266,27 @@ function createInventarioController(deps) {
             WHERE eil.evento_inventario_id = e.id
           )`
         : `'[]'::json`;
+      const operadoresSql = caps.hasOperadoresEvento
+        ? `(
+            SELECT COALESCE(
+              json_agg(
+                json_build_object(
+                  'perfilId', eo.perfil_id,
+                  'perfilNome', p.nome,
+                  'perfilMatricula', p.matricula,
+                  'papelContagem', eo.papel_contagem::text,
+                  'ativo', eo.ativo,
+                  'permiteDesempate', eo.permite_desempate
+                )
+                ORDER BY eo.created_at
+              ),
+              '[]'::json
+            )
+            FROM eventos_inventario_operadores eo
+            JOIN perfis p ON p.id = eo.perfil_id
+            WHERE eo.evento_inventario_id = e.id
+          )`
+        : `'[]'::json`;
       const r = await pool.query(
         `SELECT
            e.id,
@@ -122,7 +294,9 @@ function createInventarioController(deps) {
            e.unidade_inventariada_id AS "unidadeInventariadaId",
            COALESCE((to_jsonb(e)->>'tipo_ciclo'), 'ADHOC') AS "tipoCiclo",
            COALESCE((to_jsonb(e)->>'escopo_tipo'), CASE WHEN e.unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo",
+           ${caps.hasModoContagem ? "COALESCE((to_jsonb(e)->>'modo_contagem'), 'PADRAO')" : "'PADRAO'"} AS "modoContagem",
            ${escopoLocaisSql} AS "escopoLocais",
+           ${operadoresSql} AS "operadoresDesignados",
            e.status::text AS "status",
            e.iniciado_em AS "iniciadoEm",
            e.encerrado_em AS "encerradoEm",
@@ -669,6 +843,136 @@ function createInventarioController(deps) {
   }
 
   /**
+   * Retorna contexto do usuario logado para contagem no evento informado.
+   * Usado para controlar UI reduzida em modos CEGO/DUPLO_CEGO.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getMinhaSessaoContagem(req, res, next) {
+    const client = await pool.connect();
+    try {
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+      const perfilId = req.user?.id ? String(req.user.id).trim() : "";
+      if (!perfilId || !UUID_RE.test(perfilId)) throw new HttpError(401, "NAO_AUTENTICADO", "Usuario nao autenticado.");
+
+      const sessao = await resolveSessaoContagem(client, eventoId, perfilId, req.user?.role);
+      res.json({
+        requestId: req.requestId,
+        eventoId,
+        modoContagem: String(sessao?.evento?.modoContagem || "PADRAO").toUpperCase(),
+        papel: sessao.papel || null,
+        rodadasPermitidas: sessao.rodadasPermitidas || [],
+        podeDesempate: Boolean(sessao.podeDesempate),
+        uiReduzida: Boolean(sessao.uiReduzida),
+        designado: Boolean(sessao.perfilDesignado),
+      });
+    } catch (error) {
+      next(error);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Painel admin de monitoramento de contagem por sala/rodada.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getMonitoramentoContagem(req, res, next) {
+    try {
+      const caps = await getInvSchemaCaps();
+      const eventoId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id do evento deve ser UUID.");
+      if (!caps.hasContagensRodadas) throw new HttpError(422, "MIGRACAO_RODADAS_OBRIGATORIA", "Aplique a migration 021.");
+
+      const eventoR = await pool.query(
+        `SELECT
+           id,
+           codigo_evento AS "codigoEvento",
+           status::text AS "status",
+           unidade_inventariada_id AS "unidadeInventariadaId",
+           ${caps.hasModoContagem ? "modo_contagem::text" : "'PADRAO'"} AS "modoContagem"
+         FROM eventos_inventario
+         WHERE id = $1
+         LIMIT 1;`,
+        [eventoId],
+      );
+      if (!eventoR.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento nao encontrado.");
+
+      const salasR = await pool.query(
+        `WITH esperado AS (
+           SELECT
+             COALESCE(l.nome, b.local_fisico) AS sala,
+             COUNT(*)::int AS qtd_esperados
+           FROM bens b
+           LEFT JOIN locais l ON l.id = b.local_id
+           JOIN eventos_inventario e ON e.id = $1
+           WHERE b.eh_bem_terceiro = FALSE
+             AND b.status <> 'BAIXADO'::public.status_bem
+             AND (e.unidade_inventariada_id IS NULL OR b.unidade_dona_id = e.unidade_inventariada_id)
+           GROUP BY COALESCE(l.nome, b.local_fisico)
+         ),
+         lidos AS (
+           SELECT
+             cr.sala_encontrada AS sala,
+             COUNT(*) FILTER (WHERE cr.rodada = 'A')::int AS qtd_a,
+             COUNT(*) FILTER (WHERE cr.rodada = 'B')::int AS qtd_b,
+             COUNT(*) FILTER (WHERE cr.rodada = 'DESEMPATE')::int AS qtd_desempate,
+             COUNT(DISTINCT cr.bem_id)::int AS qtd_unicos_lidos
+           FROM contagens_rodadas cr
+           WHERE cr.evento_inventario_id = $1
+           GROUP BY cr.sala_encontrada
+         )
+         SELECT
+           COALESCE(e.sala, l.sala) AS "salaEncontrada",
+           COALESCE(e.qtd_esperados, 0)::int AS "qtdEsperados",
+           COALESCE(l.qtd_a, 0)::int AS "qtdA",
+           COALESCE(l.qtd_b, 0)::int AS "qtdB",
+           COALESCE(l.qtd_desempate, 0)::int AS "qtdDesempate",
+           COALESCE(l.qtd_unicos_lidos, 0)::int AS "qtdUnicosLidos"
+         FROM esperado e
+         FULL OUTER JOIN lidos l ON l.sala = e.sala
+         ORDER BY 1;`,
+        [eventoId],
+      );
+
+      const pendenciasR = await pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM (
+           SELECT
+             cr.evento_inventario_id,
+             cr.bem_id,
+             MAX(CASE WHEN cr.rodada='A' THEN concat_ws('|', cr.unidade_encontrada_id::text, lower(trim(cr.sala_encontrada)), COALESCE(cr.local_encontrado_id::text,'')) END) AS p_a,
+             MAX(CASE WHEN cr.rodada='B' THEN concat_ws('|', cr.unidade_encontrada_id::text, lower(trim(cr.sala_encontrada)), COALESCE(cr.local_encontrado_id::text,'')) END) AS p_b,
+             MAX(CASE WHEN cr.rodada='DESEMPATE' THEN 1 ELSE 0 END) AS tem_desempate
+           FROM contagens_rodadas cr
+           WHERE cr.evento_inventario_id = $1
+           GROUP BY cr.evento_inventario_id, cr.bem_id
+         ) x
+         WHERE x.p_a IS NOT NULL
+           AND x.p_b IS NOT NULL
+           AND x.p_a <> x.p_b
+           AND x.tem_desempate = 0;`,
+        [eventoId],
+      );
+
+      const operadores = caps.hasOperadoresEvento ? await listOperadoresEvento(pool, eventoId) : [];
+      res.json({
+        requestId: req.requestId,
+        evento: eventoR.rows[0],
+        operadores,
+        porSala: salasR.rows,
+        pendentesDesempate: Number(pendenciasR.rows[0]?.total || 0),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Lista "forasteiros" (divergencias pendentes) para regularizacao pos-inventario.
    *
    * Regra legal:
@@ -884,6 +1188,12 @@ function createInventarioController(deps) {
       if (!VALID_ESCOPO.has(escopoTipo)) {
         throw new HttpError(422, "ESCOPO_TIPO_INVALIDO", "escopoTipo deve ser: GERAL, UNIDADE ou LOCAIS.");
       }
+      const modoContagem = String(body.modoContagem || "PADRAO").trim().toUpperCase();
+      if (!VALID_MODO_CONTAGEM.has(modoContagem)) {
+        throw new HttpError(422, "MODO_CONTAGEM_INVALIDO", "modoContagem deve ser PADRAO, CEGO ou DUPLO_CEGO.");
+      }
+      const operadoresDesignados = normalizeOperadoresDesignados(body.operadoresDesignados);
+      validateOperadoresByMode(modoContagem, operadoresDesignados);
 
       const escopoLocalIds = Array.isArray(body.escopoLocalIds)
         ? Array.from(new Set(body.escopoLocalIds.map((x) => String(x || "").trim()).filter(Boolean)))
@@ -965,38 +1275,53 @@ function createInventarioController(deps) {
         await client.query("BEGIN");
         let r;
         if (caps.hasTipoCiclo && caps.hasEscopoTipo) {
+          const hasModo = caps.hasModoContagem;
+          const valuesSql = hasModo
+            ? "($1,$2,$3,$4,$5::public.modo_contagem_inventario,'EM_ANDAMENTO',NOW(),$6,$7)"
+            : "($1,$2,$3,$4,'EM_ANDAMENTO',NOW(),$5,$6)";
           r = await client.query(
             `INSERT INTO eventos_inventario (
-               codigo_evento, unidade_inventariada_id, tipo_ciclo, escopo_tipo, status, iniciado_em, aberto_por_perfil_id, observacoes
-             ) VALUES ($1,$2,$3,$4,'EM_ANDAMENTO',NOW(),$5,$6)
+               codigo_evento, unidade_inventariada_id, tipo_ciclo, escopo_tipo, ${hasModo ? "modo_contagem," : ""}
+               status, iniciado_em, aberto_por_perfil_id, observacoes
+             ) VALUES ${valuesSql}
              RETURNING
                id,
                codigo_evento AS "codigoEvento",
                unidade_inventariada_id AS "unidadeInventariadaId",
                COALESCE((to_jsonb(eventos_inventario)->>'tipo_ciclo'), 'ADHOC') AS "tipoCiclo",
                COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo",
+               ${hasModo ? "COALESCE((to_jsonb(eventos_inventario)->>'modo_contagem'), 'PADRAO')" : "'PADRAO'"} AS "modoContagem",
                status::text AS "status",
                iniciado_em AS "iniciadoEm",
                aberto_por_perfil_id AS "abertoPorPerfilId",
                observacoes;`,
-            [codigoEvento, unidadeInventariadaId, tipoCiclo, escopoTipo, abertoPorPerfilId, observacoes],
+            hasModo
+              ? [codigoEvento, unidadeInventariadaId, tipoCiclo, escopoTipo, modoContagem, abertoPorPerfilId, observacoes]
+              : [codigoEvento, unidadeInventariadaId, tipoCiclo, escopoTipo, abertoPorPerfilId, observacoes],
           );
         } else {
+          const valuesSql = caps.hasModoContagem
+            ? "($1,$2,$3::public.modo_contagem_inventario,'EM_ANDAMENTO',NOW(),$4,$5)"
+            : "($1,$2,'EM_ANDAMENTO',NOW(),$3,$4)";
           r = await client.query(
             `INSERT INTO eventos_inventario (
-               codigo_evento, unidade_inventariada_id, status, iniciado_em, aberto_por_perfil_id, observacoes
-             ) VALUES ($1,$2,'EM_ANDAMENTO',NOW(),$3,$4)
+               codigo_evento, unidade_inventariada_id, ${caps.hasModoContagem ? "modo_contagem," : ""}
+               status, iniciado_em, aberto_por_perfil_id, observacoes
+             ) VALUES ${valuesSql}
              RETURNING
                id,
                codigo_evento AS "codigoEvento",
                unidade_inventariada_id AS "unidadeInventariadaId",
                'ADHOC' AS "tipoCiclo",
                CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END AS "escopoTipo",
+               ${caps.hasModoContagem ? "COALESCE((to_jsonb(eventos_inventario)->>'modo_contagem'), 'PADRAO')" : "'PADRAO'"} AS "modoContagem",
                status::text AS "status",
                iniciado_em AS "iniciadoEm",
                aberto_por_perfil_id AS "abertoPorPerfilId",
                observacoes;`,
-            [codigoEvento, unidadeInventariadaId, abertoPorPerfilId, observacoes],
+            caps.hasModoContagem
+              ? [codigoEvento, unidadeInventariadaId, modoContagem, abertoPorPerfilId, observacoes]
+              : [codigoEvento, unidadeInventariadaId, abertoPorPerfilId, observacoes],
           );
         }
 
@@ -1021,6 +1346,31 @@ function createInventarioController(deps) {
         } else {
           created.escopoLocais = [];
         }
+        if ((modoContagem === "CEGO" || modoContagem === "DUPLO_CEGO") && !caps.hasOperadoresEvento) {
+          throw new HttpError(
+            422,
+            "MIGRACAO_MODO_CONTAGEM_OBRIGATORIA",
+            "Banco ainda nao possui suporte a operadores por evento. Aplique a migration 021_inventario_modos_contagem_cego_duplo_cego.sql.",
+          );
+        }
+        if (caps.hasOperadoresEvento && operadoresDesignados.length) {
+          for (const op of operadoresDesignados) {
+            await client.query(
+              `INSERT INTO eventos_inventario_operadores (
+                 evento_inventario_id, perfil_id, papel_contagem, ativo, permite_desempate
+               ) VALUES ($1,$2,$3::public.papel_contagem_inventario,TRUE,$4)
+               ON CONFLICT (evento_inventario_id, perfil_id)
+               DO UPDATE SET
+                 papel_contagem = EXCLUDED.papel_contagem,
+                 ativo = TRUE,
+                 permite_desempate = EXCLUDED.permite_desempate;`,
+              [created.id, op.perfilId, op.papelContagem, Boolean(op.permiteDesempate)],
+            );
+          }
+          created.operadoresDesignados = await listOperadoresEvento(client, created.id);
+        } else {
+          created.operadoresDesignados = [];
+        }
         await client.query("COMMIT");
         res.status(201).json({ requestId: req.requestId, evento: created });
       } catch (error) {
@@ -1029,6 +1379,166 @@ function createInventarioController(deps) {
       } finally {
         client.release();
       }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Lista divergencias interunidades com visibilidade cruzada entre unidade dona e unidade encontrada.
+   *
+   * Regras legais:
+   * - Divergencias permanecem registradas sem transferencia automatica de carga durante inventario.
+   *   Art. 185 (AN303_Art185).
+   * - Movimentacao/regularizacao continua em fluxo proprio pos-encerramento.
+   *
+   * Query params:
+   * - statusInventario: EM_ANDAMENTO | ENCERRADO | TODOS (default TODOS)
+   * - eventoInventarioId: UUID (opcional)
+   * - unidadeDonaId: 1..4 (opcional)
+   * - unidadeEncontradaId: 1..4 (opcional)
+   * - unidadeRelacionadaId: 1..4 (opcional; unidade dona OU encontrada)
+   * - limit: number (opcional; default 200; max 1000)
+   * - offset: number (opcional; default 0)
+   *
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getDivergenciasInterunidades(req, res, next) {
+    try {
+      const q = req.query || {};
+      const statusInventario = String(q.statusInventario || "TODOS").trim().toUpperCase();
+      if (!new Set(["EM_ANDAMENTO", "ENCERRADO", "TODOS"]).has(statusInventario)) {
+        throw new HttpError(422, "STATUS_INVENTARIO_INVALIDO", "statusInventario deve ser EM_ANDAMENTO, ENCERRADO ou TODOS.");
+      }
+
+      const eventoInventarioId = q.eventoInventarioId != null && String(q.eventoInventarioId).trim() !== ""
+        ? String(q.eventoInventarioId).trim()
+        : null;
+      if (eventoInventarioId && !UUID_RE.test(eventoInventarioId)) {
+        throw new HttpError(422, "EVENTO_ID_INVALIDO", "eventoInventarioId deve ser UUID.");
+      }
+
+      const parseUnit = (raw, code) => {
+        if (raw == null || String(raw).trim() === "") return null;
+        const n = Number(raw);
+        if (!Number.isInteger(n) || !VALID_UNIDADES.has(n)) {
+          throw new HttpError(422, code, "Unidade deve ser 1..4.");
+        }
+        return n;
+      };
+
+      const unidadeDonaId = parseUnit(q.unidadeDonaId, "UNIDADE_DONA_INVALIDA");
+      const unidadeEncontradaId = parseUnit(q.unidadeEncontradaId, "UNIDADE_ENCONTRADA_INVALIDA");
+      const unidadeRelacionadaId = parseUnit(q.unidadeRelacionadaId, "UNIDADE_RELACIONADA_INVALIDA");
+
+      const limitRaw = q.limit != null ? Number(q.limit) : 200;
+      const offsetRaw = q.offset != null ? Number(q.offset) : 0;
+      const limit = Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 200;
+      const offset = Number.isFinite(offsetRaw) ? Math.trunc(offsetRaw) : 0;
+      const limitFinal = Math.max(1, Math.min(1000, limit));
+      const offsetFinal = Math.max(0, offset);
+
+      const isAdmin = String(req.user?.role || "").toUpperCase() === "ADMIN";
+      const userUnidadeId = Number(req.user?.unidadeId || 0);
+      const userHasValidUnit = VALID_UNIDADES.has(userUnidadeId);
+
+      const where = [
+        `c.tipo_ocorrencia = 'ENCONTRADO_EM_LOCAL_DIVERGENTE'::public.tipo_ocorrencia_inventario`,
+        `(e.status = 'EM_ANDAMENTO'::public.status_inventario OR (e.status = 'ENCERRADO'::public.status_inventario AND c.regularizacao_pendente = TRUE))`,
+      ];
+      const params = [];
+      let i = 1;
+
+      if (statusInventario !== "TODOS") {
+        where.push(`e.status = $${i}::public.status_inventario`);
+        params.push(statusInventario);
+        i += 1;
+      }
+      if (eventoInventarioId) {
+        where.push(`c.evento_inventario_id = $${i}`);
+        params.push(eventoInventarioId);
+        i += 1;
+      }
+      if (unidadeDonaId != null) {
+        where.push(`b.unidade_dona_id = $${i}`);
+        params.push(unidadeDonaId);
+        i += 1;
+      }
+      if (unidadeEncontradaId != null) {
+        where.push(`c.unidade_encontrada_id = $${i}`);
+        params.push(unidadeEncontradaId);
+        i += 1;
+      }
+
+      if (isAdmin) {
+        if (unidadeRelacionadaId != null) {
+          where.push(`(b.unidade_dona_id = $${i} OR c.unidade_encontrada_id = $${i})`);
+          params.push(unidadeRelacionadaId);
+          i += 1;
+        }
+      } else if (userHasValidUnit) {
+        where.push(`(b.unidade_dona_id = $${i} OR c.unidade_encontrada_id = $${i})`);
+        params.push(userUnidadeId);
+        i += 1;
+      } else {
+        // Usuario autenticado sem unidade valida nao recebe dados de outras unidades.
+        where.push("1=0");
+      }
+
+      const sql = `
+        SELECT
+          c.id AS "contagemId",
+          c.evento_inventario_id AS "eventoInventarioId",
+          e.codigo_evento AS "codigoEvento",
+          e.status::text AS "statusInventario",
+          e.unidade_inventariada_id AS "unidadeInventariadaId",
+          b.id AS "bemId",
+          b.numero_tombamento AS "numeroTombamento",
+          b.nome_resumo AS "nomeResumo",
+          cb.codigo_catalogo AS "codigoCatalogo",
+          b.unidade_dona_id AS "unidadeDonaId",
+          c.unidade_encontrada_id AS "unidadeEncontradaId",
+          c.sala_encontrada AS "salaEncontrada",
+          COALESCE(l.nome, b.local_fisico) AS "localEsperado",
+          CASE
+            WHEN b.unidade_dona_id <> c.unidade_encontrada_id
+                 AND lower(trim(COALESCE(c.sala_encontrada, ''))) <> lower(trim(COALESCE(l.nome, b.local_fisico, '')))
+              THEN 'UNIDADE_E_SALA'
+            WHEN b.unidade_dona_id <> c.unidade_encontrada_id
+              THEN 'UNIDADE'
+            WHEN lower(trim(COALESCE(c.sala_encontrada, ''))) <> lower(trim(COALESCE(l.nome, b.local_fisico, '')))
+              THEN 'SALA'
+            ELSE 'DIVERGENTE'
+          END AS "tipoDivergencia",
+          c.regularizacao_pendente AS "regularizacaoPendente",
+          c.regularizado_em AS "regularizadoEm",
+          c.regularizacao_acao AS "regularizacaoAcao",
+          c.encontrado_em AS "encontradoEm",
+          COUNT(*) OVER()::int AS "totalCount"
+        FROM contagens c
+        JOIN eventos_inventario e ON e.id = c.evento_inventario_id
+        JOIN bens b ON b.id = c.bem_id
+        JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+        LEFT JOIN locais l ON l.id = b.local_id
+        WHERE ${where.join(" AND ")}
+        ORDER BY c.encontrado_em DESC
+        LIMIT $${i}
+        OFFSET $${i + 1};`;
+
+      const r = await pool.query(sql, [...params, limitFinal, offsetFinal]);
+      const total = Number(r.rows[0]?.totalCount || 0);
+      const items = r.rows.map(({ totalCount, ...row }) => row);
+
+      res.json({
+        requestId: req.requestId,
+        statusInventario,
+        limit: limitFinal,
+        offset: offsetFinal,
+        total,
+        items,
+      });
     } catch (error) {
       next(error);
     }
@@ -1099,10 +1609,10 @@ function createInventarioController(deps) {
       const r = await pool.query(
         `UPDATE eventos_inventario
          SET status = $1::public.status_inventario,
-             encerrado_em = CASE WHEN $1 = 'EM_ANDAMENTO' THEN NULL ELSE NOW() END,
-             encerrado_por_perfil_id = CASE WHEN $1 = 'EM_ANDAMENTO' THEN NULL ELSE $2 END,
-             observacoes = COALESCE($3, observacoes),
-             updated_at = NOW()
+              encerrado_em = CASE WHEN $1 = 'EM_ANDAMENTO' THEN NULL ELSE NOW() END,
+              encerrado_por_perfil_id = CASE WHEN $1 = 'EM_ANDAMENTO' THEN NULL ELSE $2::uuid END,
+              observacoes = COALESCE($3, observacoes),
+              updated_at = NOW()
          WHERE id = $4
          RETURNING
            id,
@@ -1300,7 +1810,8 @@ function createInventarioController(deps) {
            id,
            status::text AS status,
            unidade_inventariada_id AS "unidadeInventariadaId",
-           COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo"
+           COALESCE((to_jsonb(eventos_inventario)->>'escopo_tipo'), CASE WHEN unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo",
+           ${caps.hasModoContagem ? "modo_contagem::text" : "'PADRAO'"} AS "modoContagem"
          FROM eventos_inventario
          WHERE id = $1`,
         [eventoInventarioId],
@@ -1345,15 +1856,122 @@ function createInventarioController(deps) {
           );
         }
       }
+      const modoContagem = String(ev.rows[0].modoContagem || "PADRAO").toUpperCase();
+      let rodada = String(body.rodada || "").trim().toUpperCase();
+      if (!rodada) rodada = modoContagem === "PADRAO" ? "A" : "";
+      if (!VALID_RODADA.has(rodada)) {
+        throw new HttpError(422, "RODADA_INVALIDA", "rodada deve ser A, B ou DESEMPATE.");
+      }
+
+      const perfilExec = req.user?.id ? String(req.user.id).trim() : null;
+      if (!perfilExec || !UUID_RE.test(perfilExec)) throw new HttpError(401, "NAO_AUTENTICADO", "Usuario nao autenticado.");
+      const sessao = await resolveSessaoContagem(client, eventoInventarioId, perfilExec, req.user?.role);
+      if (modoContagem !== "PADRAO") {
+        if (!sessao.perfilDesignado && !(rodada === "DESEMPATE" && sessao.podeDesempate)) {
+          throw new HttpError(403, "NAO_DESIGNADO", "Usuario nao designado para contagem neste evento.");
+        }
+        if (rodada === "DESEMPATE") {
+          if (!sessao.podeDesempate) throw new HttpError(403, "DESEMPATE_SEM_PERMISSAO", "Usuario sem permissao para desempate.");
+        } else if (!(sessao.rodadasPermitidas || []).includes(rodada)) {
+          throw new HttpError(403, "RODADA_NAO_PERMITIDA", `Rodada ${rodada} nao permitida para este usuario neste evento.`);
+        }
+      }
 
       const summary = {
         totalItens: itens.length,
         inseridas: 0,
         atualizadas: 0,
         divergentes: 0,
+        pendentesDesempate: 0,
         erros: [],
       };
       const normalizeRoomLabel = (raw) => String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
+      async function upsertConsolidada(params) {
+        const up = await client.query(
+          `INSERT INTO contagens (
+             evento_inventario_id, bem_id, unidade_encontrada_id, sala_encontrada,
+             status_apurado, tipo_ocorrencia, regularizacao_pendente,
+             encontrado_por_perfil_id, encontrado_em, observacoes
+           ) VALUES (
+             $1,$2,$3,$4,
+             'OK',$5::public.tipo_ocorrencia_inventario,$6,
+             $7,$8,$9
+           )
+           ON CONFLICT (evento_inventario_id, bem_id)
+           DO UPDATE SET
+             unidade_encontrada_id = EXCLUDED.unidade_encontrada_id,
+             sala_encontrada = EXCLUDED.sala_encontrada,
+             tipo_ocorrencia = EXCLUDED.tipo_ocorrencia,
+             regularizacao_pendente = EXCLUDED.regularizacao_pendente,
+             encontrado_por_perfil_id = EXCLUDED.encontrado_por_perfil_id,
+             encontrado_em = EXCLUDED.encontrado_em,
+             observacoes = EXCLUDED.observacoes,
+             updated_at = NOW()
+           RETURNING (xmax = 0) AS inserted;`,
+          params,
+        );
+        return Boolean(up.rows[0]?.inserted);
+      }
+
+      async function reconcileRodadas(bemId, defaults) {
+        const rr = await client.query(
+          `SELECT
+             rodada::text AS rodada,
+             unidade_encontrada_id AS "unidadeEncontradaId",
+             sala_encontrada AS "salaEncontrada",
+             local_encontrado_id AS "localEncontradoId",
+             encontrado_por_perfil_id AS "encontradoPorPerfilId",
+             encontrado_em AS "encontradoEm",
+             observacoes
+           FROM contagens_rodadas
+           WHERE evento_inventario_id = $1
+             AND bem_id = $2;`,
+          [eventoInventarioId, bemId],
+        );
+        const byRodada = new Map(rr.rows.map((x) => [String(x.rodada || "").toUpperCase(), x]));
+        const a = byRodada.get("A") || null;
+        const b = byRodada.get("B") || null;
+        const d = byRodada.get("DESEMPATE") || null;
+        const pick = d || a || b;
+        if (!pick) return { divergente: false, pendenteDesempate: false, inserted: false };
+
+        const signature = (x) => {
+          if (!x) return "";
+          return [
+            String(x.unidadeEncontradaId || ""),
+            normalizeRoomLabel(x.salaEncontrada || ""),
+            x.localEncontradoId ? String(x.localEncontradoId) : "",
+          ].join("|");
+        };
+        const pendenteDesempate = Boolean(a && b && signature(a) !== signature(b) && !d);
+        const unidadeDivergente = Number(defaults.unidadeDonaId) !== Number(pick.unidadeEncontradaId);
+        const salaDivergente = defaults.localDonoId && pick.localEncontradoId
+          ? String(defaults.localDonoId) !== String(pick.localEncontradoId)
+          : defaults.localDonoNome
+            ? normalizeRoomLabel(defaults.localDonoNome) !== normalizeRoomLabel(pick.salaEncontrada)
+            : false;
+        const divergente = pendenteDesempate || unidadeDivergente || salaDivergente;
+        const tipoOcorrencia = divergente ? "ENCONTRADO_EM_LOCAL_DIVERGENTE" : "CONFORME";
+        const regularizacaoPendente = divergente;
+        const obs = [
+          pick.observacoes || null,
+          `[MODO_CONTAGEM=${modoContagem}]`,
+          `[RODADA_BASE=${d ? "DESEMPATE" : a && b ? "A_B_CONCORDANTE" : a ? "A" : "B"}]`,
+          pendenteDesempate ? "[PENDENTE_DESEMPATE=TRUE]" : null,
+        ].filter(Boolean).join(" ");
+        const inserted = await upsertConsolidada([
+          eventoInventarioId,
+          bemId,
+          pick.unidadeEncontradaId,
+          pick.salaEncontrada,
+          tipoOcorrencia,
+          regularizacaoPendente,
+          pick.encontradoPorPerfilId || perfilExec,
+          pick.encontradoEm || new Date().toISOString(),
+          obs || null,
+        ]);
+        return { divergente, pendenteDesempate, inserted };
+      }
 
       for (let i = 0; i < itens.length; i += 1) {
         const sp = `sp_sync_${i}`;
@@ -1404,44 +2022,76 @@ function createInventarioController(deps) {
           const divergente = divergenciaUnidade || divergenciaSala;
           const tipoOcorrencia = divergente ? "ENCONTRADO_EM_LOCAL_DIVERGENTE" : "CONFORME";
           const regularizacaoPendente = divergente ? true : false;
-
-          const up = await client.query(
-            `INSERT INTO contagens (
-               evento_inventario_id, bem_id, unidade_encontrada_id, sala_encontrada,
-               status_apurado, tipo_ocorrencia, regularizacao_pendente,
-               encontrado_por_perfil_id, encontrado_em, observacoes
-             ) VALUES (
-               $1,$2,$3,$4,
-               'OK',$5::public.tipo_ocorrencia_inventario,$6,
-               $7,$8,$9
-             )
-             ON CONFLICT (evento_inventario_id, bem_id)
-             DO UPDATE SET
-               unidade_encontrada_id = EXCLUDED.unidade_encontrada_id,
-               sala_encontrada = EXCLUDED.sala_encontrada,
-               tipo_ocorrencia = EXCLUDED.tipo_ocorrencia,
-               regularizacao_pendente = EXCLUDED.regularizacao_pendente,
-               encontrado_por_perfil_id = EXCLUDED.encontrado_por_perfil_id,
-               encontrado_em = EXCLUDED.encontrado_em,
-               observacoes = EXCLUDED.observacoes,
-               updated_at = NOW()
-             RETURNING (xmax = 0) AS inserted;`,
-            [
+          let inserted = false;
+          let divergenteFinal = divergente;
+          let pendenteDesempate = false;
+          if (modoContagem === "PADRAO") {
+            inserted = await upsertConsolidada([
               eventoInventarioId,
               bemId,
               unidadeEncontradaId,
               salaEncontrada,
               tipoOcorrencia,
               regularizacaoPendente,
-              encontradoPorPerfilId,
+              encontradoPorPerfilId || perfilExec,
               encontradoEm.toISOString(),
               observacoes,
-            ],
-          );
+            ]);
+          } else {
+            if (!caps.hasContagensRodadas) {
+              throw new HttpError(
+                422,
+                "MIGRACAO_CONTAGENS_RODADAS_OBRIGATORIA",
+                "Banco ainda nao possui contagens_rodadas. Aplique a migration 021_inventario_modos_contagem_cego_duplo_cego.sql."
+              );
+            }
+            await client.query(
+              `INSERT INTO contagens_rodadas (
+                 evento_inventario_id, bem_id, rodada, encontrado_por_perfil_id,
+                 unidade_encontrada_id, sala_encontrada, local_encontrado_id,
+                 status_apurado, tipo_ocorrencia, regularizacao_pendente,
+                 observacoes, encontrado_em
+               ) VALUES (
+                 $1,$2,$3::public.rodada_contagem_inventario,$4,
+                 $5,$6,$7,
+                 'OK',$8::public.tipo_ocorrencia_inventario,$9,
+                 $10,$11
+               )
+               ON CONFLICT (evento_inventario_id, bem_id, rodada)
+               DO UPDATE SET
+                 encontrado_por_perfil_id = EXCLUDED.encontrado_por_perfil_id,
+                 unidade_encontrada_id = EXCLUDED.unidade_encontrada_id,
+                 sala_encontrada = EXCLUDED.sala_encontrada,
+                 local_encontrado_id = EXCLUDED.local_encontrado_id,
+                 tipo_ocorrencia = EXCLUDED.tipo_ocorrencia,
+                 regularizacao_pendente = EXCLUDED.regularizacao_pendente,
+                 observacoes = EXCLUDED.observacoes,
+                 encontrado_em = EXCLUDED.encontrado_em,
+                 updated_at = NOW();`,
+              [
+                eventoInventarioId,
+                bemId,
+                rodada,
+                encontradoPorPerfilId || perfilExec,
+                unidadeEncontradaId,
+                salaEncontrada,
+                localEncontradoId,
+                tipoOcorrencia,
+                regularizacaoPendente,
+                observacoes,
+                encontradoEm.toISOString(),
+              ],
+            );
+            const recon = await reconcileRodadas(bemId, { unidadeDonaId, localDonoId, localDonoNome });
+            inserted = recon.inserted;
+            divergenteFinal = recon.divergente;
+            pendenteDesempate = recon.pendenteDesempate;
+          }
 
-          if (up.rows[0]?.inserted) summary.inseridas += 1;
+          if (inserted) summary.inseridas += 1;
           else summary.atualizadas += 1;
-          if (divergente) summary.divergentes += 1;
+          if (divergenteFinal) summary.divergentes += 1;
+          if (pendenteDesempate) summary.pendentesDesempate += 1;
 
           if (caps.hasDataUltimaContagem && localEncontradoId) {
             await client.query(
@@ -1458,7 +2108,7 @@ function createInventarioController(deps) {
       }
 
       await client.query("COMMIT");
-      res.json({ requestId: req.requestId, summary });
+      res.json({ requestId: req.requestId, rodada, modoContagem, summary });
     } catch (error) {
       await safeRollback(client);
       next(error);
@@ -1958,10 +2608,13 @@ function createInventarioController(deps) {
   return {
     getEventos,
     getContagens,
+    getDivergenciasInterunidades,
     getProgresso,
     getRelatorioEncerramento,
     exportRelatorioEncerramentoCsv,
     getSugestoesCiclo,
+    getMinhaSessaoContagem,
+    getMonitoramentoContagem,
     getForasteiros,
     getBensTerceiros,
     postEvento,
