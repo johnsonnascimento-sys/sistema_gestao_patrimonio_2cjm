@@ -1,307 +1,285 @@
-﻿
-## Locais - Estatisticas, Listagem e Reset
+<!--
+Módulo: wiki
+Arquivo: frontend/src/wiki/15_referencia_api.md
+Função no sistema: referência resumida dos principais contratos HTTP.
+-->
+
+# Referência de API
+
+## Padrões gerais
+
+- Autenticação: JWT via middleware `mustAuth` (ou `mustAdmin` quando aplicável).
+- Formato de resposta: JSON com `requestId`.
+- Erros de validação: normalmente `422`.
+- Falta de permissão: `403`.
+
+## Locais: estatísticas, listagem e reset
 
 ### GET `/locais/estatisticas`
 
-Uso: retorna estatisticas de progresso de cadastro de sala (bens com e sem local vinculado).
+Uso:
 
-Autenticacao: `mustAuth` (JWT valido).
+- retorna progresso de vinculação de sala (`total`, `comLocal`, `semLocal`).
 
-Query (opcional):
+Query opcional:
 
-- `unidadeId` â€” inteiro 1..4; se omitido, retorna totais globais
-
-Resposta JSON:
-
-```json
-{
-  "requestId": "...",
-  "total": 1500,
-  "comLocal": 1050,
-  "semLocal": 450
-}
-```
-
-Filtros aplicados internamente: `eh_bem_terceiro = FALSE` e `status != 'BAIXADO'`.
-
----
+- `unidadeId` (1..4).
 
 ### GET `/bens/localizacao`
 
-Uso: lista bens filtrando por status de localizacao fisica (com ou sem sala atribuida).
+Uso:
 
-**IMPORTANTE:** Esta rota deve estar registrada ANTES de `/bens/:id` no `server.js` para evitar que o Express interprete "localizacao" como parametro UUID.
-
-Autenticacao: `mustAuth`.
+- lista bens por situação de localização física.
 
 Query:
 
-| Parametro | Tipo | Obrigatorio | Descricao |
-|---|---|---|---|
-| `statusLocal` | string | Sim | `com_local` ou `sem_local` |
-| `unidadeId` | int 1..4 | Nao | Filtra por unidade |
-| `limit` | int 1..200 | Nao | Padrao: 50 |
-| `offset` | int >= 0 | Nao | Padrao: 0 |
+- `statusLocal`: `com_local` ou `sem_local` (obrigatório);
+- `unidadeId` (opcional);
+- `limit`, `offset` (opcionais).
 
-Resposta JSON:
+Importante:
 
-```json
-{
-  "requestId": "...",
-  "total": 450,
-  "limit": 50,
-  "offset": 0,
-  "items": [
-    {
-      "numeroTombamento": "0001234567",
-      "nomeResumo": "Mesa de escritorio",
-      "unidade": 2,
-      "localId": null,
-      "localNome": null
-    }
-  ]
-}
-```
-
-Erros:
-
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 422 | `STATUS_LOCAL_INVALIDO` | `statusLocal` fora dos valores aceitos |
-| 422 | `UNIDADE_INVALIDA` | `unidadeId` fora do intervalo 1..4 |
-
----
+- rota deve estar registrada antes de `/bens/:id`.
 
 ### DELETE `/locais/reset`
 
-Uso: limpa o vinculo `local_id` de todos os bens (ou de uma unidade especifica). Operacao de pre-inventario livre. **Restrito a ADMIN com senha.**
+Uso:
 
-Autenticacao: `mustAdmin` (JWT com role admin) + senha do proprio admin validada via bcrypt.
+- limpa `local_id` de todos os bens do escopo.
 
-Query (opcional):
+Acesso:
 
-- `unidadeId` â€” inteiro 1..4; se omitido, afeta todas as unidades
+- `mustAdmin` + validação de `adminPassword`.
 
-Body JSON (obrigatorio):
+Query opcional:
+
+- `unidadeId` (1..4).
+
+Body:
 
 ```json
 { "adminPassword": "senha_do_administrador" }
 ```
 
-Resposta de sucesso:
-
-```json
-{ "requestId": "...", "afetados": 350 }
-```
-
-Erros:
-
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 401 | `SENHA_ADMIN_INVALIDA` | Senha incorreta |
-| 401 | `NAO_AUTENTICADO` | JWT invalido ou perfil sem senha configurada |
-| 403 | `PERFIL_INATIVO` | Perfil administrativo inativo |
-| 422 | `UNIDADE_INVALIDA` | `unidadeId` fora do intervalo 1..4 |
-| 422 | `SENHA_ADMIN_OBRIGATORIA` | `adminPassword` nao foi enviado |
-
-Filtros aplicados internamente: `eh_bem_terceiro = FALSE` e `status != 'BAIXADO'` â€” bens baixados e de terceiros nao sao afetados.
-
----
-
-## Inventario ciclico - novos contratos
+## Inventário: criação, contagem e monitoramento
 
 ### POST `/inventario/eventos`
 
-Uso: cria evento de inventario (inclusive micro-inventario ciclico).
+Uso:
 
-Body (campos novos):
+- cria inventário (inclusive micro-inventário cíclico).
 
-```json
-{
-  "codigoEvento": "INV_2026_03_02_1015_ALMOX",
-  "unidadeInventariadaId": 4,
-  "tipoCiclo": "SEMANAL",
-  "escopoTipo": "LOCAIS",
-  "escopoLocalIds": ["uuid-local-1", "uuid-local-2"],
-  "observacoes": "Ciclo semanal do almoxarifado",
-  "abertoPorPerfilId": "uuid-perfil"
-}
-```
+Campos principais:
+
+- `codigoEvento`
+- `tipoCiclo`: `SEMANAL|MENSAL|ANUAL|ADHOC`
+- `escopoTipo`: `GERAL|UNIDADE|LOCAIS`
+- `unidadeInventariadaId`
+- `escopoLocalIds` (quando `LOCAIS`)
+- `modoContagem`: `PADRAO|CEGO|DUPLO_CEGO`
+- `operadoresDesignados`
 
 Regras:
 
-- `escopoTipo=GERAL` -> `unidadeInventariadaId` deve ser `null`.
-- `escopoTipo=UNIDADE` -> exige `unidadeInventariadaId`.
-- `escopoTipo=LOCAIS` -> exige `escopoLocalIds` (UUIDs validos) e mesma unidade para todos os locais.
+- `GERAL`: exclusivo.
+- `UNIDADE/LOCAIS`: permite paralelo entre unidades, sem conflito dentro da mesma unidade.
+- `CEGO`: exige `OPERADOR_UNICO`.
+- `DUPLO_CEGO`: exige `OPERADOR_A` e `OPERADOR_B`.
 
-Possiveis erros:
+### PATCH `/inventario/eventos/:id/status`
 
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 409 | `EVENTO_ATIVO_EXISTENTE` | Conflito de escopo com evento ativo |
-| 422 | `ESCOPO_TIPO_INVALIDO` | `escopoTipo` fora dos valores aceitos |
-| 422 | `ESCOPO_LOCAIS_OBRIGATORIO` | `escopoLocalIds` ausente para `LOCAIS` |
-| 422 | `ESCOPO_LOCAIS_UNIDADE_MISTA` | Lista de locais com unidades diferentes |
-| 422 | `MIGRACAO_INVENTARIO_CICLICO_OBRIGATORIA` | Banco sem schema ciclico |
+Uso:
 
-### GET `/inventario/sugestoes-ciclo`
+- altera status para `EM_ANDAMENTO`, `ENCERRADO` ou `CANCELADO`.
 
-Uso: listar salas recomendadas para proximo ciclo.
+### POST `/inventario/sync`
 
-Query:
+Uso:
 
-| Parametro | Tipo | Obrigatorio | Descricao |
-|---|---|---|---|
-| `unidadeId` | int 1..4 | Nao | Filtra por unidade |
-| `somenteAtivos` | bool | Nao | Default `true` |
-| `limit` | int 1..100 | Nao | Default 20 |
-| `offset` | int >= 0 | Nao | Default 0 |
+- sincroniza leituras da contagem.
 
-Resposta:
+Campos relevantes:
 
-```json
-{
-  "requestId": "...",
-  "paging": { "limit": 20, "offset": 0, "total": 120 },
-  "items": [
-    {
-      "localId": "uuid",
-      "nome": "MEZANINO",
-      "unidadeId": 4,
-      "dataUltimaContagem": null,
-      "diasSemContagem": null,
-      "qtdBensAtivos": 486,
-      "qtdDivergenciasPendentes": 12,
-      "scorePrioridade": 30486
-    }
-  ]
-}
-```
+- `eventoInventarioId`
+- `rodada`: `A|B|DESEMPATE` (obrigatória em modos cegos)
+- `unidadeEncontradaId`
+- `salaEncontrada`
+- `localEncontradoId`
+- `itens[]`
 
-Notas:
+Validações importantes:
 
-- `diasSemContagem` pode ser `null` quando o local ainda nao teve contagem registrada.
-- Na UI de Administracao, esse caso aparece como `Sem contagem`.
-- Para preencher historico inicial em bases antigas, aplicar `database/018_backfill_locais_data_ultima_contagem.sql`.
+- escopo de unidade/local do evento;
+- operador designado em modo cego;
+- rodada permitida por papel.
 
-### POST `/inventario/sync` (reforco de escopo)
+### GET `/inventario/eventos/:id/minha-sessao-contagem`
 
-Novas validacoes de escopo no evento:
+Uso:
 
-- `UNIDADE`: `unidadeEncontradaId` deve ser compativel.
-- `LOCAIS`: `localEncontradoId` deve pertencer ao conjunto do evento.
+- retorna contexto do usuário no inventário.
 
-Possiveis erros:
+Resposta típica:
 
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 409 | `UNIDADE_FORA_ESCOPO_EVENTO` | unidade encontrada fora do escopo |
-| 409 | `LOCAL_FORA_ESCOPO_EVENTO` | local encontrado fora do escopo |
+- `modoContagem`
+- `papel`
+- `rodadasPermitidas`
+- `podeDesempate`
+- `uiReduzida`
+- `designado`
 
----
+### GET `/inventario/eventos/:id/monitoramento-contagem`
 
-## Classificacao SIAFI e Material (SKU)
+Uso:
+
+- visão administrativa em tempo real por sala e rodadas.
+
+Acesso:
+
+- restrito a `ADMIN`.
+
+### GET `/inventario/divergencias-interunidades`
+
+Uso:
+
+- lista divergências com visibilidade cruzada entre unidade dona e unidade encontrada.
+
+Filtros:
+
+- `statusInventario`: `EM_ANDAMENTO|ENCERRADO|TODOS`
+- `eventoInventarioId`
+- `unidadeDonaId`
+- `unidadeEncontradaId`
+- `unidadeRelacionadaId`
+- `limit`, `offset`
+
+Acesso:
+
+- usuário comum: vê apenas divergências relacionadas à própria unidade;
+- admin: pode ver todas.
+
+## Classificações SIAFI e Catálogo
 
 ### GET `/classificacoes-siafi`
 
-Uso: listar classificacoes SIAFI para preencher o campo obrigatorio no Material (SKU).
+Uso:
 
-Autenticacao: `mustAuth`.
-
-Query (opcional):
-
-| Parametro | Tipo | Obrigatorio | Descricao |
-|---|---|---|---|
-| `q` | string | Nao | Busca em `codigoClassificacao` e `descricaoSiafi` |
-| `ativo` | bool/string | Nao | Filtra somente ativos (`true`, `1`, `sim`) |
-| `limit` | int 1..500 | Nao | Padrao: 200 |
-| `offset` | int >= 0 | Nao | Padrao: 0 |
-
-Resposta JSON:
-
-```json
-{
-  "requestId": "...",
-  "paging": { "limit": 200, "offset": 0, "total": 1 },
-  "items": [
-    {
-      "id": "uuid",
-      "codigoClassificacao": "12311.02.01",
-      "descricaoSiafi": "EQUIP DE TECNOLOG DA INFOR E COMUNICACAO/TIC",
-      "ativo": true,
-      "createdAt": "2026-03-02T22:18:00.000Z",
-      "updatedAt": "2026-03-02T22:18:00.000Z"
-    }
-  ]
-}
-```
+- lista classificações SIAFI para uso no catálogo.
 
 ### POST `/classificacoes-siafi`
 
-Uso: criar classificacao SIAFI.
+Uso:
 
-Autenticacao: `mustAdmin`.
+- cria classificação SIAFI.
 
-Body JSON:
+Acesso:
 
-```json
-{
-  "codigoClassificacao": "12311.02.01",
-  "descricaoSiafi": "EQUIP DE TECNOLOG DA INFOR E COMUNICACAO/TIC",
-  "ativo": true
-}
-```
-
-Erros:
-
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 409 | `CLASSIFICACAO_SIAFI_DUPLICADA` | Codigo ja cadastrado |
-| 422 | `CODIGO_CLASSIFICACAO_OBRIGATORIO` | Codigo ausente |
-| 422 | `DESCRICAO_SIAFI_OBRIGATORIA` | Descricao ausente |
+- `mustAdmin`.
 
 ### PATCH `/classificacoes-siafi/:id`
 
-Uso: editar classificacao SIAFI existente (codigo, descricao e/ou ativo).
+Uso:
 
-Autenticacao: `mustAdmin`.
+- edita classificação SIAFI.
 
-Erros:
+Acesso:
 
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 404 | `CLASSIFICACAO_NAO_ENCONTRADA` | Registro nao encontrado |
-| 409 | `CLASSIFICACAO_SIAFI_DUPLICADA` | Codigo em uso por outro registro |
-| 422 | `CLASSIFICACAO_ID_INVALIDO` | ID invalido |
-| 422 | `PATCH_VAZIO` | Nenhum campo enviado |
+- `mustAdmin`.
 
 ### POST `/catalogo-bens`
 
-Atualizacao de contrato:
+Uso:
 
-- `grupo` passou a representar `Classificacao SIAFI` e agora e obrigatorio.
-- O backend valida se o valor existe e esta ativo em `classificacoes_siafi`.
+- cria item de catálogo.
 
-Erros novos/mais relevantes:
+Regra:
 
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 422 | `CLASSIFICACAO_SIAFI_OBRIGATORIA` | Campo `grupo` vazio |
-| 422 | `CLASSIFICACAO_SIAFI_INVALIDA` | Classificacao inexistente/inativa |
+- campo `grupo` deve referenciar classificação SIAFI válida e ativa.
 
 ### PATCH `/catalogo-bens/:id`
 
-Atualizacao de contrato:
+Uso:
 
-- Em edicao, quando `grupo` for enviado, ele deve ser uma `Classificacao SIAFI` ativa.
-- Mantem gate operacional de dupla confirmacao para editar Material (SKU):
-  - `confirmText` deve ser `CONFIRMAR_EDICAO_MATERIAL`;
-  - `adminPassword` obrigatoria quando `AUTH_ENABLED`.
+- edita item de catálogo.
 
-Erros novos/mais relevantes:
+Regras adicionais:
 
-| HTTP | Codigo | Motivo |
-|---|---|---|
-| 422 | `CONFIRMACAO_EDICAO_INVALIDA` | `confirmText` invalido |
-| 422 | `CLASSIFICACAO_SIAFI_OBRIGATORIA` | Campo `grupo` vazio |
-| 422 | `CLASSIFICACAO_SIAFI_INVALIDA` | Classificacao inexistente/inativa |
+- confirmação explícita de edição;
+- senha admin quando autenticação estiver ativa.
+
+## RBAC e Aprovações
+
+### GET `/auth/acl`
+
+Uso:
+
+- retorna ACL efetiva do usuário (`roles`, `permissions`, `menuPermissions`).
+
+### GET `/aprovacoes/solicitacoes`
+
+Uso:
+
+- lista solicitações de aprovação.
+
+Permissão:
+
+- `action.aprovacao.listar`.
+
+### POST `/aprovacoes/solicitacoes/:id/aprovar`
+
+Uso:
+
+- aprova e aplica solicitação pendente.
+
+Permissão:
+
+- `action.aprovacao.aprovar` + `adminPassword`.
+
+### POST `/aprovacoes/solicitacoes/:id/reprovar`
+
+Uso:
+
+- reprova solicitação pendente.
+
+Permissão:
+
+- `action.aprovacao.reprovar` + `adminPassword`.
+
+### GET `/roles-acesso`
+
+Uso:
+
+- lista catálogo de roles ACL.
+
+### PUT `/perfis/:id/role-acesso`
+
+Uso:
+
+- define role ACL principal do perfil.
+
+Body:
+
+```json
+{ "roleCodigo": "SUPERVISOR" }
+```
+
+### GET `/acl/matriz`
+
+Uso:
+
+- carrega matriz role x permissões para edição visual.
+
+### PUT `/roles-acesso/:codigo/permissoes`
+
+Uso:
+
+- substitui permissões de uma role.
+
+Body:
+
+```json
+{
+  "permissions": ["menu.bens.view", "action.bem.alterar_localizacao.request"],
+  "adminPassword": "senha_admin"
+}
+```

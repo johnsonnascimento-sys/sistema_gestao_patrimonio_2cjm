@@ -1,36 +1,138 @@
 <!--
-Modulo: wiki
+Módulo: wiki
 Arquivo: frontend/src/wiki/22_inventario_administracao.md
-Funcao no sistema: documentar o menu Inventario - Administracao.
+Função no sistema: orientar a operação no menu Inventário - Administração.
 -->
 
-# Inventario - Administracao
+# Inventário - Administração
 
-## Objetivo
+## Objetivo da tela
 
-Essa tela e usada pelo administrador do inventario para governar eventos e ciclos.
+A tela **Inventário - Administração** concentra quatro tarefas:
 
-## Operacoes principais
+1. controlar inventário em andamento (encerrar, cancelar, reabrir);
+2. abrir novo inventário em formulário único;
+3. monitorar divergências interunidades em tempo real;
+4. acompanhar histórico e relatório consolidado.
 
-- abrir evento de inventario
-- definir tipo de ciclo (`ADHOC`, `SEMANAL`, `MENSAL`, `ANUAL`)
-- definir escopo (`GERAL`, `UNIDADE`, `LOCAIS`)
-- encerrar ou reabrir evento
-- acompanhar relatorio de encerramento
+## Estrutura da página
 
-## Micro-inventario ciclico
+### 1) Controle do Inventário
 
-A tela permite abrir micro-inventarios de forma rapida por unidade/sala.
+- mostra se existe inventário ativo;
+- permite selecionar o inventário em andamento;
+- exibe resumo operacional: código, escopo, modo e unidade;
+- ações críticas:
+  - `Encerrar inventário`
+  - `Cancelar inventário`
+- essas ações usam confirmação forte em modal (sem `window.confirm`).
 
-Tambem exibe sugestoes de ciclo baseadas em tempo sem contagem e volume de bens por local.
+### 2) Novo inventário (formulário único)
 
-## Regras de escopo
+Substitui a duplicidade antiga de "abrir evento" + "novo micro-inventário".
 
-- Evento `GERAL` conflita com qualquer outro evento ativo.
-- Evento `UNIDADE` conflita com eventos da mesma unidade e com `GERAL`.
-- Evento `LOCAIS` conflita com sobreposicao de salas no mesmo escopo.
+Presets rápidos:
 
-## Responsabilidade
+- `Inventário geral`
+- `Ciclo semanal 1ª Aud`
+- `Ciclo semanal 2ª Aud`
+- `Ciclo semanal Foro`
+- `Ciclo semanal Almox`
+- `Por sala`
 
-- Operador de sala usa "Inventario - Contagem".
-- Administrador usa esta tela para abrir/encerrar e supervisionar o ciclo.
+Comportamento por escopo:
+
+- `GERAL`:
+  - oculta `Tipo de ciclo`;
+  - oculta `Unidade inventariada`;
+  - CTA: `Abrir inventário geral`.
+- `UNIDADE`:
+  - mostra `Tipo de ciclo`;
+  - mostra `Unidade inventariada`;
+  - CTA: `Abrir micro-inventário`.
+- `LOCAIS`:
+  - mostra `Tipo de ciclo`;
+  - mostra `Unidade inventariada`;
+  - mostra seleção de salas;
+  - CTA: `Abrir micro-inventário`.
+
+### 3) Sugestões de ciclo
+
+- clique na sugestão preenche automaticamente o formulário com:
+  - `escopoTipo=LOCAIS`
+  - `tipoCiclo=SEMANAL`
+  - unidade e sala sugeridas.
+
+### 4) Lateral operacional
+
+- progresso do inventário;
+- monitoramento por sala e rodada (A, B, DESEMPATE);
+- painel `Divergências interunidades (tempo real)`;
+- histórico resumido.
+
+## Concomitância de inventários por unidade
+
+Regra operacional exibida na UI:
+
+- inventários `UNIDADE` e `LOCAIS` podem rodar em paralelo entre unidades;
+- inventário `GERAL` é exclusivo.
+
+Exemplos:
+
+- Unidade 2 e Unidade 3 podem inventariar ao mesmo tempo.
+- Não pode haver dois inventários ativos da mesma unidade.
+- Se existir inventário `GERAL` ativo, nenhum inventário por unidade ou local deve abrir.
+
+## Divergências interunidades (tempo real)
+
+Painel de monitoramento cruzado:
+
+- visão `Da minha unidade encontradas fora`;
+- visão `Outras unidades encontradas na minha`;
+- KPIs operacionais de `Pendentes`, `Regularizadas`, `Em andamento` e `Encerrado`;
+- filtros:
+  - status do inventário (`TODOS`, `EM_ANDAMENTO`, `ENCERRADO`);
+  - unidade relacionada;
+  - código do inventário;
+  - sala;
+- ação rápida `Limpar filtros`;
+- tabela com badges visuais para status do inventário, tipo de divergência e situação de regularização.
+
+Importante:
+
+- este painel é de leitura;
+- a regularização continua no fluxo pós-inventário (Art. 185).
+
+## Modos de contagem
+
+### `PADRAO`
+
+- sem isolamento de rodada;
+- fluxo de inventário tradicional.
+
+### `CEGO`
+
+- exige 1 operador (`OPERADOR_UNICO`);
+- operador não vê esperado nem diferença;
+- admin monitora progresso sem quebrar a cegueira.
+
+### `DUPLO_CEGO`
+
+- exige 2 operadores (`OPERADOR_A` e `OPERADOR_B`);
+- cada operador grava apenas sua rodada;
+- divergências A/B geram pendência de desempate;
+- desempate é feito por perfil autorizado.
+
+## Confirmação forte (ações críticas)
+
+Ao encerrar ou cancelar:
+
+- modal mostra inventário alvo e impacto da ação;
+- campo de observação opcional;
+- somente após confirmação explícita a ação é enviada.
+
+## Compliance preservado
+
+- Art. 183 (AN303_Art183): inventário ativo bloqueia mudança de carga.
+- Art. 185 (AN303_Art185): divergência não transfere carga automaticamente.
+- Art. 175 (AN303_Art175): itens sem identificação exigem evidência visual.

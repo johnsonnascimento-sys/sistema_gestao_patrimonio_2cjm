@@ -1,172 +1,117 @@
 <!--
-Modulo: wiki
+Módulo: wiki
 Arquivo: frontend/src/wiki/10_solucao_problemas.md
-Funcao no sistema: troubleshooting focado no usuario e no admin (sem expor segredos).
+Função no sistema: troubleshooting para usuário e admin (sem expor segredos).
 -->
 
 # Solução de problemas (FAQ)
 
-## "Failed to fetch" / "Erro interno no servidor"
+## "Failed to fetch" ou "Erro interno no servidor"
 
-O que significa:
+Significado:
 
-- O frontend não conseguiu falar com o backend via `/api`.
+- o frontend não conseguiu falar com o backend via `/api`.
 
-Checklist rapido:
+Checklist:
 
-1. Abra **Administração do Painel** (antiga "Operações API") e clique em **Testar /health**.
-2. Se falhar, o problema e conectividade/proxy/backend.
+1. abrir **Administração do Painel** e testar `/health`;
+2. se falhar, validar backend, proxy Nginx e rede.
 
-Possiveis causas:
+## "401 Não autenticado" ou "403 Sem permissão"
 
-- Backend fora do ar.
-- Proxy Nginx sem `location /api/`.
-- Timeout do proxy em operacao longa.
+- `401`: fazer login novamente.
+- `403`: perfil logado sem permissão para a ação.
 
-## "401 Nao autenticado" / "403 Sem permissao"
-
-Quando acontece:
-
-- A VPS esta com autenticacao ativa (`AUTH_ENABLED=true`).
-
-O que fazer:
-
-- `401`: faca login (ou refaca o login se o token expirou).
-- `403`: voce esta logado, mas a operacao exige `ADMIN` (ex.: importacao GEAFIN, criar perfis, regularizacao pos-inventario).
-
-Dica:
-
-- Se o navegador ficou com um token antigo, use o botao **Sair** e entre novamente.
-
-## "504 Gateway Time-out" ao importar GEAFIN
-
-O que significa:
-
-- O proxy Nginx encerrou a conexao antes do backend terminar.
-
-Solução:
-
-- Aumentar timeouts de proxy (host Nginx e/ou Nginx do container).
-- Garantir `proxy_request_buffering off` para upload.
-
-## "Formato do tombamento inválido"
-
-O tombamento GEAFIN esperado é:
-
-- exatamente 10 dígitos numéricos (ex.: `1290001788`).
-
-Se você digitou algo como `TMB-00772`, isso não é o mesmo padrão. Procure o tombamento no documento/etiqueta correta.
-
-Observação (scanner/colar):
-- O campo de scanner/registro remove automaticamente caracteres não numéricos (espaços, hífens, quebras de linha).
-- Se ainda assim não registrar, confira se o número final tem exatamente 10 dígitos (nem 9, nem 11).
-
-## Barra de progresso some ao dar refresh
-
-O progresso depende do ultimo registro de importacao no banco.
-
-Se sumir:
-
-- Verifique se existe uma importacao em andamento ou concluida no endpoint de progresso (admin).
-- Se a pagina estiver usando cache, force recarregar (Ctrl+F5).
-
-## Modo Inventário fica em branco
-
-Sintoma:
-
-- Ao clicar em "Modo Inventário", a área principal fica vazia.
-
-O que significa:
-
-- Normalmente é erro de JavaScript no navegador ou um deploy incompleto.
-
-O que fazer (rápido):
-
-1. Force refresh (Ctrl+F5).
-2. Se continuar, limpe os dados do site (DevTools -> Application -> Clear storage) e recarregue.
-3. Confirme que o deploy foi feito com `./scripts/vps_deploy.sh all`.
-
-## "Falha ao renderizar esta seção. Recarregue a página para atualizar os scripts."
-
-Quando acontece:
-
-- A aba carregou com script antigo em cache ou houve erro de execução pontual em uma seção.
-
-O que fazer:
-
-1. Clique em **Tentar novamente** na própria mensagem.
-2. Se persistir, clique em **Recarregar página**.
-3. Se ainda persistir, faça Ctrl+F5 e depois limpe cache/storage do site.
-
-## "Un" ao lado do botão Importar
-
-Isso é um fragmento visual do layout atual (botão/rótulo) e não representa uma unidade.
-
-Se aparecer sem funcao:
-
-- Pode ser removido/renomeado em melhoria de UX.
-
-## Inventário: "Bem de Terceiro" (não entendi)
-
-Veja a pagina:
-
-- Intrusos e bens de terceiros
+## "Não entendi o que é Role ACL"
 
 Resumo:
 
-- Bem de terceiro e item externo ao patrimonio, registrado segregado para controle.
+- `Role ACL` é o nível de acesso efetivo (o que o usuário pode ver e fazer).
+- `Salvar ACL` grava a role no perfil selecionado.
 
-## Logs: onde cada alteracao aparece
+Exemplos:
 
-Se uma alteracao nao aparece onde voce esperava, valide o tipo de log:
+- `LEITURA`: consulta.
+- `OPERADOR_AVANCADO`: solicita ações sensíveis.
+- `ADMIN_COMPLETO`: acesso total.
 
-- **Log Geral de Alteracoes**: mudancas de sistema/projeto (commits, deploys, docs, UX).
-- **Auditoria Patrimonial (Global)**: mudancas de dados do patrimonio (contrato, local, status, unidade, etc.).
-- **Linha do tempo do bem (detalhe)**: visao completa daquele bem especifico.
+## "Formato do tombamento inválido"
 
-Dica pratica:
+Padrão esperado:
 
-1. Se o objetivo e achar "quem alterou um tombo", comece pela **Auditoria Patrimonial (Global)** com filtro de tombamento.
-2. Se o objetivo e auditoria de entrega/deploy, use o **Log Geral de Alteracoes**.
+- exatamente 10 dígitos numéricos (ex.: `1290001788`).
 
-## Erro recorrente (FORMATO_INVALIDO)
+## Modo inventário fica em branco
 
-Se aparecer **"Formato invalido em campo enviado"**:
+Passos rápidos:
 
-1. Abra **Auditoria e Logs** -> **Log de Erros Runtime (API)**.
-2. Copie o `requestId` da linha do erro.
-3. Correlacione com `docker logs -f cjm_backend` na VPS para diagnostico.
+1. `Ctrl+F5`;
+2. limpar dados do site (cache/storage);
+3. validar deploy completo.
 
-## Erro ao cadastrar nao-usuario (500 / ERRO_INTERNO)
+## "Falha ao renderizar esta seção"
 
-Se o cadastro de nao-usuario falhar com `500`:
+1. clicar em **Tentar novamente**;
+2. se persistir, **Recarregar página**;
+3. se ainda persistir, `Ctrl+F5`.
 
-1. Abra **Auditoria e Logs** -> **Log de Erros Runtime (API)** e copie o `requestId`.
-2. Verifique se o backend ja esta na versao com correcao de `POST /perfis` (fix do erro `42P08`).
-3. Se ainda estiver em versao anterior, execute deploy:
+## "202 PENDENTE_APROVACAO" ao salvar alteração
 
-```bash
-cd /opt/cjm-patrimonio/current
-./scripts/vps_deploy.sh all
-```
+Significado:
 
-Comportamento esperado apos a correcao:
+- perfil pode solicitar, mas não executar diretamente.
 
-- cadastro sem senha (nao-usuario) cria normalmente;
-- conflitos de matricula/email retornam `409` com mensagens explicitas (`MATRICULA_DUPLICADA` ou `EMAIL_DUPLICADO`).
+Fluxo:
 
-## Erro durante Importacao GEAFIN: estrategia de recuperacao
+1. informar `justificativaSolicitante`;
+2. enviar solicitação;
+3. admin decide em `Aprovações Pendentes`.
 
-Se a importacao falhar e voce precisar voltar o banco para um ponto conhecido:
+## "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA"
 
-1. Identifique o backup pre-geafin no Drive (`cjm_gdrive:db-backups/database`).
-2. Execute restore com confirmacao explicita:
+- preencher justificativa antes de reenviar.
 
-```bash
-cd /opt/cjm-patrimonio/current
-./scripts/restore_db_backup.sh --remote-file db_YYYYMMDDTHHMMSSZ_pre-geafin.sql.gz --yes-i-know
-```
+## "SOLICITACAO_STATUS_INVALIDO"
 
-3. Revalide `/api/health` e os fluxos criticos apos o restore.
+- a solicitação já foi decidida;
+- atualizar a grade e conferir status atual.
 
-Observacao: o restore cria backup `pre-restore` automaticamente antes de aplicar o dump.
+## Micro-inventário: erro ao criar evento
+
+Sintoma:
+
+- erro em `POST /inventario/eventos`.
+
+Causa comum:
+
+- trigger de validação de operadores desatualizado.
+
+Correção:
+
+- aplicar migration `023_fix_trigger_validar_operadores_evento.sql`.
+
+## Não aparece divergência interunidades no painel novo
+
+Checklist:
+
+1. confirmar que a divergência foi registrada no inventário;
+2. testar filtro de status com `TODOS`;
+3. se não for admin, verificar se a divergência envolve sua unidade;
+4. clicar em `Atualizar`.
+
+Observação:
+
+- painel interunidades é de monitoramento;
+- regularização formal ocorre após encerramento.
+
+## Encerrar ou cancelar inventário falha
+
+Comportamento esperado:
+
+- ação exige confirmação forte no modal.
+
+Se falhar:
+
+1. confirmar inventário selecionado;
+2. tentar novamente;
+3. registrar `requestId` no log de erros para diagnóstico.
