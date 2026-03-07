@@ -136,10 +136,106 @@ function saveInventoryUiState(patch) {
   }
 }
 
-export default function InventoryRoomPanel() {
+function formatModeLabel(mode) {
+  const normalized = String(mode || "PADRAO").toUpperCase();
+  if (normalized === "DUPLO_CEGO") return "Duplo cego";
+  if (normalized === "CEGO") return "Cego";
+  return "Padrão";
+}
+
+function ModeBadge({ mode }) {
+  const normalized = String(mode || "PADRAO").toUpperCase();
+  const cls = normalized === "DUPLO_CEGO"
+    ? "border-amber-300 bg-amber-50 text-amber-800"
+    : normalized === "CEGO"
+      ? "border-orange-300 bg-orange-50 text-orange-800"
+      : "border-violet-300 bg-violet-50 text-violet-700";
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cls}`}>
+      {formatModeLabel(normalized)}
+    </span>
+  );
+}
+
+function StatusBadge({ tone = "slate", children }) {
+  const cls = tone === "success"
+    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+    : tone === "warn"
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : tone === "danger"
+        ? "border-rose-300 bg-rose-50 text-rose-700"
+        : "border-slate-300 bg-slate-50 text-slate-700";
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cls}`}>
+      {children}
+    </span>
+  );
+}
+
+function SectionCard({ title, subtitle = "", accent = "slate", actions = null, children, className = "" }) {
+  const accentCls = accent === "violet"
+    ? "border-violet-200"
+    : accent === "amber"
+      ? "border-amber-200"
+      : accent === "rose"
+        ? "border-rose-200"
+        : "border-slate-200";
+  return (
+    <section className={`rounded-2xl border bg-white p-4 shadow-sm ${accentCls} ${className}`.trim()}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-slate-900">{title}</h3>
+          {subtitle ? <p className="mt-1 text-xs text-slate-600">{subtitle}</p> : null}
+        </div>
+        {actions}
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function InfoLine({ label, value, helper = null, tone = "default" }) {
+  const valueCls = tone === "danger"
+    ? "text-rose-700"
+    : tone === "warn"
+      ? "text-amber-800"
+      : tone === "success"
+        ? "text-emerald-700"
+        : "text-slate-900";
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className={`mt-1 text-sm font-semibold ${valueCls}`}>{value}</p>
+      {helper ? <p className="mt-1 text-[11px] text-slate-500">{helper}</p> : null}
+    </div>
+  );
+}
+
+function BlindModeBanner({ mode, roleLabel, rodada }) {
+  return (
+    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">Contagem cega em andamento</p>
+          <p className="mt-1 text-sm text-amber-900">
+            Parte dos painéis foi ocultada para preservar a regra operacional do modo {formatModeLabel(mode)}.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {roleLabel ? <StatusBadge tone="warn">{roleLabel}</StatusBadge> : null}
+          {rodada ? <StatusBadge tone="warn">Rodada {rodada}</StatusBadge> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function InventoryRoomPanel({ navigationPreset = null }) {
   const qc = useQueryClient();
   const auth = useAuth();
   const offline = useOfflineSync();
+  const appliedPresetNonceRef = useRef(null);
+  const skipNextUnitResetRef = useRef(false);
 
   const initialUi = loadInventoryUiState();
 
@@ -228,6 +324,10 @@ export default function InventoryRoomPanel() {
       setUnitEffectReady(true);
       return;
     }
+    if (skipNextUnitResetRef.current) {
+      skipNextUnitResetRef.current = false;
+      return;
+    }
     setSelectedLocalId("");
     // salaEncontrada sera limpada pelo efeito de coerencia do local.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -289,6 +389,35 @@ export default function InventoryRoomPanel() {
     if (!selectedEventoIdFinal) return;
     setSelectedEventoId(String(selectedEventoIdFinal));
   }, [selectedEventoIdFinal]);
+
+  useEffect(() => {
+    const preset = navigationPreset && typeof navigationPreset === "object" ? navigationPreset : null;
+    const nonce = preset?.nonce;
+    if (!preset || nonce == null) return;
+    if (appliedPresetNonceRef.current === nonce) return;
+
+    appliedPresetNonceRef.current = nonce;
+
+    const nextEventoId = preset.eventoInventarioId ? String(preset.eventoInventarioId) : "";
+    const nextUnidadeId = preset.unidadeEncontradaId != null ? String(preset.unidadeEncontradaId) : "";
+    const nextLocalId = preset.localId ? String(preset.localId) : "";
+    const nextSala = preset.salaEncontrada ? String(preset.salaEncontrada) : "";
+
+    if (nextUnidadeId || nextLocalId) {
+      skipNextUnitResetRef.current = true;
+    }
+    if (nextEventoId) setSelectedEventoId(nextEventoId);
+    if (nextUnidadeId) setUnidadeEncontradaId(nextUnidadeId);
+    if (nextLocalId) setSelectedLocalId(nextLocalId);
+    if (nextSala) setSalaEncontrada(nextSala);
+
+    saveInventoryUiState({
+      selectedEventoId: nextEventoId || undefined,
+      unidadeEncontradaId: nextUnidadeId || undefined,
+      selectedLocalId: nextLocalId || undefined,
+      salaEncontrada: nextSala || undefined,
+    });
+  }, [navigationPreset]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -400,6 +529,16 @@ export default function InventoryRoomPanel() {
     if (!localIdsPermitidosEvento) return rows;
     return rows.filter((l) => localIdsPermitidosEvento.has(String(l.id)));
   }, [locaisQuery.data, localIdsPermitidosEvento]);
+
+  useEffect(() => {
+    if (!selectedLocalId) return;
+    const local = (locaisQuery.data || []).find((l) => String(l.id) === String(selectedLocalId));
+    if (!local) return;
+    const nextUnidade = local?.unidadeId != null ? String(local.unidadeId) : "";
+    if (!nextUnidade || nextUnidade === String(unidadeEncontradaId || "")) return;
+    skipNextUnitResetRef.current = true;
+    setUnidadeEncontradaId(nextUnidade);
+  }, [locaisQuery.data, selectedLocalId, unidadeEncontradaId]);
 
   useEffect(() => {
     if (!selectedLocalId) return;
@@ -905,23 +1044,61 @@ export default function InventoryRoomPanel() {
       ...prev,
     ].slice(0, 8));
 
-    if (navigator.onLine) {
+  if (navigator.onLine) {
       await offline.syncNow();
       await contagensSalaQuery.refetch();
       await forasteirosEventoQuery.refetch();
     }
   };
 
+  const papelSessaoLabel = sessaoContagem?.papel ? String(sessaoContagem.papel).replaceAll("_", " ") : "";
+  const totalEsperadosEndereco = (bensSalaQuery.data || []).length;
+  const totalConferidosEndereco = totalEsperadosEndereco
+    ? (bensSalaQuery.data || []).reduce((acc, bem) => acc + (foundSet.has(bem.numeroTombamento) ? 1 : 0), 0)
+    : 0;
+  const totalDivergentesEndereco = totalEsperadosEndereco
+    ? (bensSalaQuery.data || []).reduce((acc, bem) => {
+      const meta = getConferenciaMeta(bem);
+      return acc + (meta.encontrado && meta.divergente ? 1 : 0);
+    }, 0)
+    : 0;
+  const totalFaltantesEndereco = Math.max(0, totalEsperadosEndereco - totalConferidosEndereco);
+  const roomPendingOfflineCount = (offline.items || []).filter((item) =>
+    item?.eventoInventarioId === selectedEventoIdFinal &&
+    normalizeRoomKey(item?.salaEncontrada) === normalizeRoomKey(salaEncontrada)
+  ).length;
+  const canRegisterHint = !selectedEventoIdFinal
+    ? "Abra ou selecione um evento em andamento."
+    : eventoSelecionadoIncompativel
+      ? "O evento atual não é compatível com a unidade encontrada selecionada."
+      : !unidadeEncontradaId
+        ? "Selecione a unidade encontrada."
+        : !selectedLocalId
+          ? "Selecione o local cadastrado do endereço."
+          : !salaEncontrada.trim()
+            ? "Confirme o endereço operacional."
+            : modoContagemEvento !== "PADRAO" && !sessaoContagem?.designado && !(rodadaSelecionada === "DESEMPATE" && sessaoContagem?.podeDesempate)
+              ? "Seu usuário não está designado para esta rodada."
+              : null;
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo Inventário (offline-first)</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Contagens sao persistidas no navegador e sincronizadas com a API quando houver conexao.
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold text-slate-900">Inventário - Contagem</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operação patrimonial</p>
+          <p className="text-sm text-slate-600">
+            Fluxo operacional para leitura por endereço com persistência local e sincronização determinística.
           </p>
         </div>
-        <div className="text-xs text-slate-600">
+        <div className="hidden">
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Modo Inventário (offline-first)</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operação patrimonial</p>
+          <p className="mt-2 text-sm text-slate-600">
+            Fluxo operacional para leitura por endereço com persistência local e sincronização determinística.
+          </p>
+        </div>
+        <div className="hidden text-xs text-slate-600">
           <p>
             Pendentes offline:{" "}
             <span className="font-semibold text-violet-700">{offline.pendingCount}</span>
@@ -934,6 +1111,25 @@ export default function InventoryRoomPanel() {
           </p>
         </div>
       </header>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <ModeBadge mode={modoContagemEvento} />
+        <StatusBadge tone={navigator.onLine ? "success" : "warn"}>
+          {navigator.onLine ? "Online" : "Offline"}
+        </StatusBadge>
+        <StatusBadge tone={eventoSelecionadoIncompativel ? "danger" : selectedEventoIdFinal ? "success" : "warn"}>
+          {eventoSelecionadoIncompativel ? "Evento incompatível" : selectedEventoIdFinal ? "Evento aplicado" : "Sem evento"}
+        </StatusBadge>
+        <StatusBadge tone={offline.pendingCount ? "warn" : "success"}>
+          Pendentes offline: {offline.pendingCount}
+        </StatusBadge>
+      </div>
+
+      {uiReduzida ? (
+        <div className="mt-4">
+          <BlindModeBanner mode={modoContagemEvento} roleLabel={papelSessaoLabel} rodada={modoContagemEvento !== "PADRAO" ? rodadaSelecionada : ""} />
+        </div>
+      ) : null}
 
       {(uiError || offline.lastError) && (
         <p className="mt-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-700">
@@ -953,8 +1149,65 @@ export default function InventoryRoomPanel() {
         </p>
       )}
 
+      <SectionCard
+        title="Contexto da contagem"
+        subtitle="Confirme o evento, a unidade e o local cadastrado antes de iniciar a leitura contínua."
+        accent="violet"
+        className="mt-5"
+      >
+        <div className="grid gap-3 lg:grid-cols-5">
+          <InfoLine
+            label="Evento aplicado"
+            value={eventoAtivo?.codigoEvento || "Sem evento"}
+            helper={selectedEventoIdFinal ? `${formatModeLabel(modoContagemEvento)} / ${eventoAtivo?.escopoTipo || "UNIDADE"}` : "Abra um evento na Administração do Inventário."}
+            tone={selectedEventoIdFinal ? "success" : "warn"}
+          />
+          {modoContagemEvento !== "PADRAO" ? (
+            <InfoLine
+              label="Rodada"
+              value={rodadaSelecionada}
+              helper={papelSessaoLabel || "Rodada operacional"}
+              tone="warn"
+            />
+          ) : null}
+          <InfoLine
+            label="Unidade encontrada"
+            value={unidadeEncontradaId ? formatUnidade(Number(unidadeEncontradaId)) : "Aguardando seleção"}
+            tone={unidadeEncontradaId ? "success" : "warn"}
+          />
+          <InfoLine
+            label="Local cadastrado"
+            value={(locaisOptions || []).find((l) => String(l.id) === String(selectedLocalId))?.nome || "Aguardando seleção"}
+            helper={localIdsPermitidosEvento ? "Escopo restrito pelos locais do evento." : "Endereço padronizado cadastrado pelo Admin."}
+            tone={selectedLocalId ? "success" : "warn"}
+          />
+          <InfoLine
+            label="Endereço operacional"
+            value={salaEncontrada || "Aguardando seleção"}
+            helper={selectedLocalId ? "Sincronizado automaticamente com o local escolhido." : "Será preenchido quando o local for selecionado."}
+            tone={salaEncontrada ? "success" : "warn"}
+          />
+        </div>
+      </SectionCard>
+
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <article className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1">
+        <article className="rounded-2xl border border-violet-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-slate-900">Leitura principal</h3>
+              <p className="mt-1 text-xs text-slate-600">
+                Prepare o contexto e mantenha o foco na bipagem contínua do endereço atual.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <StatusBadge tone={canRegister ? "success" : "warn"}>
+                {canRegister ? "Pronto para bipagem" : "Aguardando contexto"}
+              </StatusBadge>
+              <StatusBadge tone={roomPendingOfflineCount ? "warn" : "success"}>
+                Fila do endereço: {roomPendingOfflineCount}
+              </StatusBadge>
+            </div>
+          </div>
           <h3 className="font-semibold">Endereço e scanner</h3>
           <p className="mt-1 text-xs text-slate-600">
             Selecione o endereço e registre tombamentos. Divergencias tocam alerta e viram ocorrencia (Art. 185).
@@ -1069,17 +1322,19 @@ export default function InventoryRoomPanel() {
           <form onSubmit={registerScan} className="mt-4">
             <label className="block space-y-1 mb-2">
               <span className="text-xs text-slate-600">Bipar tombamento (10 dígitos)</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">Leitura do tombamento</span>
+              <span className="block text-xs text-slate-500">Leia 10 dígitos ou etiqueta de 4 dígitos para abrir a identificação.</span>
               <div className="grid gap-2 grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto]">
                 <input
                   ref={scannerInputRef}
                   value={scannerValue}
                   onChange={(e) => setScannerValue(normalizeTombamentoInput(e.target.value))}
                   onKeyDown={handleScannerInputKeyDown}
-                  placeholder="Ex: 1290001788"
+                  placeholder="Ex.: 1290001788"
                   inputMode="numeric"
                   maxLength={10}
                   autoComplete="off"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm col-span-1"
+                  className="col-span-1 w-full rounded-xl border border-violet-300 bg-violet-50 px-4 py-3 text-base font-semibold tracking-[0.08em] text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-100"
                 />
 
                 <div className="flex gap-2">
@@ -1087,7 +1342,7 @@ export default function InventoryRoomPanel() {
                     type="button"
                     onClick={() => { setScannerMode("single"); setShowScanner(true); }}
                     title="Câmera (Uma leitura)"
-                    className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800 hover:bg-slate-200 focus:ring-2 focus:ring-violet-500"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-slate-800 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-violet-500"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                   </button>
@@ -1095,7 +1350,7 @@ export default function InventoryRoomPanel() {
                     type="button"
                     onClick={() => { setScannerMode("continuous"); setShowScanner(true); }}
                     title="Câmera (Contínuo)"
-                    className="rounded-lg bg-slate-100 px-3 py-2 text-slate-800 hover:bg-slate-200 focus:ring-2 focus:ring-violet-500"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-slate-800 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-violet-500"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                   </button>
@@ -1104,12 +1359,26 @@ export default function InventoryRoomPanel() {
                 <button
                   type="submit"
                   disabled={!canRegister}
-                  className="col-span-2 md:col-span-1 w-full rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className="col-span-2 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-50 md:col-span-1"
                 >
                   Registrar
                 </button>
               </div>
             </label>
+            <div className="mt-3 grid gap-2 md:grid-cols-3">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                <span className="block font-semibold">Endereço ativo</span>
+                <span>{salaEncontrada || "Selecione um local cadastrado."}</span>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <span className="block font-semibold">Status de registro</span>
+                <span>{canRegister ? "Leitura liberada para este contexto." : canRegisterHint}</span>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <span className="block font-semibold">Modo da câmera</span>
+                <span>{scannerMode === "continuous" ? "Contínuo" : "Uma leitura por abertura"}</span>
+              </div>
+            </div>
           </form>
 
           {showScanner && (
@@ -1138,10 +1407,14 @@ export default function InventoryRoomPanel() {
           )}
 
           {lastScans.length > 0 && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs uppercase tracking-widest text-slate-500">Últimos registros</p>
+                <span className="text-[11px] text-slate-500">Leituras recentes do operador</span>
+              </div>
               <p className="text-xs uppercase tracking-widest text-slate-500">Últimos registros</p>
               {lastScans.map((s) => (
-                <div key={s.id} className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs">
+                <div key={s.id} className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-mono text-slate-900">{s.numeroTombamento}</span>
                     <span className="text-slate-600">{s.when}</span>
@@ -1162,13 +1435,55 @@ export default function InventoryRoomPanel() {
           )}
         </article>
         <div className="flex flex-col gap-4">
+          <SectionCard
+            title="Visão rápida do endereço"
+            subtitle="Resumo operacional para decidir se a equipe segue na bipagem ou trata exceções."
+            accent={uiReduzida ? "amber" : "slate"}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoLine
+                label="Esperados"
+                value={shouldHideExpectedData ? "Oculto no modo cego" : totalEsperadosEndereco}
+                helper={shouldHideExpectedData ? "Painéis de esperado permanecem ocultos por regra operacional." : "Itens vinculados ao local cadastrado."}
+                tone={shouldHideExpectedData ? "warn" : "default"}
+              />
+              <InfoLine
+                label="Conferidos"
+                value={shouldHideExpectedData ? "Oculto" : totalConferidosEndereco}
+                helper={shouldHideExpectedData ? "Resumo reduzido enquanto a contagem cega estiver ativa." : "Bens já localizados neste endereço."}
+                tone={shouldHideExpectedData ? "warn" : "success"}
+              />
+              <InfoLine
+                label="Divergências"
+                value={totalDivergentesEndereco}
+                helper="Ocorrências registradas neste endereço."
+                tone={totalDivergentesEndereco ? "danger" : "default"}
+              />
+              <InfoLine
+                label="Faltantes"
+                value={shouldHideExpectedData ? "Oculto" : totalFaltantesEndereco}
+                helper={shouldHideExpectedData ? "Oculto no modo cego." : "Esperados ainda não conferidos."}
+                tone={shouldHideExpectedData ? "warn" : totalFaltantesEndereco ? "warn" : "success"}
+              />
+            </div>
+          </SectionCard>
           {!uiReduzida ? <InventoryProgress eventoInventarioId={selectedEventoIdFinal} /> : null}
         </div>
       </div>
 
+      {!uiReduzida ? (
+        <DivergencesPanel
+          salaEncontrada={salaEncontrada}
+          contagens={contagensSalaQuery.data || []}
+          offlineItems={offline.items || []}
+          bensSala={bensSalaQuery.data || []}
+          eventoInventarioId={selectedEventoIdFinal}
+        />
+      ) : null}
+
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none">Registrar Bem de Terceiro (Segregado)</summary>
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1 group">
+          <summary className="font-semibold cursor-pointer select-none">Exceção: bem de terceiro (segregado)</summary>
           <div className="mt-3 group-open:block">
             <form onSubmit={onRegistrarBemTerceiro} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1230,7 +1545,7 @@ export default function InventoryRoomPanel() {
           </div>
         </details>
 
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1 group">
           <summary className="font-semibold cursor-pointer select-none text-rose-700">Registrar bem sem identificação (Divergência)</summary>
           <div className="mt-3 group-open:block">
             <form onSubmit={onRegistrarNaoIdentificado} className="mt-4 rounded-xl border border-slate-200 border-l-rose-500 bg-slate-50 p-3">
@@ -1303,7 +1618,7 @@ export default function InventoryRoomPanel() {
           </div>
         </details>
 
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:col-span-1 group">
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1 group">
           <summary className="font-semibold cursor-pointer select-none">Bens de terceiros registrados (este endereço)</summary>
           <div className="mt-3 group-open:block">
             <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -1356,20 +1671,13 @@ export default function InventoryRoomPanel() {
         </details>
       </div>
 
-      {!uiReduzida ? (
-        <DivergencesPanel
-          salaEncontrada={salaEncontrada}
-          contagens={contagensSalaQuery.data || []}
-          offlineItems={offline.items || []}
-          bensSala={bensSalaQuery.data || []}
-          eventoInventarioId={selectedEventoIdFinal}
-        />
-      ) : null}
-
       {!shouldHideExpectedData ? (
-      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
+      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 group">
         <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
           <span>Bens do endereço (agrupado por catálogo)</span>
+          <span className="text-xs font-normal text-slate-500">
+            Esperados {totalEsperadosEndereco} • Conferidos {totalConferidosEndereco} • Faltantes {totalFaltantesEndereco}
+          </span>
           {bensSalaQuery.isFetching && <span className="text-xs text-slate-500">Carregando...</span>}
         </summary>
         <div className="mt-3 group-open:block">

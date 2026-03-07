@@ -1,7 +1,7 @@
 <!--
-Módulo: wiki
-Arquivo: frontend/src/wiki/06_inventario_endereço_a_endereço.md
-Função no sistema: orientar o fluxo de Inventário - Contagem (operação por endereço).
+Modulo: wiki
+Arquivo: frontend/src/wiki/06_inventario_sala_a_sala.md
+Funcao no sistema: orientar o fluxo de Inventario - Contagem (operacao por endereco).
 -->
 
 # Inventário - Contagem
@@ -12,80 +12,191 @@ No grupo **Operações Patrimoniais**:
 
 - `Inventário - Contagem`: tela operacional de leitura e registro.
 - `Inventário - Administração`: tela de gestão de inventários e ciclos.
-- `Cadastrar Bens por endereço`: regularização em lote de localização (sem transferir carga).
+- `Cadastrar Bens por endereço`: regularização em lote de localização, sem transferir carga.
 
-## Acompanhamento de progresso por endereço
+## Hierarquia operacional da tela
 
-Ao acessar **Cadastrar Bens por endereço**, o sistema exibe um card de progresso com:
+A tela foi reorganizada para priorizar velocidade de leitura e reduzir disputa visual entre preparo do contexto, bipagem e exceções.
 
-- **Total**: quantidade total de bens próprios não baixados.
-- **Atualizados**: bens com `local_id` vinculado.
-- **Pendentes**: bens sem endereço atribuída (`local_id IS NULL`).
-- **Barra de progresso**: percentual de bens atualizados sobre o total.
+Ordem atual dos blocos:
 
-### Comportamento por contexto
+1. cabeçalho operacional compacto;
+2. badges de modo e status;
+3. banner de contagem cega, quando aplicável;
+4. card `Contexto da contagem`;
+5. painel `Leitura principal`;
+6. card lateral `Visão rápida do endereço`;
+7. `Divergências no endereço`;
+8. painéis recolhíveis de exceção e consulta;
+9. painel recolhível `Bens esperados do endereço`.
 
-| Situação | Exibição |
-|---|---|
-| Sem filtro de unidade | Totais globais (todas as unidades) |
-| Unidade selecionada | Totais filtrados pela unidade |
-| Após salvar lote na endereço | Estatísticas atualizadas automaticamente |
+Objetivo operacional:
 
-Endpoint:
+- deixar o scanner como foco primário;
+- manter evento, unidade e local visíveis sem poluir o topo;
+- empurrar exceções para baixo do fluxo principal;
+- preservar a ocultação fail-closed dos dados esperados em contagem cega.
 
-- `GET /locais/estatisticas`
+## Abertura contextualizada pela Administração
 
-## Ver bens por situação
+A tela `Inventário - Contagem` pode ser aberta a partir de `Inventário - Administração`, no painel `Bens não contados`.
 
-O botão **Ver bens por situação** abre painel expansível com duas abas:
+Quando o operador usa `Abrir contagem do endereço`, o sistema já entra com:
 
-- **Pendentes (sem endereço)**: `local_id IS NULL`
-- **Concluídos (com endereço)**: `local_id IS NOT NULL`
+- evento de inventário pré-selecionado;
+- unidade encontrada correspondente ao endereço;
+- local cadastrado (`local_id`) já preenchido;
+- campo textual do endereço (`salaEncontrada`) alinhado ao local escolhido.
 
-Há paginação de 50 itens e colunas: `Tombamento | Nome | Unidade | endereço`.
+Esse preset é aplicado uma única vez por navegação. Depois disso, se o operador trocar unidade ou endereço manualmente, a interface respeita a escolha atual.
 
-Endpoint:
+## Contexto da contagem
 
-- `GET /bens/localizacao?statusLocal=sem_local&unidadeId=2&limit=50&offset=0`
+O card `Contexto da contagem` consolida:
+
+- evento aplicado;
+- rodada, quando o modo não for `PADRAO`;
+- unidade encontrada;
+- local cadastrado;
+- endereço operacional sincronizado.
+
+Comportamentos preservados:
+
+- `selectedEventoIdFinal` continua sendo a referência final do evento em uso;
+- `selectedLocalId` continua sincronizando `salaEncontrada`;
+- trocar unidade manualmente continua limpando local incompatível;
+- presets com `localId` continuam derivando o contexto operacional sem alterar o contrato externo.
+
+## Painel de leitura principal
+
+O bloco `Leitura principal` é o centro da operação.
+
+Elementos mantidos:
+
+- campo de scanner com foco contínuo;
+- leitura por teclado físico;
+- leitura por câmera em modo simples;
+- leitura por câmera em modo contínuo;
+- resolução de etiqueta de 4 dígitos;
+- feedback de leitura recente;
+- lista de últimos registros.
+
+Resumo visual novo:
+
+- o campo do tombamento fica em maior destaque;
+- o operador vê o endereço ativo, o status de registro e o modo de câmera sem rolar;
+- a fila offline do endereço aparece no topo do bloco;
+- quando `canRegister === false`, o motivo operacional aparece junto da leitura.
+
+## Divergências e exceções
+
+Após o painel principal, a tela exibe:
+
+1. `Divergências no endereço`;
+2. `Exceção: bem de terceiro (segregado)`;
+3. `Exceção: bem sem identificação (divergência)`;
+4. `Consulta: bens de terceiros registrados neste endereço`.
+
+Essa ordem foi escolhida porque:
+
+- divergência é consequência direta da leitura;
+- bem de terceiro e bem sem identificação são exceções de tratamento;
+- a consulta de terceiros é apoio operacional, não fluxo primário.
+
+Regras mantidas:
+
+- bem de terceiro continua segregado do patrimônio STM;
+- bem sem identificação continua exigindo foto, descrição e localização;
+- divergência continua registrando ocorrência própria, sem transferir carga automaticamente.
+
+Base legal:
+
+- regularização sem troca automática de dono: `Art. 185 (AN303_Art185)`;
+- evidência para item não identificado: `Art. 175 (AN303_Art175)`;
+- segregação de bem de terceiro: `Art. 99 (AN303_Art99)`, `Art. 110, VI (AN303_Art110_VI)` e `Art. 175, IX (AN303_Art175_IX)`.
+
+## Bens esperados do endereço
+
+Fora do modo cego, o painel recolhível de bens esperados continua disponível, mas com menor peso visual.
+
+Resumo exibido no cabeçalho:
+
+- total esperados;
+- total conferidos;
+- total faltantes.
+
+Cada item segue com o status visual:
+
+- `ENCONTRADO`;
+- `LOCAL_DIVERGENTE`;
+- `FALTANTE`.
 
 Importante:
 
-- a rota `/bens/localizacao` deve estar registrada antes de `/bens/:id` no `server.js`.
+- o painel continua dependente de `shouldHideExpectedData`;
+- em modo cego, a ocultação continua fail-closed;
+- o vínculo esperado continua baseado em `bens.local_id`, não no texto livre do GEAFIN.
 
-## Reset de localização física (pré-inventário livre)
+## Contagem cega e duplo-cega
 
-Operação administrativa para limpar `local_id` de todos os bens (ou de uma unidade).
+### Contagem cega (`CEGO`)
 
-Checklist:
+- exige 1 operador com papel `OPERADOR_UNICO`;
+- operador não vê o painel de esperado;
+- a rodada enviada no sync continua sendo `A`.
 
-1. Clicar em **Resetar localização**.
-2. Selecionar escopo (`todas` ou `unidade`).
-3. Informar senha de administrador.
-4. Digitar `RESETAR` para confirmação.
+### Contagem duplo-cega (`DUPLO_CEGO`)
 
-Endpoint:
+- exige `OPERADOR_A` e `OPERADOR_B`;
+- cada operador grava somente sua rodada;
+- divergência A/B continua gerando pendência de desempate;
+- fechamento por `DESEMPATE` continua reservado a perfil autorizado.
 
-- `DELETE /locais/reset?unidadeId=2`
+### Variação visual da UI reduzida
 
-Body:
+Quando `uiReduzida === true`, a tela passa a destacar:
 
-```json
-{ "adminPassword": "senha_do_admin" }
-```
+- banner `Contagem cega em andamento`;
+- badges de modo e rodada;
+- contexto mínimo necessário para operar;
+- scanner, câmera, feedback e últimos registros.
+
+Permanece oculto:
+
+- `InventoryProgress`;
+- painel de bens esperados;
+- qualquer comparação que exponha estado esperado fora do permitido.
+
+## Leitura por scanner e câmera
+
+O fluxo operacional permanece:
+
+1. selecionar evento, unidade e local;
+2. confirmar o endereço operacional;
+3. bipar tombamento de 10 dígitos ou etiqueta de 4 dígitos;
+4. deixar o foco retornar ao campo para nova leitura;
+5. tratar exceções somente quando necessário.
+
+Leituras aceitas:
+
+- `10 dígitos`: registro direto;
+- `4 dígitos`: abre modal para identificar a etiqueta;
+- câmera simples: encerra após uma leitura;
+- câmera contínua: mantém a leitura aberta para bipagem em sequência.
 
 ## Inventário simultâneo por unidade
 
 Regras operacionais:
 
-- Escopo `GERAL` é exclusivo.
-- Escopo `UNIDADE` permite no máximo 1 inventário ativo por unidade.
-- Escopo `LOCAIS` segue a unidade dos locais selecionados.
+- escopo `GERAL` é exclusivo;
+- escopo `UNIDADE` permite no máximo 1 inventário ativo por unidade;
+- escopo `LOCAIS` segue a unidade dos locais selecionados.
 
 Exemplos:
 
-- Unidade 1 e Unidade 2 podem inventariar em paralelo.
-- Unidade 1 não pode abrir dois inventários simultâneos.
-- Com inventário `GERAL` ativo, não abre inventário de unidade/local.
+- Unidade 1 e Unidade 2 podem inventariar em paralelo;
+- Unidade 1 não pode abrir dois inventários simultâneos;
+- com inventário `GERAL` ativo, não abre inventário de unidade/local.
 
 ## Inventário cíclico
 
@@ -109,48 +220,7 @@ Sugestões:
 Critério:
 
 1. locais há mais tempo sem contagem;
-2. maior volume de bens ativos (desempate).
-
-## Modos de contagem cega
-
-### Contagem cega (`CEGO`)
-
-- exige 1 operador com papel `OPERADOR_UNICO`;
-- operador não vê esperado nem diferença;
-- rodada enviada no sync: `A`.
-
-### Contagem duplo-cega (`DUPLO_CEGO`)
-
-- exige `OPERADOR_A` e `OPERADOR_B`;
-- cada operador grava somente sua rodada;
-- divergência A/B gera pendência de desempate;
-- fechamento por rodada `DESEMPATE` de perfil autorizado.
-
-### UI reduzida do operador
-
-Em `CEGO`/`DUPLO_CEGO`:
-
-- navegação do operador designado fica restrita ao fluxo de contagem;
-- não são exibidos painéis de comparação esperada para preservar cegueira;
-- regularização continua no fluxo administrativo pós-inventário.
-
-## Divergências interunidades com inventários concomitantes
-
-Quando há inventários em paralelo:
-
-- divergências entre unidade dona e unidade encontrada ficam visíveis para ambas as unidades;
-- monitoramento é imediato;
-- regularização formal ocorre após encerramento.
-
-Visualização:
-
-- `Inventário - Administração` -> `Divergências interunidades (tempo real)`.
-
-Filtros recomendados:
-
-1. status `EM_ANDAMENTO` para resposta rápida;
-2. unidade relacionada para foco operacional;
-3. código do inventário quando houver múltiplos eventos ativos.
+2. maior volume de bens ativos, em caso de empate.
 
 ## Matriz de permissão por rodada
 
@@ -162,12 +232,11 @@ Filtros recomendados:
 | `DUPLO_CEGO` | `OPERADOR_B` | `B` |
 | `DUPLO_CEGO` | ADMIN ou operador com `permiteDesempate=true` | `DESEMPATE` |
 
-## Erros operacionais comuns (modos cegos)
+## Erros operacionais comuns
 
 | Código | Causa | Ação recomendada |
 |---|---|---|
 | `NAO_DESIGNADO` | Usuário não designado no evento | Admin deve designar operador |
 | `RODADA_NAO_PERMITIDA` | Rodada incompatível com o papel | Ajustar rodada ou perfil |
 | `DESEMPATE_SEM_PERMISSAO` | Usuário sem permissão para desempate | Executar com ADMIN ou autorizado |
-| `RODADA_INVALIDA` | Valor fora de `A/B/DESEMPATE` | Corrigir payload/cliente |
-
+| `RODADA_INVALIDA` | Valor fora de `A/B/DESEMPATE` | Corrigir payload ou cliente |

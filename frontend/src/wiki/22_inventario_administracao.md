@@ -66,10 +66,49 @@ Comportamento por escopo:
 ### 4) Lateral operacional
 
 - progresso do inventário;
+- painel `Bens não contados`;
 - monitoramento por endereço e rodada (A, B, DESEMPATE);
 - painel `Divergências interunidades (tempo real)`;
 - histórico resumido;
 - em larguras intermediárias, a coluna de controle preserva largura mínima e a coluna de monitoramento ocupa o restante do espaço.
+
+## Bens não contados
+
+Quando existe evento `EM_ANDAMENTO` selecionado, a administração exibe um painel operacional de faltantes por endereço.
+
+O painel mostra:
+
+- total de bens não contados no evento;
+- total de endereços com pendência;
+- percentual de cobertura (`contados / esperados`);
+- lista agrupada por endereço, ordenada pelos locais com mais faltantes.
+
+Cada grupo traz:
+
+- nome do endereço esperado;
+- quantidade pendente;
+- cobertura do endereço;
+- tabela resumida com `Tombo`, `Material (SKU)`, `Descrição` e `Unidade`.
+
+Comportamento:
+
+- somente bens próprios elegíveis entram na visão;
+- bens de terceiros e bens baixados ficam fora;
+- endereços sem pendência não aparecem;
+- a tabela abre em modo recolhido (`details`) para evitar poluição visual.
+- clicar no `Tombo` abre a `Consulta de Bens` já com o modal `Detalhes` do bem;
+- clicar em `Material (SKU)` abre a `Consulta de Bens` já filtrada pelo código do material.
+
+### Ação rápida para retomar a contagem
+
+Cada endereço com pendência possui o CTA `Abrir contagem do endereço`.
+
+Ao clicar:
+
+- o sistema muda para `Inventário - Contagem`;
+- reaproveita o mesmo evento;
+- pré-seleciona unidade, local cadastrado e nome do endereço;
+- aplica o preset uma única vez, sem sobrescrever mudanças manuais posteriores do operador.
 
 ## Concomitância de inventários por unidade
 

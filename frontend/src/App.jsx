@@ -291,6 +291,20 @@ function AppShell() {
   const canAdmin = !auth.authEnabled || auth.can("menu.admin_health.view") || String(auth.role || "").toUpperCase() === "ADMIN";
   const [tab, setTab] = useState("dashboard");
   const [bensNavPreset, setBensNavPreset] = useState({ unidadeDonaId: null, nonce: 0 });
+  const [assetsExplorerPreset, setAssetsExplorerPreset] = useState({
+    unidadeDonaId: null,
+    numeroTombamento: "",
+    codigoCatalogo: "",
+    openDetail: false,
+    nonce: 0,
+  });
+  const [inventoryCountPreset, setInventoryCountPreset] = useState({
+    eventoInventarioId: null,
+    unidadeEncontradaId: null,
+    localId: null,
+    salaEncontrada: null,
+    nonce: 0,
+  });
   const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -380,9 +394,45 @@ function AppShell() {
           unidadeDonaId: unidade,
           nonce: prev.nonce + 1,
         }));
+        setAssetsExplorerPreset((prev) => ({
+          unidadeDonaId: unidade,
+          numeroTombamento: "",
+          codigoCatalogo: "",
+          openDetail: false,
+          nonce: prev.nonce + 1,
+        }));
       }
       setTab(nextTab);
     }
+  };
+  const handleAssetsExplorerNavigate = (preset) => {
+    const next = preset && typeof preset === "object" ? preset : {};
+    const unidade = next.unidadeDonaId ?? null;
+    setBensNavPreset((prev) => ({
+      unidadeDonaId: unidade,
+      nonce: prev.nonce + 1,
+    }));
+    setAssetsExplorerPreset((prev) => ({
+      unidadeDonaId: unidade,
+      numeroTombamento: next.numeroTombamento ? String(next.numeroTombamento) : "",
+      codigoCatalogo: next.codigoCatalogo ? String(next.codigoCatalogo) : "",
+      openDetail: Boolean(next.openDetail),
+      nonce: prev.nonce + 1,
+    }));
+    setTab("bens");
+    setMobileMenuOpen(false);
+  };
+  const handleInventoryCountNavigate = (preset) => {
+    const next = preset && typeof preset === "object" ? preset : {};
+    setInventoryCountPreset((prev) => ({
+      eventoInventarioId: next.eventoInventarioId ? String(next.eventoInventarioId) : null,
+      unidadeEncontradaId: next.unidadeEncontradaId != null ? Number(next.unidadeEncontradaId) : null,
+      localId: next.localId ? String(next.localId) : null,
+      salaEncontrada: next.salaEncontrada ? String(next.salaEncontrada) : null,
+      nonce: prev.nonce + 1,
+    }));
+    setTab("inventario-contagem");
+    setMobileMenuOpen(false);
   };
   const activeTabLabel = useMemo(() => {
     for (const entry of filteredNavStructure) {
@@ -776,17 +826,23 @@ function AppShell() {
               {tab === "bens" && (
                 <AssetsExplorer
                   initialUnidadeDonaId={bensNavPreset.unidadeDonaId}
+                  navigationPreset={assetsExplorerPreset}
                   key={`assets-explorer-${bensNavPreset.nonce}`}
                 />
               )}
 
               {tab === "inventario-contagem" && (
                 <SectionErrorBoundary>
-                  <InventoryRoomPanel />
+                  <InventoryRoomPanel navigationPreset={inventoryCountPreset} />
                 </SectionErrorBoundary>
               )}
 
-              {tab === "inventario-admin" && <InventoryAdminPanel />}
+              {tab === "inventario-admin" && (
+                <InventoryAdminPanel
+                  onOpenInventoryCount={handleInventoryCountNavigate}
+                  onOpenAssetsExplorer={handleAssetsExplorerNavigate}
+                />
+              )}
 
               {tab === "movimentacoes" && <MovimentacoesPanel />}
               {tab === "operacoes-cadastro-sala" && <MovimentacoesPanel section="cadastro-sala" />}

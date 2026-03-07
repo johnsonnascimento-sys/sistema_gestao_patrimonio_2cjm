@@ -3588,6 +3588,7 @@ app.get("/inventario/bens-terceiros", mustAuth, inventario.getBensTerceiros);
 app.get("/inventario/sugestoes-ciclo", mustAuth, inventario.getSugestoesCiclo);
 app.get("/inventario/indicadores-acuracidade", mustAuth, inventario.getIndicadoresAcuracidade);
 app.get("/inventario/eventos/:id/progresso", mustAuth, inventario.getProgresso);
+app.get("/inventario/eventos/:id/nao-localizados", mustAuth, inventario.getNaoLocalizados);
 app.get("/inventario/eventos/:id/minha-sessao-contagem", mustAuth, inventario.getMinhaSessaoContagem);
 app.get("/inventario/eventos/:id/monitoramento-contagem", mustAdmin, inventario.getMonitoramentoContagem);
 app.get("/inventario/eventos/:id/relatorio-encerramento", mustAuth, inventario.getRelatorioEncerramento);

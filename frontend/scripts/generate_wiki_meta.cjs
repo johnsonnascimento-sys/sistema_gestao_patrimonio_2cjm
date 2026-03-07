@@ -112,6 +112,17 @@ function generate() {
 }
 
 function parseMarkdownTableEntries(markdown) {
+  const looksLikeMojibake = (value) => /Ã.|Â.|ï¿½/.test(String(value || ""));
+  const repairMojibake = (value) => {
+    const raw = String(value || "");
+    if (!looksLikeMojibake(raw)) return raw;
+    try {
+      const repaired = Buffer.from(raw, "latin1").toString("utf8");
+      return looksLikeMojibake(repaired) ? raw : repaired;
+    } catch {
+      return raw;
+    }
+  };
   const lines = String(markdown || "")
     .split(/\r?\n/)
     .map((line) => line.trim());
@@ -143,10 +154,12 @@ function parseMarkdownTableEntries(markdown) {
     if (!id || id === "---") continue;
 
     const normalizeCell = (v) =>
-      String(v || "")
+      repairMojibake(
+        String(v || "")
         .replace(/^`|`$/g, "")
         .replace(/\\</g, "<")
-        .replace(/\\>/g, ">");
+        .replace(/\\>/g, ">")
+      );
 
     entries.push({
       id: normalizeCell(id),

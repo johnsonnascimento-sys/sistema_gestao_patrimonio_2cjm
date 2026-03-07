@@ -468,6 +468,209 @@ function createInventarioController(deps) {
     }
   }
 
+  /**
+   * Lista bens esperados sem contagem no evento em andamento, agrupados por endereco esperado.
+   * @param {import("express").Request} req Request.
+   * @param {import("express").Response} res Response.
+   * @param {Function} next Next.
+   */
+  async function getNaoLocalizados(req, res, next) {
+    try {
+      const eventoInventarioId = String(req.params?.id || "").trim();
+      if (!UUID_RE.test(eventoInventarioId)) throw new HttpError(422, "EVENTO_ID_INVALIDO", "id deve ser UUID.");
+
+      const limitRaw = req.query?.limitItemsPerGroup != null ? Number(req.query.limitItemsPerGroup) : 100;
+      const limit = Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 100;
+      const limitFinal = Math.max(1, Math.min(200, limit));
+      const caps = await getInvSchemaCaps();
+
+      const eventoR = await pool.query(
+        `SELECT
+           e.id,
+           e.codigo_evento AS "codigoEvento",
+           e.status::text AS status,
+           e.unidade_inventariada_id AS "unidadeInventariadaId",
+           COALESCE((to_jsonb(e)->>'escopo_tipo'), CASE WHEN e.unidade_inventariada_id IS NULL THEN 'GERAL' ELSE 'UNIDADE' END) AS "escopoTipo"
+         FROM eventos_inventario e
+         WHERE e.id = $1
+         LIMIT 1;`,
+        [eventoInventarioId],
+      );
+      if (!eventoR.rowCount) throw new HttpError(404, "EVENTO_NAO_ENCONTRADO", "Evento de inventario nao encontrado.");
+
+      const evento = eventoR.rows[0];
+      if (String(evento.status || "").toUpperCase() !== "EM_ANDAMENTO") {
+        throw new HttpError(409, "EVENTO_NAO_ATIVO", "Evento de inventario nao esta EM_ANDAMENTO.");
+      }
+
+      const escopoTipo = String(evento.escopoTipo || "GERAL").toUpperCase();
+      const baseWhere = [
+        `b.eh_bem_terceiro = FALSE`,
+        `b.status <> 'BAIXADO'::public.status_bem`,
+        `( $2::smallint IS NULL OR b.unidade_dona_id = $2::smallint )`,
+      ];
+
+      if (escopoTipo === "LOCAIS") {
+        if (!caps.hasEventosLocais) {
+          throw new HttpError(
+            422,
+            "MIGRACAO_INVENTARIO_CICLICO_OBRIGATORIA",
+            "Banco ainda nao possui eventos_inventario_locais. Aplique a migration 017_inventario_ciclico_escopo.sql."
+          );
+        }
+        baseWhere.push(
+          `EXISTS (
+             SELECT 1
+             FROM eventos_inventario_locais eil
+             WHERE eil.evento_inventario_id = $1
+               AND eil.local_id = b.local_id
+           )`
+        );
+      }
+
+      const baseWhereSql = baseWhere.join(" AND ");
+      const groupsSql = `
+        WITH bens_esperados AS (
+          SELECT
+            b.id AS "bemId",
+            b.numero_tombamento AS "numeroTombamento",
+            COALESCE(NULLIF(trim(b.nome_resumo), ''), NULLIF(trim(b.descricao_complementar), ''), cb.descricao) AS "nomeResumo",
+            cb.codigo_catalogo AS "codigoCatalogo",
+            b.unidade_dona_id AS "unidadeDonaId",
+            b.local_id AS "localId",
+            l.nome AS "localNome",
+            l.unidade_id AS "unidadeId"
+          FROM bens b
+          JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+          JOIN locais l ON l.id = b.local_id
+          WHERE ${baseWhereSql}
+        ),
+        bens_contados AS (
+          SELECT DISTINCT c.bem_id AS "bemId"
+          FROM contagens c
+          WHERE c.evento_inventario_id = $1
+        ),
+        faltantes AS (
+          SELECT be.*
+          FROM bens_esperados be
+          LEFT JOIN bens_contados bc ON bc."bemId" = be."bemId"
+          WHERE bc."bemId" IS NULL
+        ),
+        ranking AS (
+          SELECT
+            f."localId",
+            f."localNome",
+            f."unidadeId",
+            COUNT(*)::int AS "qtdNaoLocalizados"
+          FROM faltantes f
+          GROUP BY f."localId", f."localNome", f."unidadeId"
+        ),
+        esperados AS (
+          SELECT be."localId", COUNT(*)::int AS "qtdEsperados"
+          FROM bens_esperados be
+          GROUP BY be."localId"
+        ),
+        contados AS (
+          SELECT be."localId", COUNT(*)::int AS "qtdContados"
+          FROM bens_esperados be
+          JOIN bens_contados bc ON bc."bemId" = be."bemId"
+          GROUP BY be."localId"
+        )
+        SELECT
+          r."localId",
+          r."localNome",
+          r."unidadeId",
+          r."qtdNaoLocalizados",
+          COALESCE(e."qtdEsperados", 0)::int AS "qtdEsperados",
+          COALESCE(c."qtdContados", 0)::int AS "qtdContados",
+          ROUND(
+            (COALESCE(c."qtdContados", 0)::numeric / GREATEST(COALESCE(e."qtdEsperados", 0), 1)::numeric) * 100,
+            2
+          ) AS "percentualCobertura",
+          COALESCE((
+            SELECT json_agg(
+              json_build_object(
+                'bemId', x."bemId",
+                'numeroTombamento', x."numeroTombamento",
+                'nomeResumo', x."nomeResumo",
+                'codigoCatalogo', x."codigoCatalogo",
+                'unidadeDonaId', x."unidadeDonaId",
+                'localId', x."localId",
+                'localNome', x."localNome"
+              )
+              ORDER BY x."numeroTombamento" ASC NULLS LAST, x."nomeResumo" ASC
+            )
+            FROM (
+              SELECT *
+              FROM faltantes f
+              WHERE f."localId" = r."localId"
+              ORDER BY f."numeroTombamento" ASC NULLS LAST, f."nomeResumo" ASC
+              LIMIT $3
+            ) x
+          ), '[]'::json) AS items
+        FROM ranking r
+        LEFT JOIN esperados e ON e."localId" = r."localId"
+        LEFT JOIN contados c ON c."localId" = r."localId"
+        ORDER BY r."qtdNaoLocalizados" DESC, r."localNome" ASC;`;
+
+      const summarySql = `
+        WITH bens_esperados AS (
+          SELECT b.id
+          FROM bens b
+          WHERE ${baseWhereSql}
+        ),
+        bens_contados AS (
+          SELECT DISTINCT c.bem_id
+          FROM contagens c
+          WHERE c.evento_inventario_id = $1
+        )
+        SELECT
+          COUNT(*)::int AS "totalBensEsperados",
+          COUNT(*) FILTER (WHERE bc.bem_id IS NOT NULL)::int AS "totalContados",
+          COUNT(*) FILTER (WHERE bc.bem_id IS NULL)::int AS "totalNaoLocalizados"
+        FROM bens_esperados be
+        LEFT JOIN bens_contados bc ON bc.bem_id = be.id;`;
+
+      const params = [eventoInventarioId, evento.unidadeInventariadaId != null ? Number(evento.unidadeInventariadaId) : null, limitFinal];
+      const [groupsR, summaryR] = await Promise.all([
+        pool.query(groupsSql, params),
+        pool.query(summarySql, params.slice(0, 2)),
+      ]);
+
+      const summary = summaryR.rows[0] || {};
+      const totalBensEsperados = Number(summary.totalBensEsperados || 0);
+      const totalContados = Number(summary.totalContados || 0);
+      const totalNaoLocalizados = Number(summary.totalNaoLocalizados || 0);
+      const percentualNaoLocalizados = totalBensEsperados > 0
+        ? Number(((totalNaoLocalizados / totalBensEsperados) * 100).toFixed(2))
+        : 0;
+
+      res.json({
+        requestId: req.requestId,
+        evento: {
+          id: evento.id,
+          codigoEvento: evento.codigoEvento,
+          status: evento.status,
+          unidadeInventariadaId: evento.unidadeInventariadaId,
+          escopoTipo: evento.escopoTipo,
+        },
+        summary: {
+          totalNaoLocalizados,
+          totalEnderecosComPendencia: groupsR.rows.length,
+          totalBensEsperados,
+          totalContados,
+          percentualNaoLocalizados,
+        },
+        groups: groupsR.rows.map((row) => ({
+          ...row,
+          items: Array.isArray(row.items) ? row.items : [],
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async function buildRelatorioInventario(eventoId) {
     const ev = await pool.query(
       `SELECT
@@ -3711,6 +3914,7 @@ function createInventarioController(deps) {
     getContagens,
     getDivergenciasInterunidades,
     getProgresso,
+    getNaoLocalizados,
     getRelatorioEncerramento,
     exportRelatorioEncerramentoCsv,
     getSugestoesCiclo,

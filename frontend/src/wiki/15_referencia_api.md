@@ -138,6 +138,33 @@ Acesso:
 
 - restrito a `ADMIN`.
 
+### GET `/inventario/eventos/:id/nao-localizados`
+
+Uso:
+
+- lista bens esperados ainda sem contagem no evento `EM_ANDAMENTO`, agrupados por endereço esperado.
+
+Regras principais:
+
+- retorna `404` quando o evento não existir;
+- retorna `409` quando o evento não estiver `EM_ANDAMENTO`;
+- respeita o escopo do evento (`GERAL`, `UNIDADE` ou `LOCAIS`);
+- exclui bens de terceiros e bens baixados;
+- considera faltante todo bem esperado sem linha correspondente em `contagens` para o evento.
+
+Query opcional:
+
+- `limitItemsPerGroup`: limite de itens por grupo, padrão `100`, teto `200`.
+
+Resposta resumida:
+
+- `evento`
+- `summary.totalNaoLocalizados`
+- `summary.totalEnderecosComPendencia`
+- `summary.totalBensEsperados`
+- `summary.totalContados`
+- `groups[]` com `localId`, `localNome`, `unidadeId`, `qtdNaoLocalizados`, `qtdEsperados`, `qtdContados`, `percentualCobertura` e `items[]`
+
 ### GET `/inventario/divergencias-interunidades`
 
 Uso:

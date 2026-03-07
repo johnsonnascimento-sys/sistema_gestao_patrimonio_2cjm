@@ -1253,6 +1253,29 @@ export async function getProgressoInventario(eventoId) {
 }
 
 /**
+ * Lista bens nao contados para um evento de inventario EM_ANDAMENTO.
+ * @param {string} eventoId UUID do evento.
+ * @param {{limitItemsPerGroup?: number}} params Parametros opcionais.
+ * @returns {Promise<object>} Resumo e grupos por endereco.
+ */
+export async function getBensNaoLocalizadosInventario(eventoId, params = {}) {
+  const id = String(eventoId || "").trim();
+  if (!id) throw new Error("eventoId e obrigatorio.");
+
+  const usp = new URLSearchParams();
+  if (params?.limitItemsPerGroup != null) {
+    usp.set("limitItemsPerGroup", String(params.limitItemsPerGroup));
+  }
+
+  const suffix = usp.toString() ? `?${usp.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inventario/eventos/${encodeURIComponent(id)}/nao-localizados${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
  * Cria um evento de inventario (EM_ANDAMENTO), incluindo modo ciclico e modo de contagem.
  * @param {{codigoEvento: string, unidadeInventariadaId?: number|null, tipoCiclo?: "SEMANAL"|"MENSAL"|"ANUAL"|"ADHOC", escopoTipo?: "GERAL"|"UNIDADE"|"LOCAIS", escopoLocalIds?: string[], modoContagem?: "PADRAO"|"CEGO"|"DUPLO_CEGO", operadoresDesignados?: Array<{perfilId:string,papelContagem:"OPERADOR_UNICO"|"OPERADOR_A"|"OPERADOR_B",permiteDesempate?:boolean}>, abertoPorPerfilId: string, observacoes?: string}} payload Payload.
  * @returns {Promise<object>} Evento criado.

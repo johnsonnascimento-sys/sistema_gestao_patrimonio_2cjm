@@ -38,7 +38,7 @@ function normalizeTombamentoInput(raw) {
   return String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "").slice(0, 10);
 }
 
-export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
+export default function AssetsExplorer({ initialUnidadeDonaId = null, navigationPreset = null }) {
   const auth = useAuth();
   const [stats, setStats] = useState({ loading: false, data: null, error: null });
   const [list, setList] = useState({ loading: false, data: null, error: null });
@@ -382,6 +382,65 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null }) {
   };
 
   const closeDetail = () => setDetail((prev) => ({ ...prev, open: false }));
+
+  useEffect(() => {
+    const preset = navigationPreset && typeof navigationPreset === "object" ? navigationPreset : null;
+    if (!preset?.nonce) return;
+
+    let active = true;
+    const runPreset = async () => {
+      const nextFilters = {
+        numeroTombamento: preset.numeroTombamento ? normalizeTombamentoInput(preset.numeroTombamento) : "",
+        codigoCatalogo: preset.codigoCatalogo ? String(preset.codigoCatalogo).trim() : "",
+        q: "",
+        localId: "",
+        unidadeDonaId: preset.unidadeDonaId != null && preset.unidadeDonaId !== ""
+          ? String(Number(preset.unidadeDonaId))
+          : "",
+        status: "",
+        responsavelPerfilId: "",
+        responsavel: "",
+      };
+
+      setFormError(null);
+      setTipoBusca4Digitos(null);
+      setTagIdModal({ isOpen: false, value: "", fromCamera: false, mode: "single" });
+      setFilters(nextFilters);
+      setPaging((prev) => ({ ...prev, offset: 0 }));
+      const data = await listarBens({
+        numeroTombamento: nextFilters.numeroTombamento || undefined,
+        codigoCatalogo: nextFilters.codigoCatalogo || undefined,
+        unidadeDonaId: nextFilters.unidadeDonaId ? Number(nextFilters.unidadeDonaId) : undefined,
+        limit: paging.limit,
+        offset: 0,
+      });
+      if (!active) return;
+      setList({ loading: false, data, error: null });
+      setPaging((prev) => ({
+        ...prev,
+        offset: 0,
+        total: Number(data?.paging?.total || 0),
+      }));
+      if (preset.openDetail) {
+        const first = (data?.items || [])[0] || null;
+        if (first?.id) {
+          await openDetail(first.id);
+        }
+      }
+      focusTombamentoInput();
+    };
+
+    setList({ loading: true, data: null, error: null });
+    runPreset().catch((error) => {
+      if (!active) return;
+      setList({ loading: false, data: null, error: String(error?.message || "Falha ao aplicar navegação da consulta.") });
+    });
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigationPreset?.nonce]);
 
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
