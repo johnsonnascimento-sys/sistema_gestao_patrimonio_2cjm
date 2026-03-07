@@ -15,6 +15,21 @@ Esta é a tela do dia a dia para:
 - Ver unidade (carga), local físico e status.
 - Abrir detalhes completos quando precisar auditar/entender o histórico.
 
+## Atalhos vindos do Inventário - Administração
+
+O painel `Bens não contados` em `Inventário - Administração` usa esta tela como atalho operacional.
+
+Comportamento:
+
+- clique no `Tombo`:
+  - abre `Consulta de bens`;
+  - aplica o filtro do tombamento;
+  - abre automaticamente o modal `Detalhes` do bem.
+- clique em `Material (SKU)`:
+  - abre `Consulta de bens`;
+  - aplica o filtro do código do material;
+  - mantém a lista pronta para conferência do grupo de bens daquele SKU.
+
 ## Como pesquisar corretamente
 
 ### 1) Tombamento (10 dígitos)

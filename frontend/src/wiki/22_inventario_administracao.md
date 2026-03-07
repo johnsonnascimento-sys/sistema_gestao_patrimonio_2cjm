@@ -17,19 +17,72 @@ A tela **Inventário - Administração** concentra quatro tarefas:
 
 ## Estrutura da página
 
-### 1) Controle do Inventário
+### 1) Cabeçalho operacional
 
-- mostra se existe inventário ativo;
-- permite selecionar o inventário em andamento;
-- exibe resumo operacional: código, escopo, modo e unidade;
-- ações críticas:
-  - `Encerrar inventário`
-  - `Cancelar inventário`
-- essas ações usam confirmação forte em modal (sem `window.confirm`).
+- mostra o estado atual da operação em badges curtos:
+  - evento em andamento ou ausência de evento;
+  - código do evento;
+  - escopo;
+  - modo de contagem;
+  - unidade em foco;
+  - responsável.
+- o objetivo é responder imediatamente a pergunta:
+  - "qual é o inventário ativo e qual é a próxima ação?"
 
-### 2) Novo inventário (formulário único)
+### 2) Cockpit do evento ativo
 
-Substitui a duplicidade antiga de "abrir evento" + "novo micro-inventário".
+Quando existe evento `EM_ANDAMENTO`, a primeira dobra da página passa a priorizar:
+
+- coluna esquerda:
+  - `Evento ativo`;
+  - seletor do evento em andamento;
+  - resumo operacional com código, escopo, modo, unidade e referência temporal;
+  - ações críticas:
+    - `Encerrar inventário`
+    - `Cancelar inventário`
+  - observação da ação crítica;
+  - progresso consolidado do inventário;
+- coluna direita:
+  - `Bens não contados`;
+  - KPIs de faltantes, endereços críticos, cobertura e total contados/esperados;
+  - retomada rápida da contagem por endereço.
+
+### 3) Monitoramento operacional
+
+Abaixo do cockpit ficam os painéis de acompanhamento contínuo:
+
+- `Monitoramento em tempo real`
+  - KPIs compactos;
+  - grade por endereço com esperados, contagem A, contagem B e desempate;
+- `Divergências interunidades (tempo real)`
+  - KPIs;
+  - filtros em faixa própria;
+  - tabela resumida com status, tipo e regularização.
+
+### 4) Área secundária
+
+Quando existe evento ativo, o bloco `Novo inventário` perde protagonismo e desce para a área secundária.
+
+Nessa área ficam:
+
+- `Novo inventário`
+- `Sugestões de ciclo`
+- `Histórico resumido`
+- `Acuracidade de inventário`
+
+Quando **não** existe evento ativo:
+
+- `Novo inventário` volta a ser o bloco principal da coluna esquerda;
+- `Sugestões de ciclo` permanecem acopladas ao fluxo de abertura.
+
+## Novo inventário
+
+O formulário continua único, mas agora está agrupado por blocos:
+
+- `Preset e tipo`
+- `Modo e designação`
+- `Escopo operacional`
+- CTA final de abertura
 
 Presets rápidos:
 
@@ -56,21 +109,13 @@ Comportamento por escopo:
   - mostra seleção de endereços;
   - CTA: `Abrir micro-inventário`.
 
-### 3) Sugestões de ciclo
+## Sugestões de ciclo
 
-- clique na sugestão preenche automaticamente o formulário com:
+- continuam acessíveis no mesmo fluxo do `Novo inventário`;
+- clique na sugestão preenche automaticamente:
   - `escopoTipo=LOCAIS`
   - `tipoCiclo=SEMANAL`
-  - unidade e endereço sugeridas.
-
-### 4) Lateral operacional
-
-- progresso do inventário;
-- painel `Bens não contados`;
-- monitoramento por endereço e rodada (A, B, DESEMPATE);
-- painel `Divergências interunidades (tempo real)`;
-- histórico resumido;
-- em larguras intermediárias, a coluna de controle preserva largura mínima e a coluna de monitoramento ocupa o restante do espaço.
+  - unidade e endereço sugeridos.
 
 ## Bens não contados
 

@@ -612,7 +612,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
         const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
         if (!perfilIdFinal) {
-            setUiError("Informe um perfil valido para abrir o inventario.");
+            setUiError("Informe um perfil válido para abrir o inventário.");
             return;
         }
 
@@ -690,7 +690,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
     const executarAtualizacaoStatus = (status, eventoId, observacoes) => {
         const perfilIdFinal = auth.perfil?.id ? String(auth.perfil.id).trim() : perfilId.trim();
         if (!perfilIdFinal) {
-            setUiError("Informe um perfil valido para atualizar o status do inventario.");
+            setUiError("Informe um perfil válido para atualizar o status do inventário.");
             return;
         }
         if (!eventoId) return;
@@ -829,59 +829,428 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
     };
 
     const eventosAtivos = eventosQuery.data || [];
-    const createButtonLabel = escopoTipo === "GERAL" ? "Abrir inventario geral" : "Abrir micro-inventario";
+    const historicoEventos = (todosEventosQuery.data || []).slice(0, 15);
+    const hasActiveEvent = Boolean(selectedEventoIdFinal);
+    const createButtonLabel = escopoTipo === "GERAL" ? "Abrir inventário geral" : "Abrir micro-inventário";
     const criticalImpactText = criticalModal.status === "ENCERRADO"
-        ? "Ao encerrar, este inventario nao aceita novas contagens e habilita regularizacao pos-inventario."
-        : "Ao cancelar, este inventario e descartado para regularizacao: manter/transferir carga (Art. 185) nao sera permitido neste evento.";
+        ? "Ao encerrar, este inventário não aceita novas contagens e habilita regularização pós-inventário."
+        : "Ao cancelar, este inventário é descartado para regularização: manter ou transferir carga (Art. 185) não será permitido neste evento.";
     const divergenciasInterTotal = Number(divergenciasInterunidadesQuery.data?.total || divergenciasInterItems.length || 0);
+    const activeEventScope = eventoAtivo?.escopoTipo || "GERAL";
+    const activeEventMode = eventoAtivo?.modoContagem || "PADRAO";
+    const activeEventUnitLabel = eventoAtivo?.unidadeInventariadaId
+        ? formatUnidade(Number(eventoAtivo.unidadeInventariadaId))
+        : "Todas as unidades";
+    const activeEventOpenedAt = formatDateTimeShort(
+        eventoAtivo?.abertoEm || eventoAtivo?.createdAt || eventoAtivo?.updatedAt || null,
+    );
+    const activeEventOpenedBy = eventoAtivo?.abertoPorNome || "Sistema";
+    const monitoramentoRows = Array.isArray(monitoramentoQuery.data?.porSala) ? monitoramentoQuery.data.porSala : [];
+    const monitoramentoTotalEsperados = monitoramentoRows.reduce((acc, row) => acc + Number(row.qtdEsperados || 0), 0);
+    const monitoramentoTotalA = monitoramentoRows.reduce((acc, row) => acc + Number(row.qtdA || 0), 0);
+    const monitoramentoTotalB = monitoramentoRows.reduce((acc, row) => acc + Number(row.qtdB || 0), 0);
+    const monitoramentoTotalDesempate = monitoramentoRows.reduce((acc, row) => acc + Number(row.qtdDesempate || 0), 0);
+
+    const accountabilityBlock = auth.perfil ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-900">Encarregado</p>
+            <p className="mt-1">{auth.perfil.nome} ({auth.perfil.matricula})</p>
+        </div>
+    ) : (
+        <label className="block space-y-1">
+            <span className="text-xs text-slate-600">PerfilId (UUID) para abrir ou encerrar</span>
+            <input
+                value={perfilId}
+                onChange={(e) => setPerfilId(e.target.value)}
+                placeholder="UUID do perfil"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+        </label>
+    );
+
+    const activeEventSelector = eventosAtivos.length > 0 ? (
+        <label className="block space-y-1">
+            <span className="text-xs text-slate-600">Inventário em andamento</span>
+            <select
+                value={selectedEventoIdFinal}
+                onChange={(e) => {
+                    setSelectedEventoId(e.target.value);
+                    setRelatorioEventoId(e.target.value);
+                }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+                {eventosAtivos.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                        {ev.codigoEvento} ({ev.modoContagem || "PADRAO"} | {ev.escopoTipo || "UNIDADE"} / unidade={ev.unidadeInventariadaId ?? "geral"})
+                    </option>
+                ))}
+            </select>
+        </label>
+    ) : null;
+
+    const newInventoryAndSuggestions = (
+        <div className="space-y-4">
+            <form onSubmit={onCreateEvento} className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div>
+                    <p className="text-sm font-semibold text-slate-900">Novo inventário</p>
+                    <p className="mt-1 text-xs text-slate-600">Defina o próximo ciclo sem disputar atenção com a operação atual.</p>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {INVENTARIO_PRESETS.map((preset) => (
+                        <button
+                            key={preset.key}
+                            type="button"
+                            onClick={() => applyPreset(preset)}
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                            {preset.label}
+                        </button>
+                    ))}
+                </div>
+
+                <p className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-xs text-indigo-700">
+                    Inventários por UNIDADE e LOCAIS podem rodar em paralelo entre unidades. Inventário GERAL é exclusivo.
+                </p>
+
+                <div className="grid gap-4 xl:grid-cols-3">
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Preset e tipo</p>
+                            <p className="mt-1 text-xs text-slate-500">Escolha escopo e recorrência.</p>
+                        </div>
+                        <label className="block space-y-1">
+                            <span className="text-xs text-slate-600">Escopo</span>
+                            <select value={escopoTipo} onChange={(e) => setEscopoTipo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <option value="GERAL">GERAL</option>
+                                <option value="UNIDADE">UNIDADE</option>
+                                <option value="LOCAIS">LOCAIS</option>
+                            </select>
+                        </label>
+                        {escopoTipo !== "GERAL" ? (
+                            <label className="block space-y-1">
+                                <span className="text-xs text-slate-600">Tipo de ciclo</span>
+                                <select value={tipoCiclo} onChange={(e) => setTipoCiclo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                    <option value="ADHOC">ADHOC</option>
+                                    <option value="SEMANAL">SEMANAL</option>
+                                    <option value="MENSAL">MENSAL</option>
+                                    <option value="ANUAL">ANUAL</option>
+                                </select>
+                            </label>
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                                O inventário geral ignora seleção de unidade e de endereços.
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Modo e designação</p>
+                            <p className="mt-1 text-xs text-slate-500">Controle os operadores conforme a regra de contagem.</p>
+                        </div>
+                        <label className="block space-y-1">
+                            <span className="text-xs text-slate-600">Modo de contagem</span>
+                            <select value={modoContagem} onChange={(e) => setModoContagem(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <option value="PADRAO">PADRAO</option>
+                                <option value="CEGO">CEGO</option>
+                                <option value="DUPLO_CEGO">DUPLO_CEGO</option>
+                            </select>
+                        </label>
+
+                        {modoContagem === "CEGO" ? (
+                            <div className="space-y-1">
+                                <label className="block space-y-1">
+                                    <span className="text-xs text-slate-600">Operador único (buscar por matrícula ou nome)</span>
+                                    <div className="relative">
+                                        <input
+                                            value={operadorUnicoQuery}
+                                            onChange={(e) => onOperadorUnicoInputChange(e.target.value)}
+                                            onFocus={() => setOperadorUnicoFocused(true)}
+                                            onBlur={() => setTimeout(() => setOperadorUnicoFocused(false), 120)}
+                                            placeholder="Digite matrícula ou nome do operador"
+                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                                        />
+                                        {operadorUnicoFocused ? (
+                                            <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                                                {operadorUnicoLookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
+                                                {!operadorUnicoLookup.loading && operadorUnicoLookup.error ? (
+                                                    <p className="px-3 py-2 text-xs text-rose-700">{operadorUnicoLookup.error}</p>
+                                                ) : null}
+                                                {!operadorUnicoLookup.loading && !operadorUnicoLookup.error && (operadorUnicoLookup.data || []).length === 0 && String(operadorUnicoQuery || "").trim().length >= 2 ? (
+                                                    <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
+                                                ) : null}
+                                                {!operadorUnicoLookup.loading && !operadorUnicoLookup.error && (operadorUnicoLookup.data || []).map((perfil) => (
+                                                    <button
+                                                        key={perfil.id}
+                                                        type="button"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => onSelectOperadorUnico(perfil)}
+                                                        className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                                                    >
+                                                        <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
+                                                        <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </label>
+                                <p className="text-[11px] text-slate-500">Digite ao menos 2 caracteres para sugerir. UUID direto também é aceito.</p>
+                                {operadorUnicoId ? (
+                                    <p className="text-[11px] text-emerald-700">
+                                        Operador selecionado: <span className="font-mono">{operadorUnicoId}</span>
+                                        {operadorUnicoLookup?.selected?.nome ? ` (${operadorUnicoLookup.selected.nome})` : ""}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
+
+                        {modoContagem === "DUPLO_CEGO" ? (
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <label className="block space-y-1">
+                                        <span className="text-xs text-slate-600">Operador A (matrícula ou nome)</span>
+                                        <div className="relative">
+                                            <input
+                                                value={operadorAQuery}
+                                                onChange={(e) => onOperadorAInputChange(e.target.value)}
+                                                onFocus={() => setOperadorAFocused(true)}
+                                                onBlur={() => setTimeout(() => setOperadorAFocused(false), 120)}
+                                                placeholder="Digite matrícula ou nome"
+                                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                                            />
+                                            {operadorAFocused ? (
+                                                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                                                    {operadorALookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
+                                                    {!operadorALookup.loading && operadorALookup.error ? <p className="px-3 py-2 text-xs text-rose-700">{operadorALookup.error}</p> : null}
+                                                    {!operadorALookup.loading && !operadorALookup.error && (operadorALookup.data || []).length === 0 && String(operadorAQuery || "").trim().length >= 2 ? (
+                                                        <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
+                                                    ) : null}
+                                                    {!operadorALookup.loading && !operadorALookup.error && (operadorALookup.data || []).map((perfil) => (
+                                                        <button
+                                                            key={perfil.id}
+                                                            type="button"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => onSelectOperadorA(perfil)}
+                                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                                                        >
+                                                            <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
+                                                            <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </label>
+                                    {operadorAId ? (
+                                        <p className="text-[11px] text-emerald-700">A: <span className="font-mono">{operadorAId}</span>{operadorALookup?.selected?.nome ? ` (${operadorALookup.selected.nome})` : ""}</p>
+                                    ) : null}
+                                    <label className="flex items-center gap-2 text-xs text-slate-700">
+                                        <input type="checkbox" checked={permiteDesempateA} onChange={(e) => setPermiteDesempateA(e.target.checked)} className="h-4 w-4 accent-violet-600" />
+                                        Permitir desempate para A
+                                    </label>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block space-y-1">
+                                        <span className="text-xs text-slate-600">Operador B (matrícula ou nome)</span>
+                                        <div className="relative">
+                                            <input
+                                                value={operadorBQuery}
+                                                onChange={(e) => onOperadorBInputChange(e.target.value)}
+                                                onFocus={() => setOperadorBFocused(true)}
+                                                onBlur={() => setTimeout(() => setOperadorBFocused(false), 120)}
+                                                placeholder="Digite matrícula ou nome"
+                                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                                            />
+                                            {operadorBFocused ? (
+                                                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+                                                    {operadorBLookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
+                                                    {!operadorBLookup.loading && operadorBLookup.error ? <p className="px-3 py-2 text-xs text-rose-700">{operadorBLookup.error}</p> : null}
+                                                    {!operadorBLookup.loading && !operadorBLookup.error && (operadorBLookup.data || []).length === 0 && String(operadorBQuery || "").trim().length >= 2 ? (
+                                                        <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
+                                                    ) : null}
+                                                    {!operadorBLookup.loading && !operadorBLookup.error && (operadorBLookup.data || []).map((perfil) => (
+                                                        <button
+                                                            key={perfil.id}
+                                                            type="button"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => onSelectOperadorB(perfil)}
+                                                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
+                                                        >
+                                                            <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
+                                                            <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </label>
+                                    {operadorBId ? (
+                                        <p className="text-[11px] text-emerald-700">B: <span className="font-mono">{operadorBId}</span>{operadorBLookup?.selected?.nome ? ` (${operadorBLookup.selected.nome})` : ""}</p>
+                                    ) : null}
+                                    <label className="flex items-center gap-2 text-xs text-slate-700">
+                                        <input type="checkbox" checked={permiteDesempateB} onChange={(e) => setPermiteDesempateB(e.target.checked)} className="h-4 w-4 accent-violet-600" />
+                                        Permitir desempate para B
+                                    </label>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Escopo operacional</p>
+                            <p className="mt-1 text-xs text-slate-500">Selecione unidade e, se necessário, endereços-alvo.</p>
+                        </div>
+                        {escopoTipo !== "GERAL" ? (
+                            <label className="block space-y-1">
+                                <span className="text-xs text-slate-600">Unidade inventariada</span>
+                                <select
+                                    value={unidadeInventariadaId}
+                                    onChange={(e) => setUnidadeInventariadaId(e.target.value)}
+                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                                >
+                                    <option value="">Selecione</option>
+                                    <option value="1">{formatUnidade(1)}</option>
+                                    <option value="2">{formatUnidade(2)}</option>
+                                    <option value="3">{formatUnidade(3)}</option>
+                                    <option value="4">{formatUnidade(4)}</option>
+                                </select>
+                            </label>
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                                O escopo geral cobre a organização inteira e não exige unidade.
+                            </div>
+                        )}
+
+                        {escopoTipo === "LOCAIS" ? (
+                            <div className="space-y-2">
+                                <p className="text-xs text-slate-600">Endereços do escopo</p>
+                                <div className="max-h-48 overflow-auto rounded-lg border border-slate-200 bg-white p-2">
+                                    {(locaisEscopoQuery.data || []).map((l) => (
+                                        <label key={l.id} className="flex items-center gap-2 py-1 text-xs text-slate-700">
+                                            <input
+                                                type="checkbox"
+                                                checked={escopoLocalIds.includes(String(l.id))}
+                                                onChange={() => toggleEscopoLocal(l.id)}
+                                                className="h-4 w-4 accent-violet-600"
+                                            />
+                                            <span>{l.nome}</span>
+                                        </label>
+                                    ))}
+                                    {!(locaisEscopoQuery.data || []).length ? <p className="text-xs text-slate-500">Nenhum endereço encontrado para a unidade selecionada.</p> : null}
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
+                    <p className="text-xs text-violet-900">Abra o evento com o escopo correto e mantenha a trilha operacional auditável.</p>
+                    <button
+                        type="submit"
+                        disabled={criarEventoMut.isPending}
+                        className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                        {criarEventoMut.isPending ? "Abrindo..." : createButtonLabel}
+                    </button>
+                </div>
+            </form>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div>
+                    <p className="text-sm font-semibold text-slate-900">Sugestões de ciclo</p>
+                    <p className="mt-1 text-[11px] text-slate-600">Prioridade por mais tempo sem contagem.</p>
+                </div>
+                {sugestoesCicloQuery.isLoading ? (
+                    <p className="mt-3 text-xs text-slate-500">Carregando sugestões...</p>
+                ) : sugestoesCicloQuery.error ? (
+                    <p className="mt-3 text-xs text-rose-700">Falha ao carregar sugestões de ciclo.</p>
+                ) : (
+                    <div className="mt-3 max-h-52 overflow-auto space-y-2">
+                        {(sugestoesCicloQuery.data || []).map((s) => (
+                            <button
+                                key={s.localId}
+                                type="button"
+                                onClick={() => {
+                                    setEscopoTipo("LOCAIS");
+                                    setTipoCiclo("SEMANAL");
+                                    setUnidadeInventariadaId(String(s.unidadeId || ""));
+                                    setEscopoLocalIds([String(s.localId)]);
+                                }}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left text-xs hover:bg-slate-100"
+                            >
+                                <div className="font-semibold text-slate-900">{s.nome}</div>
+                                <div className="mt-1 text-slate-600">Unid {s.unidadeId} | {formatDiasSemContagemLabel(s.diasSemContagem)} | bens {s.qtdBensAtivos}</div>
+                            </button>
+                        ))}
+                        {!(sugestoesCicloQuery.data || []).length ? <p className="text-xs text-slate-500">Sem sugestões no momento.</p> : null}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
-                <header className="flex flex-wrap items-start justify-between gap-3 mb-5">
+            <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Inventário - Administração</h2>
                         <p className="mt-2 text-sm text-slate-600">
-                            Controle operacional do inventário, monitoramento e regularização.
+                            Cockpit operacional para evento ativo, retomada de contagem e monitoramento contínuo.
                         </p>
                     </div>
+                    <StatusBadge
+                        label={hasActiveEvent ? "Evento em andamento" : "Sem evento em andamento"}
+                        tone={hasActiveEvent ? "amber" : "slate"}
+                    />
                 </header>
 
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                    <StatusBadge label={hasActiveEvent ? (eventoAtivo?.codigoEvento || "-") : "Abra um novo inventário"} tone="violet" mono />
+                    <StatusBadge label={`Escopo: ${hasActiveEvent ? activeEventScope : escopoTipo}`} />
+                    <StatusBadge label={`Modo: ${hasActiveEvent ? activeEventMode : modoContagem}`} tone="sky" />
+                    <StatusBadge label={`Unidade: ${hasActiveEvent ? activeEventUnitLabel : (unidadeInventariadaId ? formatUnidade(Number(unidadeInventariadaId)) : "A definir")}`} tone="emerald" />
+                    <StatusBadge label={hasActiveEvent ? `Responsável: ${activeEventOpenedBy}` : "Prepare o próximo ciclo"} tone="slate" />
+                </div>
+
                 {uiError && (
-                    <p className="mt-4 mb-4 rounded-xl border border-rose-300/30 bg-rose-200/10 p-3 text-sm text-rose-700">
+                    <p className="mt-4 rounded-xl border border-rose-300/40 bg-rose-50 p-3 text-sm text-rose-700">
                         {uiError}
                     </p>
                 )}
                 {uiInfo && (
-                    <p className="mt-4 mb-4 rounded-xl border border-emerald-300/30 bg-emerald-200/10 p-3 text-sm text-emerald-700">
+                    <p className="mt-4 rounded-xl border border-emerald-300/40 bg-emerald-50 p-3 text-sm text-emerald-700">
                         {uiInfo}
                     </p>
                 )}
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(22rem,24rem)_minmax(0,1fr)]">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex flex-col group xl:min-w-[22rem]">
-                        <h3 className="font-semibold select-none mb-3">Controle do Inventário</h3>
+                    <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 xl:min-w-[22rem]">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 className="font-semibold text-slate-900">{hasActiveEvent ? "Evento ativo" : "Novo inventário"}</h3>
+                                <p className="mt-1 text-xs text-slate-600">
+                                    {hasActiveEvent
+                                        ? "Resumo do evento em andamento, ações críticas e progresso consolidado."
+                                        : "Abra um evento e prepare o próximo ciclo operacional."}
+                                </p>
+                            </div>
+                            <StatusBadge
+                                label={hasActiveEvent ? "Evento em andamento" : "Sem evento ativo"}
+                                tone={hasActiveEvent ? "amber" : "slate"}
+                            />
+                        </div>
                         <div>
-                            <p className="mt-1 text-xs text-slate-600 flex-1">
-                                Inventário ativo bloqueia mudança de carga (Art. 183).
-                            </p>
+                            {hasActiveEvent ? (
+                                <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
+                                    Inventário ativo bloqueia mudança de carga durante a contagem, conforme Art. 183.
+                                </p>
+                            ) : null}
 
-                            {auth.perfil ? (
-                                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                                    <p className="font-semibold text-slate-900">Encarregado</p>
-                                    <p className="mt-1">{auth.perfil.nome} ({auth.perfil.matricula})</p>
-                                </div>
-                            ) : (
-                                <label className="mt-3 block space-y-1">
-                                    <span className="text-xs text-slate-600">PerfilId (UUID) para abrir/encerrar</span>
-                                    <input
-                                        value={perfilId}
-                                        onChange={(e) => setPerfilId(e.target.value)}
-                                        placeholder="UUID do perfil"
-                                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                    />
-                                </label>
-                            )}
+                            <div className="mt-3">{accountabilityBlock}</div>
 
                             {eventosQuery.isLoading && <p className="mt-3 text-sm text-slate-600">Carregando eventos...</p>}
                             {eventosQuery.error && (
@@ -890,23 +1259,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
                             {(eventosQuery.data || []).length > 0 ? (
                                 <div className="mt-3 space-y-3">
-                                    <label className="block space-y-1">
-                                        <span className="text-xs text-slate-600">Inventário em andamento</span>
-                                        <select
-                                            value={selectedEventoIdFinal}
-                                            onChange={(e) => {
-                                                setSelectedEventoId(e.target.value);
-                                                setRelatorioEventoId(e.target.value);
-                                            }}
-                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                        >
-                                            {(eventosQuery.data || []).map((ev) => (
-                                                <option key={ev.id} value={ev.id}>
-                                                    {ev.codigoEvento} ({ev.modoContagem || "PADRAO"} | {ev.escopoTipo || "UNIDADE"} / unidade={ev.unidadeInventariadaId ?? "geral"})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
+                                    {activeEventSelector}
 
                                     <div className="grid gap-2 md:grid-cols-2">
                                         <button
@@ -915,7 +1268,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                             disabled={atualizarStatusMut.isPending}
                                             className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
                                         >
-                                            Encerrar inventario
+                                            Encerrar inventário
                                         </button>
                                         <button
                                             type="button"
@@ -923,7 +1276,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                             disabled={atualizarStatusMut.isPending}
                                             className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                                         >
-                                            Cancelar inventario
+                                            Cancelar inventário
                                         </button>
                                     </div>
 
@@ -935,6 +1288,19 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                             className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                                         />
                                     </label>
+
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <InfoLine label="Código" value={eventoAtivo?.codigoEvento || "-"} mono />
+                                        <InfoLine label="Escopo" value={activeEventScope} />
+                                        <InfoLine label="Modo" value={activeEventMode} />
+                                        <InfoLine label="Unidade" value={activeEventUnitLabel} />
+                                        <InfoLine label="Aberto por" value={activeEventOpenedBy} />
+                                        <InfoLine label="Última referência" value={activeEventOpenedAt} />
+                                    </div>
+
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2 md:p-3">
+                                        <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
+                                    </div>
                                 </div>
                             ) : (
                                 <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
@@ -942,8 +1308,12 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                 </p>
                             )}
 
-                            <form onSubmit={onCreateEvento} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-sm font-semibold text-slate-900">Novo inventario</p>
+                            {!hasActiveEvent ? <div className="mt-4">{newInventoryAndSuggestions}</div> : null}
+
+                            {false && !hasActiveEvent ? (
+                                <>
+                                <form onSubmit={onCreateEvento} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p className="text-sm font-semibold text-slate-900">Novo inventário</p>
                                 <div className="grid gap-2 md:grid-cols-2">
                                     {INVENTARIO_PRESETS.map((preset) => (
                                         <button
@@ -1029,7 +1399,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                                 ) : null}
                                             </div>
                                         </label>
-                                        <p className="text-[11px] text-slate-500">Digite ao menos 2 caracteres para sugerir. UUID direto tambem e aceito.</p>
+                                        <p className="text-[11px] text-slate-500">Digite ao menos 2 caracteres para sugerir. UUID direto também é aceito.</p>
                                         {operadorUnicoId ? (
                                             <p className="text-[11px] text-emerald-700">
                                                 Operador selecionado: <span className="font-mono">{operadorUnicoId}</span>
@@ -1177,7 +1547,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             </form>
 
                             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-sm font-semibold text-slate-900">Sugestoes de ciclo</p>
+                                <p className="text-sm font-semibold text-slate-900">Sugestões de ciclo</p>
                                 <p className="text-[11px] text-slate-600">Prioridade por mais tempo sem contagem.</p>
                                 <div className="mt-2 max-h-44 overflow-auto space-y-2">
                                     {(sugestoesCicloQuery.data || []).map((s) => (
@@ -1196,16 +1566,17 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                             <div className="text-slate-600">Unid {s.unidadeId} | {formatDiasSemContagemLabel(s.diasSemContagem)} | bens {s.qtdBensAtivos}</div>
                                         </button>
                                     ))}
-                                    {!(sugestoesCicloQuery.data || []).length ? <p className="text-xs text-slate-500">Sem sugestoes no momento.</p> : null}
+                                    {!(sugestoesCicloQuery.data || []).length ? <p className="text-xs text-slate-500">Sem sugestões no momento.</p> : null}
                                 </div>
                             </div>
+                                </>
+                            ) : null}
                         </div>
                     </div>
 
                     <div className="min-w-0 flex flex-col gap-4">
-                        <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
                         {selectedEventoIdFinal ? (
-                            <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
+                            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                         <h4 className="text-sm font-semibold">Bens não contados</h4>
@@ -1336,21 +1707,39 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             </div>
                         ) : null}
                         {selectedEventoIdFinal && (
-                            <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
-                                <h4 className="text-sm font-semibold">Monitoramento em tempo real</h4>
-                                <p className="mt-1 text-[11px] text-slate-600">Por endereço, operador/rodada e pendências de desempate.</p>
-                                {monitoramentoQuery.isLoading ? (
-                                    <p className="mt-2 text-xs text-slate-500">Carregando monitoramento...</p>
+                            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-sm font-semibold">Monitoramento em tempo real</h4>
+                                        <p className="mt-1 text-[11px] text-slate-600">Por endereço, operador/rodada e pendências de desempate.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => monitoramentoQuery.refetch()}
+                                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-slate-100"
+                                    >
+                                        Atualizar
+                                    </button>
+                                </div>
+                                {!isAdmin ? (
+                                    <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                                        O monitoramento detalhado fica disponível apenas para perfis administrativos.
+                                    </p>
+                                ) : monitoramentoQuery.isLoading ? (
+                                    <p className="mt-3 text-xs text-slate-500">Carregando monitoramento...</p>
                                 ) : monitoramentoQuery.error ? (
-                                    <p className="mt-2 text-xs text-rose-700">Falha ao carregar monitoramento.</p>
+                                    <p className="mt-3 text-xs text-rose-700">Falha ao carregar monitoramento.</p>
                                 ) : (
                                     <>
-                                        <p className="mt-2 text-xs text-slate-700">
-                                            Pendentes de desempate: <strong>{Number(monitoramentoQuery.data?.pendentesDesempate || 0)}</strong>
-                                        </p>
-                                        <div className="mt-2 max-h-52 overflow-auto rounded-lg border border-slate-200">
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                            <KpiMini label="Pendências de desempate" value={Number(monitoramentoQuery.data?.pendentesDesempate || 0)} tone="amber" />
+                                            <KpiMini label="Endereços monitorados" value={monitoramentoRows.length} tone="sky" />
+                                            <KpiMini label="Contagens A / B" value={`${monitoramentoTotalA} / ${monitoramentoTotalB}`} tone="violet" />
+                                            <KpiMini label="Esperados / Desempate" value={`${monitoramentoTotalEsperados} / ${monitoramentoTotalDesempate}`} tone="emerald" />
+                                        </div>
+                                        <div className="mt-3 max-h-60 overflow-auto rounded-xl border border-slate-200">
                                             <table className="min-w-full text-xs">
-                                                <thead className="bg-slate-50 text-slate-600">
+                                                <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
                                                     <tr>
                                                         <th className="px-2 py-2 text-left">Endereço</th>
                                                         <th className="px-2 py-2 text-right">Esp.</th>
@@ -1360,7 +1749,13 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {(monitoramentoQuery.data?.porSala || []).map((row) => (
+                                                    {monitoramentoRows.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={5} className="px-3 py-6 text-center text-xs text-slate-500">
+                                                                Sem dados de monitoramento para o evento selecionado.
+                                                            </td>
+                                                        </tr>
+                                                    ) : monitoramentoRows.map((row) => (
                                                         <tr key={`${row.salaEncontrada}-${row.qtdEsperados}`} className="border-t border-slate-100">
                                                             <td className="px-2 py-1.5">{row.salaEncontrada || "-"}</td>
                                                             <td className="px-2 py-1.5 text-right">{row.qtdEsperados || 0}</td>
@@ -1377,10 +1772,10 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             </div>
                         )}
 
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <h4 className="text-sm font-semibold">Divergencias interunidades (tempo real)</h4>
+                                    <h4 className="text-sm font-semibold">Divergências interunidades (tempo real)</h4>
                                     <p className="mt-1 text-[11px] text-slate-600">Visibilidade cruzada entre unidade dona e unidade encontrada.</p>
                                 </div>
                                 <button
@@ -1401,47 +1796,49 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                 <KpiMini label="Encerrado" value={interEncerrado} tone="slate" />
                             </div>
 
-                            <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                                <label className="space-y-1 text-xs text-slate-600">
-                                    <span>Status</span>
-                                    <select value={interStatusInventario} onChange={(e) => setInterStatusInventario(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs">
-                                        <option value="TODOS">TODOS</option>
-                                        <option value="EM_ANDAMENTO">EM_ANDAMENTO</option>
-                                        <option value="ENCERRADO">ENCERRADO</option>
-                                    </select>
-                                </label>
-                                <label className="space-y-1 text-xs text-slate-600">
-                                    <span>Unidade relacionada</span>
-                                    <select
-                                        value={interUnidadeRelacionada}
-                                        onChange={(e) => setInterUnidadeRelacionada(e.target.value)}
-                                        className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs"
-                                        disabled={!isAdmin}
+                            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+                                    <label className="space-y-1 text-xs text-slate-600">
+                                        <span>Status</span>
+                                        <select value={interStatusInventario} onChange={(e) => setInterStatusInventario(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs">
+                                            <option value="TODOS">TODOS</option>
+                                            <option value="EM_ANDAMENTO">EM_ANDAMENTO</option>
+                                            <option value="ENCERRADO">ENCERRADO</option>
+                                        </select>
+                                    </label>
+                                    <label className="space-y-1 text-xs text-slate-600">
+                                        <span>Unidade relacionada</span>
+                                        <select
+                                            value={interUnidadeRelacionada}
+                                            onChange={(e) => setInterUnidadeRelacionada(e.target.value)}
+                                            className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs"
+                                            disabled={!isAdmin}
+                                        >
+                                            <option value="">{isAdmin ? "Todas" : "Minha unidade"}</option>
+                                            <option value="1">{formatUnidade(1)}</option>
+                                            <option value="2">{formatUnidade(2)}</option>
+                                            <option value="3">{formatUnidade(3)}</option>
+                                            <option value="4">{formatUnidade(4)}</option>
+                                        </select>
+                                    </label>
+                                    <label className="space-y-1 text-xs text-slate-600">
+                                        <span>Código do inventário</span>
+                                        <input value={interCodigoFiltro} onChange={(e) => setInterCodigoFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por código" />
+                                    </label>
+                                    <label className="space-y-1 text-xs text-slate-600">
+                                        <span>Endereço</span>
+                                        <input value={interSalaFiltro} onChange={(e) => setInterSalaFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por endereço" />
+                                    </label>
+                                </div>
+                                <div className="mt-3 flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={clearInterFilters}
+                                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                                     >
-                                        <option value="">{isAdmin ? "Todas" : "Minha unidade"}</option>
-                                        <option value="1">{formatUnidade(1)}</option>
-                                        <option value="2">{formatUnidade(2)}</option>
-                                        <option value="3">{formatUnidade(3)}</option>
-                                        <option value="4">{formatUnidade(4)}</option>
-                                    </select>
-                                </label>
-                                <label className="space-y-1 text-xs text-slate-600">
-                                    <span>Codigo do inventario</span>
-                                    <input value={interCodigoFiltro} onChange={(e) => setInterCodigoFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por codigo" />
-                                </label>
-                                <label className="space-y-1 text-xs text-slate-600">
-                                    <span>Endereço</span>
-                                    <input value={interSalaFiltro} onChange={(e) => setInterSalaFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por endereço" />
-                                </label>
-                            </div>
-                            <div className="mt-2 flex justify-end">
-                                <button
-                                    type="button"
-                                    onClick={clearInterFilters}
-                                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                                >
-                                    Limpar filtros
-                                </button>
+                                        Limpar filtros
+                                    </button>
+                                </div>
                             </div>
 
                             {divergenciasInterunidadesQuery.isLoading ? (
@@ -1461,7 +1858,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                                     <th className="px-2 py-2 text-right font-semibold">Encontrada</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Endereço</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Tipo</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Regularizacao</th>
+                                                    <th className="px-2 py-2 text-left font-semibold">Regularização</th>
                                                     <th className="px-2 py-2 text-left font-semibold">Registro</th>
                                                 </tr>
                                             </thead>
@@ -1507,11 +1904,11 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             )}
                         </div>
 
-                        {(todosEventosQuery.data || []).length > 0 && (
-                            <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex-1">
+                        {historicoEventos.length > 0 && (
+                            <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4 flex-1">
                                 <h4 className="text-sm font-semibold mb-2">Histórico Resumido</h4>
                                 <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
-                                    {(todosEventosQuery.data || []).slice(0, 15).map(ev => {
+                                    {historicoEventos.map(ev => {
                                         const isEditing = editingEventoId === ev.id;
                                         return (
                                             <div key={ev.id} className="text-[11px] p-2 rounded bg-white flex justify-between items-start gap-2 border border-slate-200">
@@ -1590,6 +1987,23 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                 </div>
             </section>
 
+            {hasActiveEvent ? (
+                <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm md:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 className="font-[Space_Grotesk] text-xl font-semibold text-slate-900">Novo inventário</h3>
+                            <p className="mt-1 text-sm text-slate-600">
+                                Abertura secundária enquanto o evento ativo segue como foco principal da página.
+                            </p>
+                        </div>
+                        <StatusBadge label="Área secundária" tone="slate" />
+                    </div>
+                    <div className="mt-4">
+                        {newInventoryAndSuggestions}
+                    </div>
+                </section>
+            ) : null}
+
             {criticalModal.open ? (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/45 p-4">
                     <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
@@ -1650,7 +2064,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                     <div>
                         <h3 className="font-[Space_Grotesk] text-xl font-semibold">Acuracidade de Inventario</h3>
                         <p className="mt-1 text-xs text-slate-600">
-                            Painel operacional com Exact Match, tolerancia por endereço e serie semanal/mensal.
+                            Painel operacional com Exact Match, tolerância por endereço e série semanal/mensal.
                         </p>
                     </div>
                     <button
@@ -1664,7 +2078,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
                 <div className="mt-4 grid gap-3 md:grid-cols-5">
                     <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Data inicio</span>
+                        <span className="text-xs text-slate-600">Data início</span>
                         <input
                             type="date"
                             value={acuraciaDataInicio}
@@ -1708,7 +2122,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                         </select>
                     </label>
                     <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Tolerancia % (0-10)</span>
+                        <span className="text-xs text-slate-600">Tolerância % (0-10)</span>
                         <input
                             type="number"
                             min="0"
@@ -1736,23 +2150,23 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                 tendencia={trendAcuracidadeExata}
                             />
                             <KpiSemaforoCard
-                                titulo="Acuracidade Tolerancia"
+                                titulo="Acuracidade Tolerância"
                                 valor={`${Number(acuraciaResumo.acuracidadeToleranciaPct || 0).toFixed(2)}%`}
                                 status={acuraciaSemaforo.acuracidadeTolerancia?.status}
                             />
                             <KpiSemaforoCard
-                                titulo="Pendencia Regularizacao"
+                                titulo="Pendência de Regularização"
                                 valor={`${Number(acuraciaResumo.taxaPendenciaRegularizacaoPct || 0).toFixed(2)}%`}
                                 status={acuraciaSemaforo.pendenciaRegularizacao?.status}
                                 tendencia={trendPendencia}
                             />
                             <KpiSemaforoCard
-                                titulo="MTTR Regularizacao"
+                                titulo="MTTR Regularização"
                                 valor={`${Number(acuraciaResumo.mttrRegularizacaoDias || 0).toFixed(2)} dias`}
                                 status={acuraciaSemaforo.mttrRegularizacao?.status}
                             />
                             <KpiSemaforoCard
-                                titulo="Cobertura Contagem"
+                                titulo="Cobertura de Contagem"
                                 valor={`${Number(acuraciaResumo.coberturaContagemPct || 0).toFixed(2)}%`}
                                 status={acuraciaSemaforo.coberturaContagem?.status}
                                 tendencia={trendCobertura}
@@ -1761,13 +2175,13 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
                         <div className="grid gap-3 lg:grid-cols-2">
                             <TrendListCard
-                                title="Serie semanal"
+                                title="Série semanal"
                                 rows={serieSemanalAcuracia}
                                 metricKey="acuracidadeExataPct"
                                 metricLabel="Acuracidade Exata"
                             />
                             <TrendListCard
-                                title="Serie mensal"
+                                title="Série mensal"
                                 rows={serieMensalAcuracia}
                                 metricKey="acuracidadeExataPct"
                                 metricLabel="Acuracidade Exata"
@@ -1775,16 +2189,16 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                            <p className="text-xs uppercase tracking-widest text-slate-500">Top endereços criticas por erro relativo medio</p>
+                            <p className="text-xs uppercase tracking-widest text-slate-500">Top endereços críticos por erro relativo médio</p>
                             {!topSalasCriticasAcuracia.length ? (
-                                <p className="mt-2 text-sm text-slate-600">Sem endereços avaliadas para o periodo.</p>
+                                <p className="mt-2 text-sm text-slate-600">Sem endereços avaliados para o período.</p>
                             ) : (
                                 <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                                     <table className="min-w-full text-left text-xs">
                                         <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
                                             <tr>
                                                 <th className="px-2 py-2">Endereço</th>
-                                                <th className="px-2 py-2">Erro medio</th>
+                                                <th className="px-2 py-2">Erro médio</th>
                                                 <th className="px-2 py-2">Cobertura</th>
                                                 <th className="px-2 py-2">Hit/Miss</th>
                                                 <th className="px-2 py-2">Eventos</th>
@@ -1835,6 +2249,32 @@ function KpiMini({ label, value, tone = "slate" }) {
     );
 }
 
+function StatusBadge({ label, tone = "slate", mono = false }) {
+    const toneClass = tone === "amber"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : tone === "violet"
+            ? "border-violet-200 bg-violet-50 text-violet-800"
+            : tone === "sky"
+                ? "border-cyan-200 bg-cyan-50 text-cyan-800"
+                : tone === "emerald"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-slate-200 bg-slate-50 text-slate-700";
+    return (
+        <div className={`rounded-full border px-3 py-2 text-xs font-semibold ${toneClass} ${mono ? "font-mono" : ""}`}>
+            {label}
+        </div>
+    );
+}
+
+function InfoLine({ label, value, mono = false }) {
+    return (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
+            <p className={`mt-1 text-sm font-semibold text-slate-900 ${mono ? "font-mono" : ""}`}>{value || "-"}</p>
+        </div>
+    );
+}
+
 function CardKpi({ k, v }) {
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -1870,7 +2310,7 @@ function TrendListCard({ title, rows, metricKey, metricLabel }) {
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
             {!visible.length ? (
-                <p className="mt-3 text-sm text-slate-600">Sem pontos para o periodo.</p>
+                <p className="mt-3 text-sm text-slate-600">Sem pontos para o período.</p>
             ) : (
                 <div className="mt-3 space-y-2">
                     {visible.map((row) => {
