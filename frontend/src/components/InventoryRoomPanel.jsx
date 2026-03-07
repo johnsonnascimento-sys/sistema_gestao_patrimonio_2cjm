@@ -172,6 +172,116 @@ function StatusBadge({ tone = "slate", children }) {
   );
 }
 
+function DisclosureMetaBadge({ tone = "slate", children }) {
+  const cls = tone === "danger"
+    ? "border-rose-300 bg-rose-50 text-rose-700"
+    : tone === "warning"
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : tone === "support"
+        ? "border-violet-300 bg-violet-50 text-violet-700"
+        : tone === "success"
+          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+          : "border-slate-300 bg-slate-50 text-slate-700";
+  return (
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cls}`}>
+      {children}
+    </span>
+  );
+}
+
+function FilterChipButton({ tone = "slate", active = false, children, onClick }) {
+  const activeCls = tone === "danger"
+    ? "border-rose-300 bg-rose-100 text-rose-800 shadow-sm"
+    : tone === "warning"
+      ? "border-amber-300 bg-amber-100 text-amber-900 shadow-sm"
+      : tone === "support"
+        ? "border-violet-300 bg-violet-100 text-violet-800 shadow-sm"
+        : tone === "success"
+          ? "border-emerald-300 bg-emerald-100 text-emerald-800 shadow-sm"
+          : "border-slate-300 bg-slate-100 text-slate-800 shadow-sm";
+  const idleCls = tone === "danger"
+    ? "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+    : tone === "warning"
+      ? "border-amber-200 bg-white text-amber-800 hover:bg-amber-50"
+      : tone === "support"
+        ? "border-violet-200 bg-white text-violet-700 hover:bg-violet-50"
+        : tone === "success"
+          ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${active ? activeCls : idleCls}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function DisclosureCard({
+  title,
+  subtitle,
+  tone = "neutral",
+  defaultOpen = false,
+  meta = null,
+  children,
+  className = "",
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const shellCls = tone === "danger"
+    ? "border-rose-200 bg-rose-50/40"
+    : tone === "warning"
+      ? "border-amber-200 bg-amber-50/40"
+      : tone === "support"
+        ? "border-violet-200 bg-violet-50/30"
+        : "border-slate-200 bg-white";
+  const iconCls = tone === "danger"
+    ? "bg-rose-100 text-rose-700"
+    : tone === "warning"
+      ? "bg-amber-100 text-amber-800"
+      : tone === "support"
+        ? "bg-violet-100 text-violet-700"
+        : "bg-slate-100 text-slate-600";
+  const chevronCls = isOpen ? "rotate-180" : "";
+
+  return (
+    <details
+      open={isOpen}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+      className={`group rounded-2xl border shadow-sm ${shellCls} ${className}`.trim()}
+    >
+      <summary className="list-none cursor-pointer select-none p-4 md:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <span className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconCls}`}>
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zm-.75 4.75a.75.75 0 011.5 0v3.19l2.28 2.28a.75.75 0 11-1.06 1.06L9.47 10.53a.75.75 0 01-.22-.53V6.75z" clipRule="evenodd" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+              </div>
+              {subtitle ? <p className="mt-1 text-sm text-slate-600">{subtitle}</p> : null}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {meta ? <div className="flex flex-wrap justify-end gap-2">{meta}</div> : null}
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500">
+              <svg className={`h-4 w-4 transition-transform ${chevronCls}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.514a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </div>
+      </summary>
+      <div className="border-t border-slate-200/80 px-4 pb-4 pt-4 md:px-5 md:pb-5">{children}</div>
+    </details>
+  );
+}
+
 function SectionCard({ title, subtitle = "", accent = "slate", actions = null, children, className = "" }) {
   const accentCls = accent === "violet"
     ? "border-violet-200"
@@ -255,6 +365,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
   const [uiError, setUiError] = useState(null);
   const [scanFeedback, setScanFeedback] = useState(null);
   const [lastScans, setLastScans] = useState([]);
+  const [expectedAssetsFilter, setExpectedAssetsFilter] = useState("ALL");
   const [showItemPhotoList, setShowItemPhotoList] = useState(false);
   const [showCatalogPhotoList, setShowCatalogPhotoList] = useState(false);
   const [unitEffectReady, setUnitEffectReady] = useState(false);
@@ -730,6 +841,30 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
 
     return { encontrado: false, divergente: false, fonte: null };
   }
+
+  const filteredGrouped = useMemo(() => {
+    if (expectedAssetsFilter === "ALL") return grouped;
+    const itemsByFilter = grouped
+      .map((group) => {
+        const filteredItems = group.items.filter((item) => {
+          const meta = getConferenciaMeta(item);
+          if (expectedAssetsFilter === "FOUND") return meta.encontrado;
+          if (expectedAssetsFilter === "MISSING") return !meta.encontrado;
+          return true;
+        });
+        return filteredItems.length ? { ...group, items: filteredItems } : null;
+      })
+      .filter(Boolean);
+    return itemsByFilter;
+  }, [
+    grouped,
+    expectedAssetsFilter,
+    contagemByTombamento,
+    forasteiroByTombamento,
+    pendingByTombamento,
+    pendingAnyByTombamento,
+    salaEncontrada,
+  ]);
 
   const canRegister = Boolean(
     selectedEventoIdFinal &&
@@ -1481,13 +1616,18 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
         />
       ) : null}
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none">Exceção: bem de terceiro (segregado)</summary>
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <DisclosureCard
+          title="Bem de terceiro"
+          subtitle="Controle segregado, sem tombamento GEAFIN."
+          tone="warning"
+          meta={<DisclosureMetaBadge tone="warning">Exceção</DisclosureMetaBadge>}
+          className="order-2"
+        >
           <div className="mt-3 group-open:block">
-            <form onSubmit={onRegistrarBemTerceiro} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[11px] text-slate-500">
+            <form onSubmit={onRegistrarBemTerceiro} className="rounded-xl border border-amber-200 bg-white p-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                <p>
                   Sem tombamento GEAFIN. Regra: Art. 99/110 VI/175 IX (AN303_Art99 / AN303_Art110_VI / AN303_Art175_IX).
                 </p>
               </div>
@@ -1526,7 +1666,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
                 <button
                   type="submit"
                   disabled={!canRegisterTerceiro || registrarBemTerceiroMut.isPending}
-                  className="rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-50"
+                  className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                 >
                   {registrarBemTerceiroMut.isPending ? "Registrando..." : "Registrar bem de terceiro"}
                 </button>
@@ -1543,16 +1683,25 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
               ) : null}
             </form>
           </div>
-        </details>
+        </DisclosureCard>
 
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none text-rose-700">Registrar bem sem identificação (Divergência)</summary>
+        <DisclosureCard
+          title="Bem sem identificação"
+          subtitle="Obrigatório foto e descrição detalhada."
+          tone="danger"
+          defaultOpen
+          meta={[
+            <DisclosureMetaBadge key="tipo" tone="danger">Divergência</DisclosureMetaBadge>,
+            <DisclosureMetaBadge key="foto" tone={naoIdFotoBase64 ? "success" : "warning"}>
+              {naoIdFotoBase64 ? "Foto anexada" : "Foto pendente"}
+            </DisclosureMetaBadge>,
+          ]}
+          className="order-1"
+        >
           <div className="mt-3 group-open:block">
-            <form onSubmit={onRegistrarNaoIdentificado} className="mt-4 rounded-xl border border-slate-200 border-l-rose-500 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[11px] text-slate-500">
-                  Obrigatório foto e descrição. Fica onde está. Art. 175.
-                </p>
+            <form onSubmit={onRegistrarNaoIdentificado} className="rounded-xl border border-rose-200 bg-white p-4">
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+                Obrigatório foto e descrição. Fica onde está. Art. 175 (AN303_Art175).
               </div>
 
               <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -1590,7 +1739,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                       Foto anexada
                     </p>
-                    <img src={naoIdFotoBase64} alt="Previa" className="h-16 w-16 object-cover rounded-md border border-slate-300" />
+                    <img src={naoIdFotoBase64} alt="Prévia" className="h-16 w-16 object-cover rounded-md border border-slate-300" />
                   </div>
                 )}
               </div>
@@ -1601,7 +1750,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
                   disabled={!canRegisterNaoIdentificado || registrarNaoIdentificadoMut.isPending}
                   className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                 >
-                  {registrarNaoIdentificadoMut.isPending ? "Registrando..." : "Registrar Bem"}
+                  {registrarNaoIdentificadoMut.isPending ? "Registrando..." : "Registrar bem sem identificação"}
                 </button>
 
                 {naoIdStatus?.kind === "ok" ? (
@@ -1616,28 +1765,42 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
               ) : null}
             </form>
           </div>
-        </details>
+        </DisclosureCard>
 
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1 group">
-          <summary className="font-semibold cursor-pointer select-none">Bens de terceiros registrados (este endereço)</summary>
+        <DisclosureCard
+          title="Terceiros registrados"
+          subtitle="Lista já registrada neste endereço."
+          tone="neutral"
+          meta={[
+            <DisclosureMetaBadge key="tipo" tone="neutral">Consulta</DisclosureMetaBadge>,
+            !selectedEventoIdFinal || !salaEncontrada.trim()
+              ? <DisclosureMetaBadge key="status" tone="neutral">Sem contexto</DisclosureMetaBadge>
+              : !navigator.onLine
+                ? <DisclosureMetaBadge key="status" tone="warning">Offline</DisclosureMetaBadge>
+                : terceirosSalaQuery.isFetching
+                  ? <DisclosureMetaBadge key="status" tone="support">Carregando</DisclosureMetaBadge>
+                  : <DisclosureMetaBadge key="status" tone="neutral">Itens {(terceirosSalaQuery.data || []).length}</DisclosureMetaBadge>,
+          ]}
+          className="order-3 lg:col-span-2"
+        >
           <div className="mt-3 group-open:block">
-            <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-[11px] text-slate-500">
+            <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+                <p>
                   Fonte: `vw_bens_terceiros_inventario` (derivado de contagens). Controle segregado.
                 </p>
               </div>
 
               {!selectedEventoIdFinal || !salaEncontrada.trim() ? (
-                <p className="mt-2 text-sm text-slate-600">Selecione evento e endereço para listar os registros.</p>
+                <p className="mt-3 text-sm text-slate-600">Selecione evento e endereço para listar os registros.</p>
               ) : !navigator.onLine ? (
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-3 text-sm text-slate-600">
                   Offline: a lista de bens de terceiros depende da API (os registros feitos offline ainda ficam na fila de sincronização).
                 </p>
               ) : terceirosSalaQuery.isFetching ? (
-                <p className="mt-2 text-sm text-slate-600">Carregando...</p>
+                <p className="mt-3 text-sm text-slate-600">Carregando...</p>
               ) : (terceirosSalaQuery.data || []).length === 0 ? (
-                <p className="mt-2 text-sm text-slate-600">Nenhum bem de terceiro registrado para este endereço.</p>
+                <p className="mt-3 text-sm text-slate-600">Nenhum bem de terceiro registrado para este endereço.</p>
               ) : (
                 <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
                   <table className="min-w-full text-left text-xs">
@@ -1668,20 +1831,45 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
               )}
             </section>
           </div>
-        </details>
+        </DisclosureCard>
       </div>
 
       {!shouldHideExpectedData ? (
-      <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4 group">
-        <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
-          <span>Bens do endereço (agrupado por catálogo)</span>
-          <span className="text-xs font-normal text-slate-500">
-            Esperados {totalEsperadosEndereco} • Conferidos {totalConferidosEndereco} • Faltantes {totalFaltantesEndereco}
-          </span>
-          {bensSalaQuery.isFetching && <span className="text-xs text-slate-500">Carregando...</span>}
-        </summary>
-        <div className="mt-3 group-open:block">
-          <div className="mt-2">
+      <DisclosureCard
+        title="Bens esperados do endereço"
+        subtitle="Lista agrupada para apoio à conferência."
+        tone="support"
+        meta={[
+          <FilterChipButton
+            key="esperados"
+            tone="support"
+            active={expectedAssetsFilter === "ALL"}
+            onClick={() => setExpectedAssetsFilter("ALL")}
+          >
+            Esperados {totalEsperadosEndereco}
+          </FilterChipButton>,
+          <FilterChipButton
+            key="conferidos"
+            tone="success"
+            active={expectedAssetsFilter === "FOUND"}
+            onClick={() => setExpectedAssetsFilter("FOUND")}
+          >
+            Conferidos {totalConferidosEndereco}
+          </FilterChipButton>,
+          <FilterChipButton
+            key="faltantes"
+            tone={totalFaltantesEndereco ? "warning" : "neutral"}
+            active={expectedAssetsFilter === "MISSING"}
+            onClick={() => setExpectedAssetsFilter("MISSING")}
+          >
+            Faltantes {totalFaltantesEndereco}
+          </FilterChipButton>,
+          bensSalaQuery.isFetching ? <DisclosureMetaBadge key="loading" tone="neutral">Carregando</DisclosureMetaBadge> : null,
+        ].filter(Boolean)}
+        className="mt-5"
+      >
+        <div className="rounded-xl border border-violet-200 bg-slate-50 p-4">
+          <div>
             <p className="text-xs text-slate-600">
               Itens carregados: <span className="font-semibold text-slate-900">{(bensSalaQuery.data || []).length}</span>
             </p>
@@ -1718,7 +1906,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
           )}
 
           {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && (
-            <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
               <p className="text-sm text-slate-800">
                 Nenhum bem vinculado ao local <span className="font-semibold text-slate-900">"{salaEncontrada.trim()}"</span>.
               </p>
@@ -1729,8 +1917,26 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
             </div>
           )}
 
+          {(bensSalaQuery.data || []).length > 0 ? (
+            <p className="mt-3 text-xs text-slate-600">
+              Filtro ativo:{" "}
+              <span className="font-semibold text-slate-900">
+                {expectedAssetsFilter === "FOUND"
+                  ? "Conferidos"
+                  : expectedAssetsFilter === "MISSING"
+                    ? "Faltantes"
+                    : "Esperados"}
+              </span>
+            </p>
+          ) : null}
+
           <div className="mt-3 space-y-2">
-            {grouped.map((g) => (
+            {filteredGrouped.length === 0 && (bensSalaQuery.data || []).length > 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                Nenhum item encontrado para o filtro selecionado neste endereço.
+              </div>
+            ) : null}
+            {filteredGrouped.map((g) => (
               <details key={g.catalogoBemId} className="rounded-xl border border-slate-200 bg-white p-3">
                 {(() => {
                   const total = g.items.length;
@@ -1835,7 +2041,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
             ))}
           </div>
         </div>
-      </details>
+      </DisclosureCard>
       ) : null}
 
       {/* Modal Identificação Etiqueta 4 Dígitos */}
@@ -2088,19 +2294,25 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
   if (!salaEncontrada.trim()) return null;
 
   return (
-    <details className="mt-5 rounded-2xl border border-slate-200 bg-white p-3 md:p-4 group">
-      <summary className="font-semibold cursor-pointer select-none flex flex-wrap items-center justify-between gap-2">
-        <span>Divergências no endereço (Art. 185)</span>
-        <span className="text-xs font-normal text-slate-600">
-          Pendentes: <span className="font-semibold text-rose-700">{all.length}</span>
-        </span>
+    <details className="mt-5 overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-sm" open>
+      <summary className="list-none cursor-pointer select-none p-4 md:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900">Divergências no endereço (Art. 185)</h3>
+              <DisclosureMetaBadge tone={all.length ? "danger" : "neutral"}>Pendentes {all.length}</DisclosureMetaBadge>
+            </div>
+            <p className="mt-1 text-sm text-slate-600">Registre divergências sem transferir carga durante o inventário.</p>
+          </div>
+          <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-700">Art. 185</span>
+        </div>
       </summary>
-      <div className="mt-3 group-open:block">
-        <p className="mt-2 text-xs text-slate-500">
+      <div className="border-t border-slate-200/80 px-4 pb-4 pt-4 md:px-5 md:pb-5">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-600">
           Regra legal: registrar divergência sem transferir carga durante inventário. Art. 185 (AN303_Art185).
-        </p>
+        </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+        <div className="mt-3 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"

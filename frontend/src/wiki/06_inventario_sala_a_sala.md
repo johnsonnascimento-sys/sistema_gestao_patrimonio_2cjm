@@ -27,7 +27,7 @@ Ordem atual dos blocos:
 5. painel `Leitura principal`;
 6. card lateral `Visão rápida do endereço`;
 7. `Divergências no endereço`;
-8. painéis recolhíveis de exceção e consulta;
+8. cards recolhíveis de divergência, exceção e consulta;
 9. painel recolhível `Bens esperados do endereço`.
 
 Objetivo operacional:
@@ -93,15 +93,38 @@ Resumo visual novo:
 Após o painel principal, a tela exibe:
 
 1. `Divergências no endereço`;
-2. `Exceção: bem de terceiro (segregado)`;
-3. `Exceção: bem sem identificação (divergência)`;
-4. `Consulta: bens de terceiros registrados neste endereço`.
+2. `Bem sem identificação`;
+3. `Bem de terceiro`;
+4. `Terceiros registrados neste endereço`;
+5. `Bens esperados do endereço`.
 
 Essa ordem foi escolhida porque:
 
 - divergência é consequência direta da leitura;
-- bem de terceiro e bem sem identificação são exceções de tratamento;
-- a consulta de terceiros é apoio operacional, não fluxo primário.
+- bem sem identificação é a ação crítica de divergência;
+- bem de terceiro é exceção operacional;
+- a consulta de terceiros e a lista de esperados são apoio, não fluxo primário.
+
+### Hierarquia visual dos cards
+
+Os cards dessa faixa foram refinados para leitura mais rápida:
+
+- `Divergências no endereço (Art. 185)` virou o card-mãe da seção, com badge de pendências e texto operacional curto;
+- `Bem sem identificação` usa destaque visual de divergência e abre por padrão;
+- `Bem de terceiro` usa destaque de exceção, mas permanece recolhido por padrão;
+- `Terceiros registrados` virou card de consulta com resumo de contexto (`Sem contexto`, `Offline`, `Carregando` ou quantidade de itens);
+- `Bens esperados do endereço` continua disponível fora do modo cego, mas com peso visual menor e resumo por badges.
+
+### Abertura padrão
+
+Por padrão:
+
+- `Bem sem identificação` inicia aberto;
+- `Bem de terceiro` inicia fechado;
+- `Terceiros registrados` inicia fechado;
+- `Bens esperados do endereço` inicia fechado.
+
+Isso reduz ruído visual e deixa a ação crítica mais visível logo após o scanner.
 
 Regras mantidas:
 
@@ -124,6 +147,16 @@ Resumo exibido no cabeçalho:
 - total esperados;
 - total conferidos;
 - total faltantes.
+
+O cabeçalho também pode indicar carregamento em andamento, mantendo o conteúdo como painel de apoio e não como ação principal.
+
+Os chips `Esperados`, `Conferidos` e `Faltantes` funcionam como filtros da própria lista:
+
+- `Esperados`: exibe todos os itens vinculados ao endereço;
+- `Conferidos`: reduz a lista aos bens já encontrados;
+- `Faltantes`: reduz a lista aos bens ainda não conferidos.
+
+O filtro atua somente na visualização da lista agrupada e não altera os dados da contagem.
 
 Cada item segue com o status visual:
 
