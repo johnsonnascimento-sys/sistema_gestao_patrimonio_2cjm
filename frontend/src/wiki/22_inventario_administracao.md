@@ -13,7 +13,7 @@ A tela **Inventário - Administração** concentra quatro tarefas:
 1. controlar inventário em andamento (encerrar, cancelar, reabrir);
 2. abrir novo inventário em formulário único;
 3. monitorar divergências interunidades em tempo real;
-4. acompanhar histórico e relatório consolidado.
+4. acompanhar histórico consolidado.
 
 ## Estrutura da página
 
