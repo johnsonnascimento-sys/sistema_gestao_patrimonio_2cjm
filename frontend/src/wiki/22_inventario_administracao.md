@@ -68,7 +68,8 @@ Comportamento por escopo:
 - progresso do inventário;
 - monitoramento por endereço e rodada (A, B, DESEMPATE);
 - painel `Divergências interunidades (tempo real)`;
-- histórico resumido.
+- histórico resumido;
+- em larguras intermediárias, a coluna de controle preserva largura mínima e a coluna de monitoramento ocupa o restante do espaço.
 
 ## Concomitância de inventários por unidade
 

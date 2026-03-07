@@ -796,8 +796,8 @@ export default function InventoryAdminPanel() {
                     </p>
                 )}
 
-                <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex flex-col group">
+                <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(22rem,24rem)_minmax(0,1fr)]">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 flex flex-col group xl:min-w-[22rem]">
                         <h3 className="font-semibold select-none mb-3">Controle do Inventário</h3>
                         <div>
                             <p className="mt-1 text-xs text-slate-600 flex-1">
@@ -1140,7 +1140,7 @@ export default function InventoryAdminPanel() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-4">
+                    <div className="min-w-0 flex flex-col gap-4">
                         <InventoryProgress eventoInventarioId={selectedEventoIdFinal} />
                         {selectedEventoIdFinal && (
                             <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4">
