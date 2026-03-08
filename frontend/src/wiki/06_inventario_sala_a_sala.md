@@ -50,6 +50,14 @@ Quando o operador usa `Abrir contagem do endereço`, o sistema já entra com:
 
 Esse preset é aplicado uma única vez por navegação. Depois disso, se o operador trocar unidade ou endereço manualmente, a interface respeita a escolha atual.
 
+Além do preset técnico, a tela agora mostra um banner curto de contexto quando for aberta por atalho operacional.
+
+Objetivo do banner:
+
+- lembrar de onde o operador veio;
+- confirmar que evento, unidade e endereço foram carregados automaticamente;
+- reduzir perda de contexto ao alternar entre administração, contagem e consulta.
+
 ## Contexto da contagem
 
 O card `Contexto da contagem` consolida:

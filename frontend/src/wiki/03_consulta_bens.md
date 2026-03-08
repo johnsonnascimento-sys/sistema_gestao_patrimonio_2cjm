@@ -32,6 +32,41 @@ Comportamento:
 
 ## Como pesquisar corretamente
 
+## Consulta rápida x filtros avançados
+
+A entrada da tela foi reorganizada para reduzir o tempo até a primeira ação útil.
+
+Agora a tela separa visualmente:
+
+- `Consulta rápida`:
+  - tombamento de 10 dígitos;
+  - etiqueta de 4 dígitos;
+  - leitura por câmera;
+  - material (SKU) como atalho operacional;
+- `Filtros avançados`:
+  - texto livre;
+  - unidade;
+  - endereço;
+  - responsável;
+  - status.
+
+Uso recomendado:
+
+- para localizar um bem específico, priorize `Consulta rápida`;
+- para auditoria, conferência ampla ou investigação, abra `Filtros avançados`.
+
+## Contexto vindo de outras telas
+
+Quando a `Consulta de Bens` for aberta a partir de atalhos operacionais, a própria tela mostra um banner de contexto no topo.
+
+Exemplos:
+
+- origem em `Inventário - Administração`;
+- abertura pelo `Tombo` no painel `Bens não contados`;
+- abertura por `Material (SKU)` no mesmo painel.
+
+Esse banner existe para reduzir perda de contexto ao navegar entre telas.
+
 ### 1) Tombamento (10 dígitos)
 
 - Digite **somente números**, com **10 dígitos**.

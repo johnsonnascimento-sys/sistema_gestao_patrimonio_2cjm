@@ -138,6 +138,9 @@ function ModeBadge({ mode }) {
     : normalized === "CEGO"
       ? "border-orange-300 bg-orange-50 text-orange-800"
       : "border-violet-300 bg-violet-50 text-violet-700";
+  const presetOriginLabel = navigationPreset?.originLabel ? String(navigationPreset.originLabel) : "";
+  const presetOriginContext = navigationPreset?.originContext ? String(navigationPreset.originContext) : "";
+
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cls}`}>
       {formatModeLabel(normalized)}
@@ -1235,6 +1238,17 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
           Pendentes offline: {offline.pendingCount}
         </StatusBadge>
       </div>
+
+      {presetOriginLabel ? (
+        <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+            Contexto aplicado de {presetOriginLabel}
+          </p>
+          <p className="mt-1 text-sm text-violet-900">
+            {presetOriginContext || "Os filtros de evento, unidade e endereço foram carregados a partir da navegação operacional."}
+          </p>
+        </div>
+      ) : null}
 
       {uiReduzida ? (
         <div className="mt-4">

@@ -70,6 +70,8 @@ Nessa área ficam:
 - `Histórico resumido`
 - `Acuracidade de inventário`
 
+`Histórico resumido` e `Acuracidade de inventário` permanecem disponíveis, mas agora ficam visualmente rebaixados como leitura secundária em relação ao cockpit do evento ativo.
+
 Quando **não** existe evento ativo:
 
 - `Novo inventário` volta a ser o bloco principal da coluna esquerda;
@@ -154,6 +156,11 @@ Ao clicar:
 - reaproveita o mesmo evento;
 - pré-seleciona unidade, local cadastrado e nome do endereço;
 - aplica o preset uma única vez, sem sobrescrever mudanças manuais posteriores do operador.
+
+O handoff também leva contexto textual para as telas de destino:
+
+- `Inventário - Contagem` informa quando o endereço foi aberto a partir da administração;
+- `Consulta de Bens` informa quando foi aberta pelo `Tombo` ou pelo `Material (SKU)` no painel de não contados.
 
 ## Concomitância de inventários por unidade
 

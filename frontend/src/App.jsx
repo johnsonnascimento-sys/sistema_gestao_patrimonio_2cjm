@@ -296,6 +296,8 @@ function AppShell() {
     numeroTombamento: "",
     codigoCatalogo: "",
     openDetail: false,
+    originLabel: "",
+    originContext: "",
     nonce: 0,
   });
   const [inventoryCountPreset, setInventoryCountPreset] = useState({
@@ -303,6 +305,8 @@ function AppShell() {
     unidadeEncontradaId: null,
     localId: null,
     salaEncontrada: null,
+    originLabel: "",
+    originContext: "",
     nonce: 0,
   });
   const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
@@ -399,6 +403,8 @@ function AppShell() {
           numeroTombamento: "",
           codigoCatalogo: "",
           openDetail: false,
+          originLabel: "",
+          originContext: "",
           nonce: prev.nonce + 1,
         }));
       }
@@ -417,6 +423,8 @@ function AppShell() {
       numeroTombamento: next.numeroTombamento ? String(next.numeroTombamento) : "",
       codigoCatalogo: next.codigoCatalogo ? String(next.codigoCatalogo) : "",
       openDetail: Boolean(next.openDetail),
+      originLabel: next.originLabel ? String(next.originLabel) : "",
+      originContext: next.originContext ? String(next.originContext) : "",
       nonce: prev.nonce + 1,
     }));
     setTab("bens");
@@ -429,6 +437,8 @@ function AppShell() {
       unidadeEncontradaId: next.unidadeEncontradaId != null ? Number(next.unidadeEncontradaId) : null,
       localId: next.localId ? String(next.localId) : null,
       salaEncontrada: next.salaEncontrada ? String(next.salaEncontrada) : null,
+      originLabel: next.originLabel ? String(next.originLabel) : "",
+      originContext: next.originContext ? String(next.originContext) : "",
       nonce: prev.nonce + 1,
     }));
     setTab("inventario-contagem");

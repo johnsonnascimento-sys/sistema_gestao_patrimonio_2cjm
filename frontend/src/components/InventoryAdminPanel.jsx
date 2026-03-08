@@ -549,6 +549,8 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             unidadeEncontradaId: group.unidadeId != null ? Number(group.unidadeId) : null,
             localId: group.localId ? String(group.localId) : null,
             salaEncontrada: group.localNome ? String(group.localNome) : null,
+            originLabel: "Inventário - Administração",
+            originContext: `Retomada de contagem para ${group.localNome || "endereço"}${eventoAtivo?.codigoEvento ? ` no evento ${eventoAtivo.codigoEvento}` : ""}.`,
         });
     };
 
@@ -558,6 +560,8 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             unidadeDonaId: row.unidadeDonaId != null ? Number(row.unidadeDonaId) : null,
             numeroTombamento: String(row.numeroTombamento),
             openDetail: true,
+            originLabel: "Inventário - Administração",
+            originContext: `Detalhe aberto a partir de bens não contados${row.localNome ? ` em ${row.localNome}` : ""}.`,
         });
     };
 
@@ -567,6 +571,8 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             unidadeDonaId: row.unidadeDonaId != null ? Number(row.unidadeDonaId) : null,
             codigoCatalogo: String(row.codigoCatalogo),
             openDetail: false,
+            originLabel: "Inventário - Administração",
+            originContext: `Consulta por Material (SKU) aberta a partir de bens não contados${row.localNome ? ` em ${row.localNome}` : ""}.`,
         });
     };
 
@@ -1905,9 +1911,15 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                         </div>
 
                         {historicoEventos.length > 0 && (
-                            <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4 flex-1">
-                                <h4 className="text-sm font-semibold mb-2">Histórico Resumido</h4>
-                                <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
+                            <details className="flex-1 rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4" open={!hasActiveEvent}>
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-slate-900">Historico Resumido</h4>
+                                        <p className="mt-1 text-[11px] text-slate-500">Consulta secundaria para revisao e reabertura.</p>
+                                    </div>
+                                    <StatusBadge label={`${historicoEventos.length} evento(s)`} tone="slate" />
+                                </summary>
+                                <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
                                     {historicoEventos.map(ev => {
                                         const isEditing = editingEventoId === ev.id;
                                         return (
@@ -1981,7 +1993,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                         );
                                     })}
                                 </div>
-                            </div>
+                            </details>
                         )}
                     </div>
                 </div>
@@ -2059,23 +2071,28 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                     </div>
                 </div>
             ) : null}
-            <section className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm">
-                <header className="flex flex-wrap items-start justify-between gap-3">
+            <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm" open={!hasActiveEvent}>
+                <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
                     <div>
                         <h3 className="font-[Space_Grotesk] text-xl font-semibold">Acuracidade de Inventario</h3>
                         <p className="mt-1 text-xs text-slate-600">
-                            Painel operacional com Exact Match, tolerância por endereço e série semanal/mensal.
+                            Leitura gerencial e analitica para o pos-operacao do inventario.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => acuraciaQuery.refetch()}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100"
-                    >
-                        Atualizar painel
-                    </button>
-                </header>
-
+                    <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge label={hasActiveEvent ? "Area secundaria" : "Painel principal"} tone={hasActiveEvent ? "slate" : "violet"} />
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.preventDefault();
+                                acuraciaQuery.refetch();
+                            }}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100"
+                        >
+                            Atualizar painel
+                        </button>
+                    </div>
+                </summary>
                 <div className="mt-4 grid gap-3 md:grid-cols-5">
                     <label className="block space-y-1">
                         <span className="text-xs text-slate-600">Data início</span>
@@ -2221,7 +2238,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                         </div>
                     </div>
                 )}
-            </section>
+            </details>
 
             <RegularizationPanel />
         </div>
