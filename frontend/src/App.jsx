@@ -33,7 +33,7 @@ const NAV_STRUCTURE = [
   {
     type: "group",
     id: "operacoes",
-    label: "Operações Patrimoniais",
+    label: "Operacao diaria",
     items: [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
       { id: "movimentacoes", label: "Movimentações", short: "Mov." },
@@ -68,8 +68,15 @@ const NAV_STRUCTURE = [
       { id: "admin-aprovacoes", label: "Aprovações Pendentes", short: "Aprov." },
     ],
   },
-  { type: "item", item: { id: "wiki", label: "Wiki / Manual do Sistema", short: "Wiki" } },
-  { type: "item", item: { id: "normas", label: "Normas", short: "Normas" } },
+  {
+    type: "group",
+    id: "referencia",
+    label: "Referencia e apoio",
+    items: [
+      { id: "wiki", label: "Wiki / Manual do Sistema", short: "Wiki" },
+      { id: "normas", label: "Normas", short: "Normas" },
+    ],
+  },
 ];
 
 const TAB_PERMISSION_MAP = Object.freeze({
