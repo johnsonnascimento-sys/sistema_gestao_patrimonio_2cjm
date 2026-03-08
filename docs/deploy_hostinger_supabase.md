@@ -99,3 +99,38 @@ Se o repositório estiver clonado na VPS, use o script:
 cd /opt/cjm-patrimonio/releases/cjm-patrimonio
 ./scripts/vps_deploy.sh all
 ```
+
+## 9. Fluxo oficial e metadados do health
+
+Fluxo oficial para producao:
+
+1. `git push`
+2. na VPS: `git pull --ff-only`
+3. `./scripts/vps_deploy.sh all`
+
+O script oficial injeta metadados no backend para `GET /health` responder:
+
+- `git.commit`
+- `git.branch`
+- `deploy.method`
+- `build.timestamp`
+- `build.source`
+
+Regra operacional:
+
+- `git pull + scripts/vps_deploy.sh` e o fluxo padrao;
+- upload direto de arquivos e apenas contingencia;
+- em contingencia, registrar no log geral e manter `deploy.method=manual_upload`.
+
+## 10. Gates minimos antes de publicar
+
+Rode localmente antes do commit/deploy:
+
+```bash
+npm --prefix backend run check
+npm --prefix backend test
+npm --prefix frontend run build
+npm --prefix frontend test
+python scripts/check_wiki_encoding.py
+node scripts/validate_governance.js
+```

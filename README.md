@@ -103,3 +103,22 @@ Abra:
 ## Onde ver o status do que ja foi feito
 
 - `docs/STATUS_ATUAL.md`
+
+## Fluxo de entrega recomendado
+
+Para reduzir divergencia entre repositorio e producao:
+
+1. validar gates locais:
+   - `npm --prefix backend run check`
+   - `npm --prefix backend test`
+   - `npm --prefix frontend run build`
+   - `npm --prefix frontend test`
+   - `python scripts/check_wiki_encoding.py`
+   - `node scripts/validate_governance.js`
+2. registrar wiki/log no mesmo ciclo;
+3. publicar por Git:
+   - `git push`
+   - na VPS: `git pull --ff-only`
+   - `./scripts/vps_deploy.sh all`
+
+Deploy por upload direto na VPS deve ser tratado apenas como contingencia operacional e precisa deixar rastro explicito no log geral e em `GET /health`.

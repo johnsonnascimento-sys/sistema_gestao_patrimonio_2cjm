@@ -22,6 +22,8 @@ import {
 } from "../services/apiClient.js";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import InventoryProgress from "./InventoryProgress.jsx";
+import { filterExpectedAssetGroups } from "./inventory/expectedAssetsFilter.js";
+import { normalizeTombamentoInput } from "./inventory/inventoryInputUtils.js";
 const TOMBAMENTO_RE = /^\d{10}$/;
 const TOMBAMENTO_4_DIGITS_RE = /^\d{4}$/;
 const ROOM_CATALOG_CACHE_PREFIX = "cjm_room_catalog_v2|";
@@ -57,20 +59,6 @@ function formatUnidade(id) {
   if (id === 3) return "3 (Foro)";
   if (id === 4) return "4 (Almox)";
   return String(id || "");
-}
-
-function normalizeTombamentoInput(raw) {
-  if (raw == null) return "";
-  // Normaliza qualquer entrada (teclado, colar, scanner) para o tombamento GEAFIN:
-  // - remove aspas comuns de CSV
-  // - remove qualquer caractere não numerico
-  // - limita a 10 digitos
-  //
-  // Observacao UX: evitamos depender de validacao nativa de <input pattern>,
-  // pois scanners/pastes podem incluir caracteres invisiveis e causar erro
-  // "formato corresponde ao exigido" mesmo com 10 digitos visiveis.
-  const cleaned = String(raw).trim().replace(/^\"+|\"+$/g, "").replace(/\D+/g, "");
-  return cleaned.slice(0, 10);
 }
 
 function playAlertBeep() {
@@ -843,19 +831,7 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
   }
 
   const filteredGrouped = useMemo(() => {
-    if (expectedAssetsFilter === "ALL") return grouped;
-    const itemsByFilter = grouped
-      .map((group) => {
-        const filteredItems = group.items.filter((item) => {
-          const meta = getConferenciaMeta(item);
-          if (expectedAssetsFilter === "FOUND") return meta.encontrado;
-          if (expectedAssetsFilter === "MISSING") return !meta.encontrado;
-          return true;
-        });
-        return filteredItems.length ? { ...group, items: filteredItems } : null;
-      })
-      .filter(Boolean);
-    return itemsByFilter;
+    return filterExpectedAssetGroups(grouped, expectedAssetsFilter, getConferenciaMeta);
   }, [
     grouped,
     expectedAssetsFilter,

@@ -19,6 +19,11 @@ function formatApiError(error) {
   return suffixParts.length ? `${msg} (${suffixParts.join(", ")})` : msg;
 }
 
+function renderValue(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "unknown";
+}
+
 export default function AdminHealthPanel({ canAdmin }) {
   const [healthState, setHealthState] = useState({
     loading: false,
@@ -73,9 +78,57 @@ export default function AdminHealthPanel({ canAdmin }) {
           <span className="text-sm text-rose-700">{healthState.error}</span>
         ) : null}
         {healthState.data ? (
-          <span className="text-sm text-emerald-700">
-            OK ({healthState.data.status}) requestId={healthState.data.requestId}
-          </span>
+          <div className="flex flex-col gap-3 text-sm text-slate-700">
+            <span className="text-emerald-700">
+              OK ({healthState.data.status}) requestId={healthState.data.requestId}
+            </span>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Commit
+                </div>
+                <div className="font-mono text-xs text-slate-800">{renderValue(healthState.data.git?.commit)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Branch
+                </div>
+                <div className="font-mono text-xs text-slate-800">{renderValue(healthState.data.git?.branch)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Método de deploy
+                </div>
+                <div className="text-xs font-semibold text-slate-800">{renderValue(healthState.data.deploy?.method)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Build timestamp
+                </div>
+                <div className="font-mono text-xs text-slate-800">{renderValue(healthState.data.build?.timestamp)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Build source
+                </div>
+                <div className="text-xs font-semibold text-slate-800">{renderValue(healthState.data.build?.source)}</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Versão backend
+                </div>
+                <div className="text-xs font-semibold text-slate-800">{renderValue(healthState.data.build?.version)}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-slate-600">
+                authEnabled={String(Boolean(healthState.data.authEnabled))}
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-slate-600">
+                database={renderValue(healthState.data.checks?.database)}
+              </span>
+            </div>
+          </div>
         ) : null}
       </div>
     </article>

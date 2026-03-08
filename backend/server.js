@@ -18,12 +18,14 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const path = require("node:path");
 const fs = require("node:fs");
-const { spawn, execFileSync } = require("node:child_process");
+const { spawn } = require("node:child_process");
 const sharp = require("sharp");
 const { generateTermoPdf, generateTablePdf } = require("./src/services/pdfReports");
 
 const { setDbContext } = require("./src/services/dbContext");
 const { createInventarioController } = require("./src/controllers/inventarioController");
+const { registerHealthRoute } = require("./src/routes/healthRoute");
+const { readRuntimeMetadata } = require("./src/services/runtimeMetadata");
 
 const PORT = Number(process.env.PORT || 3001);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -42,6 +44,7 @@ const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: DB_SSL === "disable" ? false : { rejectUnauthorized: false },
 });
+const APP_RUNTIME_METADATA = readRuntimeMetadata(process.env);
 
 const app = express();
 const upload = multer({
@@ -244,21 +247,6 @@ fs.mkdirSync(BACKUP_LOCAL_DB_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_LOCAL_MEDIA_DIR, { recursive: true });
 app.use("/fotos", express.static(FOTOS_DIR, { maxAge: "7d", immutable: true }));
 
-function readGitMeta() {
-  const envCommit = String(process.env.APP_GIT_COMMIT || process.env.GIT_COMMIT || "").trim();
-  const envBranch = String(process.env.APP_GIT_BRANCH || process.env.GIT_BRANCH || "").trim();
-  if (envCommit || envBranch) {
-    return { commit: envCommit || null, branch: envBranch || null };
-  }
-  try {
-    const commit = String(execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { cwd: __dirname, stdio: ["ignore", "pipe", "ignore"] }) || "").trim();
-    const branch = String(execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: __dirname, stdio: ["ignore", "pipe", "ignore"] }) || "").trim();
-    return { commit: commit || null, branch: branch || null };
-  } catch (_error) {
-    return { commit: null, branch: null };
-  }
-}
-const APP_GIT_META = readGitMeta();
 app.use((req, res, next) => {
   req.requestId = randomUUID();
   res.setHeader("X-Request-Id", req.requestId);
@@ -1290,20 +1278,7 @@ app.post("/aprovacoes/solicitacoes/:id/reprovar", mustAuth, requirePermission("a
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi()));
 app.get("/", (_req, res) => res.json({ status: "ok", docs: "/docs" }));
-
-app.get("/health", async (req, res, next) => {
-  try {
-    await pool.query("SELECT 1");
-    res.json({
-      status: "ok",
-      requestId: req.requestId,
-      authEnabled: AUTH_ENABLED,
-      git: APP_GIT_META,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+registerHealthRoute(app, { pool, authEnabled: AUTH_ENABLED, runtimeMetadata: APP_RUNTIME_METADATA });
 
 app.post("/importacoes/geafin/sessoes", mustAdmin, upload.single("arquivo"), async (req, res, next) => {
   try {

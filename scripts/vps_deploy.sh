@@ -52,7 +52,16 @@ git pull --ff-only
 # Injeta metadados git no ambiente do compose para o backend expor versao em /health.
 export APP_GIT_COMMIT="$(git rev-parse --short=12 HEAD)"
 export APP_GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-compose_env=(APP_GIT_COMMIT="$APP_GIT_COMMIT" APP_GIT_BRANCH="$APP_GIT_BRANCH")
+export APP_DEPLOY_METHOD="${APP_DEPLOY_METHOD:-git_pull}"
+export APP_BUILD_TIMESTAMP="${APP_BUILD_TIMESTAMP:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
+export APP_BUILD_SOURCE="${APP_BUILD_SOURCE:-scripts/vps_deploy.sh}"
+compose_env=(
+  APP_GIT_COMMIT="$APP_GIT_COMMIT"
+  APP_GIT_BRANCH="$APP_GIT_BRANCH"
+  APP_DEPLOY_METHOD="$APP_DEPLOY_METHOD"
+  APP_BUILD_TIMESTAMP="$APP_BUILD_TIMESTAMP"
+  APP_BUILD_SOURCE="$APP_BUILD_SOURCE"
+)
 
 echo "[deploy] removendo containers antigos (se existirem)..."
 # Importante (UX/operacao):

@@ -15,7 +15,9 @@ param(
     [string]$LogFile = "docs/LOG_GERAL_ALTERACOES.md",
     [string]$EntryId = "",
     [string]$AlterUser = "",
-    [string]$AlterEmail = ""
+    [string]$AlterEmail = "",
+    [string]$CommitOverride = "",
+    [switch]$FinalMode
 )
 
 Set-StrictMode -Version Latest
@@ -44,8 +46,16 @@ if ([string]::IsNullOrWhiteSpace($AlterEmail)) {
 $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
 if ([string]::IsNullOrWhiteSpace($branch)) { $branch = "-" }
 
-$commit = (git rev-parse --short HEAD 2>$null)
+$commit = if (-not [string]::IsNullOrWhiteSpace($CommitOverride)) {
+    $CommitOverride
+} else {
+    (git rev-parse --short HEAD 2>$null)
+}
 if ([string]::IsNullOrWhiteSpace($commit)) { $commit = "-" }
+
+if ($FinalMode -and ($commit -eq "-" -or $commit -eq "PENDENTE_COMMIT" -or $commit -eq "<commit_gerado_para_esta_entrega>")) {
+    throw "FINAL_MODE exige commit real no log."
+}
 
 $reversao = if ($commit -eq "-") { "-" } else { "git revert $commit" }
 

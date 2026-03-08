@@ -43,6 +43,9 @@ services:
       # Metadados de versao para /health e painel Auditoria/Logs.
       APP_GIT_COMMIT: "${APP_GIT_COMMIT:-}"
       APP_GIT_BRANCH: "${APP_GIT_BRANCH:-}"
+      APP_DEPLOY_METHOD: "${APP_DEPLOY_METHOD:-unknown}"
+      APP_BUILD_TIMESTAMP: "${APP_BUILD_TIMESTAMP:-}"
+      APP_BUILD_SOURCE: "${APP_BUILD_SOURCE:-unknown}"
 
   frontend:
     container_name: cjm_frontend

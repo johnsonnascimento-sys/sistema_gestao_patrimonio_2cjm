@@ -13,6 +13,8 @@
 #   ENTRY_ID=20260225-235900-ajuste-sidebar
 #   ALTER_USER="Nome Sobrenome"
 #   ALTER_EMAIL="nome@dominio.com"
+#   COMMIT_OVERRIDE=abc123def456
+#   FINAL_MODE=1
 
 set -euo pipefail
 
@@ -52,7 +54,7 @@ entry_id="${ENTRY_ID:-$(date -u +"%Y%m%d-%H%M%S")}"
 usuario="${ALTER_USER:-$(git config user.name 2>/dev/null || whoami)}"
 email="${ALTER_EMAIL:-$(git config user.email 2>/dev/null || echo "-")}"
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")"
-commit="$(git rev-parse --short HEAD 2>/dev/null || echo "-")"
+commit="${COMMIT_OVERRIDE:-$(git rev-parse --short HEAD 2>/dev/null || echo "-")}"
 
 sanitize_md() {
   printf '%s' "$1" | tr '\n' ' ' | sed 's/|/\//g'
@@ -64,6 +66,13 @@ email_safe="$(sanitize_md "$email")"
 tipo_safe="$(sanitize_md "$tipo")"
 branch_safe="$(sanitize_md "$branch")"
 commit_safe="$(sanitize_md "$commit")"
+
+if [[ "${FINAL_MODE:-0}" == "1" ]]; then
+  if [[ "$commit_safe" == "-" || "$commit_safe" == "PENDENTE_COMMIT" || "$commit_safe" == "<commit_gerado_para_esta_entrega>" ]]; then
+    echo "ERRO: FINAL_MODE=1 exige commit real no log." >&2
+    exit 1
+  fi
+fi
 
 if [[ "$commit_safe" == "-" ]]; then
   reversao="-"

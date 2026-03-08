@@ -24,6 +24,7 @@ No host:
 
 - `curl -i https://patrimonio2cjm.johnsontn.com.br/` deve retornar `200` e HTML da SPA.
 - `curl -i https://patrimonio2cjm.johnsontn.com.br/api/health` deve retornar `200`.
+- o JSON de `/api/health` deve incluir `git`, `deploy` e `build`.
 
 ## Logs (diagnóstico)
 
@@ -62,9 +63,21 @@ O script faz:
   - `frontend` recria apenas `cjm_frontend` (o backend deve permanecer no ar).
   - `backend` recria apenas `cjm_backend` (o frontend deve permanecer no ar).
 - (quando `backend` ou `all`) aguarda o backend responder `GET /health` para evitar 502 logo após o restart.
+- injeta metadados operacionais no backend:
+  - `git.commit`
+  - `git.branch`
+  - `deploy.method=git_pull`
+  - `build.timestamp`
+  - `build.source=scripts/vps_deploy.sh`
 
 Se após um deploy você vir `502 Bad Gateway` na UI (especialmente em "Consulta de Bens"):
 - o backend pode ter sido derrubado; rode `./scripts/vps_deploy.sh all` para subir tudo novamente.
+
+Regra operacional:
+
+- este é o fluxo oficial de deploy;
+- upload direto de arquivos na VPS é apenas contingência;
+- em contingência, o log geral deve registrar o evento e o backend deve expor `deploy.method=manual_upload`.
 
 ## Rebuild/restart (manual)
 
