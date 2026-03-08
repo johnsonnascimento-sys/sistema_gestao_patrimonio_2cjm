@@ -6,6 +6,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
+import AssetsExplorerHeader from "./assets/AssetsExplorerHeader.jsx";
+import AssetsExplorerResultsTable from "./assets/AssetsExplorerResultsTable.jsx";
+import AssetsExplorerSearchPanel from "./assets/AssetsExplorerSearchPanel.jsx";
+import AssetsExplorerSummary from "./assets/AssetsExplorerSummary.jsx";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import {
   atualizarBem,
@@ -446,479 +450,89 @@ export default function AssetsExplorer({ initialUnidadeDonaId = null, navigation
 
   const presetOriginLabel = navigationPreset?.originLabel ? String(navigationPreset.originLabel) : "";
   const presetOriginContext = navigationPreset?.originContext ? String(navigationPreset.originContext) : "";
+  const handleFilterChange = (field, value, options = {}) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(options.clearPerfil ? { responsavelPerfilId: "" } : {}),
+    }));
+  };
+  const handleTombamentoChange = (event) => {
+    const normalized = normalizeTombamentoInput(event.target.value);
+    setFilters((prev) => ({ ...prev, numeroTombamento: normalized }));
+    if (normalized.length !== 4 || normalized !== String(filters.numeroTombamento || "")) {
+      setTipoBusca4Digitos(null);
+    }
+    setFormError(null);
+  };
+  const handleSelectResponsavelPerfil = (perfil) => {
+    const label = perfil?.matricula
+      ? `${perfil.matricula}${perfil?.nome ? ` - ${perfil.nome}` : ""}`
+      : (perfil?.nome || perfil?.id || "");
+    setFilters((prev) => ({
+      ...prev,
+      responsavelPerfilId: String(perfil?.id || ""),
+      responsavel: label,
+    }));
+    setResponsavelInputFocused(false);
+  };
 
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <header className="space-y-2">
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Consulta de Bens</h2>
-        <p className="text-sm text-slate-600">
-          Esta tela consulta o Supabase via backend. Use tombamento (10 digitos), etiqueta de 4 digitos (azul/sufixo), codigo do material (SKU) ou texto da descricao.
-        </p>
-      </header>
+      <AssetsExplorerHeader originLabel={presetOriginLabel} originContext={presetOriginContext} />
 
-      {presetOriginLabel ? (
-        <article className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
-            Contexto aplicado de {presetOriginLabel}
-          </p>
-          <p className="mt-1 text-sm text-violet-900">
-            {presetOriginContext || "Os filtros desta consulta foram carregados por um atalho operacional."}
-          </p>
-        </article>
-      ) : null}
+      <AssetsExplorerSummary
+        filters={filters}
+        stats={stats}
+        unitSummary={unitSummary}
+        formatUnidade={formatUnidade}
+        onApplyUnidadeFilter={applyUnidadeFilter}
+      />
 
-      <article className="grid gap-3 md:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => applyUnidadeFilter(null)}
-          className={`rounded-xl border p-4 text-left transition ${
-            !filters.unidadeDonaId
-              ? "border-violet-300 bg-violet-50 ring-1 ring-violet-200"
-              : "border-slate-200 bg-white hover:bg-slate-50"
-          }`}
-          title="Clique para listar bens de todas as unidades"
-        >
-          <p className="text-xs uppercase tracking-widest text-slate-500">Total bens</p>
-          {stats.loading && <p className="mt-2 text-sm text-slate-600">Carregando...</p>}
-          {stats.error && <p className="mt-2 text-sm text-rose-700">{stats.error}</p>}
-          {stats.data && (
-            <p className="mt-2 font-[Space_Grotesk] text-3xl font-bold text-violet-700">
-              {stats.data.bens.total}
-            </p>
-          )}
-        </button>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 md:col-span-2">
-          <p className="text-xs uppercase tracking-widest text-slate-500">Bens por unidade</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {unitSummary.map((row) => (
-              <button
-                key={row.unidade}
-                type="button"
-                onClick={() => applyUnidadeFilter(row.unidade)}
-                className={`rounded-lg border px-3 py-2 text-left transition ${
-                  String(filters.unidadeDonaId) === String(row.unidade)
-                    ? "border-violet-300 bg-violet-50 ring-1 ring-violet-200"
-                    : "border-slate-200 bg-slate-100 hover:bg-slate-200"
-                }`}
-                title={`Clique para listar apenas a unidade ${formatUnidade(row.unidade)}`}
-              >
-                <p className="text-xs text-slate-600">{formatUnidade(row.unidade)}</p>
-                <p className="mt-1 text-lg font-semibold text-slate-900">{row.total}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </article>
+      <AssetsExplorerSearchPanel
+        filters={filters}
+        formError={formError}
+        listError={list.error}
+        listLoading={list.loading}
+        scannerMode={scannerMode}
+        setScannerMode={setScannerMode}
+        setShowScanner={setShowScanner}
+        showAdvancedFilters={showAdvancedFilters}
+        setShowAdvancedFilters={setShowAdvancedFilters}
+        tipoBusca4Digitos={tipoBusca4Digitos}
+        tombamentoInputRef={tombamentoInputRef}
+        onFiltersChange={handleFilterChange}
+        onTombamentoChange={handleTombamentoChange}
+        onSubmit={onSubmit}
+        onClear={onClear}
+        onTombamentoInputKeyDown={handleTombamentoInputKeyDown}
+        formatUnidade={formatUnidade}
+        unitOptions={UNIT_OPTIONS}
+        statusOptions={STATUS_OPTIONS}
+        locaisFiltroOptions={locaisFiltroOptions}
+        locaisFiltroLoading={locaisFiltroQuery.isLoading}
+        responsavelLookup={responsavelLookup}
+        responsavelInputFocused={responsavelInputFocused}
+        setResponsavelInputFocused={setResponsavelInputFocused}
+        onSelectResponsavelPerfil={handleSelectResponsavelPerfil}
+      />
 
-      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="font-semibold text-slate-900">Consulta rapida</h3>
-            <p className="mt-1 text-xs text-slate-600">
-              Priorize tombamento, etiqueta de 4 digitos e camera. Abra os filtros avancados apenas quando precisar refinar a busca.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowAdvancedFilters((prev) => !prev)}
-            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
-          >
-            {showAdvancedFilters ? "Ocultar filtros avancados" : "Mostrar filtros avancados"}
-          </button>
-        </div>
-        <form onSubmit={onSubmit} className="mt-4 space-y-4">
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4">
-              <label className="space-y-1">
-                <span className="text-xs text-slate-600">Tombamento (10) ou Etiqueta (4)</span>
-                <input
-                  ref={tombamentoInputRef}
-                  value={filters.numeroTombamento}
-                  onChange={(e) => {
-                    const normalized = normalizeTombamentoInput(e.target.value);
-                    setFilters((prev) => ({ ...prev, numeroTombamento: normalized }));
-                    if (normalized.length !== 4 || normalized !== String(filters.numeroTombamento || "")) {
-                      setTipoBusca4Digitos(null);
-                    }
-                    setFormError(null);
-                  }}
-                  onKeyDown={handleTombamentoInputKeyDown}
-                  placeholder="Ex.: 1290001788 ou 2657"
-                  inputMode="numeric"
-                  maxLength={10}
-                  autoComplete="off"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                />
-                {filters.numeroTombamento.length === 4 && (
-                  <p className="text-[11px] text-slate-500">
-                    {tipoBusca4Digitos
-                      ? `Busca de 4 digitos selecionada: ${tipoBusca4Digitos === "antigo" ? "Etiqueta azul antiga" : "Etiqueta nova impressa errada"}.`
-                      : "Ao consultar, o sistema vai perguntar se este codigo e etiqueta azul antiga ou etiqueta nova impressa errada."}
-                  </p>
-                )}
-              </label>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <select
-                  value={scannerMode}
-                  onChange={(e) => setScannerMode(e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs"
-                >
-                  <option value="single">Camera simples</option>
-                  <option value="continuous">Camera continua</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowScanner(true)}
-                  className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200"
-                >
-                  Ler por camera
-                </button>
-                <span className="text-[11px] text-slate-500">Enter, Tab ou Ctrl+J executam a consulta.</span>
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <label className="space-y-1">
-                <span className="text-xs text-slate-600">Numero do material (SKU)</span>
-                <input
-                  value={filters.codigoCatalogo}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, codigoCatalogo: e.target.value }))}
-                  placeholder="Ex.: 101004470"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-              <div className="mt-4 space-y-2 text-sm text-slate-700">
-                <p>Consulta rapida para tombamento e etiqueta.</p>
-                <p>Material (SKU) e demais filtros ficam disponiveis sem perder o contexto atual.</p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={list.loading}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {list.loading ? "Consultando..." : "Consultar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={onClear}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
-                >
-                  Limpar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {showAdvancedFilters ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-4">
-                <h4 className="text-sm font-semibold text-slate-900">Filtros avancados</h4>
-                <p className="mt-1 text-xs text-slate-600">
-                  Texto livre, unidade, endereco, responsavel e status para refinar a busca operacional.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-4">
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Texto na descricao</span>
-                  <input
-                    value={filters.q}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-                    placeholder="Ex.: ARMARIO, PROJETOR, NOTEBOOK"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Unidade</span>
-                  <select
-                    value={filters.unidadeDonaId}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, unidadeDonaId: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  >
-                    {UNIT_OPTIONS.map((u) => (
-                      <option key={u || "all"} value={u}>
-                        {u ? formatUnidade(Number(u)) : "Todas"}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Status</span>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s || "all"} value={s}>
-                        {s || "Todos"}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Endereco (local cadastrado)</span>
-                  <select
-                    value={filters.localId}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, localId: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="">Todos os enderecos</option>
-                    {locaisFiltroOptions.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {`${l.nome}${l.unidadeId ? ` (${formatUnidade(Number(l.unidadeId))})` : ""}`}
-                      </option>
-                    ))}
-                  </select>
-                  {locaisFiltroQuery.isLoading ? (
-                    <p className="text-[11px] text-slate-500">Carregando enderecos...</p>
-                  ) : null}
-                </label>
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Responsavel (matricula)</span>
-                  <div className="relative">
-                    <input
-                      value={filters.responsavel}
-                      onFocus={() => setResponsavelInputFocused(true)}
-                      onBlur={() => window.setTimeout(() => setResponsavelInputFocused(false), 120)}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setFilters((prev) => ({ ...prev, responsavel: next, responsavelPerfilId: "" }));
-                      }}
-                      placeholder="Digite matricula ou nome do responsavel"
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                    />
-                    {responsavelInputFocused ? (
-                      <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                        {responsavelLookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
-                        {!responsavelLookup.loading && responsavelLookup.error ? (
-                          <p className="px-3 py-2 text-xs text-rose-700">{responsavelLookup.error}</p>
-                        ) : null}
-                        {!responsavelLookup.loading && !responsavelLookup.error &&
-                          responsavelLookup.data.length === 0 && String(filters.responsavel || "").trim().length >= 2 ? (
-                          <p className="px-3 py-2 text-xs text-slate-500">Nenhum responsavel encontrado.</p>
-                        ) : null}
-                        {!responsavelLookup.loading && !responsavelLookup.error && responsavelLookup.data.map((perfil) => (
-                          <button
-                            key={perfil.id}
-                            type="button"
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              const label = perfil?.matricula
-                                ? `${perfil.matricula}${perfil?.nome ? ` - ${perfil.nome}` : ""}`
-                                : (perfil?.nome || perfil?.id || "");
-                              setFilters((prev) => ({
-                                ...prev,
-                                responsavelPerfilId: String(perfil.id || ""),
-                                responsavel: label,
-                              }));
-                              setResponsavelInputFocused(false);
-                            }}
-                            className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
-                          >
-                            <p className="font-semibold text-slate-900">{perfil.nome || "-"}</p>
-                            <p className="mt-0.5 text-slate-600">Matricula: <span className="font-mono">{perfil.matricula || "-"}</span></p>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                  <p className="text-[11px] text-slate-500">Filtro por responsavel patrimonial (matricula/nome).</p>
-                </label>
-              </div>
-            </div>
-          ) : null}
-        </form>
-        {formError && <p className="mt-3 text-sm text-rose-700">{formError}</p>}
-        {list.error && <p className="mt-3 text-sm text-rose-700">{list.error}</p>}
-      </article>
-
-      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-semibold">Resultados</h3>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={listView.showItemPhoto}
-                onChange={(e) => setListView((prev) => ({ ...prev, showItemPhoto: e.target.checked }))}
-                className="h-4 w-4 accent-violet-600"
-              />
-              Foto do item
-            </label>
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={listView.showCatalogPhoto}
-                onChange={(e) => setListView((prev) => ({ ...prev, showCatalogPhoto: e.target.checked }))}
-                className="h-4 w-4 accent-violet-600"
-              />
-              Foto do catálogo
-            </label>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            {copyFeedback ? (
-              <span className={`rounded-md px-2 py-1 font-semibold ${copyFeedback === "Número copiado" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                {copyFeedback}
-              </span>
-            ) : null}
-            <span>
-              {paging.total ? `${paging.offset + 1}-${Math.min(paging.offset + paging.limit, paging.total)}` : "0"} de{" "}
-              {paging.total}
-            </span>
-            <button
-              type="button"
-              disabled={!canPrev || list.loading}
-              onClick={() => loadList(Math.max(0, paging.offset - paging.limit))}
-              className="rounded-md border border-slate-300 px-2 py-1 disabled:opacity-40"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              disabled={!canNext || list.loading}
-              onClick={() => loadList(paging.offset + paging.limit)}
-              className="rounded-md border border-slate-300 px-2 py-1 disabled:opacity-40"
-            >
-              Proxima
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-600">
-              <tr>
-                <th className="px-3 py-2">Tombo</th>
-                <th className="px-3 py-2">Antigo (Azul)</th>
-                <th className="px-3 py-2">Material (SKU)</th>
-                <th className="px-3 py-2">Descrição / Resumo</th>
-                {listView.showItemPhoto && <th className="px-3 py-2">Foto Item</th>}
-                {listView.showCatalogPhoto && <th className="px-3 py-2">Foto Catálogo</th>}
-                <th className="px-3 py-2">Unidade</th>
-                <th className="px-3 py-2">Local</th>
-                <th className="px-3 py-2">Responsavel</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 text-center">Obs</th>
-                <th className="px-3 py-2 text-right">Acoes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 bg-slate-50">
-              {items.length === 0 && !list.loading && (
-                <tr>
-                  <td colSpan={10 + (listView.showItemPhoto ? 1 : 0) + (listView.showCatalogPhoto ? 1 : 0)} className="px-3 py-8 text-center text-sm text-slate-600">
-                    Nenhum bem encontrado para os filtros informados.
-                  </td>
-                </tr>
-              )}
-              {items.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono text-xs">
-                    <button
-                      type="button"
-                      onClick={() => copyTombamento(item.numeroTombamento)}
-                      className="rounded-md border border-slate-200 bg-slate-100 px-2 py-1 hover:bg-slate-200"
-                      title="Clique para copiar o tombamento"
-                    >
-                      {item.numeroTombamento || "-"}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-violet-700">
-                    {item.cod2Aud || "-"}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[11px]">
-                    {item.codigoCatalogo ? (
-                      <button
-                        type="button"
-                        onClick={() => aplicarMesmoCatalogo(item.codigoCatalogo)}
-                        className="text-emerald-700 hover:underline"
-                        title="Filtrar por este material (SKU)"
-                      >
-                        {item.codigoCatalogo}
-                      </button>
-                    ) : (
-                      <span className="text-slate-500">-</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="font-medium text-slate-900">
-                      {item.nomeResumo || item.catalogoDescricao || item.descricao || "-"}
-                    </div>
-                    {(item.catalogoDescricao || item.descricao) &&
-                      (item.catalogoDescricao || item.descricao) !==
-                        (item.nomeResumo || item.catalogoDescricao || item.descricao) && (
-                      <div className="text-[10px] text-slate-500 italic">
-                        {item.catalogoDescricao || item.descricao}
-                      </div>
-                    )}
-                  </td>
-                  {listView.showItemPhoto && (
-                    <td className="px-3 py-2">
-                      {item.fotoUrl ? (
-                        <a href={getFotoUrl(item.fotoUrl)} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={getFotoUrl(item.fotoUrl)}
-                            alt={`Foto item ${item.numeroTombamento || ""}`}
-                            className="h-10 w-10 rounded border border-slate-300 object-cover"
-                          />
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-slate-500">-</span>
-                      )}
-                    </td>
-                  )}
-                  {listView.showCatalogPhoto && (
-                    <td className="px-3 py-2">
-                      {item.fotoReferenciaUrl ? (
-                        <a href={getFotoUrl(item.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={getFotoUrl(item.fotoReferenciaUrl)}
-                            alt={`Foto catálogo ${item.codigoCatalogo || ""}`}
-                            className="h-10 w-10 rounded border border-slate-300 object-cover"
-                          />
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-slate-500">-</span>
-                      )}
-                    </td>
-                  )}
-                  <td className="px-3 py-2 text-xs text-slate-800">
-                    {formatUnidade(Number(item.unidadeDonaId))}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-600">{item.localNome || item.localFisico || "-"}</td>
-                  <td className="px-3 py-2 text-xs text-slate-700">
-                    {item.responsavelMatricula || item.responsavelNome
-                      ? `${item.responsavelMatricula || "-"}${item.responsavelNome ? ` - ${item.responsavelNome}` : ""}`
-                      : "-"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs">
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    {item.temDivergenciaPendente && (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white" title="Divergência Pendente!">
-                        !
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <div className="inline-flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(item.id)}
-                        className="rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
-                      >
-                        Detalhes
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </article>
+      <AssetsExplorerResultsTable
+        items={items}
+        paging={paging}
+        canPrev={canPrev}
+        canNext={canNext}
+        listLoading={list.loading}
+        listView={listView}
+        copyFeedback={copyFeedback}
+        setListView={setListView}
+        loadList={loadList}
+        copyTombamento={copyTombamento}
+        aplicarMesmoCatalogo={aplicarMesmoCatalogo}
+        openDetail={openDetail}
+        formatUnidade={formatUnidade}
+        getFotoUrl={getFotoUrl}
+      />
 
       {showScanner && (
         <BarcodeScanner

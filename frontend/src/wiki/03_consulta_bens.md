@@ -55,6 +55,18 @@ Uso recomendado:
 - para localizar um bem específico, priorize `Consulta rápida`;
 - para auditoria, conferência ampla ou investigação, abra `Filtros avançados`.
 
+## Estrutura operacional da tela
+
+A tela está organizada em blocos mais previsíveis:
+
+1. cabeçalho e contexto de origem;
+2. resumo de estoque total e por unidade;
+3. painel `Consulta rápida`;
+4. painel `Filtros avançados`, quando necessário;
+5. tabela de resultados com fotos, paginação e atalhos.
+
+Essa separação existe para reduzir o acoplamento entre navegação, filtros e resultados, sem mudar o comportamento funcional da consulta.
+
 ## Contexto vindo de outras telas
 
 Quando a `Consulta de Bens` for aberta a partir de atalhos operacionais, a própria tela mostra um banner de contexto no topo.
