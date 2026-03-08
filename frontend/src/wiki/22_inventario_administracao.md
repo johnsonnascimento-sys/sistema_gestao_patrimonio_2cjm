@@ -72,6 +72,12 @@ Nessa área ficam:
 
 `Histórico resumido` e `Acuracidade de inventário` permanecem disponíveis, mas agora ficam visualmente rebaixados como leitura secundária em relação ao cockpit do evento ativo.
 
+Nesta fase do plano, a UI passou a marcar de forma mais explícita o que é `Área secundária`:
+
+- `Novo inventário` recebe um bloco introdutório de apoio quando já existe evento ativo;
+- `Histórico resumido` passou a carregar badge de `Leitura secundária`;
+- `Acuracidade de inventário` também reforça que é leitura gerencial e não CTA primário do turno.
+
 Quando **não** existe evento ativo:
 
 - `Novo inventário` volta a ser o bloco principal da coluna esquerda;

@@ -22,6 +22,8 @@ import {
 } from "../services/apiClient.js";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import InventoryProgress from "./InventoryProgress.jsx";
+import InventoryAddressOverviewCard from "./inventory/InventoryAddressOverviewCard.jsx";
+import InventoryCountContextCard from "./inventory/InventoryCountContextCard.jsx";
 import { filterExpectedAssetGroups } from "./inventory/expectedAssetsFilter.js";
 import { normalizeTombamentoInput } from "./inventory/inventoryInputUtils.js";
 const TOMBAMENTO_RE = /^\d{10}$/;
@@ -1274,46 +1276,22 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
         </p>
       )}
 
-      <SectionCard
-        title="Contexto da contagem"
-        subtitle="Confirme o evento, a unidade e o local cadastrado antes de iniciar a leitura contínua."
-        accent="violet"
-        className="mt-5"
-      >
-        <div className="grid gap-3 lg:grid-cols-5">
-          <InfoLine
-            label="Evento aplicado"
-            value={eventoAtivo?.codigoEvento || "Sem evento"}
-            helper={selectedEventoIdFinal ? `${formatModeLabel(modoContagemEvento)} / ${eventoAtivo?.escopoTipo || "UNIDADE"}` : "Abra um evento na Administração do Inventário."}
-            tone={selectedEventoIdFinal ? "success" : "warn"}
-          />
-          {modoContagemEvento !== "PADRAO" ? (
-            <InfoLine
-              label="Rodada"
-              value={rodadaSelecionada}
-              helper={papelSessaoLabel || "Rodada operacional"}
-              tone="warn"
-            />
-          ) : null}
-          <InfoLine
-            label="Unidade encontrada"
-            value={unidadeEncontradaId ? formatUnidade(Number(unidadeEncontradaId)) : "Aguardando seleção"}
-            tone={unidadeEncontradaId ? "success" : "warn"}
-          />
-          <InfoLine
-            label="Local cadastrado"
-            value={(locaisOptions || []).find((l) => String(l.id) === String(selectedLocalId))?.nome || "Aguardando seleção"}
-            helper={localIdsPermitidosEvento ? "Escopo restrito pelos locais do evento." : "Endereço padronizado cadastrado pelo Admin."}
-            tone={selectedLocalId ? "success" : "warn"}
-          />
-          <InfoLine
-            label="Endereço operacional"
-            value={salaEncontrada || "Aguardando seleção"}
-            helper={selectedLocalId ? "Sincronizado automaticamente com o local escolhido." : "Será preenchido quando o local for selecionado."}
-            tone={salaEncontrada ? "success" : "warn"}
-          />
-        </div>
-      </SectionCard>
+      <InventoryCountContextCard
+        eventCode={eventoAtivo?.codigoEvento || "Sem evento"}
+        eventHelper={selectedEventoIdFinal ? `${formatModeLabel(modoContagemEvento)} / ${eventoAtivo?.escopoTipo || "UNIDADE"}` : "Abra um evento na Administração do Inventário."}
+        eventTone={selectedEventoIdFinal ? "success" : "warn"}
+        showRound={modoContagemEvento !== "PADRAO"}
+        roundValue={rodadaSelecionada}
+        roundHelper={papelSessaoLabel || "Rodada operacional"}
+        unitValue={unidadeEncontradaId ? formatUnidade(Number(unidadeEncontradaId)) : "Aguardando seleção"}
+        unitTone={unidadeEncontradaId ? "success" : "warn"}
+        localValue={(locaisOptions || []).find((l) => String(l.id) === String(selectedLocalId))?.nome || "Aguardando seleção"}
+        localHelper={localIdsPermitidosEvento ? "Escopo restrito pelos locais do evento." : "Endereço padronizado cadastrado pelo Admin."}
+        localTone={selectedLocalId ? "success" : "warn"}
+        roomValue={salaEncontrada || "Aguardando seleção"}
+        roomHelper={selectedLocalId ? "Sincronizado automaticamente com o local escolhido." : "Será preenchido quando o local for selecionado."}
+        roomTone={salaEncontrada ? "success" : "warn"}
+      />
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <article className="rounded-2xl border border-violet-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1">
@@ -1560,38 +1538,20 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
           )}
         </article>
         <div className="flex flex-col gap-4">
-          <SectionCard
-            title="Visão rápida do endereço"
-            subtitle="Resumo operacional para decidir se a equipe segue na bipagem ou trata exceções."
-            accent={uiReduzida ? "amber" : "slate"}
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <InfoLine
-                label="Esperados"
-                value={shouldHideExpectedData ? "Oculto no modo cego" : totalEsperadosEndereco}
-                helper={shouldHideExpectedData ? "Painéis de esperado permanecem ocultos por regra operacional." : "Itens vinculados ao local cadastrado."}
-                tone={shouldHideExpectedData ? "warn" : "default"}
-              />
-              <InfoLine
-                label="Conferidos"
-                value={shouldHideExpectedData ? "Oculto" : totalConferidosEndereco}
-                helper={shouldHideExpectedData ? "Resumo reduzido enquanto a contagem cega estiver ativa." : "Bens já localizados neste endereço."}
-                tone={shouldHideExpectedData ? "warn" : "success"}
-              />
-              <InfoLine
-                label="Divergências"
-                value={totalDivergentesEndereco}
-                helper="Ocorrências registradas neste endereço."
-                tone={totalDivergentesEndereco ? "danger" : "default"}
-              />
-              <InfoLine
-                label="Faltantes"
-                value={shouldHideExpectedData ? "Oculto" : totalFaltantesEndereco}
-                helper={shouldHideExpectedData ? "Oculto no modo cego." : "Esperados ainda não conferidos."}
-                tone={shouldHideExpectedData ? "warn" : totalFaltantesEndereco ? "warn" : "success"}
-              />
-            </div>
-          </SectionCard>
+          <InventoryAddressOverviewCard
+            accentClassName={uiReduzida ? "border-amber-200" : "border-slate-200"}
+            expectedValue={shouldHideExpectedData ? "Oculto no modo cego" : totalEsperadosEndereco}
+            expectedHelper={shouldHideExpectedData ? "Painéis de esperado permanecem ocultos por regra operacional." : "Itens vinculados ao local cadastrado."}
+            expectedTone={shouldHideExpectedData ? "warn" : "default"}
+            countedValue={shouldHideExpectedData ? "Oculto" : totalConferidosEndereco}
+            countedHelper={shouldHideExpectedData ? "Resumo reduzido enquanto a contagem cega estiver ativa." : "Bens já localizados neste endereço."}
+            countedTone={shouldHideExpectedData ? "warn" : "success"}
+            divergencesValue={totalDivergentesEndereco}
+            divergencesTone={totalDivergentesEndereco ? "danger" : "default"}
+            missingValue={shouldHideExpectedData ? "Oculto" : totalFaltantesEndereco}
+            missingHelper={shouldHideExpectedData ? "Oculto no modo cego." : "Esperados ainda não conferidos."}
+            missingTone={shouldHideExpectedData ? "warn" : totalFaltantesEndereco ? "warn" : "success"}
+          />
           {!uiReduzida ? <InventoryProgress eventoInventarioId={selectedEventoIdFinal} /> : null}
         </div>
       </div>
@@ -2408,8 +2368,6 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
-
-
 
 
 

@@ -50,6 +50,12 @@ Objetivo tecnico:
 - diminuir risco de regressao em ajustes de UX futuros;
 - preparar a decomposicao do topo, scanner e blocos auxiliares em ciclos menores.
 
+Evolucao desta fase:
+
+- o card `Contexto da contagem` saiu do JSX principal e passou a ser renderizado por `InventoryCountContextCard`;
+- o card lateral `Visao rapida do endereco` saiu do JSX principal e passou a ser renderizado por `InventoryAddressOverviewCard`;
+- a extracao foi feita sem alterar scanner, fila offline, regras de contagem cega ou contratos de formulario.
+
 ## Abertura contextualizada pela Administração
 
 A tela `Inventário - Contagem` pode ser aberta a partir de `Inventário - Administração`, no painel `Bens não contados`.

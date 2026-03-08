@@ -1917,7 +1917,10 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                         <h4 className="text-sm font-semibold text-slate-900">Historico Resumido</h4>
                                         <p className="mt-1 text-[11px] text-slate-500">Consulta secundaria para revisao e reabertura.</p>
                                     </div>
-                                    <StatusBadge label={`${historicoEventos.length} evento(s)`} tone="slate" />
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <StatusBadge label="Leitura secundaria" tone="slate" />
+                                        <StatusBadge label={`${historicoEventos.length} evento(s)`} tone="slate" />
+                                    </div>
                                 </summary>
                                 <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
                                     {historicoEventos.map(ev => {
@@ -2000,7 +2003,16 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             </section>
 
             {hasActiveEvent ? (
-                <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm md:p-6">
+                <section className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm md:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Area secundaria</p>
+                            <p className="mt-1 text-sm text-slate-700">
+                                Configuracao de novo ciclo e leitura gerencial permanecem acessiveis, mas fora da zona principal de retomada da contagem.
+                            </p>
+                        </div>
+                        <StatusBadge label="Apoio ao evento ativo" tone="slate" />
+                    </div>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 className="font-[Space_Grotesk] text-xl font-semibold text-slate-900">Novo inventário</h3>
@@ -2080,6 +2092,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge label="Leitura secundaria" tone="slate" />
                         <StatusBadge label={hasActiveEvent ? "Area secundaria" : "Painel principal"} tone={hasActiveEvent ? "slate" : "violet"} />
                         <button
                             type="button"
@@ -2444,7 +2457,6 @@ function TopRoomsCard({ rows }) {
         </div>
     );
 }
-
 
 
 
