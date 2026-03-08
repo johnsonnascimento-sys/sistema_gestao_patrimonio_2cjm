@@ -5,6 +5,7 @@
  */
 import { Component, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import frontendPackage from "../package.json";
 import AssetsExplorer from "./components/AssetsExplorer.jsx";
 import AuditoriaLogsPanel from "./components/AuditoriaLogsPanel.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
@@ -113,6 +114,7 @@ const DEFAULT_OPEN_GROUPS = NAV_STRUCTURE.reduce((acc, entry) => {
   if (entry.type === "group") acc[entry.id] = true;
   return acc;
 }, {});
+const FRONTEND_VERSION_LABEL = `Versao do sistema v${frontendPackage.version}`;
 const INVENTARIO_REDUCED_MODE_KEY = "cjm_inventario_reduced_mode_v1";
 
 function NavIcon({ id }) {
@@ -668,6 +670,12 @@ function AppShell() {
                           </button>
                         );
                       })}
+                      {entry.id === "referencia" ? (
+                        <div className="px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Versao publicada</p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">{FRONTEND_VERSION_LABEL}</p>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -835,6 +843,12 @@ function AppShell() {
                                 </button>
                               );
                             })}
+                            {entry.id === "referencia" ? (
+                              <div className="px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Versao publicada</p>
+                                <p className="mt-1 text-xs font-medium text-slate-500">{FRONTEND_VERSION_LABEL}</p>
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
@@ -1080,4 +1094,3 @@ export default function App() {
 
   return <AppShell />;
 }
-
