@@ -79,6 +79,13 @@ const NAV_STRUCTURE = [
   },
 ];
 
+const NAV_GROUP_HELPERS = Object.freeze({
+  operacoes: "Consultas, movimentações e inventário para execução do turno.",
+  auditoria: "Trilhas formais, conferência histórica e diagnóstico de alterações.",
+  admin: "Cadastros sensíveis, conectividade e gestão do ambiente operacional.",
+  referencia: "Manual, normas e apoio de consulta. Não é o fluxo principal do turno.",
+});
+
 const TAB_PERMISSION_MAP = Object.freeze({
   dashboard: "menu.dashboard.view",
   bens: "menu.bens.view",
@@ -461,6 +468,15 @@ function AppShell() {
     }
     return "Menu";
   }, [tab, filteredNavStructure]);
+  const activeTabGroupLabel = useMemo(() => {
+    for (const entry of filteredNavStructure) {
+      if (entry.type === "item" && entry.item.id === tab) return "Acesso direto";
+      if (entry.type === "group" && entry.items.some((item) => item.id === tab)) {
+        return entry.label;
+      }
+    }
+    return "Navegação";
+  }, [tab, filteredNavStructure]);
 
   useEffect(() => {
     const readReduced = () => {
@@ -622,6 +638,9 @@ function AppShell() {
                     <span>{entry.label}</span>
                     <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
                   </button>
+                  <p className="px-3 text-[11px] leading-5 text-slate-500">
+                    {NAV_GROUP_HELPERS[entry.id] || "Grupo de navegação operacional."}
+                  </p>
                   {isOpen ? (
                     <div className="space-y-1 pl-2">
                       {entry.items.map((item) => {
@@ -664,6 +683,9 @@ function AppShell() {
               <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Status Inventário</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                    {activeTabGroupLabel}
+                  </span>
                   <span className={`status-chip ${inventoryStatus === "EM_ANDAMENTO" ? "status-live" : "status-closed"}`}>
                     {inventoryStatus}
                   </span>
@@ -785,6 +807,9 @@ function AppShell() {
                           <span>{entry.label}</span>
                           <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
                         </button>
+                        <p className="px-3 text-[11px] leading-5 text-slate-500">
+                          {NAV_GROUP_HELPERS[entry.id] || "Grupo de navegação operacional."}
+                        </p>
                         {isOpen ? (
                           <div className="space-y-1 pl-2">
                             {entry.items.map((item) => {
@@ -1055,5 +1080,4 @@ export default function App() {
 
   return <AppShell />;
 }
-
 

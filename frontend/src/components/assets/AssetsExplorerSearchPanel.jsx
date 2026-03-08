@@ -34,9 +34,9 @@ export default function AssetsExplorerSearchPanel({
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-slate-900">Consulta rápida</h3>
+          <h3 className="font-semibold text-slate-900">Consulta rapida</h3>
           <p className="mt-1 text-xs text-slate-600">
-            Priorize tombamento, etiqueta de 4 dígitos e câmera. Abra os filtros avançados apenas
+            Priorize tombamento, etiqueta de 4 digitos e camera. Abra os filtros avancados apenas
             quando precisar refinar a busca.
           </p>
         </div>
@@ -45,8 +45,29 @@ export default function AssetsExplorerSearchPanel({
           onClick={() => setShowAdvancedFilters((prev) => !prev)}
           className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
         >
-          {showAdvancedFilters ? "Ocultar filtros avançados" : "Mostrar filtros avançados"}
+          {showAdvancedFilters ? "Ocultar filtros avancados" : "Mostrar filtros avancados"}
         </button>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-violet-200 bg-violet-50/60 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+            Use primeiro
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            Tombamento, etiqueta de 4 digitos, camera e material (SKU) resolvem a maior parte das
+            consultas operacionais sem precisar abrir filtros extras.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Abra filtros avancados quando
+          </p>
+          <p className="mt-1 text-sm text-slate-700">
+            Voce precisar investigar por endereco, responsavel, status ou descricao e nao tiver um
+            identificador direto do bem.
+          </p>
+        </div>
       </div>
 
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
@@ -68,12 +89,12 @@ export default function AssetsExplorerSearchPanel({
               {filters.numeroTombamento.length === 4 && (
                 <p className="text-[11px] text-slate-500">
                   {tipoBusca4Digitos
-                    ? `Busca de 4 dígitos selecionada: ${
+                    ? `Busca de 4 digitos selecionada: ${
                         tipoBusca4Digitos === "antigo"
                           ? "Etiqueta azul antiga"
                           : "Etiqueta nova impressa errada"
                       }.`
-                    : "Ao consultar, o sistema vai perguntar se este código é etiqueta azul antiga ou etiqueta nova impressa errada."}
+                    : "Ao consultar, o sistema vai perguntar se este codigo e etiqueta azul antiga ou etiqueta nova impressa errada."}
                 </p>
               )}
             </label>
@@ -83,15 +104,15 @@ export default function AssetsExplorerSearchPanel({
                 onChange={(e) => setScannerMode(e.target.value)}
                 className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs"
               >
-                <option value="single">Câmera simples</option>
-                <option value="continuous">Câmera contínua</option>
+                <option value="single">Camera simples</option>
+                <option value="continuous">Camera continua</option>
               </select>
               <button
                 type="button"
                 onClick={() => setShowScanner(true)}
                 className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200"
               >
-                Ler por câmera
+                Ler por camera
               </button>
               <span className="text-[11px] text-slate-500">Enter, Tab ou Ctrl+J executam a consulta.</span>
             </div>
@@ -99,7 +120,7 @@ export default function AssetsExplorerSearchPanel({
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <label className="space-y-1">
-              <span className="text-xs text-slate-600">Número do material (SKU)</span>
+              <span className="text-xs text-slate-600">Numero do material (SKU)</span>
               <input
                 value={filters.codigoCatalogo}
                 onChange={(e) => onFiltersChange("codigoCatalogo", e.target.value)}
@@ -108,8 +129,8 @@ export default function AssetsExplorerSearchPanel({
               />
             </label>
             <div className="mt-4 space-y-2 text-sm text-slate-700">
-              <p>Consulta rápida para tombamento e etiqueta.</p>
-              <p>Material (SKU) e demais filtros ficam disponíveis sem perder o contexto atual.</p>
+              <p>Consulta rapida para tombamento e etiqueta.</p>
+              <p>Material (SKU) e demais filtros ficam disponiveis sem perder o contexto atual.</p>
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
               <button
@@ -133,18 +154,18 @@ export default function AssetsExplorerSearchPanel({
         {showAdvancedFilters ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="mb-4">
-              <h4 className="text-sm font-semibold text-slate-900">Filtros avançados</h4>
+              <h4 className="text-sm font-semibold text-slate-900">Filtros avancados</h4>
               <p className="mt-1 text-xs text-slate-600">
-                Texto livre, unidade, endereço, responsável e status para refinar a busca operacional.
+                Texto livre, unidade, endereco, responsavel e status para refinar a busca operacional.
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               <label className="space-y-1 md:col-span-2">
-                <span className="text-xs text-slate-600">Texto na descrição</span>
+                <span className="text-xs text-slate-600">Texto na descricao</span>
                 <input
                   value={filters.q}
                   onChange={(e) => onFiltersChange("q", e.target.value)}
-                  placeholder="Ex.: ARMÁRIO, PROJETOR, NOTEBOOK"
+                  placeholder="Ex.: ARMARIO, PROJETOR, NOTEBOOK"
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 />
               </label>
@@ -180,13 +201,13 @@ export default function AssetsExplorerSearchPanel({
               </label>
 
               <label className="space-y-1 md:col-span-2">
-                <span className="text-xs text-slate-600">Endereço (local cadastrado)</span>
+                <span className="text-xs text-slate-600">Endereco (local cadastrado)</span>
                 <select
                   value={filters.localId}
                   onChange={(e) => onFiltersChange("localId", e.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 >
-                  <option value="">Todos os endereços</option>
+                  <option value="">Todos os enderecos</option>
                   {locaisFiltroOptions.map((l) => (
                     <option key={l.id} value={l.id}>
                       {`${l.nome}${l.unidadeId ? ` (${formatUnidade(Number(l.unidadeId))})` : ""}`}
@@ -194,19 +215,19 @@ export default function AssetsExplorerSearchPanel({
                   ))}
                 </select>
                 {locaisFiltroLoading ? (
-                  <p className="text-[11px] text-slate-500">Carregando endereços...</p>
+                  <p className="text-[11px] text-slate-500">Carregando enderecos...</p>
                 ) : null}
               </label>
 
               <label className="space-y-1 md:col-span-2">
-                <span className="text-xs text-slate-600">Responsável (matrícula)</span>
+                <span className="text-xs text-slate-600">Responsavel (matricula)</span>
                 <div className="relative">
                   <input
                     value={filters.responsavel}
                     onFocus={() => setResponsavelInputFocused(true)}
                     onBlur={() => window.setTimeout(() => setResponsavelInputFocused(false), 120)}
                     onChange={(e) => onFiltersChange("responsavel", e.target.value, { clearPerfil: true })}
-                    placeholder="Digite matrícula ou nome do responsável"
+                    placeholder="Digite matricula ou nome do responsavel"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   />
                   {responsavelInputFocused ? (
@@ -221,7 +242,7 @@ export default function AssetsExplorerSearchPanel({
                       !responsavelLookup.error &&
                       responsavelLookup.data.length === 0 &&
                       String(filters.responsavel || "").trim().length >= 2 ? (
-                        <p className="px-3 py-2 text-xs text-slate-500">Nenhum responsável encontrado.</p>
+                        <p className="px-3 py-2 text-xs text-slate-500">Nenhum responsavel encontrado.</p>
                       ) : null}
                       {!responsavelLookup.loading &&
                         !responsavelLookup.error &&
@@ -237,14 +258,14 @@ export default function AssetsExplorerSearchPanel({
                           >
                             <p className="font-semibold text-slate-900">{perfil.nome || "-"}</p>
                             <p className="mt-0.5 text-slate-600">
-                              Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span>
+                              Matricula: <span className="font-mono">{perfil.matricula || "-"}</span>
                             </p>
                           </button>
                         ))}
                     </div>
                   ) : null}
                 </div>
-                <p className="text-[11px] text-slate-500">Filtro por responsável patrimonial (matrícula/nome).</p>
+                <p className="text-[11px] text-slate-500">Filtro por responsavel patrimonial (matricula/nome).</p>
               </label>
             </div>
           </div>

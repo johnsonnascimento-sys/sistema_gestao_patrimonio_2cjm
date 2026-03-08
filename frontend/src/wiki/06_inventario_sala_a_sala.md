@@ -37,6 +37,19 @@ Objetivo operacional:
 - empurrar exceções para baixo do fluxo principal;
 - preservar a ocultação fail-closed dos dados esperados em contagem cega.
 
+## Sustentacao da UI operacional
+
+Nesta fase do plano, os elementos visuais compartilhados do topo e dos cards operacionais
+(`badges`, `SectionCard`, `InfoLine`, `DisclosureCard` e banner de contagem cega) foram
+consolidados em um modulo dedicado para preparar a proxima fase de decomposicao do componente
+monolitico principal.
+
+Objetivo tecnico:
+
+- reduzir acoplamento no `InventoryRoomPanel`;
+- diminuir risco de regressao em ajustes de UX futuros;
+- preparar a decomposicao do topo, scanner e blocos auxiliares em ciclos menores.
+
 ## Abertura contextualizada pela Administração
 
 A tela `Inventário - Contagem` pode ser aberta a partir de `Inventário - Administração`, no painel `Bens não contados`.

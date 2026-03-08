@@ -55,6 +55,20 @@ Uso recomendado:
 - para localizar um bem específico, priorize `Consulta rápida`;
 - para auditoria, conferência ampla ou investigação, abra `Filtros avançados`.
 
+## Orientacao embutida na tela
+
+Para reduzir dependencia do manual durante a operacao, a propria tela agora destaca:
+
+- quais identificadores resolvem a maior parte das consultas do dia a dia;
+- quando vale a pena insistir na `Consulta rapida`;
+- quando realmente abrir `Filtros avancados`;
+- como retomar o fluxo anterior quando a tela for aberta por atalho do inventario.
+
+Objetivo operacional:
+
+- menos tempo ate a primeira consulta util;
+- menor necessidade de consultar a wiki para decidir como pesquisar.
+
 ## Estrutura operacional da tela
 
 A tela está organizada em blocos mais previsíveis:

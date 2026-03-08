@@ -46,5 +46,11 @@ Ele concentra:
 
 ## Observações
 
-- O Dashboard não substitui auditoria detalhada.
+- O Dashboard nao substitui auditoria detalhada.
 - Para trilha formal de alterações, usar "Auditoria e Logs".
+
+## Navegação operacional
+
+- A barra lateral separa `Operação diaria`, `Auditoria e Logs`, `Administração do Painel` e `Referência e apoio`.
+- O topo da aplicação exibe a area atual para reduzir troca de contexto durante o turno.
+- `Wiki / Manual` e `Normas` permanecem acessiveis, mas ficam rebaixados como apoio e nao como fluxo principal.
