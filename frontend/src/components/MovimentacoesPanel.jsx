@@ -28,6 +28,96 @@ const UNIDADES_DESTINO = [
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CADASTRO_SALA_UI_STATE_KEY = "cjm_cadastro_sala_ui_v1";
 const TOMBAMENTO_4_DIGITS_RE = /^\d{4}$/;
+const MOV_TYPE_META = {
+  TRANSFERENCIA: {
+    label: "Transferência",
+    tone: "violet",
+    summary: "Muda a carga do bem entre unidades. Requer unidade de destino e termo formal.",
+    checklist: ["Selecionar unidade de destino", "Informar termo de referência", "Executar somente fora de inventário ativo"],
+  },
+  CAUTELA_SAIDA: {
+    label: "Cautela de saída",
+    tone: "amber",
+    summary: "Não muda a carga. Requer detentor temporário e destino da cautela ou marcação Externo.",
+    checklist: ["Selecionar detentor temporário", "Informar destino da cautela ou Externo", "Registrar termo e previsão de devolução"],
+  },
+  CAUTELA_RETORNO: {
+    label: "Retorno de cautela",
+    tone: "emerald",
+    summary: "Encerra a cautela ativa e confirma se o responsável patrimonial deve permanecer o mesmo.",
+    checklist: ["Informar termo de referência", "Revisar data efetiva, se houver", "Confirmar manutenção do responsável, quando aplicável"],
+  },
+};
+
+const TONE_STYLES = {
+  slate: {
+    badge: "border-slate-200 bg-slate-50 text-slate-700",
+    panel: "border-slate-200 bg-white",
+    accent: "bg-slate-500",
+  },
+  violet: {
+    badge: "border-violet-200 bg-violet-50 text-violet-700",
+    panel: "border-violet-200 bg-violet-50/40",
+    accent: "bg-violet-500",
+  },
+  amber: {
+    badge: "border-amber-200 bg-amber-50 text-amber-800",
+    panel: "border-amber-200 bg-amber-50/40",
+    accent: "bg-amber-500",
+  },
+  emerald: {
+    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    panel: "border-emerald-200 bg-emerald-50/40",
+    accent: "bg-emerald-500",
+  },
+  rose: {
+    badge: "border-rose-200 bg-rose-50 text-rose-700",
+    panel: "border-rose-200 bg-rose-50/40",
+    accent: "bg-rose-500",
+  },
+};
+
+function cx(...parts) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function OperationalBadge({ tone = "slate", children }) {
+  const styles = TONE_STYLES[tone] || TONE_STYLES.slate;
+  return (
+    <span className={cx("inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold", styles.badge)}>
+      {children}
+    </span>
+  );
+}
+
+function OperationalCard({ title, subtitle, tone = "slate", children, action = null, className = "" }) {
+  const styles = TONE_STYLES[tone] || TONE_STYLES.slate;
+  return (
+    <section className={cx("rounded-2xl border p-4 shadow-sm", styles.panel, className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className={cx("h-2.5 w-2.5 rounded-full", styles.accent)} />
+            <h3 className="font-[Space_Grotesk] text-base font-semibold text-slate-900">{title}</h3>
+          </div>
+          {subtitle ? <p className="text-xs leading-5 text-slate-600">{subtitle}</p> : null}
+        </div>
+        {action}
+      </div>
+      {children ? <div className="mt-4">{children}</div> : null}
+    </section>
+  );
+}
+
+function SummaryStat({ label, value, tone = "slate" }) {
+  const styles = TONE_STYLES[tone] || TONE_STYLES.slate;
+  return (
+    <div className={cx("rounded-2xl border px-4 py-3", styles.panel)}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
 
 function normalizeTombamentoInput(raw) {
   if (raw == null) return "";
@@ -223,6 +313,39 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
     }
     return "Retorno de cautela encerra a cautela (requer termo; data efetiva e opcional). Ao confirmar, o sistema pergunta se deve manter o mesmo responsavel patrimonial.";
   }, [movPayload.tipoMovimentacao]);
+
+  const movTypeMeta = useMemo(
+    () => MOV_TYPE_META[movPayload.tipoMovimentacao] || MOV_TYPE_META.TRANSFERENCIA,
+    [movPayload.tipoMovimentacao],
+  );
+
+  const permissionMeta = useMemo(() => {
+    if (canExecuteOperacional) {
+      return { label: "Execução direta", tone: "emerald", help: "Seu perfil pode executar a ação imediatamente." };
+    }
+    if (canRequestOperacional) {
+      return { label: "Fluxo com aprovação", tone: "amber", help: "Seu perfil envia a ação para aprovação administrativa." };
+    }
+    return { label: "Sem permissão", tone: "rose", help: "Seu perfil não pode executar nem solicitar esta ação." };
+  }, [canExecuteOperacional, canRequestOperacional]);
+
+  const movQueueSummary = useMemo(() => {
+    const total = movQueueItems.length;
+    const origemRegularizacao = movQueueItems.filter((item) => item.origemRegularizacaoContagemId).length;
+    return {
+      total,
+      manual: total - origemRegularizacao,
+      regularizacao: origemRegularizacao,
+    };
+  }, [movQueueItems]);
+
+  const cadastroQueueSummary = useMemo(() => {
+    const total = loteItens.length;
+    const divergentes = loteItens.filter((item) => item.divergenciaUnidade).length;
+    const pendentes = loteItens.filter((item) => !item.salvo && !item.pendenteAprovacao && !item.erro).length;
+    const aprovacao = loteItens.filter((item) => item.pendenteAprovacao).length;
+    return { total, divergentes, pendentes, aprovacao };
+  }, [loteItens]);
 
   useEffect(() => {
     let cancelled = false;
@@ -932,33 +1055,98 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
 
   return (
     <section className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">
+      <header className="space-y-3">
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold text-slate-900">
           {showCadastroSala ? "Cadastrar bens por Endereço" : "Movimentações"}
         </h2>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="max-w-3xl text-sm text-slate-600">
           {showCadastroSala
             ? "Regularizacao em lote por endereço, com leitura por scanner/camera e confirmacao de divergencias."
             : helperText}
         </p>
+        <div className="flex flex-wrap gap-2">
+          <OperationalBadge tone={showCadastroSala ? "violet" : movTypeMeta.tone}>
+            {showCadastroSala ? "Cadastro por endereço" : movTypeMeta.label}
+          </OperationalBadge>
+          <OperationalBadge tone={permissionMeta.tone}>{permissionMeta.label}</OperationalBadge>
+          {showCadastroSala ? (
+            <OperationalBadge tone={selectedLocal ? "emerald" : "amber"}>
+              {selectedLocal ? `Destino ativo: ${selectedLocal.nome}` : "Selecione o endereço de destino"}
+            </OperationalBadge>
+          ) : (
+            <OperationalBadge tone={movQueueItems.length ? "emerald" : "slate"}>
+              Fila pronta: {movQueueItems.length}
+            </OperationalBadge>
+          )}
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <SummaryStat
+            label={showCadastroSala ? "Fila do lote" : "Fila operacional"}
+            value={showCadastroSala ? `${cadastroQueueSummary.total} item(ns)` : `${movQueueSummary.total} item(ns)`}
+            tone={showCadastroSala ? "violet" : movTypeMeta.tone}
+          />
+          <SummaryStat
+            label={showCadastroSala ? "Divergências" : "Origem regularização"}
+            value={showCadastroSala ? `${cadastroQueueSummary.divergentes} item(ns)` : `${movQueueSummary.regularizacao} item(ns)`}
+            tone="amber"
+          />
+          <SummaryStat
+            label={showCadastroSala ? "Pendentes" : "Fluxo atual"}
+            value={
+              showCadastroSala
+                ? `${cadastroQueueSummary.pendentes + cadastroQueueSummary.aprovacao} item(ns)`
+                : movTypeMeta.label
+            }
+            tone={showCadastroSala ? "emerald" : permissionMeta.tone}
+          />
+        </div>
       </header>
 
       {showMovimentacaoForm ? (
-        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="font-semibold">Movimentar bem</h3>
-          <p className="mt-1 text-xs text-slate-600">
-            Use modo individual para um item ou modo lote para processar varios tombamentos com o mesmo termo e parametros.
-            Durante inventario ativo, transferencias continuam bloqueadas (Art. 183).
-          </p>
-          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <article className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-[Space_Grotesk] text-lg font-semibold text-slate-900">Movimentar bem</h3>
+              <p className="mt-1 text-xs text-slate-600">
+                Primeiro escolha o tipo, depois monte a fila e só então execute. Durante inventário ativo, transferências continuam bloqueadas (Art. 183).
+              </p>
+            </div>
+            <OperationalBadge tone={movTypeMeta.tone}>{movTypeMeta.label}</OperationalBadge>
+          </div>
+          <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <strong>Aviso operacional (GEAFIN/SEI):</strong> a efetivação oficial de transferência/cautela exige os procedimentos próprios
             no GEAFIN e no SEI (termo, tramitação e assinatura). Este módulo registra a movimentação para fins de controle e informação
             interna do sistema patrimonial.
           </div>
 
-          <form onSubmit={onMovSubmit} className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-3 lg:grid-cols-3">
+            <OperationalCard title="Modo ativo" subtitle={movTypeMeta.summary} tone={movTypeMeta.tone} className="bg-white">
+              <div className="space-y-2">
+                {movTypeMeta.checklist.map((item) => (
+                  <div key={item} className="flex gap-2 text-sm text-slate-700">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-slate-400" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </OperationalCard>
+            <OperationalCard title="Permissão" subtitle={permissionMeta.help} tone={permissionMeta.tone} className="bg-white">
+              <p className="text-sm text-slate-700">
+                A fila atual tem <strong>{movQueueSummary.total}</strong> item(ns), sendo <strong>{movQueueSummary.regularizacao}</strong> vindo(s) da regularização.
+              </p>
+            </OperationalCard>
+            <OperationalCard title="Execução" subtitle="A mesma ação vale para um item ou vários itens na fila." className="bg-white">
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                <SummaryStat label="Total" value={movQueueSummary.total} tone="slate" />
+                <SummaryStat label="Manual" value={movQueueSummary.manual} tone="slate" />
+                <SummaryStat label="Regularização" value={movQueueSummary.regularizacao} tone="emerald" />
+              </div>
+            </OperationalCard>
+          </div>
+
+          <form onSubmit={onMovSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs text-slate-600">Tipo</span>
+              <span className="text-xs text-slate-600">Tipo da ação</span>
               <select
                 value={movPayload.tipoMovimentacao}
                 onChange={(event) => setMovField("tipoMovimentacao", event.target.value)}
@@ -967,14 +1155,14 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
               >
                 {MOV_TYPES.map((type) => (
                   <option key={type} value={type}>
-                    {type}
+                    {MOV_TYPE_META[type]?.label || type}
                   </option>
                 ))}
               </select>
             </label>
 
-            <div className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-600">Fila de bens (adicionar por tombamento)</span>
+            <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Fila de bens</span>
               <div className="mb-2 grid gap-2 sm:max-w-xs">
                 <label className="space-y-1">
                   <span className="text-xs text-slate-600">Modo câmera</span>
@@ -995,7 +1183,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   value={movQueueInput}
                   onChange={(event) => setMovQueueInput(event.target.value)}
                   onKeyDown={handleMovQueueKeyDown}
-                  placeholder="Bipe/Digite tombamento (10) ou etiqueta (4) e clique Adicionar"
+                  placeholder="Bipe ou digite tombamento (10) ou etiqueta (4)"
                   className="min-w-[280px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                   disabled={movState.loading}
                 />
@@ -1013,7 +1201,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
                   className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100"
                   disabled={movState.loading}
                 >
-                  Abrir camera
+                  Abrir câmera
                 </button>
                 <button
                   type="button"
@@ -1280,7 +1468,7 @@ export default function MovimentacoesPanel({ section = "movimentacoes" }) {
       ) : null}
 
       {showCadastroSala ? (
-        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <article className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 shadow-sm">
           <h3 className="font-semibold">Cadastrar bens por Endereço (regularizacao em lote)</h3>
           <p className="mt-1 text-xs text-slate-600">
             Selecione unidade e endereço de destino, bipa os itens encontrados (teclado/scanner/camera) e salve em lote.

@@ -6,6 +6,18 @@ Funcao no sistema: explicar cautela vs transferencia e como manter evidencia aud
 
 # Movimentações: cautela x transferência
 
+## Atualização 2026-03-08 - hierarquia operacional da tela
+
+A tela **Movimentações** foi reorganizada para reduzir carga cognitiva na primeira dobra:
+
+- o topo agora destaca o **tipo ativo**, o **nível de permissão** e o **estado da fila**;
+- o fluxo principal foi explicitado em três passos visuais:
+  1. escolher o tipo e montar a fila;
+  2. preencher os campos obrigatórios do modo ativo;
+  3. executar a movimentação;
+- cards de apoio passaram a resumir os requisitos do modo ativo, a permissão efetiva do operador e o estado rápido da fila;
+- o objetivo da mudança é acelerar a operação diária sem alterar payload, regra de compliance ou contratos do backend.
+
 ## Onde executar no sistema
 
 Na UI, use a aba **Movimentações**.
