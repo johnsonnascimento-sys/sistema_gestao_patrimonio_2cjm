@@ -22,15 +22,13 @@ import RegularizationPanel from "./RegularizationPanel.jsx";
 import {
     StatusBadge,
 } from "./inventory/InventoryAdminUi.jsx";
-import InventoryInterunitDivergencesPanel from "./inventory/InventoryInterunitDivergencesPanel.jsx";
-import InventoryHistoryPanel from "./inventory/InventoryHistoryPanel.jsx";
-import InventoryLiveMonitoringPanel from "./inventory/InventoryLiveMonitoringPanel.jsx";
-import InventoryUncountedAssetsPanel from "./inventory/InventoryUncountedAssetsPanel.jsx";
 import InventoryEventSetupPanel from "./inventory/InventoryEventSetupPanel.jsx";
 import InventoryAccuracyPanel from "./inventory/InventoryAccuracyPanel.jsx";
 import InventoryActiveEventPanel from "./inventory/InventoryActiveEventPanel.jsx";
 import InventorySecondarySetupSection from "./inventory/InventorySecondarySetupSection.jsx";
 import InventoryCriticalActionModal from "./inventory/InventoryCriticalActionModal.jsx";
+import InventoryAdminHeader from "./inventory/InventoryAdminHeader.jsx";
+import InventoryAdminOperationalColumn from "./inventory/InventoryAdminOperationalColumn.jsx";
 
 function formatUnidade(id) {
     if (id === 1) return "1 (1a Aud)";
@@ -955,37 +953,20 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
     return (
         <div className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-                <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Inventário - Administração</h2>
-                        <p className="mt-2 text-sm text-slate-600">
-                            Cockpit operacional para evento ativo, retomada de contagem e monitoramento contínuo.
-                        </p>
-                    </div>
-                    <StatusBadge
-                        label={hasActiveEvent ? "Evento em andamento" : "Sem evento em andamento"}
-                        tone={hasActiveEvent ? "amber" : "slate"}
-                    />
-                </header>
-
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                    <StatusBadge label={hasActiveEvent ? (eventoAtivo?.codigoEvento || "-") : "Abra um novo inventário"} tone="violet" mono />
-                    <StatusBadge label={`Escopo: ${hasActiveEvent ? activeEventScope : escopoTipo}`} />
-                    <StatusBadge label={`Modo: ${hasActiveEvent ? activeEventMode : modoContagem}`} tone="sky" />
-                    <StatusBadge label={`Unidade: ${hasActiveEvent ? activeEventUnitLabel : (unidadeInventariadaId ? formatUnidade(Number(unidadeInventariadaId)) : "A definir")}`} tone="emerald" />
-                    <StatusBadge label={hasActiveEvent ? `Responsável: ${activeEventOpenedBy}` : "Prepare o próximo ciclo"} tone="slate" />
-                </div>
-
-                {uiError && (
-                    <p className="mt-4 rounded-xl border border-rose-300/40 bg-rose-50 p-3 text-sm text-rose-700">
-                        {uiError}
-                    </p>
-                )}
-                {uiInfo && (
-                    <p className="mt-4 rounded-xl border border-emerald-300/40 bg-emerald-50 p-3 text-sm text-emerald-700">
-                        {uiInfo}
-                    </p>
-                )}
+                <InventoryAdminHeader
+                    hasActiveEvent={hasActiveEvent}
+                    eventoCodigo={eventoAtivo?.codigoEvento || ""}
+                    activeEventScope={activeEventScope}
+                    escopoTipo={escopoTipo}
+                    activeEventMode={activeEventMode}
+                    modoContagem={modoContagem}
+                    activeEventUnitLabel={activeEventUnitLabel}
+                    unidadeInventariadaId={unidadeInventariadaId}
+                    activeEventOpenedBy={activeEventOpenedBy}
+                    uiError={uiError}
+                    uiInfo={uiInfo}
+                    formatUnidade={formatUnidade}
+                />
 
                 <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(22rem,24rem)_minmax(0,1fr)]">
                     <InventoryActiveEventPanel
@@ -1007,80 +988,63 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                         newInventoryAndSuggestions={newInventoryAndSuggestions}
                     />
 
-                    <div className="space-y-4">
-                            <InventoryUncountedAssetsPanel
-                                query={naoLocalizadosQuery}
-                                summary={naoLocalizadosSummary}
-                                percentualCobertura={percentualCoberturaNaoLocalizados}
-                                groups={naoLocalizadosGroups}
-                                visibleByGroup={naoLocalizadosVisibleByGroup}
-                                onRefresh={() => naoLocalizadosQuery.refetch()}
-                                onOpenInventoryCount={openInventoryCountForGroup}
-                                onOpenAssetDetail={openAssetDetailFromRow}
-                                onOpenAssetsExplorerBySku={openAssetsExplorerBySku}
-                                onExpandGroup={expandNaoLocalizadosGroup}
-                                formatPercent={formatPercent}
-                                formatUnidade={formatUnidade}
-                            />
-                        <InventoryLiveMonitoringPanel
-                            visible={selectedEventoIdFinal}
-                            isAdmin={isAdmin}
-                            query={monitoramentoQuery}
-                            rows={monitoramentoRows}
-                            totalA={monitoramentoTotalA}
-                            totalB={monitoramentoTotalB}
-                            totalEsperados={monitoramentoTotalEsperados}
-                            totalDesempate={monitoramentoTotalDesempate}
-                        />
-
-                        <InventoryInterunitDivergencesPanel
-                            query={divergenciasInterunidadesQuery}
-                            interDaMinhaUnidadeFora={interDaMinhaUnidadeFora}
-                            interOutrasNaMinha={interOutrasNaMinha}
-                            interPendentes={interPendentes}
-                            interRegularizadas={interRegularizadas}
-                            interEmAndamento={interEmAndamento}
-                            interEncerrado={interEncerrado}
-                            interStatusInventario={interStatusInventario}
-                            setInterStatusInventario={setInterStatusInventario}
-                            interUnidadeRelacionada={interUnidadeRelacionada}
-                            setInterUnidadeRelacionada={setInterUnidadeRelacionada}
-                            interCodigoFiltro={interCodigoFiltro}
-                            setInterCodigoFiltro={setInterCodigoFiltro}
-                            interSalaFiltro={interSalaFiltro}
-                            setInterSalaFiltro={setInterSalaFiltro}
-                            clearInterFilters={clearInterFilters}
-                            isAdmin={isAdmin}
-                            formatUnidade={formatUnidade}
-                            divergenciasInterTotal={divergenciasInterTotal}
-                            divergenciasInterItems={divergenciasInterItems}
-                            inventoryStatusPillClass={inventoryStatusPillClass}
-                            divergenceTypePillClass={divergenceTypePillClass}
-                            regularizacaoPillClass={regularizacaoPillClass}
-                            formatDateTimeShort={formatDateTimeShort}
-                        />
-
-                        <InventoryHistoryPanel
-                            historicoEventos={historicoEventos}
-                            hasActiveEvent={hasActiveEvent}
-                            editingEventoId={editingEventoId}
-                            editForm={editForm}
-                            setEditForm={setEditForm}
-                            isAdmin={isAdmin}
-                            atualizarEventoMutPending={atualizarEventoMut.isPending}
-                            setEditingEventoId={setEditingEventoId}
-                            onSaveEditEvento={saveEditEvento}
-                            onLoadRelatorio={(ev) => {
-                                setSelectedEventoId(ev.id);
-                                setRelatorioEventoId(ev.id);
-                                setUiInfo(`Relatório carregado para o evento ${ev.codigoEvento}.`);
-                            }}
-                            onReopenEvento={(ev) => onUpdateStatus("EM_ANDAMENTO", ev.id)}
-                            onHandleEditEvento={handleEditEvento}
-                            onHandleDeleteEvento={handleDeleteEvento}
-                            formatUnidade={formatUnidade}
-                        />
-                    </div>
+                    <InventoryAdminOperationalColumn
+                        naoLocalizadosQuery={naoLocalizadosQuery}
+                        naoLocalizadosSummary={naoLocalizadosSummary}
+                        percentualCoberturaNaoLocalizados={percentualCoberturaNaoLocalizados}
+                        naoLocalizadosGroups={naoLocalizadosGroups}
+                        naoLocalizadosVisibleByGroup={naoLocalizadosVisibleByGroup}
+                        openInventoryCountForGroup={openInventoryCountForGroup}
+                        openAssetDetailFromRow={openAssetDetailFromRow}
+                        openAssetsExplorerBySku={openAssetsExplorerBySku}
+                        expandNaoLocalizadosGroup={expandNaoLocalizadosGroup}
+                        formatPercent={formatPercent}
+                        formatUnidade={formatUnidade}
+                        selectedEventoIdFinal={selectedEventoIdFinal}
+                        isAdmin={isAdmin}
+                        monitoramentoQuery={monitoramentoQuery}
+                        monitoramentoRows={monitoramentoRows}
+                        monitoramentoTotalA={monitoramentoTotalA}
+                        monitoramentoTotalB={monitoramentoTotalB}
+                        monitoramentoTotalEsperados={monitoramentoTotalEsperados}
+                        monitoramentoTotalDesempate={monitoramentoTotalDesempate}
+                        divergenciasInterunidadesQuery={divergenciasInterunidadesQuery}
+                        interDaMinhaUnidadeFora={interDaMinhaUnidadeFora}
+                        interOutrasNaMinha={interOutrasNaMinha}
+                        interPendentes={interPendentes}
+                        interRegularizadas={interRegularizadas}
+                        interEmAndamento={interEmAndamento}
+                        interEncerrado={interEncerrado}
+                        interStatusInventario={interStatusInventario}
+                        setInterStatusInventario={setInterStatusInventario}
+                        interUnidadeRelacionada={interUnidadeRelacionada}
+                        setInterUnidadeRelacionada={setInterUnidadeRelacionada}
+                        interCodigoFiltro={interCodigoFiltro}
+                        setInterCodigoFiltro={setInterCodigoFiltro}
+                        interSalaFiltro={interSalaFiltro}
+                        setInterSalaFiltro={setInterSalaFiltro}
+                        clearInterFilters={clearInterFilters}
+                        divergenciasInterTotal={divergenciasInterTotal}
+                        divergenciasInterItems={divergenciasInterItems}
+                        inventoryStatusPillClass={inventoryStatusPillClass}
+                        divergenceTypePillClass={divergenceTypePillClass}
+                        regularizacaoPillClass={regularizacaoPillClass}
+                        formatDateTimeShort={formatDateTimeShort}
+                        historicoEventos={historicoEventos}
+                        hasActiveEvent={hasActiveEvent}
+                        editingEventoId={editingEventoId}
+                        editForm={editForm}
+                        setEditForm={setEditForm}
+                        atualizarEventoMutPending={atualizarEventoMut.isPending}
+                        setEditingEventoId={setEditingEventoId}
+                        saveEditEvento={saveEditEvento}
+                        setSelectedEventoId={setSelectedEventoId}
+                        setRelatorioEventoId={setRelatorioEventoId}
+                        setUiInfo={setUiInfo}
+                        onUpdateStatus={onUpdateStatus}
+                        handleEditEvento={handleEditEvento}
+                        handleDeleteEvento={handleDeleteEvento}
+                    />
                 </div>
             </section>
 

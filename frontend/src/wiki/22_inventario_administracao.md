@@ -293,3 +293,4 @@ Detalhe técnico relevante:
 - o card principal `Evento ativo / Novo inventário` também passou a compor a tela por componente dedicado, mantendo o cockpit principal focado em orquestração e não em JSX inline extenso.
 - a `Área secundária` e o modal de confirmação forte das ações críticas também passaram a compor a tela por componentes dedicados, concluindo a extração dos blocos mais extensos do cockpit administrativo.
 - a microcopy do estado sem evento ativo foi ajustada para orientar a abertura do próximo ciclo sem depender de leitura externa.
+- o cabeçalho operacional e a coluna de retomada/monitoramento também passaram a compor a tela por componentes dedicados, reduzindo ainda mais o tamanho do painel raiz.
