@@ -309,6 +309,8 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
   const offline = useOfflineSync();
   const appliedPresetNonceRef = useRef(null);
   const skipNextUnitResetRef = useRef(false);
+  const presetOriginLabel = navigationPreset?.originLabel ? String(navigationPreset.originLabel) : "";
+  const presetOriginContext = navigationPreset?.originContext ? String(navigationPreset.originContext) : "";
 
   const initialUi = loadInventoryUiState();
 
