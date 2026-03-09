@@ -102,7 +102,7 @@ export default function InventoryActiveEventPanel({
           </div>
         ) : (
           <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Sem inventário ativo. Use o formulário de criação abaixo.
+            Sem inventário ativo. Abra o próximo ciclo pelo bloco abaixo e use o código gerado como referência operacional.
           </p>
         )}
 
