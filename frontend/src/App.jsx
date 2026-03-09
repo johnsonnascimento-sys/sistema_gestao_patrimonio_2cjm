@@ -24,6 +24,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import {
   criarAvaliacaoInservivel,
   criarDocumento,
+  getHealth,
   listarAvaliacoesInservivel,
   listarBens,
   listarEventosInventario,
@@ -116,6 +117,18 @@ const DEFAULT_OPEN_GROUPS = NAV_STRUCTURE.reduce((acc, entry) => {
 }, {});
 const FRONTEND_VERSION_LABEL = `Versao do sistema v${frontendPackage.version}`;
 const INVENTARIO_REDUCED_MODE_KEY = "cjm_inventario_reduced_mode_v1";
+
+function formatBuildTimestamp(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Data indisponivel";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(parsed);
+}
 
 function NavIcon({ id }) {
   const cls = "h-4 w-4";
@@ -346,6 +359,14 @@ function AppShell() {
     },
   });
 
+  const healthMetadataQuery = useQuery({
+    queryKey: ["appHealthMetadata"],
+    queryFn: getHealth,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+    retry: false,
+  });
+
   const inventoryStatus = eventosQuery.isLoading
     ? "CARREGANDO"
     : (eventosQuery.data || []).length
@@ -353,6 +374,8 @@ function AppShell() {
       : "SEM_EVENTO";
   const activeEvents = eventosQuery.data || [];
   const activeEventCode = activeEvents[0]?.codigoEvento || null;
+  const publishedCommit = String(healthMetadataQuery.data?.git?.commit || "").trim() || "Commit indisponivel";
+  const publishedBuildAt = formatBuildTimestamp(healthMetadataQuery.data?.build?.timestamp);
 
   const isTabAllowed = useMemo(
     () => (tabId) => {
@@ -674,6 +697,8 @@ function AppShell() {
                         <div className="px-3 py-2">
                           <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Versao publicada</p>
                           <p className="mt-1 text-xs font-medium text-slate-500">{FRONTEND_VERSION_LABEL}</p>
+                          <p className="mt-1 font-mono text-[11px] text-slate-500">{publishedCommit}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">{publishedBuildAt}</p>
                         </div>
                       ) : null}
                     </div>
@@ -847,6 +872,8 @@ function AppShell() {
                               <div className="px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Versao publicada</p>
                                 <p className="mt-1 text-xs font-medium text-slate-500">{FRONTEND_VERSION_LABEL}</p>
+                                <p className="mt-1 font-mono text-[11px] text-slate-500">{publishedCommit}</p>
+                                <p className="mt-1 text-[11px] text-slate-400">{publishedBuildAt}</p>
                               </div>
                             ) : null}
                           </div>
