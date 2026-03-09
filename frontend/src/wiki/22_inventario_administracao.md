@@ -138,6 +138,8 @@ O painel mostra:
 - percentual de cobertura (`contados / esperados`);
 - lista agrupada por endereço, ordenada pelos locais com mais faltantes.
 
+Nesta fase da decomposição, o bloco `Bens não contados` passou a ter componente dedicado (`InventoryUncountedAssetsPanel`), mantendo os mesmos atalhos para `Inventário - Contagem` e `Consulta de Bens`.
+
 Cada grupo traz:
 
 - nome do endereço esperado;

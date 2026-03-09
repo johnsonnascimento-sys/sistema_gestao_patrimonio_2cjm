@@ -31,6 +31,7 @@ import {
     TopRoomsCard,
     TrendListCard,
 } from "./inventory/InventoryAdminUi.jsx";
+import InventoryUncountedAssetsPanel from "./inventory/InventoryUncountedAssetsPanel.jsx";
 
 function formatUnidade(id) {
     if (id === 1) return "1 (1a Aud)";
@@ -1593,7 +1594,22 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
                     <div className="min-w-0 flex flex-col gap-4">
                         {selectedEventoIdFinal ? (
-                            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+                            <>
+                            <InventoryUncountedAssetsPanel
+                                query={naoLocalizadosQuery}
+                                summary={naoLocalizadosSummary}
+                                percentualCobertura={percentualCoberturaNaoLocalizados}
+                                groups={naoLocalizadosGroups}
+                                visibleByGroup={naoLocalizadosVisibleByGroup}
+                                onRefresh={() => naoLocalizadosQuery.refetch()}
+                                onOpenInventoryCount={openInventoryCountForGroup}
+                                onOpenAssetDetail={openAssetDetailFromRow}
+                                onOpenAssetsExplorerBySku={openAssetsExplorerBySku}
+                                onExpandGroup={expandNaoLocalizadosGroup}
+                                formatPercent={formatPercent}
+                                formatUnidade={formatUnidade}
+                            />
+                            {false && <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div>
                                         <h4 className="text-sm font-semibold">Bens não contados</h4>
@@ -1721,7 +1737,8 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                         })}
                                     </div>
                                 )}
-                            </div>
+                            </div>}
+                            </>
                         ) : null}
                         {selectedEventoIdFinal && (
                             <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
