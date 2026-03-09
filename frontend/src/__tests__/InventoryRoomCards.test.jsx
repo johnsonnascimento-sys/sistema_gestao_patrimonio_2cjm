@@ -4,9 +4,12 @@
  * Funcao no sistema: validar a extracao dos cards operacionais do Inventario - Contagem.
  */
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import InventoryAddressOverviewCard from "../components/inventory/InventoryAddressOverviewCard.jsx";
 import InventoryCountContextCard from "../components/inventory/InventoryCountContextCard.jsx";
+import InventoryExceptionPanels from "../components/inventory/InventoryExceptionPanels.jsx";
+import InventoryExpectedAssetsPanel from "../components/inventory/InventoryExpectedAssetsPanel.jsx";
+import InventoryPrimaryReadPanel from "../components/inventory/InventoryPrimaryReadPanel.jsx";
 
 describe("InventoryRoom cards extraidos", () => {
   it("renderiza o resumo do contexto operacional da contagem", () => {
@@ -58,5 +61,168 @@ describe("InventoryRoom cards extraidos", () => {
     expect(screen.getByText("137")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("renderiza o painel principal de leitura com contexto e scanner", () => {
+    render(
+      <InventoryPrimaryReadPanel
+        canRegister
+        canRegisterHint="Leitura liberada para este contexto."
+        roomPendingOfflineCount={2}
+        selectedEventoId="evt-1"
+        setSelectedEventoId={vi.fn()}
+        eventos={[{ id: "evt-1", codigoEvento: "INV-2026-010", modoContagem: "PADRAO", escopoTipo: "UNIDADE", unidadeInventariadaId: 3 }]}
+        selectedEventoIdFinal="evt-1"
+        eventoAtivo={{ codigoEvento: "INV-2026-010", modoContagem: "PADRAO", escopoTipo: "UNIDADE", unidadeInventariadaId: 3 }}
+        formatModeLabel={() => "Padrão"}
+        modoContagemEvento="PADRAO"
+        eventoSelecionadoIncompativel={false}
+        sessaoContagemLoading={false}
+        sessaoDesignado
+        rodadaSelecionada="A"
+        setRodadaSelecionada={vi.fn()}
+        rodadasPermitidas={["A", "B"]}
+        podeDesempate={false}
+        unidadeEncontradaId="3"
+        setUnidadeEncontradaId={vi.fn()}
+        formatUnidade={(value) => `${value} (Teste)`}
+        selectedLocalId="loc-1"
+        setSelectedLocalId={vi.fn()}
+        locaisOptions={[{ id: "loc-1", nome: "Sala 401" }]}
+        locaisLoading={false}
+        localIdsPermitidosEvento={null}
+        setSalaEncontrada={vi.fn()}
+        registerScan={(event) => event.preventDefault()}
+        scannerInputRef={{ current: null }}
+        scannerValue=""
+        setScannerValue={vi.fn()}
+        normalizeTombamentoInput={(value) => value}
+        handleScannerInputKeyDown={vi.fn()}
+        scannerMode="single"
+        setScannerMode={vi.fn()}
+        setShowScanner={vi.fn()}
+        salaEncontrada="Sala 401"
+        showScanner={false}
+        cameraScanPreview=""
+        handleScanValue={vi.fn()}
+        lastScans={[
+          {
+            id: "scan-1",
+            numeroTombamento: "1290001788",
+            when: "agora",
+            divergente: false,
+            statusLabel: "Conforme",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Leitura principal")).toBeInTheDocument();
+    expect(screen.getByText("Fila do endereço: 2")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Ex.: 1290001788")).toBeInTheDocument();
+    expect(screen.getByText("Últimos registros")).toBeInTheDocument();
+    expect(screen.getByText("1290001788")).toBeInTheDocument();
+  });
+
+  it("renderiza o painel de bens esperados com filtros e resumo agrupado", () => {
+    render(
+      <InventoryExpectedAssetsPanel
+        expectedAssetsFilter="ALL"
+        setExpectedAssetsFilter={vi.fn()}
+        totalEsperadosEndereco={3}
+        totalConferidosEndereco={2}
+        totalFaltantesEndereco={1}
+        bensSalaItems={[
+          {
+            id: "bem-1",
+            numeroTombamento: "1290001788",
+            nomeResumo: "Notebook",
+            catalogoDescricao: "Notebook Dell",
+            unidadeDonaId: 3,
+            codigoCatalogo: "37201",
+          },
+        ]}
+        bensSalaLoading={false}
+        bensSalaError={null}
+        showItemPhotoList={false}
+        setShowItemPhotoList={vi.fn()}
+        showCatalogPhotoList={false}
+        setShowCatalogPhotoList={vi.fn()}
+        isOnline
+        salaEncontrada="Sala 401"
+        filteredGrouped={[
+          {
+            catalogoBemId: "cat-1",
+            catalogoDescricao: "Notebook Dell",
+            items: [
+              {
+                id: "bem-1",
+                numeroTombamento: "1290001788",
+                nomeResumo: "Notebook",
+                catalogoDescricao: "Notebook Dell",
+                unidadeDonaId: 3,
+                codigoCatalogo: "37201",
+              },
+            ],
+          },
+        ]}
+        foundSet={new Set(["1290001788"])}
+        getConferenciaMeta={() => ({ encontrado: true, divergente: false, fonte: "SERVIDOR" })}
+        formatUnidade={(value) => `${value} (Teste)`}
+        getFotoUrl={(value) => value}
+      />,
+    );
+
+    expect(screen.getByText("Bens esperados do endereço")).toBeInTheDocument();
+    expect(screen.getByText("Esperados 3")).toBeInTheDocument();
+    expect(screen.getByText("Conferidos 2")).toBeInTheDocument();
+    expect(screen.getByText("Faltantes 1")).toBeInTheDocument();
+    expect(screen.getByText("Notebook")).toBeInTheDocument();
+  });
+
+  it("renderiza os paineis de excecao e terceiros registrados", () => {
+    render(
+      <InventoryExceptionPanels
+        canRegisterTerceiro
+        onRegistrarBemTerceiro={(event) => event.preventDefault()}
+        terceiroDescricao="Notebook externo"
+        setTerceiroDescricao={vi.fn()}
+        terceiroProprietario="Empresa XPTO"
+        setTerceiroProprietario={vi.fn()}
+        terceiroIdentificador="EXT-001"
+        setTerceiroIdentificador={vi.fn()}
+        registrarBemTerceiroMut={{ isPending: false, error: null }}
+        terceiroStatus={{ kind: "ok" }}
+        canRegisterNaoIdentificado
+        onRegistrarNaoIdentificado={(event) => event.preventDefault()}
+        naoIdDescricao="Cadeira azul sem tombo"
+        setNaoIdDescricao={vi.fn()}
+        naoIdLocalizacao="Sala 401"
+        setNaoIdLocalizacao={vi.fn()}
+        handleFotoNaoId={vi.fn()}
+        naoIdFotoBase64="data:image/png;base64,abc123"
+        registrarNaoIdentificadoMut={{ isPending: false, error: null }}
+        naoIdStatus={{ kind: "ok" }}
+        selectedEventoIdFinal="evt-1"
+        salaEncontrada="Sala 401"
+        isOnline
+        terceirosSalaLoading={false}
+        terceirosSalaItems={[
+          {
+            contagemId: "ct-1",
+            identificadorExterno: "EXT-001",
+            descricao: "Notebook externo",
+            proprietarioExterno: "Empresa XPTO",
+            encontradoEm: "2026-03-09T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Bem de terceiro")).toBeInTheDocument();
+    expect(screen.getByText("Bem sem identificação")).toBeInTheDocument();
+    expect(screen.getByText("Terceiros registrados")).toBeInTheDocument();
+    expect(screen.getAllByText("Foto anexada")).toHaveLength(2);
+    expect(screen.getByText("Empresa XPTO")).toBeInTheDocument();
   });
 });

@@ -20,10 +20,12 @@ import {
   getFotoUrl,
   getMinhaSessaoContagemInventario,
 } from "../services/apiClient.js";
-import BarcodeScanner from "./BarcodeScanner.jsx";
 import InventoryProgress from "./InventoryProgress.jsx";
 import InventoryAddressOverviewCard from "./inventory/InventoryAddressOverviewCard.jsx";
 import InventoryCountContextCard from "./inventory/InventoryCountContextCard.jsx";
+import InventoryExceptionPanels from "./inventory/InventoryExceptionPanels.jsx";
+import InventoryExpectedAssetsPanel from "./inventory/InventoryExpectedAssetsPanel.jsx";
+import InventoryPrimaryReadPanel from "./inventory/InventoryPrimaryReadPanel.jsx";
 import { filterExpectedAssetGroups } from "./inventory/expectedAssetsFilter.js";
 import { normalizeTombamentoInput } from "./inventory/inventoryInputUtils.js";
 const TOMBAMENTO_RE = /^\d{10}$/;
@@ -179,37 +181,6 @@ function DisclosureMetaBadge({ tone = "slate", children }) {
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cls}`}>
       {children}
     </span>
-  );
-}
-
-function FilterChipButton({ tone = "slate", active = false, children, onClick }) {
-  const activeCls = tone === "danger"
-    ? "border-rose-300 bg-rose-100 text-rose-800 shadow-sm"
-    : tone === "warning"
-      ? "border-amber-300 bg-amber-100 text-amber-900 shadow-sm"
-      : tone === "support"
-        ? "border-violet-300 bg-violet-100 text-violet-800 shadow-sm"
-        : tone === "success"
-          ? "border-emerald-300 bg-emerald-100 text-emerald-800 shadow-sm"
-          : "border-slate-300 bg-slate-100 text-slate-800 shadow-sm";
-  const idleCls = tone === "danger"
-    ? "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
-    : tone === "warning"
-      ? "border-amber-200 bg-white text-amber-800 hover:bg-amber-50"
-      : tone === "support"
-        ? "border-violet-200 bg-white text-violet-700 hover:bg-violet-50"
-        : tone === "success"
-          ? "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${active ? activeCls : idleCls}`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -1294,249 +1265,48 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
       />
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <article className="rounded-2xl border border-violet-200 bg-white p-3 shadow-sm md:p-4 lg:col-span-1">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-slate-900">Leitura principal</h3>
-              <p className="mt-1 text-xs text-slate-600">
-                Prepare o contexto e mantenha o foco na bipagem contínua do endereço atual.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-[11px]">
-              <StatusBadge tone={canRegister ? "success" : "warn"}>
-                {canRegister ? "Pronto para bipagem" : "Aguardando contexto"}
-              </StatusBadge>
-              <StatusBadge tone={roomPendingOfflineCount ? "warn" : "success"}>
-                Fila do endereço: {roomPendingOfflineCount}
-              </StatusBadge>
-            </div>
-          </div>
-          <h3 className="font-semibold">Endereço e scanner</h3>
-          <p className="mt-1 text-xs text-slate-600">
-            Selecione o endereço e registre tombamentos. Divergencias tocam alerta e viram ocorrencia (Art. 185).
-          </p>
-
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-600">Evento ativo</span>
-              <select
-                value={selectedEventoId}
-                onChange={(e) => setSelectedEventoId(String(e.target.value || ""))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              >
-                <option value="">
-                  {(eventosQuery.data || []).length
-                    ? "Selecione um evento ativo"
-                    : "Nenhum evento ativo em andamento"}
-                </option>
-                {(eventosQuery.data || []).map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {`${ev.codigoEvento || ev.id} - ${ev.modoContagem || "PADRAO"} - ${ev.escopoTipo || "UNIDADE"} - Unidade ${ev.unidadeInventariadaId ?? "GERAL"}`}
-                  </option>
-                ))}
-              </select>
-              {selectedEventoIdFinal ? (
-                <p className="text-[11px] text-slate-500">
-                  Evento aplicado: <strong>{eventoAtivo?.codigoEvento || selectedEventoIdFinal}</strong>{" "}
-                  ({eventoAtivo?.modoContagem || "PADRAO"} / {eventoAtivo?.escopoTipo || "UNIDADE"} / unidade {eventoAtivo?.unidadeInventariadaId ?? "GERAL"}).
-                </p>
-              ) : (
-                <p className="text-[11px] text-amber-700">
-                  Abra um evento na aba de Administração do Inventário para iniciar a contagem.
-                </p>
-              )}
-              {eventoSelecionadoIncompativel ? (
-                <p className="text-[11px] text-rose-700">
-                  Evento incompatível com a unidade encontrada selecionada. Escolha o evento da mesma unidade ou um evento GERAL.
-                </p>
-              ) : null}
-              {modoContagemEvento !== "PADRAO" && !sessaoContagemQuery.isLoading && !sessaoContagem?.designado ? (
-                <p className="text-[11px] text-rose-700">
-                  Usuario não designado para este evento em modo {modoContagemEvento}. Solicite ao admin sua designacao.
-                </p>
-              ) : null}
-            </label>
-            {modoContagemEvento !== "PADRAO" ? (
-              <label className="space-y-1">
-                <span className="text-xs text-slate-600">Rodada</span>
-                <select
-                  value={rodadaSelecionada}
-                  onChange={(e) => setRodadaSelecionada(String(e.target.value || "A"))}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  {rodadasPermitidas.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                  {sessaoContagem?.podeDesempate ? <option value="DESEMPATE">DESEMPATE</option> : null}
-                </select>
-              </label>
-            ) : null}
-            <label className="space-y-1">
-              <span className="text-xs text-slate-600">Unidade encontrada (1..4)</span>
-              <select
-                value={unidadeEncontradaId}
-                onChange={(e) => setUnidadeEncontradaId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              >
-                <option value="">Selecione</option>
-                <option value="1">{formatUnidade(1)}</option>
-                <option value="2">{formatUnidade(2)}</option>
-                <option value="3">{formatUnidade(3)}</option>
-                <option value="4">{formatUnidade(4)}</option>
-              </select>
-            </label>
-            <label className="space-y-1 md:col-span-2">
-              <span className="text-xs text-slate-600">Local cadastrado (Admin)</span>
-              <select
-                value={selectedLocalId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedLocalId(id);
-                  const local = (locaisOptions || []).find((l) => String(l.id) === String(id));
-                  if (local?.nome) setSalaEncontrada(String(local.nome));
-                }}
-                disabled={!unidadeEncontradaId || locaisQuery.isFetching || !!(localIdsPermitidosEvento && !locaisOptions.length)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:opacity-50"
-              >
-                <option value="">
-                  {!unidadeEncontradaId
-                    ? "Selecione a unidade encontrada primeiro"
-                    : locaisQuery.isFetching
-                      ? "Carregando locais..."
-                      : "Selecione um local"}
-                </option>
-                {(locaisOptions || []).map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nome}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-[11px] text-slate-500">
-                Este campo não e texto livre. O Admin cadastra os locais em "Operações API" (seção Locais).
-              </p>
-              {localIdsPermitidosEvento ? (
-                <p className="mt-1 text-[11px] text-amber-700">
-                  Este evento esta em escopo LOCAIS: apenas os endereços selecionados no evento podem ser usados.
-                </p>
-              ) : null}
-            </label>
-          </div>
-
-          <form onSubmit={registerScan} className="mt-4">
-            <label className="block space-y-1 mb-2">
-              <span className="text-xs text-slate-600">Bipar tombamento (10 dígitos)</span>
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">Leitura do tombamento</span>
-              <span className="block text-xs text-slate-500">Leia 10 dígitos ou etiqueta de 4 dígitos para abrir a identificação.</span>
-              <div className="grid gap-2 grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto]">
-                <input
-                  ref={scannerInputRef}
-                  value={scannerValue}
-                  onChange={(e) => setScannerValue(normalizeTombamentoInput(e.target.value))}
-                  onKeyDown={handleScannerInputKeyDown}
-                  placeholder="Ex.: 1290001788"
-                  inputMode="numeric"
-                  maxLength={10}
-                  autoComplete="off"
-                  className="col-span-1 w-full rounded-xl border border-violet-300 bg-violet-50 px-4 py-3 text-base font-semibold tracking-[0.08em] text-slate-900 shadow-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-100"
-                />
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setScannerMode("single"); setShowScanner(true); }}
-                    title="Câmera (Uma leitura)"
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-slate-800 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-violet-500"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setScannerMode("continuous"); setShowScanner(true); }}
-                    title="Câmera (Contínuo)"
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-slate-800 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-violet-500"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={!canRegister}
-                  className="col-span-2 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-50 md:col-span-1"
-                >
-                  Registrar
-                </button>
-              </div>
-            </label>
-            <div className="mt-3 grid gap-2 md:grid-cols-3">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                <span className="block font-semibold">Endereço ativo</span>
-                <span>{salaEncontrada || "Selecione um local cadastrado."}</span>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                <span className="block font-semibold">Status de registro</span>
-                <span>{canRegister ? "Leitura liberada para este contexto." : canRegisterHint}</span>
-              </div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <span className="block font-semibold">Modo da câmera</span>
-                <span>{scannerMode === "continuous" ? "Contínuo" : "Uma leitura por abertura"}</span>
-              </div>
-            </div>
-          </form>
-
-          {showScanner && (
-            <BarcodeScanner
-              continuous={scannerMode === "continuous"}
-              scanPreview={cameraScanPreview}
-              onClose={() => setShowScanner(false)}
-              onScan={(decodedText) => {
-                const cleaned = normalizeTombamentoInput(decodedText);
-                if (cleaned.length === 10 || cleaned.length === 4) {
-                  setScannerValue(cleaned);
-                  // Simula o envio do formulário programaticamente (para engatilhar a mesma lógica de registerScan)
-                  if (!canRegister) return;
-                  if (scannerMode === "single") setShowScanner(false);
-
-                  // Wrap in a setTimeout so the state update resolves before we submit the scan
-                  setTimeout(() => {
-                    handleScanValue(cleaned, { fromCamera: true });
-                  }, 50);
-                } else if (scannerMode === "single") {
-                  // Manteve a varredura se estiver contínuo
-                  setScannerValue(cleaned || decodedText);
-                }
-              }}
-            />
-          )}
-
-          {lastScans.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Últimos registros</p>
-                <span className="text-[11px] text-slate-500">Leituras recentes do operador</span>
-              </div>
-              <p className="text-xs uppercase tracking-widest text-slate-500">Últimos registros</p>
-              {lastScans.map((s) => (
-                <div key={s.id} className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono text-slate-900">{s.numeroTombamento}</span>
-                    <span className="text-slate-600">{s.when}</span>
-                  </div>
-                  <div className="mt-1 text-slate-600">
-                    {s.divergente ? (
-                      <span className="text-amber-800">
-                        {s.statusLabel || "Divergente"}: dono={formatUnidade(Number(s.unidadeDonaId))} encontrado={formatUnidade(Number(s.unidadeEncontradaId))}
-                        {s.divergenciaSala && s.salaEsperada ? ` | endereço esperado=${s.salaEsperada}` : ""}
-                      </span>
-                    ) : (
-                      <span className="text-emerald-700">{s.statusLabel || "Conforme"}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
+        <InventoryPrimaryReadPanel
+          canRegister={canRegister}
+          canRegisterHint={canRegisterHint}
+          roomPendingOfflineCount={roomPendingOfflineCount}
+          selectedEventoId={selectedEventoId}
+          setSelectedEventoId={setSelectedEventoId}
+          eventos={eventosQuery.data || []}
+          selectedEventoIdFinal={selectedEventoIdFinal}
+          eventoAtivo={eventoAtivo}
+          formatModeLabel={formatModeLabel}
+          modoContagemEvento={modoContagemEvento}
+          eventoSelecionadoIncompativel={eventoSelecionadoIncompativel}
+          sessaoContagemLoading={sessaoContagemQuery.isLoading}
+          sessaoDesignado={sessaoContagem?.designado}
+          rodadaSelecionada={rodadaSelecionada}
+          setRodadaSelecionada={setRodadaSelecionada}
+          rodadasPermitidas={rodadasPermitidas}
+          podeDesempate={sessaoContagem?.podeDesempate}
+          unidadeEncontradaId={unidadeEncontradaId}
+          setUnidadeEncontradaId={setUnidadeEncontradaId}
+          formatUnidade={formatUnidade}
+          selectedLocalId={selectedLocalId}
+          setSelectedLocalId={setSelectedLocalId}
+          locaisOptions={locaisOptions || []}
+          locaisLoading={locaisQuery.isFetching}
+          localIdsPermitidosEvento={localIdsPermitidosEvento}
+          setSalaEncontrada={setSalaEncontrada}
+          registerScan={registerScan}
+          scannerInputRef={scannerInputRef}
+          scannerValue={scannerValue}
+          setScannerValue={setScannerValue}
+          normalizeTombamentoInput={normalizeTombamentoInput}
+          handleScannerInputKeyDown={handleScannerInputKeyDown}
+          scannerMode={scannerMode}
+          setScannerMode={setScannerMode}
+          setShowScanner={setShowScanner}
+          salaEncontrada={salaEncontrada}
+          showScanner={showScanner}
+          cameraScanPreview={cameraScanPreview}
+          handleScanValue={handleScanValue}
+          lastScans={lastScans}
+        />
         <div className="flex flex-col gap-4">
           <InventoryAddressOverviewCard
             accentClassName={uiReduzida ? "border-amber-200" : "border-slate-200"}
@@ -1566,432 +1336,56 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
         />
       ) : null}
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <DisclosureCard
-          title="Bem de terceiro"
-          subtitle="Controle segregado, sem tombamento GEAFIN."
-          tone="warning"
-          meta={<DisclosureMetaBadge tone="warning">Exceção</DisclosureMetaBadge>}
-          className="order-2"
-        >
-          <div className="mt-3 group-open:block">
-            <form onSubmit={onRegistrarBemTerceiro} className="rounded-xl border border-amber-200 bg-white p-4">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-                <p>
-                  Sem tombamento GEAFIN. Regra: Art. 99/110 VI/175 IX (AN303_Art99 / AN303_Art110_VI / AN303_Art175_IX).
-                </p>
-              </div>
-
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Descrição</span>
-                  <input
-                    value={terceiroDescricao}
-                    onChange={(e) => setTerceiroDescricao(e.target.value)}
-                    placeholder="Ex.: Notebook do prestador de TI, impressora da empresa X..."
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Proprietário externo</span>
-                  <input
-                    value={terceiroProprietario}
-                    onChange={(e) => setTerceiroProprietario(e.target.value)}
-                    placeholder="Ex.: Empresa Contratada XYZ"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Identificador externo (opcional)</span>
-                  <input
-                    value={terceiroIdentificador}
-                    onChange={(e) => setTerceiroIdentificador(e.target.value)}
-                    placeholder="Ex.: ETIQ-000123 (ou deixe em branco)"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <button
-                  type="submit"
-                  disabled={!canRegisterTerceiro || registrarBemTerceiroMut.isPending}
-                  className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
-                >
-                  {registrarBemTerceiroMut.isPending ? "Registrando..." : "Registrar bem de terceiro"}
-                </button>
-
-                {terceiroStatus?.kind === "ok" ? (
-                  <span className="text-xs text-emerald-700">Registrado.</span>
-                ) : null}
-              </div>
-
-              {registrarBemTerceiroMut.error ? (
-                <p className="mt-2 text-sm text-rose-700">
-                  Falha ao registrar bem de terceiro: {String(registrarBemTerceiroMut.error?.message || "erro")}
-                </p>
-              ) : null}
-            </form>
-          </div>
-        </DisclosureCard>
-
-        <DisclosureCard
-          title="Bem sem identificação"
-          subtitle="Obrigatório foto e descrição detalhada."
-          tone="danger"
-          defaultOpen
-          meta={[
-            <DisclosureMetaBadge key="tipo" tone="danger">Divergência</DisclosureMetaBadge>,
-            <DisclosureMetaBadge key="foto" tone={naoIdFotoBase64 ? "success" : "warning"}>
-              {naoIdFotoBase64 ? "Foto anexada" : "Foto pendente"}
-            </DisclosureMetaBadge>,
-          ]}
-          className="order-1"
-        >
-          <div className="mt-3 group-open:block">
-            <form onSubmit={onRegistrarNaoIdentificado} className="rounded-xl border border-rose-200 bg-white p-4">
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
-                Obrigatório foto e descrição. Fica onde está. Art. 175 (AN303_Art175).
-              </div>
-
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs text-slate-600">Descrição detalhada do bem</span>
-                  <input
-                    value={naoIdDescricao}
-                    onChange={(e) => setNaoIdDescricao(e.target.value)}
-                    placeholder="Ex.: Cadeira giratória azul, marca Frisokar, sem braços..."
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Localização exata</span>
-                  <input
-                    value={naoIdLocalizacao}
-                    onChange={(e) => setNaoIdLocalizacao(e.target.value)}
-                    placeholder="Ex.: Perto da janela, mesa 3..."
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs text-slate-600">Fotografia (Obrigatória)</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFotoNaoId}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs file:mr-3 file:rounded-lg file:bg-slate-100 file:border-0 file:px-3 file:py-1 file:text-slate-800"
-                  />
-                </label>
-                {naoIdFotoBase64 && (
-                  <div className="md:col-span-2 mt-2">
-                    <p className="text-xs text-emerald-700 mb-1 flex items-center gap-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                      Foto anexada
-                    </p>
-                    <img src={naoIdFotoBase64} alt="Prévia" className="h-16 w-16 object-cover rounded-md border border-slate-300" />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <button
-                  type="submit"
-                  disabled={!canRegisterNaoIdentificado || registrarNaoIdentificadoMut.isPending}
-                  className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
-                >
-                  {registrarNaoIdentificadoMut.isPending ? "Registrando..." : "Registrar bem sem identificação"}
-                </button>
-
-                {naoIdStatus?.kind === "ok" ? (
-                  <span className="text-xs text-emerald-700">Adicionado às disparidades do endereço.</span>
-                ) : null}
-              </div>
-
-              {registrarNaoIdentificadoMut.error ? (
-                <p className="mt-2 text-sm text-rose-700">
-                  Falha: {String(registrarNaoIdentificadoMut.error?.message || "erro interno")}
-                </p>
-              ) : null}
-            </form>
-          </div>
-        </DisclosureCard>
-
-        <DisclosureCard
-          title="Terceiros registrados"
-          subtitle="Lista já registrada neste endereço."
-          tone="neutral"
-          meta={[
-            <DisclosureMetaBadge key="tipo" tone="neutral">Consulta</DisclosureMetaBadge>,
-            !selectedEventoIdFinal || !salaEncontrada.trim()
-              ? <DisclosureMetaBadge key="status" tone="neutral">Sem contexto</DisclosureMetaBadge>
-              : !navigator.onLine
-                ? <DisclosureMetaBadge key="status" tone="warning">Offline</DisclosureMetaBadge>
-                : terceirosSalaQuery.isFetching
-                  ? <DisclosureMetaBadge key="status" tone="support">Carregando</DisclosureMetaBadge>
-                  : <DisclosureMetaBadge key="status" tone="neutral">Itens {(terceirosSalaQuery.data || []).length}</DisclosureMetaBadge>,
-          ]}
-          className="order-3 lg:col-span-2"
-        >
-          <div className="mt-3 group-open:block">
-            <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
-                <p>
-                  Fonte: `vw_bens_terceiros_inventario` (derivado de contagens). Controle segregado.
-                </p>
-              </div>
-
-              {!selectedEventoIdFinal || !salaEncontrada.trim() ? (
-                <p className="mt-3 text-sm text-slate-600">Selecione evento e endereço para listar os registros.</p>
-              ) : !navigator.onLine ? (
-                <p className="mt-3 text-sm text-slate-600">
-                  Offline: a lista de bens de terceiros depende da API (os registros feitos offline ainda ficam na fila de sincronização).
-                </p>
-              ) : terceirosSalaQuery.isFetching ? (
-                <p className="mt-3 text-sm text-slate-600">Carregando...</p>
-              ) : (terceirosSalaQuery.data || []).length === 0 ? (
-                <p className="mt-3 text-sm text-slate-600">Nenhum bem de terceiro registrado para este endereço.</p>
-              ) : (
-                <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
-                  <table className="min-w-full text-left text-xs">
-                    <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
-                      <tr>
-                        <th className="px-3 py-2">Identificador</th>
-                        <th className="px-3 py-2">Descrição</th>
-                        <th className="px-3 py-2">Proprietário</th>
-                        <th className="px-3 py-2">Quando</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {(terceirosSalaQuery.data || []).slice(0, 30).map((t) => (
-                        <tr key={t.contagemId} className="hover:bg-slate-50">
-                          <td className="px-3 py-2 font-mono text-[11px] text-slate-800">
-                            {t.identificadorExterno || "-"}
-                          </td>
-                          <td className="px-3 py-2 text-slate-800">{t.descricao || "-"}</td>
-                          <td className="px-3 py-2 text-slate-600">{t.proprietarioExterno || "-"}</td>
-                          <td className="px-3 py-2 text-slate-600">
-                            {t.encontradoEm ? new Date(t.encontradoEm).toLocaleString("pt-BR") : "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </div>
-        </DisclosureCard>
-      </div>
+      <InventoryExceptionPanels
+        canRegisterTerceiro={canRegisterTerceiro}
+        onRegistrarBemTerceiro={onRegistrarBemTerceiro}
+        terceiroDescricao={terceiroDescricao}
+        setTerceiroDescricao={setTerceiroDescricao}
+        terceiroProprietario={terceiroProprietario}
+        setTerceiroProprietario={setTerceiroProprietario}
+        terceiroIdentificador={terceiroIdentificador}
+        setTerceiroIdentificador={setTerceiroIdentificador}
+        registrarBemTerceiroMut={registrarBemTerceiroMut}
+        terceiroStatus={terceiroStatus}
+        canRegisterNaoIdentificado={canRegisterNaoIdentificado}
+        onRegistrarNaoIdentificado={onRegistrarNaoIdentificado}
+        naoIdDescricao={naoIdDescricao}
+        setNaoIdDescricao={setNaoIdDescricao}
+        naoIdLocalizacao={naoIdLocalizacao}
+        setNaoIdLocalizacao={setNaoIdLocalizacao}
+        handleFotoNaoId={handleFotoNaoId}
+        naoIdFotoBase64={naoIdFotoBase64}
+        registrarNaoIdentificadoMut={registrarNaoIdentificadoMut}
+        naoIdStatus={naoIdStatus}
+        selectedEventoIdFinal={selectedEventoIdFinal}
+        salaEncontrada={salaEncontrada}
+        isOnline={navigator.onLine}
+        terceirosSalaLoading={terceirosSalaQuery.isFetching}
+        terceirosSalaItems={terceirosSalaQuery.data || []}
+      />
 
       {!shouldHideExpectedData ? (
-      <DisclosureCard
-        title="Bens esperados do endereço"
-        subtitle="Lista agrupada para apoio à conferência."
-        tone="support"
-        meta={[
-          <FilterChipButton
-            key="esperados"
-            tone="support"
-            active={expectedAssetsFilter === "ALL"}
-            onClick={() => setExpectedAssetsFilter("ALL")}
-          >
-            Esperados {totalEsperadosEndereco}
-          </FilterChipButton>,
-          <FilterChipButton
-            key="conferidos"
-            tone="success"
-            active={expectedAssetsFilter === "FOUND"}
-            onClick={() => setExpectedAssetsFilter("FOUND")}
-          >
-            Conferidos {totalConferidosEndereco}
-          </FilterChipButton>,
-          <FilterChipButton
-            key="faltantes"
-            tone={totalFaltantesEndereco ? "warning" : "neutral"}
-            active={expectedAssetsFilter === "MISSING"}
-            onClick={() => setExpectedAssetsFilter("MISSING")}
-          >
-            Faltantes {totalFaltantesEndereco}
-          </FilterChipButton>,
-          bensSalaQuery.isFetching ? <DisclosureMetaBadge key="loading" tone="neutral">Carregando</DisclosureMetaBadge> : null,
-        ].filter(Boolean)}
-        className="mt-5"
-      >
-        <div className="rounded-xl border border-violet-200 bg-slate-50 p-4">
-          <div>
-            <p className="text-xs text-slate-600">
-              Itens carregados: <span className="font-semibold text-slate-900">{(bensSalaQuery.data || []).length}</span>
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={showItemPhotoList}
-                  onChange={(e) => setShowItemPhotoList(e.target.checked)}
-                  className="h-4 w-4 accent-violet-600"
-                />
-                Mostrar foto do item
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={showCatalogPhotoList}
-                  onChange={(e) => setShowCatalogPhotoList(e.target.checked)}
-                  className="h-4 w-4 accent-violet-600"
-                />
-                Mostrar foto do catálogo
-              </label>
-            </div>
-          </div>
-
-          {!navigator.onLine && (
-            <p className="mt-2 text-[11px] text-slate-500">
-              fonte: <span className="font-semibold text-slate-800">CACHE (offline)</span>
-            </p>
-          )}
-
-          {bensSalaQuery.error && (
-            <p className="mt-3 text-sm text-rose-700">Falha ao carregar bens para este local.</p>
-          )}
-
-          {!bensSalaQuery.isFetching && (bensSalaQuery.data || []).length === 0 && (
-            <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-sm text-slate-800">
-                Nenhum bem vinculado ao local <span className="font-semibold text-slate-900">"{salaEncontrada.trim()}"</span>.
-              </p>
-              <p className="text-xs text-slate-500">
-                Aqui o inventário usa <code className="px-1">bens.local_id</code> (local cadastrado pelo Admin), não o texto do GEAFIN.
-                Para aparecerem itens, um Admin deve vincular os bens a este local.
-              </p>
-            </div>
-          )}
-
-          {(bensSalaQuery.data || []).length > 0 ? (
-            <p className="mt-3 text-xs text-slate-600">
-              Filtro ativo:{" "}
-              <span className="font-semibold text-slate-900">
-                {expectedAssetsFilter === "FOUND"
-                  ? "Conferidos"
-                  : expectedAssetsFilter === "MISSING"
-                    ? "Faltantes"
-                    : "Esperados"}
-              </span>
-            </p>
-          ) : null}
-
-          <div className="mt-3 space-y-2">
-            {filteredGrouped.length === 0 && (bensSalaQuery.data || []).length > 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
-                Nenhum item encontrado para o filtro selecionado neste endereço.
-              </div>
-            ) : null}
-            {filteredGrouped.map((g) => (
-              <details key={g.catalogoBemId} className="rounded-xl border border-slate-200 bg-white p-3">
-                {(() => {
-                  const total = g.items.length;
-                  const encontrados = g.items.reduce((acc, b) => acc + (foundSet.has(b.numeroTombamento) ? 1 : 0), 0);
-                  const faltantes = Math.max(0, total - encontrados);
-                  const divergentes = g.items.reduce((acc, b) => {
-                    const meta = getConferenciaMeta(b);
-                    return acc + (meta.encontrado && meta.divergente ? 1 : 0);
-                  }, 0);
-                  return (
-                    <summary className="cursor-pointer select-none">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-slate-900">
-                        <div className="flex flex-col">
-                          <span>{g.items[0]?.nomeResumo || g.catalogoDescricao}</span>
-                          {g.items[0]?.nomeResumo && g.items[0]?.nomeResumo !== g.catalogoDescricao && (
-                            <span className="text-[10px] text-slate-500 font-normal italic">{g.catalogoDescricao}</span>
-                          )}
-                        </div>
-                        <span className="text-xs font-normal text-slate-600 ml-auto">
-                          Total: <span className="font-semibold text-slate-900">{total}</span>{" "}
-                          | Encontrados: <span className="font-semibold text-emerald-700">{encontrados}</span>{" "}
-                          | Divergentes: <span className="font-semibold text-rose-700">{divergentes}</span>{" "}
-                          | Faltantes: <span className="font-semibold text-amber-800">{faltantes}</span>
-                        </span>
-                      </div>
-                    </summary>
-                  );
-                })()}
-                <div className="mt-3 overflow-auto rounded-lg border border-slate-200">
-                  <ul className="divide-y divide-slate-200 bg-slate-50">
-                    {g.items.slice(0, 200).map((b) => {
-                      const meta = getConferenciaMeta(b);
-                      const badge = meta.encontrado
-                        ? meta.divergente
-                          ? { text: "LOCAL_DIVERGENTE", cls: "border-rose-300/40 text-rose-700 bg-rose-200/10" }
-                          : { text: "ENCONTRADO", cls: "border-emerald-300/40 text-emerald-700 bg-emerald-200/10" }
-                        : { text: "FALTANTE", cls: "border-amber-300/40 text-amber-800 bg-amber-200/10" };
-
-                      return (
-                        <li key={b.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                          <label className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={meta.encontrado}
-                              readOnly
-                              className="h-4 w-4 accent-violet-600"
-                              title={meta.encontrado ? `Conferido (${meta.fonte})` : "Não conferido"}
-                            />
-                            <div className="flex flex-col items-start gap-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs text-slate-900">{b.numeroTombamento || "-"}</span>
-                                {b.cod2Aud && (
-                                  <span className="rounded bg-violet-100 px-1 py-0.5 text-[9px] font-bold text-violet-700 border border-violet-300/40" title={`Etiqueta Azul: ${b.cod2Aud}`}>
-                                    {b.cod2Aud}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-slate-500 leading-tight">
-                                {formatUnidade(Number(b.unidadeDonaId))} • {b.nomeResumo || "Sem resumo"}
-                              </span>
-                              {(showItemPhotoList || showCatalogPhotoList) && (
-                                <div className="mt-1 flex flex-wrap items-center gap-2">
-                                  {showItemPhotoList && (
-                                    b.fotoUrl ? (
-                                      <a href={getFotoUrl(b.fotoUrl)} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                          src={getFotoUrl(b.fotoUrl)}
-                                          alt={`Foto item ${b.numeroTombamento || ""}`}
-                                          className="h-10 w-10 rounded border border-slate-300 object-cover"
-                                        />
-                                      </a>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-500">Item sem foto</span>
-                                    )
-                                  )}
-                                  {showCatalogPhotoList && (
-                                    b.fotoReferenciaUrl ? (
-                                      <a href={getFotoUrl(b.fotoReferenciaUrl)} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                          src={getFotoUrl(b.fotoReferenciaUrl)}
-                                          alt={`Foto catalogo ${b.codigoCatalogo || ""}`}
-                                          className="h-10 w-10 rounded border border-slate-300 object-cover"
-                                        />
-                                      </a>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-500">Catálogo sem foto</span>
-                                    )
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </label>
-                          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.cls}`}>
-                            {badge.text}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </DisclosureCard>
+        <InventoryExpectedAssetsPanel
+          expectedAssetsFilter={expectedAssetsFilter}
+          setExpectedAssetsFilter={setExpectedAssetsFilter}
+          totalEsperadosEndereco={totalEsperadosEndereco}
+          totalConferidosEndereco={totalConferidosEndereco}
+          totalFaltantesEndereco={totalFaltantesEndereco}
+          bensSalaItems={bensSalaQuery.data || []}
+          bensSalaLoading={bensSalaQuery.isFetching}
+          bensSalaError={bensSalaQuery.error}
+          showItemPhotoList={showItemPhotoList}
+          setShowItemPhotoList={setShowItemPhotoList}
+          showCatalogPhotoList={showCatalogPhotoList}
+          setShowCatalogPhotoList={setShowCatalogPhotoList}
+          isOnline={navigator.onLine}
+          salaEncontrada={salaEncontrada}
+          filteredGrouped={filteredGrouped}
+          foundSet={foundSet}
+          getConferenciaMeta={getConferenciaMeta}
+          formatUnidade={formatUnidade}
+          getFotoUrl={getFotoUrl}
+        />
       ) : null}
 
       {/* Modal Identificação Etiqueta 4 Dígitos */}
@@ -2368,7 +1762,3 @@ function DivergencesPanel({ salaEncontrada, contagens, offlineItems, bensSala, e
     </details>
   );
 }
-
-
-
-
