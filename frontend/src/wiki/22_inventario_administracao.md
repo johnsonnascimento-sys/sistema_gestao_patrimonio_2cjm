@@ -94,6 +94,8 @@ O formulário continua único, mas agora está agrupado por blocos:
 - `Escopo operacional`
 - CTA final de abertura
 
+Nesta fase da decomposição, o bloco de abertura e as sugestões de ciclo passaram a usar um componente dedicado (`InventoryEventSetupPanel`), mantendo o mesmo comportamento de presets, designação de operadores, seleção de unidade/endereços e CTA final.
+
 Presets rápidos:
 
 - `Inventário geral`

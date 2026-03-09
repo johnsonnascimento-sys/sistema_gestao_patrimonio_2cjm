@@ -81,6 +81,16 @@ A tela está organizada em blocos mais previsíveis:
 
 Essa separação existe para reduzir o acoplamento entre navegação, filtros e resultados, sem mudar o comportamento funcional da consulta.
 
+## Decomposição técnica da tela
+
+Nesta etapa do plano de UX operacional, o modal `Detalhes do bem` saiu do arquivo principal da consulta e passou a morar em um componente dedicado.
+
+Objetivo:
+
+- reduzir o acoplamento entre listagem e edição detalhada;
+- preservar o mesmo contrato de abertura do modal;
+- deixar a evolução de auditoria, fotos e histórico do bem menos arriscada.
+
 ## Contexto vindo de outras telas
 
 Quando a `Consulta de Bens` for aberta a partir de atalhos operacionais, a própria tela mostra um banner de contexto no topo.
