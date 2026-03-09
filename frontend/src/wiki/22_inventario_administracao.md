@@ -290,3 +290,4 @@ Detalhe técnico relevante:
 
 - os painéis `Bens não contados`, `Monitoramento em tempo real` e `Divergências interunidades` passaram a compor a tela por componentes internos dedicados;
 - isso preserva queries, filtros, atalhos para `Inventário - Contagem` e `Consulta de Bens`, enquanto reduz o acoplamento do arquivo principal.
+- o card principal `Evento ativo / Novo inventário` também passou a compor a tela por componente dedicado, mantendo o cockpit principal focado em orquestração e não em JSX inline extenso.
