@@ -271,3 +271,18 @@ Guard rails da UI:
 - modal de acao critica explica que cancelamento descarta o evento para regularizacao;
 - para cancelar, o operador deve digitar exatamente `CANCELAR_INVENTARIO`.
 
+
+## Estrutura operacional da tela
+
+O cockpit `Inventário - Administração` permanece organizado em quatro zonas:
+
+- evento ativo;
+- bens não contados;
+- monitoramento em tempo real;
+- divergências interunidades;
+- área secundária com novo inventário, histórico e acuracidade.
+
+Detalhe técnico relevante:
+
+- os painéis `Bens não contados`, `Monitoramento em tempo real` e `Divergências interunidades` passaram a compor a tela por componentes internos dedicados;
+- isso preserva queries, filtros, atalhos para `Inventário - Contagem` e `Consulta de Bens`, enquanto reduz o acoplamento do arquivo principal.

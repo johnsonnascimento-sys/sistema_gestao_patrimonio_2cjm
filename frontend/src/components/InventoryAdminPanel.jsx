@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -31,6 +31,8 @@ import {
     TopRoomsCard,
     TrendListCard,
 } from "./inventory/InventoryAdminUi.jsx";
+import InventoryInterunitDivergencesPanel from "./inventory/InventoryInterunitDivergencesPanel.jsx";
+import InventoryLiveMonitoringPanel from "./inventory/InventoryLiveMonitoringPanel.jsx";
 import InventoryUncountedAssetsPanel from "./inventory/InventoryUncountedAssetsPanel.jsx";
 
 function formatUnidade(id) {
@@ -1740,7 +1742,18 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             </div>}
                             </>
                         ) : null}
-                        {selectedEventoIdFinal && (
+                        <InventoryLiveMonitoringPanel
+                            visible={selectedEventoIdFinal}
+                            isAdmin={isAdmin}
+                            query={monitoramentoQuery}
+                            rows={monitoramentoRows}
+                            totalA={monitoramentoTotalA}
+                            totalB={monitoramentoTotalB}
+                            totalEsperados={monitoramentoTotalEsperados}
+                            totalDesempate={monitoramentoTotalDesempate}
+                        />
+
+                        {false && selectedEventoIdFinal && (
                             <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
@@ -1806,7 +1819,34 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             </div>
                         )}
 
-                        <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+                        <InventoryInterunitDivergencesPanel
+                            query={divergenciasInterunidadesQuery}
+                            interDaMinhaUnidadeFora={interDaMinhaUnidadeFora}
+                            interOutrasNaMinha={interOutrasNaMinha}
+                            interPendentes={interPendentes}
+                            interRegularizadas={interRegularizadas}
+                            interEmAndamento={interEmAndamento}
+                            interEncerrado={interEncerrado}
+                            interStatusInventario={interStatusInventario}
+                            setInterStatusInventario={setInterStatusInventario}
+                            interUnidadeRelacionada={interUnidadeRelacionada}
+                            setInterUnidadeRelacionada={setInterUnidadeRelacionada}
+                            interCodigoFiltro={interCodigoFiltro}
+                            setInterCodigoFiltro={setInterCodigoFiltro}
+                            interSalaFiltro={interSalaFiltro}
+                            setInterSalaFiltro={setInterSalaFiltro}
+                            clearInterFilters={clearInterFilters}
+                            isAdmin={isAdmin}
+                            formatUnidade={formatUnidade}
+                            divergenciasInterTotal={divergenciasInterTotal}
+                            divergenciasInterItems={divergenciasInterItems}
+                            inventoryStatusPillClass={inventoryStatusPillClass}
+                            divergenceTypePillClass={divergenceTypePillClass}
+                            regularizacaoPillClass={regularizacaoPillClass}
+                            formatDateTimeShort={formatDateTimeShort}
+                        />
+
+                        {false && <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <h4 className="text-sm font-semibold">Divergências interunidades (tempo real)</h4>
@@ -1936,7 +1976,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                     </div>
                                 </>
                             )}
-                        </div>
+                        </div>}
 
                         {historicoEventos.length > 0 && (
                             <details className="flex-1 rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4" open={!hasActiveEvent}>
@@ -2286,127 +2326,3 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
     );
 }
 
-function LegacyTrendListCard({ title, rows, metricKey, metricLabel }) {
-    const list = Array.isArray(rows) ? rows : [];
-    const visible = list.slice(-8);
-    return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
-            {!visible.length ? (
-                <p className="mt-3 text-sm text-slate-600">Sem pontos para o período.</p>
-            ) : (
-                <div className="mt-3 space-y-2">
-                    {visible.map((row) => {
-                        const val = Number(row?.[metricKey] || 0);
-                        const rotulo = row?.periodo?.rotulo || row?.chave || "-";
-                        return (
-                            <div key={`${title}-${row?.chave}`} className="flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1 text-xs">
-                                <span className="truncate pr-3 text-slate-600">{rotulo}</span>
-                                <span className="font-semibold text-slate-900">{metricLabel}: {val.toFixed(2)}%</span>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function LegacyDonutCard({ title, subtitle, total, items }) {
-    const t = Math.max(0, Number(total || 0));
-    const safeItems = (items || []).map((it) => ({ ...it, v: Math.max(0, Number(it.v || 0)) }));
-    const stops = [];
-    let acc = 0;
-    for (const it of safeItems) {
-        const frac = t > 0 ? (it.v / t) * 100 : 0;
-        const from = acc;
-        const to = acc + frac;
-        stops.push(`${it.color} ${from}% ${to}%`);
-        acc = to;
-    }
-    if (acc < 100) stops.push(`#1f2937 ${acc}% 100%`);
-    const bg = `conic-gradient(${stops.join(", ")})`;
-    return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
-            <p className="mt-1 text-[11px] text-slate-500">{subtitle}</p>
-            <div className="mt-3 flex items-center gap-3">
-                <div className="relative h-24 w-24 shrink-0 rounded-full" style={{ background: bg }}>
-                    <div className="absolute inset-4 grid place-items-center rounded-full border border-slate-200 bg-slate-50 text-center">
-                        <span className="text-sm font-semibold text-slate-700">{t}</span>
-                    </div>
-                </div>
-                <div className="space-y-1 text-xs">
-                    {safeItems.map((it) => (
-                        <div key={it.k} className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: it.color }} />
-                            <span className="text-slate-600">{it.k}</span>
-                            <span className="font-semibold text-slate-900">{it.v}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function LegacyStackedBarCard({ title, subtitle, total, items }) {
-    const t = Math.max(0, Number(total || 0));
-    const safeItems = (items || []).map((it) => ({ ...it, v: Math.max(0, Number(it.v || 0)) }));
-    return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-500">{title}</p>
-            <p className="mt-1 text-[11px] text-slate-500">{subtitle}</p>
-            <div className="mt-3 h-4 w-full overflow-hidden rounded-full bg-white">
-                <div className="flex h-full w-full">
-                    {safeItems.map((it) => {
-                        const pct = t > 0 ? (it.v / t) * 100 : 0;
-                        return <div key={it.k} style={{ width: `${pct}%`, backgroundColor: it.color }} />;
-                    })}
-                </div>
-            </div>
-            <div className="mt-2 space-y-1 text-xs">
-                {safeItems.map((it) => (
-                    <div key={it.k} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-2 py-1">
-                        <div className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: it.color }} />
-                            <span className="text-slate-600">{it.k}</span>
-                        </div>
-                        <span className="font-semibold text-slate-900">{it.v}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function LegacyTopRoomsCard({ rows }) {
-    const list = rows || [];
-    const maxDiv = Math.max(1, ...list.map((r) => Number(r?.divergencias || 0)));
-    return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-widest text-slate-500">Top endereços com divergencias</p>
-            {!list.length ? (
-                <p className="mt-3 text-sm text-slate-500">Sem divergencias por endereço.</p>
-            ) : (
-                <div className="mt-3 space-y-2">
-                    {list.map((r) => {
-                        const dv = Number(r.divergencias || 0);
-                        const pct = Math.max(3, Math.round((dv / maxDiv) * 100));
-                        return (
-                            <div key={r.salaEncontrada}>
-                                <div className="mb-1 flex items-center justify-between text-xs">
-                                    <span className="truncate pr-2 text-slate-600">{r.salaEncontrada}</span>
-                                    <span className="font-semibold text-slate-900">{dv}</span>
-                                </div>
-                                <div className="h-2 rounded bg-white">
-                                    <div className="h-2 rounded bg-violet-500" style={{ width: `${pct}%` }} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-}

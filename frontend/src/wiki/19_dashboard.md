@@ -55,3 +55,7 @@ Ele concentra:
 - O topo da aplicação exibe a area atual para reduzir troca de contexto durante o turno.
 - `Wiki / Manual` e `Normas` permanecem acessiveis, mas ficam rebaixados como apoio e nao como fluxo principal.
 - Abaixo de `Normas`, a barra lateral exibe a versão publicada do frontend, o commit em produção e a data/hora do build para facilitar conferência rápida de ambiente sem entrar na área de Health.
+
+## Carregamento sob demanda
+
+- Os painéis operacionais mais pesados passam a ser carregados sob demanda, reduzindo o peso inicial da aplicação sem mudar rotas nem a navegação funcional.

@@ -3,23 +3,12 @@
  * Arquivo: App.jsx
  * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
  */
-import { Component, useEffect, useMemo, useState } from "react";
+import { Component, Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import frontendPackage from "../package.json";
-import AssetsExplorer from "./components/AssetsExplorer.jsx";
-import AuditoriaLogsPanel from "./components/AuditoriaLogsPanel.jsx";
 import AuthLogin from "./components/AuthLogin.jsx";
 import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import DashboardPanel from "./components/DashboardPanel.jsx";
-import ImportacoesPanel from "./components/ImportacoesPanel.jsx";
-import InventoryRoomPanel from "./components/InventoryRoomPanel.jsx";
-import InventoryAdminPanel from "./components/InventoryAdminPanel.jsx";
-import MovimentacoesPanel from "./components/MovimentacoesPanel.jsx";
-import NormsPage from "./components/NormsPage.jsx";
-import OperationsPanel from "./components/OperationsPanel.jsx";
-import CatalogoAdminPanel from "./components/CatalogoAdminPanel.jsx";
-import ClassificacaoSiafiPanel from "./components/ClassificacaoSiafiPanel.jsx";
-import WikiManual from "./components/WikiManual.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import {
   criarAvaliacaoInservivel,
@@ -29,6 +18,18 @@ import {
   listarBens,
   listarEventosInventario,
 } from "./services/apiClient.js";
+
+const AssetsExplorer = lazy(() => import("./components/AssetsExplorer.jsx"));
+const AuditoriaLogsPanel = lazy(() => import("./components/AuditoriaLogsPanel.jsx"));
+const ImportacoesPanel = lazy(() => import("./components/ImportacoesPanel.jsx"));
+const InventoryRoomPanel = lazy(() => import("./components/InventoryRoomPanel.jsx"));
+const InventoryAdminPanel = lazy(() => import("./components/InventoryAdminPanel.jsx"));
+const MovimentacoesPanel = lazy(() => import("./components/MovimentacoesPanel.jsx"));
+const NormsPage = lazy(() => import("./components/NormsPage.jsx"));
+const OperationsPanel = lazy(() => import("./components/OperationsPanel.jsx"));
+const CatalogoAdminPanel = lazy(() => import("./components/CatalogoAdminPanel.jsx"));
+const ClassificacaoSiafiPanel = lazy(() => import("./components/ClassificacaoSiafiPanel.jsx"));
+const WikiManual = lazy(() => import("./components/WikiManual.jsx"));
 
 const NAV_STRUCTURE = [
   { type: "item", item: { id: "dashboard", label: "Dashboard", short: "Dash" } },
@@ -128,6 +129,14 @@ function formatBuildTimestamp(value) {
     timeStyle: "short",
     timeZone: "America/Sao_Paulo",
   }).format(parsed);
+}
+
+function PanelLoadingFallback({ label = "Carregando painel..." }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-sm text-slate-600">{label}</p>
+    </section>
+  );
 }
 
 function NavIcon({ id }) {
@@ -907,31 +916,57 @@ function AppShell() {
               {tab === "dashboard" && <DashboardPanel onNavigate={handleDashboardNavigate} />}
 
               {tab === "bens" && (
-                <AssetsExplorer
-                  initialUnidadeDonaId={bensNavPreset.unidadeDonaId}
-                  navigationPreset={assetsExplorerPreset}
-                  key={`assets-explorer-${bensNavPreset.nonce}`}
-                />
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Consulta de Bens..." />}>
+                  <AssetsExplorer
+                    initialUnidadeDonaId={bensNavPreset.unidadeDonaId}
+                    navigationPreset={assetsExplorerPreset}
+                    key={`assets-explorer-${bensNavPreset.nonce}`}
+                  />
+                </Suspense>
               )}
 
               {tab === "inventario-contagem" && (
                 <SectionErrorBoundary>
-                  <InventoryRoomPanel navigationPreset={inventoryCountPreset} />
+                  <Suspense fallback={<PanelLoadingFallback label="Carregando Inventário - Contagem..." />}>
+                    <InventoryRoomPanel navigationPreset={inventoryCountPreset} />
+                  </Suspense>
                 </SectionErrorBoundary>
               )}
 
               {tab === "inventario-admin" && (
-                <InventoryAdminPanel
-                  onOpenInventoryCount={handleInventoryCountNavigate}
-                  onOpenAssetsExplorer={handleAssetsExplorerNavigate}
-                />
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Inventário - Administração..." />}>
+                  <InventoryAdminPanel
+                    onOpenInventoryCount={handleInventoryCountNavigate}
+                    onOpenAssetsExplorer={handleAssetsExplorerNavigate}
+                  />
+                </Suspense>
               )}
 
-              {tab === "movimentacoes" && <MovimentacoesPanel />}
-              {tab === "operacoes-cadastro-sala" && <MovimentacoesPanel section="cadastro-sala" />}
-              {tab === "catalogo-material" && <CatalogoAdminPanel canAdmin={canAdmin} />}
-              {tab === "classificacoes-siafi" && <ClassificacaoSiafiPanel canAdmin={canAdmin} />}
-              {tab === "importacoes-geafin" && <ImportacoesPanel canAdmin={canAdmin} />}
+              {tab === "movimentacoes" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Movimentações..." />}>
+                  <MovimentacoesPanel />
+                </Suspense>
+              )}
+              {tab === "operacoes-cadastro-sala" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Cadastro por Endereço..." />}>
+                  <MovimentacoesPanel section="cadastro-sala" />
+                </Suspense>
+              )}
+              {tab === "catalogo-material" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Material (SKU)..." />}>
+                  <CatalogoAdminPanel canAdmin={canAdmin} />
+                </Suspense>
+              )}
+              {tab === "classificacoes-siafi" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Classificação SIAFI..." />}>
+                  <ClassificacaoSiafiPanel canAdmin={canAdmin} />
+                </Suspense>
+              )}
+              {tab === "importacoes-geafin" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Importação GEAFIN..." />}>
+                  <ImportacoesPanel canAdmin={canAdmin} />
+                </Suspense>
+              )}
 
               {tab === "classificacao" && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1045,22 +1080,56 @@ function AppShell() {
               )}
 
               {tab === "auditoria-changelog" && (
-                <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-changelog" />
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Log Geral de Alterações..." />}>
+                  <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-changelog" />
+                </Suspense>
               )}
               {tab === "auditoria-patrimonio" && (
-                <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-patrimonio" />
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Auditoria Patrimonial..." />}>
+                  <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-patrimonio" />
+                </Suspense>
               )}
               {tab === "auditoria-erros" && (
-                <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-erros" />
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Log de Erros..." />}>
+                  <AuditoriaLogsPanel canAdmin={canAdmin} section="auditoria-erros" />
+                </Suspense>
               )}
 
-              {tab === "admin-locais" && <OperationsPanel section="admin-locais" />}
-              {tab === "admin-backup" && <OperationsPanel section="admin-backup" />}
-              {tab === "admin-health" && <OperationsPanel section="admin-health" />}
-              {tab === "admin-perfis" && <OperationsPanel section="admin-perfis" />}
-              {tab === "admin-aprovacoes" && <OperationsPanel section="admin-aprovacoes" />}
-              {tab === "normas" && <NormsPage />}
-              {tab === "wiki" && <WikiManual />}
+              {tab === "admin-locais" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando administração de locais..." />}>
+                  <OperationsPanel section="admin-locais" />
+                </Suspense>
+              )}
+              {tab === "admin-backup" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando backup e restore..." />}>
+                  <OperationsPanel section="admin-backup" />
+                </Suspense>
+              )}
+              {tab === "admin-health" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando conectividade backend..." />}>
+                  <OperationsPanel section="admin-health" />
+                </Suspense>
+              )}
+              {tab === "admin-perfis" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando perfis e acessos..." />}>
+                  <OperationsPanel section="admin-perfis" />
+                </Suspense>
+              )}
+              {tab === "admin-aprovacoes" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando aprovações pendentes..." />}>
+                  <OperationsPanel section="admin-aprovacoes" />
+                </Suspense>
+              )}
+              {tab === "normas" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando normas..." />}>
+                  <NormsPage />
+                </Suspense>
+              )}
+              {tab === "wiki" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Wiki / Manual..." />}>
+                  <WikiManual />
+                </Suspense>
+              )}
             </div>
           </main>
         </div>

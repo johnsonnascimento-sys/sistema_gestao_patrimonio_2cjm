@@ -25,7 +25,7 @@ describe("AssetsExplorer orientacao operacional", () => {
     expect(screen.getByText(/Atalho vindo do painel de bens não contados/i)).toBeInTheDocument();
   });
 
-  it("explica quando usar consulta rapida e quando abrir filtros avancados", () => {
+  it("explica quando usar consulta rápida e quando abrir filtros avançados", () => {
     render(
       <AssetsExplorerSearchPanel
         filters={{
@@ -64,10 +64,10 @@ describe("AssetsExplorer orientacao operacional", () => {
       />,
     );
 
-    expect(screen.getByText("Consulta rapida")).toBeInTheDocument();
+    expect(screen.getByText("Consulta rápida")).toBeInTheDocument();
     expect(screen.getByText("Use primeiro")).toBeInTheDocument();
-    expect(screen.getByText(/Tombamento, etiqueta de 4 digitos, camera e material \(SKU\)/i)).toBeInTheDocument();
-    expect(screen.getByText("Abra filtros avancados quando")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mostrar filtros avancados" })).toBeInTheDocument();
+    expect(screen.getByText(/Tombamento, etiqueta de 4 dígitos, câmera e material \(SKU\)/i)).toBeInTheDocument();
+    expect(screen.getByText("Abra filtros avançados quando")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mostrar filtros avançados" })).toBeInTheDocument();
   });
 });

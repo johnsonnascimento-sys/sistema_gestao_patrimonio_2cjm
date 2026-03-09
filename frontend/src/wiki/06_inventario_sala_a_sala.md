@@ -304,3 +304,19 @@ Critério:
 | `RODADA_NAO_PERMITIDA` | Rodada incompatível com o papel | Ajustar rodada ou perfil |
 | `DESEMPATE_SEM_PERMISSAO` | Usuário sem permissão para desempate | Executar com ADMIN ou autorizado |
 | `RODADA_INVALIDA` | Valor fora de `A/B/DESEMPATE` | Corrigir payload ou cliente |
+
+## Estrutura operacional da tela
+
+A tela `Inventário - Contagem` segue a hierarquia abaixo:
+
+- contexto do evento e do endereço;
+- painel principal de leitura;
+- divergências do endereço;
+- exceções operacionais;
+- bens esperados como apoio de conferência.
+
+Detalhe técnico relevante:
+
+- os blocos principais da tela foram separados em componentes internos dedicados para reduzir risco de regressão sem alterar scanner, fila offline, modais nem payloads;
+- o painel principal continua sendo o scanner e a confirmação de leitura;
+- divergências e exceções permanecem em fluxo independente para preservar o Art. 185 (AN303_Art185).
