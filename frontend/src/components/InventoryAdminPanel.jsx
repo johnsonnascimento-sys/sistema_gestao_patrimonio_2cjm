@@ -29,6 +29,8 @@ import InventoryUncountedAssetsPanel from "./inventory/InventoryUncountedAssetsP
 import InventoryEventSetupPanel from "./inventory/InventoryEventSetupPanel.jsx";
 import InventoryAccuracyPanel from "./inventory/InventoryAccuracyPanel.jsx";
 import InventoryActiveEventPanel from "./inventory/InventoryActiveEventPanel.jsx";
+import InventorySecondarySetupSection from "./inventory/InventorySecondarySetupSection.jsx";
+import InventoryCriticalActionModal from "./inventory/InventoryCriticalActionModal.jsx";
 
 function formatUnidade(id) {
     if (id === 1) return "1 (1a Aud)";
@@ -1082,87 +1084,25 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                 </div>
             </section>
 
-            {hasActiveEvent ? (
-                <section className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm md:p-6">
-                    <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                        <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Area secundaria</p>
-                            <p className="mt-1 text-sm text-slate-700">
-                                Configuracao de novo ciclo e leitura gerencial permanecem acessiveis, mas fora da zona principal de retomada da contagem.
-                            </p>
-                        </div>
-                        <StatusBadge label="Apoio ao evento ativo" tone="slate" />
-                    </div>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <h3 className="font-[Space_Grotesk] text-xl font-semibold text-slate-900">Novo inventário</h3>
-                            <p className="mt-1 text-sm text-slate-600">
-                                Abertura secundária enquanto o evento ativo segue como foco principal da página.
-                            </p>
-                        </div>
-                        <StatusBadge label="Área secundária" tone="slate" />
-                    </div>
-                    <div className="mt-4">
-                        {newInventoryAndSuggestions}
-                    </div>
-                </section>
-            ) : null}
+            <InventorySecondarySetupSection
+                hasActiveEvent={hasActiveEvent}
+                content={newInventoryAndSuggestions}
+            />
 
-            {criticalModal.open ? (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/45 p-4">
-                    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
-                        <h4 className="text-base font-semibold text-slate-900">Confirmação de ação crítica</h4>
-                        <p className="mt-2 text-sm text-slate-700">
-                            Inventário: <strong>{criticalModal.eventoCodigo || "-"}</strong>
-                        </p>
-                        <p className="mt-1 text-sm text-slate-700">
-                            Ação: <strong>{criticalModal.status === "ENCERRADO" ? "Encerrar inventário" : "Cancelar inventário"}</strong>
-                        </p>
-                        <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">{criticalImpactText}</p>
-                        <label className="mt-3 block space-y-1">
-                            <span className="text-xs text-slate-600">Observação (opcional)</span>
-                            <textarea
-                                value={encerramentoObs}
-                                onChange={(e) => setEncerramentoObs(e.target.value)}
-                                className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                            />
-                        </label>
-                        {criticalModal.status === "CANCELADO" ? (
-                            <label className="mt-3 block space-y-1">
-                                <span className="text-xs text-slate-600">
-                                    Para confirmar o cancelamento, digite exatamente: <strong>CANCELAR_INVENTARIO</strong>
-                                </span>
-                                <input
-                                    value={criticalConfirmText}
-                                    onChange={(e) => setCriticalConfirmText(e.target.value)}
-                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                    placeholder="CANCELAR_INVENTARIO"
-                                />
-                            </label>
-                        ) : null}
-                        <div className="mt-4 flex items-center justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setCriticalModal({ open: false, status: "", eventoId: "", eventoCodigo: "" });
-                                    setCriticalConfirmText("");
-                                }}
-                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                            >
-                                Voltar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onConfirmCriticalStatus}
-                                disabled={atualizarStatusMut.isPending}
-                                className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
-                            >
-                                Confirmar {criticalModal.status === "ENCERRADO" ? "encerramento" : "cancelamento"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            <InventoryCriticalActionModal
+                criticalModal={criticalModal}
+                criticalImpactText={criticalImpactText}
+                encerramentoObs={encerramentoObs}
+                setEncerramentoObs={setEncerramentoObs}
+                criticalConfirmText={criticalConfirmText}
+                setCriticalConfirmText={setCriticalConfirmText}
+                atualizarStatusMutPending={atualizarStatusMut.isPending}
+                onClose={() => {
+                    setCriticalModal({ open: false, status: "", eventoId: "", eventoCodigo: "" });
+                    setCriticalConfirmText("");
+                }}
+                onConfirm={onConfirmCriticalStatus}
+            />
             <InventoryAccuracyPanel
                 hasActiveEvent={hasActiveEvent}
                 acuraciaDataInicio={acuraciaDataInicio}
