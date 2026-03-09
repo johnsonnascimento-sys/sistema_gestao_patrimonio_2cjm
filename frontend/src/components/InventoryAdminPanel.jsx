@@ -21,20 +21,15 @@ import {
 import InventoryProgress from "./InventoryProgress.jsx";
 import RegularizationPanel from "./RegularizationPanel.jsx";
 import {
-    CardKpi,
-    DonutCard,
     InfoLine,
-    KpiMini,
-    KpiSemaforoCard,
-    StackedBarCard,
     StatusBadge,
-    TopRoomsCard,
-    TrendListCard,
 } from "./inventory/InventoryAdminUi.jsx";
 import InventoryInterunitDivergencesPanel from "./inventory/InventoryInterunitDivergencesPanel.jsx";
+import InventoryHistoryPanel from "./inventory/InventoryHistoryPanel.jsx";
 import InventoryLiveMonitoringPanel from "./inventory/InventoryLiveMonitoringPanel.jsx";
 import InventoryUncountedAssetsPanel from "./inventory/InventoryUncountedAssetsPanel.jsx";
 import InventoryEventSetupPanel from "./inventory/InventoryEventSetupPanel.jsx";
+import InventoryAccuracyPanel from "./inventory/InventoryAccuracyPanel.jsx";
 
 function formatUnidade(id) {
     if (id === 1) return "1 (1a Aud)";
@@ -71,12 +66,6 @@ function generateCodigoEvento(unidadeInventariadaId) {
     const u = Number(unidadeInventariadaId);
     const suffix = u === 1 ? "1AUD" : u === 2 ? "2AUD" : u === 3 ? "FORO" : u === 4 ? "ALMOX" : "GERAL";
     return `INV_${yyyy}_${mm}_${dd}_${hh}${min}_${suffix}`;
-}
-
-function formatDiasSemContagemLabel(diasSemContagem) {
-    const dias = Number(diasSemContagem);
-    if (!Number.isFinite(dias) || dias < 0) return "Sem contagem";
-    return `${dias} dias`;
 }
 
 function formatDateTimeShort(value) {
@@ -1079,274 +1068,10 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             )}
 
                             {!hasActiveEvent ? <div className="mt-4">{newInventoryAndSuggestions}</div> : null}
-
-                            {false && !hasActiveEvent ? (
-                                <>
-                                <form onSubmit={onCreateEvento} className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-sm font-semibold text-slate-900">Novo inventário</p>
-                                <div className="grid gap-2 md:grid-cols-2">
-                                    {INVENTARIO_PRESETS.map((preset) => (
-                                        <button
-                                            key={preset.key}
-                                            type="button"
-                                            onClick={() => applyPreset(preset)}
-                                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100"
-                                        >
-                                            {preset.label}
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
-                                    Inventários por UNIDADE e LOCAIS podem rodar em paralelo entre unidades. Inventário GERAL é exclusivo.
-                                </p>
-
-                                <div className="grid gap-3 md:grid-cols-2">
-                                    <label className="block space-y-1">
-                                        <span className="text-xs text-slate-600">Escopo</span>
-                                        <select value={escopoTipo} onChange={(e) => setEscopoTipo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                                            <option value="GERAL">GERAL</option>
-                                            <option value="UNIDADE">UNIDADE</option>
-                                            <option value="LOCAIS">LOCAIS</option>
-                                        </select>
-                                    </label>
-                                    {escopoTipo !== "GERAL" ? (
-                                        <label className="block space-y-1">
-                                            <span className="text-xs text-slate-600">Tipo de ciclo</span>
-                                            <select value={tipoCiclo} onChange={(e) => setTipoCiclo(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                                                <option value="ADHOC">ADHOC</option>
-                                                <option value="SEMANAL">SEMANAL</option>
-                                                <option value="MENSAL">MENSAL</option>
-                                                <option value="ANUAL">ANUAL</option>
-                                            </select>
-                                        </label>
-                                    ) : null}
-                                </div>
-
-                                <label className="block space-y-1">
-                                    <span className="text-xs text-slate-600">Modo de contagem</span>
-                                    <select value={modoContagem} onChange={(e) => setModoContagem(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                                        <option value="PADRAO">PADRAO</option>
-                                        <option value="CEGO">CEGO</option>
-                                        <option value="DUPLO_CEGO">DUPLO_CEGO</option>
-                                    </select>
-                                </label>
-
-                                {modoContagem === "CEGO" ? (
-                                    <div className="space-y-1">
-                                        <label className="block space-y-1">
-                                            <span className="text-xs text-slate-600">Operador único (buscar por matrícula ou nome)</span>
-                                            <div className="relative">
-                                                <input
-                                                    value={operadorUnicoQuery}
-                                                    onChange={(e) => onOperadorUnicoInputChange(e.target.value)}
-                                                    onFocus={() => setOperadorUnicoFocused(true)}
-                                                    onBlur={() => setTimeout(() => setOperadorUnicoFocused(false), 120)}
-                                                    placeholder="Digite matrícula ou nome do operador"
-                                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                                />
-                                                {operadorUnicoFocused ? (
-                                                    <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-                                                        {operadorUnicoLookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
-                                                        {!operadorUnicoLookup.loading && operadorUnicoLookup.error ? (
-                                                            <p className="px-3 py-2 text-xs text-rose-700">{operadorUnicoLookup.error}</p>
-                                                        ) : null}
-                                                        {!operadorUnicoLookup.loading && !operadorUnicoLookup.error && (operadorUnicoLookup.data || []).length === 0 && String(operadorUnicoQuery || "").trim().length >= 2 ? (
-                                                            <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
-                                                        ) : null}
-                                                        {!operadorUnicoLookup.loading && !operadorUnicoLookup.error && (operadorUnicoLookup.data || []).map((perfil) => (
-                                                            <button
-                                                                key={perfil.id}
-                                                                type="button"
-                                                                onMouseDown={(e) => e.preventDefault()}
-                                                                onClick={() => onSelectOperadorUnico(perfil)}
-                                                                className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
-                                                            >
-                                                                <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                        </label>
-                                        <p className="text-[11px] text-slate-500">Digite ao menos 2 caracteres para sugerir. UUID direto também é aceito.</p>
-                                        {operadorUnicoId ? (
-                                            <p className="text-[11px] text-emerald-700">
-                                                Operador selecionado: <span className="font-mono">{operadorUnicoId}</span>
-                                                {operadorUnicoLookup?.selected?.nome ? ` (${operadorUnicoLookup.selected.nome})` : ""}
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                ) : null}
-
-                                {modoContagem === "DUPLO_CEGO" ? (
-                                    <div className="grid gap-3 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <label className="block space-y-1">
-                                                <span className="text-xs text-slate-600">Operador A (matrícula/nome)</span>
-                                                <div className="relative">
-                                                    <input
-                                                        value={operadorAQuery}
-                                                        onChange={(e) => onOperadorAInputChange(e.target.value)}
-                                                        onFocus={() => setOperadorAFocused(true)}
-                                                        onBlur={() => setTimeout(() => setOperadorAFocused(false), 120)}
-                                                        placeholder="Digite matrícula ou nome"
-                                                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                                    />
-                                                    {operadorAFocused ? (
-                                                        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-                                                            {operadorALookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
-                                                            {!operadorALookup.loading && operadorALookup.error ? <p className="px-3 py-2 text-xs text-rose-700">{operadorALookup.error}</p> : null}
-                                                            {!operadorALookup.loading && !operadorALookup.error && (operadorALookup.data || []).length === 0 && String(operadorAQuery || "").trim().length >= 2 ? (
-                                                                <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
-                                                            ) : null}
-                                                            {!operadorALookup.loading && !operadorALookup.error && (operadorALookup.data || []).map((perfil) => (
-                                                                <button
-                                                                    key={perfil.id}
-                                                                    type="button"
-                                                                    onMouseDown={(e) => e.preventDefault()}
-                                                                    onClick={() => onSelectOperadorA(perfil)}
-                                                                    className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
-                                                                >
-                                                                    <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                    <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                            </label>
-                                            {operadorAId ? (
-                                                <p className="text-[11px] text-emerald-700">A: <span className="font-mono">{operadorAId}</span>{operadorALookup?.selected?.nome ? ` (${operadorALookup.selected.nome})` : ""}</p>
-                                            ) : null}
-                                            <label className="flex items-center gap-2 text-xs text-slate-700">
-                                                <input type="checkbox" checked={permiteDesempateA} onChange={(e) => setPermiteDesempateA(e.target.checked)} className="h-4 w-4 accent-violet-600" />
-                                                Permitir desempate para A
-                                            </label>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block space-y-1">
-                                                <span className="text-xs text-slate-600">Operador B (matrícula/nome)</span>
-                                                <div className="relative">
-                                                    <input
-                                                        value={operadorBQuery}
-                                                        onChange={(e) => onOperadorBInputChange(e.target.value)}
-                                                        onFocus={() => setOperadorBFocused(true)}
-                                                        onBlur={() => setTimeout(() => setOperadorBFocused(false), 120)}
-                                                        placeholder="Digite matrícula ou nome"
-                                                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                                    />
-                                                    {operadorBFocused ? (
-                                                        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-                                                            {operadorBLookup.loading ? <p className="px-3 py-2 text-xs text-slate-500">Buscando...</p> : null}
-                                                            {!operadorBLookup.loading && operadorBLookup.error ? <p className="px-3 py-2 text-xs text-rose-700">{operadorBLookup.error}</p> : null}
-                                                            {!operadorBLookup.loading && !operadorBLookup.error && (operadorBLookup.data || []).length === 0 && String(operadorBQuery || "").trim().length >= 2 ? (
-                                                                <p className="px-3 py-2 text-xs text-slate-500">Nenhum perfil encontrado.</p>
-                                                            ) : null}
-                                                            {!operadorBLookup.loading && !operadorBLookup.error && (operadorBLookup.data || []).map((perfil) => (
-                                                                <button
-                                                                    key={perfil.id}
-                                                                    type="button"
-                                                                    onMouseDown={(e) => e.preventDefault()}
-                                                                    onClick={() => onSelectOperadorB(perfil)}
-                                                                    className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs hover:bg-violet-50"
-                                                                >
-                                                                    <div className="font-semibold text-slate-900">{perfil.nome || "-"}</div>
-                                                                    <div className="text-slate-600">Matrícula: <span className="font-mono">{perfil.matricula || "-"}</span></div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                            </label>
-                                            {operadorBId ? (
-                                                <p className="text-[11px] text-emerald-700">B: <span className="font-mono">{operadorBId}</span>{operadorBLookup?.selected?.nome ? ` (${operadorBLookup.selected.nome})` : ""}</p>
-                                            ) : null}
-                                            <label className="flex items-center gap-2 text-xs text-slate-700">
-                                                <input type="checkbox" checked={permiteDesempateB} onChange={(e) => setPermiteDesempateB(e.target.checked)} className="h-4 w-4 accent-violet-600" />
-                                                Permitir desempate para B
-                                            </label>
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                {escopoTipo !== "GERAL" ? (
-                                    <label className="block space-y-1">
-                                        <span className="text-xs text-slate-600">Unidade inventariada</span>
-                                        <select
-                                            value={unidadeInventariadaId}
-                                            onChange={(e) => setUnidadeInventariadaId(e.target.value)}
-                                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                                        >
-                                            <option value="">Selecione</option>
-                                            <option value="1">{formatUnidade(1)}</option>
-                                            <option value="2">{formatUnidade(2)}</option>
-                                            <option value="3">{formatUnidade(3)}</option>
-                                            <option value="4">{formatUnidade(4)}</option>
-                                        </select>
-                                    </label>
-                                ) : null}
-
-                                {escopoTipo === "LOCAIS" ? (
-                                    <div className="space-y-2">
-                                        <p className="text-xs text-slate-600">Endereços do escopo</p>
-                                        <div className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-2">
-                                            {(locaisEscopoQuery.data || []).map((l) => (
-                                                <label key={l.id} className="flex items-center gap-2 py-1 text-xs text-slate-700">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={escopoLocalIds.includes(String(l.id))}
-                                                        onChange={() => toggleEscopoLocal(l.id)}
-                                                        className="h-4 w-4 accent-violet-600"
-                                                    />
-                                                    <span>{l.nome}</span>
-                                                </label>
-                                            ))}
-                                            {!(locaisEscopoQuery.data || []).length ? <p className="text-xs text-slate-500">Nenhum endereço encontrado para a unidade selecionada.</p> : null}
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                <button
-                                    type="submit"
-                                    disabled={criarEventoMut.isPending}
-                                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                                >
-                                    {criarEventoMut.isPending ? "Abrindo..." : createButtonLabel}
-                                </button>
-                            </form>
-
-                            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-sm font-semibold text-slate-900">Sugestões de ciclo</p>
-                                <p className="text-[11px] text-slate-600">Prioridade por mais tempo sem contagem.</p>
-                                <div className="mt-2 max-h-44 overflow-auto space-y-2">
-                                    {(sugestoesCicloQuery.data || []).map((s) => (
-                                        <button
-                                            key={s.localId}
-                                            type="button"
-                                            onClick={() => {
-                                                setEscopoTipo("LOCAIS");
-                                                setTipoCiclo("SEMANAL");
-                                                setUnidadeInventariadaId(String(s.unidadeId || ""));
-                                                setEscopoLocalIds([String(s.localId)]);
-                                            }}
-                                            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-left text-xs hover:bg-slate-100"
-                                        >
-                                            <div className="font-semibold text-slate-900">{s.nome}</div>
-                                            <div className="text-slate-600">Unid {s.unidadeId} | {formatDiasSemContagemLabel(s.diasSemContagem)} | bens {s.qtdBensAtivos}</div>
-                                        </button>
-                                    ))}
-                                    {!(sugestoesCicloQuery.data || []).length ? <p className="text-xs text-slate-500">Sem sugestões no momento.</p> : null}
-                                </div>
-                            </div>
-                                </>
-                            ) : null}
                         </div>
                     </div>
 
-                    <div className="min-w-0 flex flex-col gap-4">
-                        {selectedEventoIdFinal ? (
-                            <>
+                    <div className="space-y-4">
                             <InventoryUncountedAssetsPanel
                                 query={naoLocalizadosQuery}
                                 summary={naoLocalizadosSummary}
@@ -1361,137 +1086,6 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                                 formatPercent={formatPercent}
                                 formatUnidade={formatUnidade}
                             />
-                            {false && <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div>
-                                        <h4 className="text-sm font-semibold">Bens não contados</h4>
-                                        <p className="mt-1 text-[11px] text-slate-600">Pendências por endereço para o evento em andamento.</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => naoLocalizadosQuery.refetch()}
-                                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-slate-100"
-                                    >
-                                        Atualizar
-                                    </button>
-                                </div>
-
-                                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                    <KpiMini label="Não contados" value={naoLocalizadosSummary.totalNaoLocalizados} tone="amber" />
-                                    <KpiMini label="Endereços críticos" value={naoLocalizadosSummary.totalEnderecosComPendencia} tone="orange" />
-                                    <KpiMini label="% de cobertura" value={formatPercent(percentualCoberturaNaoLocalizados)} tone="sky" />
-                                    <KpiMini label="Contados / Esperados" value={`${naoLocalizadosSummary.totalContados} / ${naoLocalizadosSummary.totalBensEsperados}`} tone="violet" />
-                                </div>
-
-                                {naoLocalizadosQuery.isLoading ? (
-                                    <p className="mt-3 text-xs text-slate-500">Carregando pendências de contagem...</p>
-                                ) : naoLocalizadosQuery.error ? (
-                                    <p className="mt-3 text-xs text-rose-700">Falha ao carregar bens não contados.</p>
-                                ) : naoLocalizadosGroups.length === 0 ? (
-                                    <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-                                        Nenhum bem pendente de contagem neste evento.
-                                    </p>
-                                ) : (
-                                    <div className="mt-3 space-y-3">
-                                        {naoLocalizadosGroups.map((group) => {
-                                            const localKey = String(group.localId || group.localNome || "");
-                                            const items = Array.isArray(group.items) ? group.items : [];
-                                            const visibleCount = Math.max(20, Number(naoLocalizadosVisibleByGroup[localKey] || 20));
-                                            const visibleItems = items.slice(0, visibleCount);
-                                            const hasMore = items.length > visibleItems.length;
-
-                                            return (
-                                                <details key={localKey} className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 group">
-                                                    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
-                                                        <div>
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="text-sm font-semibold text-slate-900">{group.localNome || "Endereço sem nome"}</span>
-                                                                <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                                                                    {group.qtdNaoLocalizados || 0} pendente(s)
-                                                                </span>
-                                                            </div>
-                                                            <p className="mt-1 text-[11px] text-slate-600">
-                                                                Cobertura {formatPercent(group.percentualCobertura)} | Contados {group.qtdContados || 0} de {group.qtdEsperados || 0}
-                                                            </p>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                openInventoryCountForGroup(group);
-                                                            }}
-                                                            className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700"
-                                                        >
-                                                            Abrir contagem do endereço
-                                                        </button>
-                                                    </summary>
-
-                                                    <div className="mt-3 overflow-hidden rounded-xl border border-amber-200 bg-white">
-                                                        <div className="overflow-x-auto">
-                                                            <table className="min-w-full text-xs">
-                                                                <thead className="bg-amber-50 text-slate-600">
-                                                                    <tr>
-                                                                        <th className="px-3 py-2 text-left">Tombo</th>
-                                                                        <th className="px-3 py-2 text-left">Material (SKU)</th>
-                                                                        <th className="px-3 py-2 text-left">Descrição</th>
-                                                                        <th className="px-3 py-2 text-left">Unidade</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {visibleItems.map((item) => (
-                                                                        <tr key={String(item.bemId || item.numeroTombamento)} className="border-t border-slate-100">
-                                                                            <td className="px-3 py-2 font-mono text-slate-900">
-                                                                                {item.numeroTombamento ? (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => openAssetDetailFromRow(item)}
-                                                                                        className="font-mono text-violet-700 hover:underline"
-                                                                                        title="Abrir detalhes do bem"
-                                                                                    >
-                                                                                        {item.numeroTombamento}
-                                                                                    </button>
-                                                                                ) : "-"}
-                                                                            </td>
-                                                                            <td className="px-3 py-2 text-slate-700">
-                                                                                {item.codigoCatalogo ? (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => openAssetsExplorerBySku(item)}
-                                                                                        className="font-mono text-emerald-700 hover:underline"
-                                                                                        title="Abrir Consulta de Bens filtrada por Material (SKU)"
-                                                                                    >
-                                                                                        {item.codigoCatalogo}
-                                                                                    </button>
-                                                                                ) : "-"}
-                                                                            </td>
-                                                                            <td className="px-3 py-2 text-slate-700">{item.nomeResumo || "-"}</td>
-                                                                            <td className="px-3 py-2 text-slate-700">{formatUnidade(Number(item.unidadeDonaId))}</td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                        {hasMore ? (
-                                                            <div className="border-t border-amber-100 bg-amber-50/60 px-3 py-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => expandNaoLocalizadosGroup(localKey, items.length)}
-                                                                    className="text-xs font-semibold text-violet-700 hover:text-violet-900"
-                                                                >
-                                                                    Ver mais ({items.length - visibleItems.length} restantes)
-                                                                </button>
-                                                            </div>
-                                                        ) : null}
-                                                    </div>
-                                                </details>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>}
-                            </>
-                        ) : null}
                         <InventoryLiveMonitoringPanel
                             visible={selectedEventoIdFinal}
                             isAdmin={isAdmin}
@@ -1502,72 +1096,6 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             totalEsperados={monitoramentoTotalEsperados}
                             totalDesempate={monitoramentoTotalDesempate}
                         />
-
-                        {false && selectedEventoIdFinal && (
-                            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h4 className="text-sm font-semibold">Monitoramento em tempo real</h4>
-                                        <p className="mt-1 text-[11px] text-slate-600">Por endereço, operador/rodada e pendências de desempate.</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => monitoramentoQuery.refetch()}
-                                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-slate-100"
-                                    >
-                                        Atualizar
-                                    </button>
-                                </div>
-                                {!isAdmin ? (
-                                    <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                                        O monitoramento detalhado fica disponível apenas para perfis administrativos.
-                                    </p>
-                                ) : monitoramentoQuery.isLoading ? (
-                                    <p className="mt-3 text-xs text-slate-500">Carregando monitoramento...</p>
-                                ) : monitoramentoQuery.error ? (
-                                    <p className="mt-3 text-xs text-rose-700">Falha ao carregar monitoramento.</p>
-                                ) : (
-                                    <>
-                                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                                            <KpiMini label="Pendências de desempate" value={Number(monitoramentoQuery.data?.pendentesDesempate || 0)} tone="amber" />
-                                            <KpiMini label="Endereços monitorados" value={monitoramentoRows.length} tone="sky" />
-                                            <KpiMini label="Contagens A / B" value={`${monitoramentoTotalA} / ${monitoramentoTotalB}`} tone="violet" />
-                                            <KpiMini label="Esperados / Desempate" value={`${monitoramentoTotalEsperados} / ${monitoramentoTotalDesempate}`} tone="emerald" />
-                                        </div>
-                                        <div className="mt-3 max-h-60 overflow-auto rounded-xl border border-slate-200">
-                                            <table className="min-w-full text-xs">
-                                                <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
-                                                    <tr>
-                                                        <th className="px-2 py-2 text-left">Endereço</th>
-                                                        <th className="px-2 py-2 text-right">Esp.</th>
-                                                        <th className="px-2 py-2 text-right">A</th>
-                                                        <th className="px-2 py-2 text-right">B</th>
-                                                        <th className="px-2 py-2 text-right">Des.</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {monitoramentoRows.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={5} className="px-3 py-6 text-center text-xs text-slate-500">
-                                                                Sem dados de monitoramento para o evento selecionado.
-                                                            </td>
-                                                        </tr>
-                                                    ) : monitoramentoRows.map((row) => (
-                                                        <tr key={`${row.salaEncontrada}-${row.qtdEsperados}`} className="border-t border-slate-100">
-                                                            <td className="px-2 py-1.5">{row.salaEncontrada || "-"}</td>
-                                                            <td className="px-2 py-1.5 text-right">{row.qtdEsperados || 0}</td>
-                                                            <td className="px-2 py-1.5 text-right">{row.qtdA || 0}</td>
-                                                            <td className="px-2 py-1.5 text-right">{row.qtdB || 0}</td>
-                                                            <td className="px-2 py-1.5 text-right">{row.qtdDesempate || 0}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
 
                         <InventoryInterunitDivergencesPanel
                             query={divergenciasInterunidadesQuery}
@@ -1596,226 +1124,26 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                             formatDateTimeShort={formatDateTimeShort}
                         />
 
-                        {false && <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <h4 className="text-sm font-semibold">Divergências interunidades (tempo real)</h4>
-                                    <p className="mt-1 text-[11px] text-slate-600">Visibilidade cruzada entre unidade dona e unidade encontrada.</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => divergenciasInterunidadesQuery.refetch()}
-                                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold hover:bg-slate-100"
-                                >
-                                    Atualizar
-                                </button>
-                            </div>
-
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                <KpiMini label="Da minha unidade fora" value={interDaMinhaUnidadeFora} tone="orange" />
-                                <KpiMini label="Outras unidades na minha" value={interOutrasNaMinha} tone="sky" />
-                                <KpiMini label="Pendentes" value={interPendentes} tone="amber" />
-                                <KpiMini label="Regularizadas" value={interRegularizadas} tone="emerald" />
-                                <KpiMini label="Em andamento" value={interEmAndamento} tone="violet" />
-                                <KpiMini label="Encerrado" value={interEncerrado} tone="slate" />
-                            </div>
-
-                            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-                                    <label className="space-y-1 text-xs text-slate-600">
-                                        <span>Status</span>
-                                        <select value={interStatusInventario} onChange={(e) => setInterStatusInventario(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs">
-                                            <option value="TODOS">TODOS</option>
-                                            <option value="EM_ANDAMENTO">EM_ANDAMENTO</option>
-                                            <option value="ENCERRADO">ENCERRADO</option>
-                                        </select>
-                                    </label>
-                                    <label className="space-y-1 text-xs text-slate-600">
-                                        <span>Unidade relacionada</span>
-                                        <select
-                                            value={interUnidadeRelacionada}
-                                            onChange={(e) => setInterUnidadeRelacionada(e.target.value)}
-                                            className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs"
-                                            disabled={!isAdmin}
-                                        >
-                                            <option value="">{isAdmin ? "Todas" : "Minha unidade"}</option>
-                                            <option value="1">{formatUnidade(1)}</option>
-                                            <option value="2">{formatUnidade(2)}</option>
-                                            <option value="3">{formatUnidade(3)}</option>
-                                            <option value="4">{formatUnidade(4)}</option>
-                                        </select>
-                                    </label>
-                                    <label className="space-y-1 text-xs text-slate-600">
-                                        <span>Código do inventário</span>
-                                        <input value={interCodigoFiltro} onChange={(e) => setInterCodigoFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por código" />
-                                    </label>
-                                    <label className="space-y-1 text-xs text-slate-600">
-                                        <span>Endereço</span>
-                                        <input value={interSalaFiltro} onChange={(e) => setInterSalaFiltro(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs" placeholder="Filtrar por endereço" />
-                                    </label>
-                                </div>
-                                <div className="mt-3 flex justify-end">
-                                    <button
-                                        type="button"
-                                        onClick={clearInterFilters}
-                                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                                    >
-                                        Limpar filtros
-                                    </button>
-                                </div>
-                            </div>
-
-                            {divergenciasInterunidadesQuery.isLoading ? (
-                                <p className="mt-3 text-xs text-slate-500">Carregando divergencias...</p>
-                            ) : divergenciasInterunidadesQuery.error ? (
-                                <p className="mt-3 text-xs text-rose-700">Falha ao carregar divergencias interunidades.</p>
-                            ) : (
-                                <>
-                                    <p className="mt-3 text-xs text-slate-600">Total: {divergenciasInterTotal} | Mostrando: {divergenciasInterItems.length}</p>
-                                    <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-slate-200">
-                                        <table className="min-w-full text-xs">
-                                            <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
-                                                <tr>
-                                                    <th className="px-2 py-2 text-left font-semibold">Inventário</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Tombo/Bem</th>
-                                                    <th className="px-2 py-2 text-right font-semibold">Dona</th>
-                                                    <th className="px-2 py-2 text-right font-semibold">Encontrada</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Endereço</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Tipo</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Regularização</th>
-                                                    <th className="px-2 py-2 text-left font-semibold">Registro</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {divergenciasInterItems.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={8} className="px-3 py-6 text-center text-xs text-slate-500">
-                                                            Nenhuma divergencia encontrada para os filtros atuais.
-                                                        </td>
-                                                    </tr>
-                                                ) : divergenciasInterItems.map((row, index) => (
-                                                    <tr key={row.contagemId} className={`border-t border-slate-100 ${index % 2 === 0 ? "bg-white" : "bg-slate-50/60"}`}>
-                                                        <td className="px-2 py-1.5">
-                                                            <div className="font-semibold text-slate-800">{row.codigoEvento}</div>
-                                                            <div className={`mt-1 inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold ${inventoryStatusPillClass(row.statusInventario)}`}>{row.statusInventario || "-"}</div>
-                                                        </td>
-                                                        <td className="px-2 py-1.5">
-                                                            <div className="font-mono text-slate-800">{row.numeroTombamento || "-"}</div>
-                                                            <div className="truncate text-[11px] text-slate-500" title={row.nomeResumo || row.codigoCatalogo || "-"}>
-                                                                {row.nomeResumo || row.codigoCatalogo || "-"}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{formatUnidade(Number(row.unidadeDonaId))}</td>
-                                                        <td className="px-2 py-1.5 text-right whitespace-nowrap">{formatUnidade(Number(row.unidadeEncontradaId))}</td>
-                                                        <td className="px-2 py-1.5 whitespace-nowrap">{row.salaEncontrada || "-"}</td>
-                                                        <td className="px-2 py-1.5">
-                                                            <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold ${divergenceTypePillClass(row.tipoDivergencia)}`}>
-                                                                {row.tipoDivergencia || "DIVERGENTE"}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-2 py-1.5">
-                                                            <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold ${regularizacaoPillClass(row.regularizacaoPendente)}`}>
-                                                                {row.regularizacaoPendente ? "PENDENTE" : (row.regularizacaoAcao || "REGULARIZADA")}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-2 py-1.5 whitespace-nowrap text-[11px] text-slate-600">{formatDateTimeShort(row.encontradoEm)}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </>
-                            )}
-                        </div>}
-
-                        {historicoEventos.length > 0 && (
-                            <details className="flex-1 rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4" open={!hasActiveEvent}>
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-slate-900">Historico Resumido</h4>
-                                        <p className="mt-1 text-[11px] text-slate-500">Consulta secundaria para revisao e reabertura.</p>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <StatusBadge label="Leitura secundaria" tone="slate" />
-                                        <StatusBadge label={`${historicoEventos.length} evento(s)`} tone="slate" />
-                                    </div>
-                                </summary>
-                                <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-2">
-                                    {historicoEventos.map(ev => {
-                                        const isEditing = editingEventoId === ev.id;
-                                        return (
-                                            <div key={ev.id} className="text-[11px] p-2 rounded bg-white flex justify-between items-start gap-2 border border-slate-200">
-                                                <div className="flex-1">
-                                                    {isEditing ? (
-                                                        <input
-                                                            className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 mb-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-                                                            value={editForm.codigoEvento}
-                                                            onChange={(e) => setEditForm({ ...editForm, codigoEvento: e.target.value })}
-                                                        />
-                                                    ) : (
-                                                        <p className="font-semibold text-slate-800">{ev.codigoEvento}</p>
-                                                    )}
-
-                                                    <p className="text-slate-500">Aberto por: {ev.abertoPorNome || 'Sistema'}</p>
-
-                                                    {isEditing ? (
-                                                        <textarea
-                                                            className="w-full h-12 rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 mt-1 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-                                                            value={editForm.observacoes}
-                                                            placeholder="Observações..."
-                                                            onChange={(e) => setEditForm({ ...editForm, observacoes: e.target.value })}
-                                                        />
-                                                    ) : (
-                                                        ev.observacoes && <p className="text-slate-500 mt-1 italic leading-tight">"{ev.observacoes}"</p>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col items-end gap-1">
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        <span className={`px-2 py-0.5 rounded font-bold ${ev.status === 'EM_ANDAMENTO' ? 'bg-amber-300/20 text-amber-800' : 'bg-emerald-300/20 text-emerald-700'}`}>{ev.status}</span>
-                                                    </div>
-                                                    <p className="text-slate-500 shrink-0">{ev.unidadeInventariadaId ? `Unid ${formatUnidade(ev.unidadeInventariadaId)}` : 'Geral'} | {ev.modoContagem || "PADRAO"}</p>
-
-                                                    {isAdmin && (
-                                                        <div className="flex gap-1.5 mt-2">
-                                                            {isEditing ? (
-                                                                <>
-                                                                    <button onClick={saveEditEvento} disabled={atualizarEventoMut.isPending} className="border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded transition-colors text-xs font-medium">Salvar</button>
-                                                                    <button onClick={() => setEditingEventoId(null)} className="border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 px-2 py-1 rounded transition-colors text-xs font-medium">Cancelar</button>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setSelectedEventoId(ev.id);
-                                                                            setRelatorioEventoId(ev.id);
-                                                                            setUiInfo(`Relatório carregado para o evento ${ev.codigoEvento}.`);
-                                                                        }}
-                                                                        className="bg-violet-100 hover:bg-violet-200 text-violet-700 px-2 py-1 rounded transition-colors text-xs font-medium"
-                                                                    >
-                                                                        Relatório
-                                                                    </button>
-                                                                    {ev.status !== "EM_ANDAMENTO" && (
-                                                                        <button
-                                                                            onClick={() => onUpdateStatus("EM_ANDAMENTO", ev.id)}
-                                                                            disabled={atualizarStatusMut.isPending}
-                                                                            className="border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded transition-colors text-xs font-medium disabled:opacity-50"
-                                                                        >
-                                                                            Reabrir
-                                                                        </button>
-                                                                    )}
-                                                                    <button onClick={() => handleEditEvento(ev)} className="bg-slate-100/50 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded transition-colors text-xs font-medium">Editar</button>
-                                                                    <button onClick={() => handleDeleteEvento(ev)} disabled={excluirEventoMut.isPending} className="bg-rose-100 hover:bg-rose-200 text-rose-700 px-2 py-1 rounded transition-colors text-xs font-medium">Excluir</button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </details>
-                        )}
+                        <InventoryHistoryPanel
+                            historicoEventos={historicoEventos}
+                            hasActiveEvent={hasActiveEvent}
+                            editingEventoId={editingEventoId}
+                            editForm={editForm}
+                            setEditForm={setEditForm}
+                            isAdmin={isAdmin}
+                            atualizarEventoMutPending={atualizarEventoMut.isPending}
+                            setEditingEventoId={setEditingEventoId}
+                            onSaveEditEvento={saveEditEvento}
+                            onLoadRelatorio={(ev) => {
+                                setSelectedEventoId(ev.id);
+                                setRelatorioEventoId(ev.id);
+                                setUiInfo(`Relatório carregado para o evento ${ev.codigoEvento}.`);
+                            }}
+                            onReopenEvento={(ev) => onUpdateStatus("EM_ANDAMENTO", ev.id)}
+                            onHandleEditEvento={handleEditEvento}
+                            onHandleDeleteEvento={handleDeleteEvento}
+                            formatUnidade={formatUnidade}
+                        />
                     </div>
                 </div>
             </section>
@@ -1901,175 +1229,29 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                     </div>
                 </div>
             ) : null}
-            <details className="rounded-2xl border border-slate-200 bg-white p-3 md:p-5 shadow-sm" open={!hasActiveEvent}>
-                <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h3 className="font-[Space_Grotesk] text-xl font-semibold">Acuracidade de Inventario</h3>
-                        <p className="mt-1 text-xs text-slate-600">
-                            Leitura gerencial e analitica para o pos-operacao do inventario.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <StatusBadge label="Leitura secundaria" tone="slate" />
-                        <StatusBadge label={hasActiveEvent ? "Area secundaria" : "Painel principal"} tone={hasActiveEvent ? "slate" : "violet"} />
-                        <button
-                            type="button"
-                            onClick={(event) => {
-                                event.preventDefault();
-                                acuraciaQuery.refetch();
-                            }}
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-100"
-                        >
-                            Atualizar painel
-                        </button>
-                    </div>
-                </summary>
-                <div className="mt-4 grid gap-3 md:grid-cols-5">
-                    <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Data início</span>
-                        <input
-                            type="date"
-                            value={acuraciaDataInicio}
-                            onChange={(e) => setAcuraciaDataInicio(e.target.value)}
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                        />
-                    </label>
-                    <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Data fim</span>
-                        <input
-                            type="date"
-                            value={acuraciaDataFim}
-                            onChange={(e) => setAcuraciaDataFim(e.target.value)}
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                        />
-                    </label>
-                    <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Status evento</span>
-                        <select
-                            value={acuraciaStatusEvento}
-                            onChange={(e) => setAcuraciaStatusEvento(e.target.value)}
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                        >
-                            <option value="ENCERRADO">ENCERRADO</option>
-                            <option value="EM_ANDAMENTO">EM_ANDAMENTO</option>
-                            <option value="CANCELADO">CANCELADO</option>
-                        </select>
-                    </label>
-                    <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Unidade</span>
-                        <select
-                            value={acuraciaUnidadeId}
-                            onChange={(e) => setAcuraciaUnidadeId(e.target.value)}
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                        >
-                            <option value="">Todas</option>
-                            <option value="1">{formatUnidade(1)}</option>
-                            <option value="2">{formatUnidade(2)}</option>
-                            <option value="3">{formatUnidade(3)}</option>
-                            <option value="4">{formatUnidade(4)}</option>
-                        </select>
-                    </label>
-                    <label className="block space-y-1">
-                        <span className="text-xs text-slate-600">Tolerância % (0-10)</span>
-                        <input
-                            type="number"
-                            min="0"
-                            max="10"
-                            step="0.1"
-                            value={acuraciaToleranciaPct}
-                            onChange={(e) => setAcuraciaToleranciaPct(e.target.value)}
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                        />
-                    </label>
-                </div>
-
-                {acuraciaQuery.isLoading && <p className="mt-4 text-sm text-slate-600">Calculando indicadores...</p>}
-                {acuraciaQuery.error && (
-                    <p className="mt-4 text-sm text-rose-700">Falha ao calcular indicadores de acuracidade.</p>
-                )}
-
-                {!acuraciaQuery.isLoading && !acuraciaQuery.error && acuraciaResumo && (
-                    <div className="mt-4 space-y-4">
-                        <div className="grid gap-3 md:grid-cols-5">
-                            <KpiSemaforoCard
-                                titulo="Acuracidade Exata"
-                                valor={`${Number(acuraciaResumo.acuracidadeExataPct || 0).toFixed(2)}%`}
-                                status={acuraciaSemaforo.acuracidadeExata?.status}
-                                tendencia={trendAcuracidadeExata}
-                            />
-                            <KpiSemaforoCard
-                                titulo="Acuracidade Tolerância"
-                                valor={`${Number(acuraciaResumo.acuracidadeToleranciaPct || 0).toFixed(2)}%`}
-                                status={acuraciaSemaforo.acuracidadeTolerancia?.status}
-                            />
-                            <KpiSemaforoCard
-                                titulo="Pendência de Regularização"
-                                valor={`${Number(acuraciaResumo.taxaPendenciaRegularizacaoPct || 0).toFixed(2)}%`}
-                                status={acuraciaSemaforo.pendenciaRegularizacao?.status}
-                                tendencia={trendPendencia}
-                            />
-                            <KpiSemaforoCard
-                                titulo="MTTR Regularização"
-                                valor={`${Number(acuraciaResumo.mttrRegularizacaoDias || 0).toFixed(2)} dias`}
-                                status={acuraciaSemaforo.mttrRegularizacao?.status}
-                            />
-                            <KpiSemaforoCard
-                                titulo="Cobertura de Contagem"
-                                valor={`${Number(acuraciaResumo.coberturaContagemPct || 0).toFixed(2)}%`}
-                                status={acuraciaSemaforo.coberturaContagem?.status}
-                                tendencia={trendCobertura}
-                            />
-                        </div>
-
-                        <div className="grid gap-3 lg:grid-cols-2">
-                            <TrendListCard
-                                title="Série semanal"
-                                rows={serieSemanalAcuracia}
-                                metricKey="acuracidadeExataPct"
-                                metricLabel="Acuracidade Exata"
-                            />
-                            <TrendListCard
-                                title="Série mensal"
-                                rows={serieMensalAcuracia}
-                                metricKey="acuracidadeExataPct"
-                                metricLabel="Acuracidade Exata"
-                            />
-                        </div>
-
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                            <p className="text-xs uppercase tracking-widest text-slate-500">Top endereços críticos por erro relativo médio</p>
-                            {!topSalasCriticasAcuracia.length ? (
-                                <p className="mt-2 text-sm text-slate-600">Sem endereços avaliados para o período.</p>
-                            ) : (
-                                <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                                    <table className="min-w-full text-left text-xs">
-                                        <thead className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-600">
-                                            <tr>
-                                                <th className="px-2 py-2">Endereço</th>
-                                                <th className="px-2 py-2">Erro médio</th>
-                                                <th className="px-2 py-2">Cobertura</th>
-                                                <th className="px-2 py-2">Hit/Miss</th>
-                                                <th className="px-2 py-2">Eventos</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-200">
-                                            {topSalasCriticasAcuracia.map((s) => (
-                                                <tr key={`${s.sala}-${s.eventos}`}>
-                                                    <td className="px-2 py-2 text-slate-800">{s.sala}</td>
-                                                    <td className="px-2 py-2 text-slate-700">{Number(s.erroRelativoMedioSalaPct || 0).toFixed(2)}%</td>
-                                                    <td className="px-2 py-2 text-slate-700">{Number(s.coberturaContagemPct || 0).toFixed(2)}%</td>
-                                                    <td className="px-2 py-2 text-slate-700">{Number(s.hits || 0)}/{Number(s.avaliacoes || 0)}</td>
-                                                    <td className="px-2 py-2 text-slate-700">{Number(s.eventos || 0)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </details>
+            <InventoryAccuracyPanel
+                hasActiveEvent={hasActiveEvent}
+                acuraciaDataInicio={acuraciaDataInicio}
+                setAcuraciaDataInicio={setAcuraciaDataInicio}
+                acuraciaDataFim={acuraciaDataFim}
+                setAcuraciaDataFim={setAcuraciaDataFim}
+                acuraciaStatusEvento={acuraciaStatusEvento}
+                setAcuraciaStatusEvento={setAcuraciaStatusEvento}
+                acuraciaUnidadeId={acuraciaUnidadeId}
+                setAcuraciaUnidadeId={setAcuraciaUnidadeId}
+                acuraciaToleranciaPct={acuraciaToleranciaPct}
+                setAcuraciaToleranciaPct={setAcuraciaToleranciaPct}
+                acuraciaQuery={acuraciaQuery}
+                acuraciaResumo={acuraciaResumo}
+                acuraciaSemaforo={acuraciaSemaforo}
+                trendAcuracidadeExata={trendAcuracidadeExata}
+                trendPendencia={trendPendencia}
+                trendCobertura={trendCobertura}
+                serieSemanalAcuracia={serieSemanalAcuracia}
+                serieMensalAcuracia={serieMensalAcuracia}
+                topSalasCriticasAcuracia={topSalasCriticasAcuracia}
+                formatUnidade={formatUnidade}
+            />
 
             <RegularizationPanel />
         </div>
