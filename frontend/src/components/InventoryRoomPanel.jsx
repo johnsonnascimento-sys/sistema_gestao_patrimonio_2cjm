@@ -143,8 +143,6 @@ function ModeBadge({ mode }) {
     : normalized === "CEGO"
       ? "border-orange-300 bg-orange-50 text-orange-800"
       : "border-violet-300 bg-violet-50 text-violet-700";
-  const presetOriginLabel = navigationPreset?.originLabel ? String(navigationPreset.originLabel) : "";
-  const presetOriginContext = navigationPreset?.originContext ? String(navigationPreset.originContext) : "";
 
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cls}`}>
