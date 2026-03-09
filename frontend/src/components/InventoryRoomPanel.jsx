@@ -23,6 +23,7 @@ import {
 import InventoryProgress from "./InventoryProgress.jsx";
 import InventoryAddressOverviewCard from "./inventory/InventoryAddressOverviewCard.jsx";
 import InventoryCountContextCard from "./inventory/InventoryCountContextCard.jsx";
+import InventoryDivergencesPanel from "./inventory/InventoryDivergencesPanel.jsx";
 import InventoryExceptionPanels from "./inventory/InventoryExceptionPanels.jsx";
 import InventoryExpectedAssetsPanel from "./inventory/InventoryExpectedAssetsPanel.jsx";
 import InventoryPrimaryReadPanel from "./inventory/InventoryPrimaryReadPanel.jsx";
@@ -1327,12 +1328,14 @@ export default function InventoryRoomPanel({ navigationPreset = null }) {
       </div>
 
       {!uiReduzida ? (
-        <DivergencesPanel
+        <InventoryDivergencesPanel
           salaEncontrada={salaEncontrada}
           contagens={contagensSalaQuery.data || []}
           offlineItems={offline.items || []}
           bensSala={bensSalaQuery.data || []}
           eventoInventarioId={selectedEventoIdFinal}
+          formatUnidade={formatUnidade}
+          getFotoUrl={getFotoUrl}
         />
       ) : null}
 

@@ -72,6 +72,8 @@ Nessa área ficam:
 
 `Histórico resumido` e `Acuracidade de inventário` permanecem disponíveis, mas agora ficam visualmente rebaixados como leitura secundária em relação ao cockpit do evento ativo.
 
+Nesta etapa da decomposição estrutural, os componentes visuais puros do cockpit passaram a morar em um módulo dedicado (`InventoryAdminUi.jsx`), reduzindo o acoplamento do painel principal sem alterar consultas, mutações, filtros ou ações críticas.
+
 Nesta fase do plano, a UI passou a marcar de forma mais explícita o que é `Área secundária`:
 
 - `Novo inventário` recebe um bloco introdutório de apoio quando já existe evento ativo;

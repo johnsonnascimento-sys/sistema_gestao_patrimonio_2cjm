@@ -7,6 +7,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import InventoryAddressOverviewCard from "../components/inventory/InventoryAddressOverviewCard.jsx";
 import InventoryCountContextCard from "../components/inventory/InventoryCountContextCard.jsx";
+import InventoryDivergencesPanel from "../components/inventory/InventoryDivergencesPanel.jsx";
 import InventoryExceptionPanels from "../components/inventory/InventoryExceptionPanels.jsx";
 import InventoryExpectedAssetsPanel from "../components/inventory/InventoryExpectedAssetsPanel.jsx";
 import InventoryPrimaryReadPanel from "../components/inventory/InventoryPrimaryReadPanel.jsx";
@@ -121,7 +122,7 @@ describe("InventoryRoom cards extraidos", () => {
     expect(screen.getByText("Fila do endereço: 2")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Ex.: 1290001788")).toBeInTheDocument();
     expect(screen.getByText("Últimos registros")).toBeInTheDocument();
-    expect(screen.getByText("1290001788")).toBeInTheDocument();
+    expect(screen.getAllByText("1290001788").length).toBeGreaterThan(0);
   });
 
   it("renderiza o painel de bens esperados com filtros e resumo agrupado", () => {
@@ -224,5 +225,37 @@ describe("InventoryRoom cards extraidos", () => {
     expect(screen.getByText("Terceiros registrados")).toBeInTheDocument();
     expect(screen.getAllByText("Foto anexada")).toHaveLength(2);
     expect(screen.getByText("Empresa XPTO")).toBeInTheDocument();
+  });
+
+  it("renderiza o painel de divergencias do endereco", () => {
+    render(
+      <InventoryDivergencesPanel
+        salaEncontrada="Sala 401"
+        contagens={[
+          {
+            tipoOcorrencia: "ENCONTRADO_EM_LOCAL_DIVERGENTE",
+            regularizacaoPendente: true,
+            numeroTombamento: "1290001788",
+            codigoCatalogo: "37201",
+            catalogoDescricao: "Notebook Dell",
+            unidadeDonaId: 2,
+            unidadeEncontradaId: 3,
+            salaEncontrada: "Sala 401",
+            localEsperadoTexto: "Sala 201",
+            encontradoEm: "2026-03-09T00:00:00.000Z",
+          },
+        ]}
+        offlineItems={[]}
+        bensSala={[]}
+        eventoInventarioId="evt-1"
+        formatUnidade={(value) => `${value} (Teste)`}
+        getFotoUrl={(value) => value}
+      />,
+    );
+
+    expect(screen.getByText("Divergências no endereço (Art. 185)")).toBeInTheDocument();
+    expect(screen.getByText("Pendentes 1")).toBeInTheDocument();
+    expect(screen.getAllByText("1290001788").length).toBeGreaterThan(0);
+    expect(screen.getByText("UNIDADE + ENDEREÇO")).toBeInTheDocument();
   });
 });

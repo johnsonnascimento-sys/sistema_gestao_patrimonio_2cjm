@@ -55,6 +55,7 @@ Evolucao desta fase:
 - o card `Contexto da contagem` saiu do JSX principal e passou a ser renderizado por `InventoryCountContextCard`;
 - o card lateral `Visao rapida do endereco` saiu do JSX principal e passou a ser renderizado por `InventoryAddressOverviewCard`;
 - o painel `Leitura principal` saiu do JSX principal e passou a ser renderizado por `InventoryPrimaryReadPanel`;
+- o painel `Divergencias no endereco` saiu da composicao principal e passou a ter componente dedicado `InventoryDivergencesPanel`;
 - os blocos de excecao operacional (`Bem de terceiro`, `Bem sem identificacao` e `Terceiros registrados`) sairam do JSX principal e passaram a ser renderizados por `InventoryExceptionPanels`;
 - o painel `Bens esperados do endereco` saiu do JSX principal e passou a ser renderizado por `InventoryExpectedAssetsPanel`;
 - a extracao foi feita sem alterar scanner, fila offline, regras de contagem cega ou contratos de formulario.
