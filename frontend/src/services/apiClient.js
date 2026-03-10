@@ -1008,8 +1008,8 @@ export async function movimentarBem(payload) {
 }
 
 /**
- * Lista documentos/evidencias (metadados) associados a movimentacoes/contagens/avaliacoes.
- * @param {{movimentacaoId?: string, contagemId?: string, avaliacaoInservivelId?: string}} filters Filtros.
+ * Lista documentos/evidencias (metadados) associados a movimentacoes/contagens/avaliacoes/baixas.
+ * @param {{movimentacaoId?: string, contagemId?: string, avaliacaoInservivelId?: string, baixaPatrimonialId?: string}} filters Filtros.
  * @returns {Promise<{requestId: string, items: any[]}>} Lista de documentos.
  */
 export async function listarDocumentos(filters = {}) {
@@ -1017,6 +1017,7 @@ export async function listarDocumentos(filters = {}) {
   if (filters.movimentacaoId) params.set("movimentacaoId", String(filters.movimentacaoId));
   if (filters.contagemId) params.set("contagemId", String(filters.contagemId));
   if (filters.avaliacaoInservivelId) params.set("avaliacaoInservivelId", String(filters.avaliacaoInservivelId));
+  if (filters.baixaPatrimonialId) params.set("baixaPatrimonialId", String(filters.baixaPatrimonialId));
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   const response = await safeFetch(`${API_BASE_URL}/documentos${suffix}`, {
@@ -1091,6 +1092,157 @@ export async function listarAvaliacoesInservivel(bemId) {
   params.set("bemId", String(bemId));
   const response = await safeFetch(`${API_BASE_URL}/inserviveis/avaliacoes?${params.toString()}`, {
     method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista a fila de bens marcados como potencialmente inserviveis.
+ * @param {object} filters Filtros opcionais.
+ * @returns {Promise<{requestId: string, paging: object, items: any[]}>}
+ */
+export async function listarMarcacoesInserviveis(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", String(filters.q));
+  if (filters.tipoInservivel) params.set("tipoInservivel", String(filters.tipoInservivel));
+  if (filters.destinacaoSugerida) params.set("destinacaoSugerida", String(filters.destinacaoSugerida));
+  if (filters.statusFluxo) params.set("statusFluxo", String(filters.statusFluxo));
+  if (filters.unidadeDonaId != null && String(filters.unidadeDonaId).trim() !== "") {
+    params.set("unidadeDonaId", String(filters.unidadeDonaId));
+  }
+  if (filters.localFisico) params.set("localFisico", String(filters.localFisico));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/inserviveis/marcacoes${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cria/atualiza a marcacao atual de inservivel para um bem.
+ * @param {object} payload Dados da marcacao.
+ */
+export async function criarMarcacaoInservivel(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inserviveis/marcacoes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza uma marcacao existente da fila de inserviveis.
+ * @param {string} id UUID da marcacao.
+ * @param {object} payload Campos parciais.
+ */
+export async function atualizarMarcacaoInservivel(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/inserviveis/marcacoes/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Lista processos de baixa patrimonial.
+ * @param {object} filters Filtros.
+ */
+export async function listarBaixasPatrimoniais(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", String(filters.q));
+  if (filters.statusProcesso) params.set("statusProcesso", String(filters.statusProcesso));
+  if (filters.modalidadeBaixa) params.set("modalidadeBaixa", String(filters.modalidadeBaixa));
+  if (filters.limit != null) params.set("limit", String(filters.limit));
+  if (filters.offset != null) params.set("offset", String(filters.offset));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await safeFetch(`${API_BASE_URL}/baixas-patrimoniais${suffix}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Detalha um processo de baixa patrimonial.
+ * @param {string} id UUID.
+ */
+export async function obterBaixaPatrimonial(id) {
+  const response = await safeFetch(`${API_BASE_URL}/baixas-patrimoniais/${id}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cria um rascunho de baixa patrimonial.
+ * @param {object} payload Dados do processo.
+ */
+export async function criarBaixaPatrimonial(payload) {
+  const response = await safeFetch(`${API_BASE_URL}/baixas-patrimoniais`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Atualiza um rascunho de baixa patrimonial.
+ * @param {string} id UUID do processo.
+ * @param {object} payload Atualizacao parcial.
+ */
+export async function atualizarBaixaPatrimonial(id, payload) {
+  const response = await safeFetch(`${API_BASE_URL}/baixas-patrimoniais/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Conclui ou solicita aprovacao para uma baixa patrimonial.
+ * @param {string} id UUID do processo.
+ * @param {object} payload Corpo opcional.
+ */
+export async function concluirBaixaPatrimonial(id, payload = {}) {
+  const response = await safeFetch(`${API_BASE_URL}/baixas-patrimoniais/${id}/concluir`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse(response);
+}
+
+/**
+ * Cancela um rascunho de baixa patrimonial.
+ * @param {string} id UUID do processo.
+ */
+export async function cancelarBaixaPatrimonial(id) {
+  const response = await safeFetch(`${API_BASE_URL}/baixas-patrimoniais/${id}/cancelar`, {
+    method: "POST",
     headers: { Accept: "application/json" },
   });
   return parseResponse(response);

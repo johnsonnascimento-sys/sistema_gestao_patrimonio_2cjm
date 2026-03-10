@@ -120,7 +120,7 @@ O sistema **não armazena PDF no banco**. Ele armazena metadados em `documentos`
 - `drive_url` / `drive_file_id`
 - `sha256` (opcional)
 - vínculo com `movimentações` e/ou `contagens`
-- (opcional) vínculo com `avaliações_inserviveis` (Wizard Art. 141) via `avaliacao_inservivel_id` (migration 013)
+- (opcional) vínculo com `avaliacoes_inserviveis` e processos de baixa patrimonial via `avaliacao_inservivel_id` e `baixa_patrimonial_id`
 
 Isso permite auditoria sem carregar binários no Postgres.
 

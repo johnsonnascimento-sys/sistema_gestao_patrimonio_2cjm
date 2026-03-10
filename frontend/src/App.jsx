@@ -1,23 +1,15 @@
 /**
  * Modulo: frontend
  * Arquivo: App.jsx
- * Funcao no sistema: orquestrar as telas de compliance (wizard, inventario e normas).
+ * Funcao no sistema: orquestrar as telas operacionais, de inventario, de inservivel/baixa e de referencia.
  */
 import { Component, Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import frontendPackage from "../package.json";
 import AuthLogin from "./components/AuthLogin.jsx";
-import ClassificationWizard from "./components/ClassificationWizard.jsx";
 import DashboardPanel from "./components/DashboardPanel.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
-import {
-  criarAvaliacaoInservivel,
-  criarDocumento,
-  getHealth,
-  listarAvaliacoesInservivel,
-  listarBens,
-  listarEventosInventario,
-} from "./services/apiClient.js";
+import { getHealth, listarEventosInventario } from "./services/apiClient.js";
 
 const AssetsExplorer = lazy(() => import("./components/AssetsExplorer.jsx"));
 const AuditoriaLogsPanel = lazy(() => import("./components/AuditoriaLogsPanel.jsx"));
@@ -29,6 +21,7 @@ const NormsPage = lazy(() => import("./components/NormsPage.jsx"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel.jsx"));
 const CatalogoAdminPanel = lazy(() => import("./components/CatalogoAdminPanel.jsx"));
 const ClassificacaoSiafiPanel = lazy(() => import("./components/ClassificacaoSiafiPanel.jsx"));
+const MaterialInservivelBaixaPanel = lazy(() => import("./components/MaterialInservivelBaixaPanel.jsx"));
 const WikiManual = lazy(() => import("./components/WikiManual.jsx"));
 
 const NAV_STRUCTURE = [
@@ -43,7 +36,7 @@ const NAV_STRUCTURE = [
       { id: "operacoes-cadastro-sala", label: "Cadastrar bens por Endereço", short: "Endereço" },
       { id: "inventario-contagem", label: "Inventário - Contagem", short: "Contagem" },
       { id: "inventario-admin", label: "Inventário - Administração", short: "Inv. Admin" },
-      { id: "classificacao", label: "Wizard Art. 141", short: "Art. 141" },
+      { id: "classificacao", label: "Material Inservível / Baixa", short: "Inserv." },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
       { id: "classificacoes-siafi", label: "Classificação SIAFI", short: "SIAFI" },
       { id: "importacoes-geafin", label: "Importação GEAFIN (CSV Latin1)", short: "GEAFIN" },
@@ -349,15 +342,6 @@ function AppShell() {
   });
   const [openNavGroups, setOpenNavGroups] = useState(DEFAULT_OPEN_GROUPS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardBemTombo, setWizardBemTombo] = useState("");
-  const [wizardBem, setWizardBem] = useState(null);
-  const [wizardPersistMsg, setWizardPersistMsg] = useState(null);
-  const [wizardPersistErr, setWizardPersistErr] = useState(null);
-  const [wizardLastAvaliacao, setWizardLastAvaliacao] = useState(null);
-  const [wizardDocUrl, setWizardDocUrl] = useState("");
-  const [wizardDocMsg, setWizardDocMsg] = useState(null);
-  const [wizardDocErr, setWizardDocErr] = useState(null);
   const [navReducedMode, setNavReducedMode] = useState(false);
 
   const eventosQuery = useQuery({
@@ -555,44 +539,7 @@ function AppShell() {
     if (tab !== fallback) setTab(fallback);
   }, [tab, isTabAllowed, filteredNavStructure]);
 
-  const wizardAvaliacoesQuery = useQuery({
-    queryKey: ["inserviveisAvaliacoes", wizardBem?.id || null],
-    enabled: Boolean(wizardBem?.id),
-    queryFn: async () => {
-      const data = await listarAvaliacoesInservivel(wizardBem.id);
-      return data.items || [];
-    },
-  });
-
-  const wizardDocumentoMut = useMutation({
-    mutationFn: async () => {
-      const avaliacaoId = wizardLastAvaliacao?.id ? String(wizardLastAvaliacao.id) : "";
-      if (!avaliacaoId) throw new Error("Nenhuma avaliacao selecionada para anexar evidencia.");
-      const driveUrl = String(wizardDocUrl || "").trim();
-      if (!driveUrl) throw new Error("Informe a URL do Drive.");
-
-      // Regra legal: evidencias do processo de inserviveis devem ser auditaveis.
-      // Art. 141 (AN303_Art141_Cap / AN303_Art141_I / AN303_Art141_II / AN303_Art141_III / AN303_Art141_IV).
-      return criarDocumento({
-        tipo: "OUTRO",
-        titulo: "Evidencia - Avaliacao de inservivel (Art. 141)",
-        avaliacaoInservivelId: avaliacaoId,
-        driveUrl,
-        observacoes: `Wizard Art. 141: tipo=${wizardLastAvaliacao?.tipoInservivel || "?"}`,
-      });
-    },
-    onSuccess: () => {
-      setWizardDocMsg("Evidencia anexada (Drive).");
-      setWizardDocErr(null);
-      setWizardDocUrl("");
-    },
-    onError: (e) => {
-      setWizardDocErr(String(e?.message || "Falha ao anexar evidencia."));
-      setWizardDocMsg(null);
-    },
-  });
-
-  const loadBemByTombo = async () => {
+  /* const loadBemByTombo = async () => {
     setWizardPersistMsg(null);
     setWizardPersistErr(null);
     setWizardBem(null);
@@ -618,7 +565,7 @@ function AppShell() {
     } catch (e) {
       setWizardPersistErr(String(e?.message || "Falha ao buscar bem."));
     }
-  };
+  }; */
 
   return (
     <div className="min-h-screen bg-app text-slate-900">
@@ -968,7 +915,7 @@ function AppShell() {
                 </Suspense>
               )}
 
-              {tab === "classificacao" && (
+              {tab === "classificacao" && false && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1078,6 +1025,11 @@ function AppShell() {
                   </div>
                 </section>
               )}
+              {tab === "classificacao" && (
+                <Suspense fallback={<PanelLoadingFallback label="Carregando Material Inservível / Baixa..." />}>
+                  <MaterialInservivelBaixaPanel />
+                </Suspense>
+              )}
 
               {tab === "auditoria-changelog" && (
                 <Suspense fallback={<PanelLoadingFallback label="Carregando Log Geral de Alterações..." />}>
@@ -1135,38 +1087,6 @@ function AppShell() {
         </div>
       </div>
 
-      <ClassificationWizard
-        isOpen={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        onSave={async (result) => {
-          setWizardPersistMsg(null);
-          setWizardPersistErr(null);
-
-          if (!wizardBem?.id) {
-            setWizardPersistErr("Selecione um bem antes de salvar a classificacao.");
-            return;
-          }
-
-          try {
-            const saved = await criarAvaliacaoInservivel({
-              bemId: wizardBem.id,
-              tipoInservivel: result.classificacao,
-              descricaoInformada: result.descricaoBem,
-              justificativa: result.justificativa,
-              criterios: result.criterios || null,
-            });
-            setWizardLastAvaliacao(saved?.avaliacao || null);
-            setWizardDocMsg(null);
-            setWizardDocErr(null);
-            setWizardDocUrl("");
-            await wizardAvaliacoesQuery.refetch().catch(() => undefined);
-            setWizardPersistMsg(`Classificacao salva: ${result.classificacao}.`);
-            setWizardOpen(false);
-          } catch (e) {
-            setWizardPersistErr(String(e?.message || "Falha ao salvar classificacao."));
-          }
-        }}
-      />
     </div>
   );
 }

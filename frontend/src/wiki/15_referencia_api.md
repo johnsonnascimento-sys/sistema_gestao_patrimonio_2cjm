@@ -1,450 +1,235 @@
 <!--
-Módulo: wiki
+Modulo: wiki
 Arquivo: frontend/src/wiki/15_referencia_api.md
-Função no sistema: referência resumida dos principais contratos HTTP.
+Funcao no sistema: referência resumida dos principais contratos HTTP do sistema.
 -->
 
 # Referência de API
 
 ## Padrões gerais
 
-- Autenticação: JWT via middleware `mustAuth` (ou `mustAdmin` quando aplicável).
-- Formato de resposta: JSON com `requestId`.
-- Erros de validação: normalmente `422`.
+- Autenticação: JWT quando `AUTH_ENABLED=true`.
+- Respostas: JSON com `requestId` quando aplicável.
+- Validação: `422`.
 - Falta de permissão: `403`.
+- Perfis com permissão apenas `request` recebem fluxo de aprovação, não execução direta.
 
-## Locais: estatísticas, listagem e reset
+## Material Inservível
 
-### GET `/locais/estatisticas`
-
-Uso:
-
-- retorna progresso de vinculação de endereço (`total`, `comLocal`, `semLocal`).
-
-Query opcional:
-
-- `unidadeId` (1..4).
-
-### GET `/bens/localizacao`
+### GET `/inserviveis/avaliacoes`
 
 Uso:
 
-- lista bens por situação de localização física.
+- listar histórico de avaliações de inservível.
 
-Query:
+Filtros comuns:
 
-- `statusLocal`: `com_local` ou `sem_local` (obrigatório);
-- `unidadeId` (opcional);
-- `limit`, `offset` (opcionais).
+- `bemId`
+- `tipoInservivel`
+- `limit`
+- `offset`
 
-Importante:
-
-- rota deve estar registrada antes de `/bens/:id`.
-
-### DELETE `/locais/reset`
+### POST `/inserviveis/avaliacoes`
 
 Uso:
 
-- limpa `local_id` de todos os bens do escopo.
+- registrar avaliação guiada do bem.
 
-Acesso:
-
-- `mustAdmin` + validação de `adminPassword`.
-
-Query opcional:
-
-- `unidadeId` (1..4).
-
-Body:
-
-```json
-{ "adminPassword": "senha_do_administrador" }
-```
-
-## Inventário: criação, contagem e monitoramento
-
-### POST `/inventario/eventos`
-
-Uso:
-
-- cria inventário (inclusive micro-inventário cíclico).
-
-Campos principais:
-
-- `codigoEvento`
-- `tipoCiclo`: `SEMANAL|MENSAL|ANUAL|ADHOC`
-- `escopoTipo`: `GERAL|UNIDADE|LOCAIS`
-- `unidadeInventariadaId`
-- `escopoLocalIds` (quando `LOCAIS`)
-- `modoContagem`: `PADRAO|CEGO|DUPLO_CEGO`
-- `operadoresDesignados`
-
-Regras:
-
-- `GERAL`: exclusivo.
-- `UNIDADE/LOCAIS`: permite paralelo entre unidades, sem conflito dentro da mesma unidade.
-- `CEGO`: exige `OPERADOR_UNICO`.
-- `DUPLO_CEGO`: exige `OPERADOR_A` e `OPERADOR_B`.
-
-### PATCH `/inventario/eventos/:id/status`
-
-Uso:
-
-- altera status para `EM_ANDAMENTO`, `ENCERRADO` ou `CANCELADO`.
-
-### POST `/inventario/sync`
-
-Uso:
-
-- sincroniza leituras da contagem.
-
-Campos relevantes:
-
-- `eventoInventarioId`
-- `rodada`: `A|B|DESEMPATE` (obrigatória em modos cegos)
-- `unidadeEncontradaId`
-- `endereçoEncontrada`
-- `localEncontradoId`
-- `itens[]`
-
-Validações importantes:
-
-- escopo de unidade/local do evento;
-- operador designado em modo cego;
-- rodada permitida por papel.
-
-### GET `/inventario/eventos/:id/minha-sessao-contagem`
-
-Uso:
-
-- retorna contexto do usuário no inventário.
-
-Resposta típica:
-
-- `modoContagem`
-- `papel`
-- `rodadasPermitidas`
-- `podeDesempate`
-- `uiReduzida`
-- `designado`
-
-### GET `/inventario/eventos/:id/monitoramento-contagem`
-
-Uso:
-
-- visão administrativa em tempo real por endereço e rodadas.
-
-Acesso:
-
-- restrito a `ADMIN`.
-
-### GET `/inventario/eventos/:id/nao-localizados`
-
-Uso:
-
-- lista bens esperados ainda sem contagem no evento `EM_ANDAMENTO`, agrupados por endereço esperado.
-
-Regras principais:
-
-- retorna `404` quando o evento não existir;
-- retorna `409` quando o evento não estiver `EM_ANDAMENTO`;
-- respeita o escopo do evento (`GERAL`, `UNIDADE` ou `LOCAIS`);
-- exclui bens de terceiros e bens baixados;
-- considera faltante todo bem esperado sem linha correspondente em `contagens` para o evento.
-
-Query opcional:
-
-- `limitItemsPerGroup`: limite de itens por grupo, padrão `100`, teto `200`.
-
-Resposta resumida:
-
-- `evento`
-- `summary.totalNaoLocalizados`
-- `summary.totalEnderecosComPendencia`
-- `summary.totalBensEsperados`
-- `summary.totalContados`
-- `groups[]` com `localId`, `localNome`, `unidadeId`, `qtdNaoLocalizados`, `qtdEsperados`, `qtdContados`, `percentualCobertura` e `items[]`
-
-### GET `/inventario/divergencias-interunidades`
-
-Uso:
-
-- lista divergências com visibilidade cruzada entre unidade dona e unidade encontrada.
-
-Filtros:
-
-- `statusInventario`: `EM_ANDAMENTO|ENCERRADO|TODOS`
-- `eventoInventarioId`
-- `unidadeDonaId`
-- `unidadeEncontradaId`
-- `unidadeRelacionadaId`
-- `limit`, `offset`
-
-Acesso:
-
-- usuário comum: vê apenas divergências relacionadas à própria unidade;
-- admin: pode ver todas.
-
-## Classificações SIAFI e Catálogo
-
-### GET `/classificacoes-siafi`
-
-Uso:
-
-- lista classificações SIAFI para uso no catálogo.
-
-### POST `/classificacoes-siafi`
-
-Uso:
-
-- cria classificação SIAFI.
-
-Acesso:
-
-- `mustAdmin`.
-
-### PATCH `/classificacoes-siafi/:id`
-
-Uso:
-
-- edita classificação SIAFI.
-
-Acesso:
-
-- `mustAdmin`.
-
-### POST `/catálogo-bens`
-
-Uso:
-
-- cria item de catálogo.
-
-Regra:
-
-- campo `grupo` deve referenciar classificação SIAFI válida e ativa.
-
-### PATCH `/catálogo-bens/:id`
-
-Uso:
-
-- edita item de catálogo.
-
-Regras adicionais:
-
-- confirmação explícita de edição;
-- senha admin quando autenticação estiver ativa.
-
-## RBAC e Aprovações
-
-### GET `/auth/acl`
-
-Uso:
-
-- retorna ACL efetiva do usuário (`roles`, `permissions`, `menuPermissions`).
-
-### GET `/aprovacoes/solicitacoes`
-
-Uso:
-
-- lista solicitações de aprovação.
-
-Permissão:
-
-- `action.aprovacao.listar`.
-
-### POST `/aprovacoes/solicitacoes/:id/aprovar`
-
-Uso:
-
-- aprova e aplica solicitação pendente.
-
-Permissão:
-
-- `action.aprovacao.aprovar` + `adminPassword`.
-
-### POST `/aprovacoes/solicitacoes/:id/reprovar`
-
-Uso:
-
-- reprova solicitação pendente.
-
-Permissão:
-
-- `action.aprovacao.reprovar` + `adminPassword`.
-
-## Movimentações
-
-### POST `/movimentar`
-
-Uso:
-
-- executa `TRANSFERENCIA`, `CAUTELA_SAIDA` e `CAUTELA_RETORNO`.
-
-Autenticação:
-
-- `mustAuth`.
-
-Permissões ACL de execução:
-
-- `TRANSFERENCIA`: `action.bem.alterar_responsavel.execute`
-- `CAUTELA_SAIDA`: `action.bem.alterar_status.execute` + `action.bem.alterar_responsavel.execute`
-- `CAUTELA_RETORNO`: `action.bem.alterar_status.execute` (e também `action.bem.alterar_responsavel.execute` quando remover responsável)
-
-Erros relevantes:
-
-- `403 SEM_PERMISSAO`: usuário sem permissão para o tipo de movimentação.
-- `403 APROVACAO_OBRIGATORIA`: perfil tem somente permissão de solicitação (`request`) e não pode executar diretamente.
-
-### GET `/roles-acesso`
-
-Uso:
-
-- lista catálogo de roles ACL.
-
-### PUT `/perfis/:id/role-acesso`
-
-Uso:
-
-- define role ACL principal do perfil.
-
-Body:
-
-```json
-{ "roleCodigo": "SUPERVISOR" }
-```
-
-### GET `/acl/matriz`
-
-Uso:
-
-- carrega matriz role x permissões para edição visual.
-
-### PUT `/roles-acesso/:codigo/permissoes`
-
-Uso:
-
-- substitui permissões de uma role.
-
-Body:
+Body mínimo:
 
 ```json
 {
-  "permissions": ["menu.bens.view", "action.bem.alterar_localizacao.request"],
-  "adminPassword": "senha_admin"
+  "bemId": "uuid",
+  "descricaoInformada": "Notebook com bateria degradada",
+  "criterios": {
+    "condicaoUso": "NAO_APROVEITADO",
+    "remanejamentoViavel": false,
+    "valorMercadoEstimado": 1200,
+    "custoRecuperacaoEstimado": 400
+  },
+  "justificativa": "Item em boas condições, sem uso pela unidade."
 }
 ```
-
-### GET `/inventario/indicadores-acuracidade`
-
-Uso:
-
-- consolidar KPIs operacionais de acuracidade por periodo, com serie semanal e mensal.
-
-Query obrigatoria:
-
-- `dataInicio` (`YYYY-MM-DD`)
-- `dataFim` (`YYYY-MM-DD`)
-
-Query opcional:
-
-- `unidadeId` (`1..4`)
-- `statusEvento` (`ENCERRADO` padrao, `EM_ANDAMENTO`, `CANCELADO`)
-- `toleranciaPct` (0..10, padrao `2`)
 
 Resposta:
 
-- `periodo`
-- `configuracao`
-- `resumo`
-- `porEvento`
-- `porendereço`
-- `serieSemanal`
-- `serieMensal`
+- a avaliação retorna `tipoInservivel`, `criterios` e `justificativa`;
+- se o perfil só possuir `action.inservivel.marcar.request`, a operação vira solicitação de aprovação.
 
-KPIs de resumo:
+## Marcações de inservível
 
-- `acuracidadeExataPct`
-- `acuracidadeToleranciaPct`
-- `erroRelativoMedioendereçoPct`
-- `taxaDivergenciaPct`
-- `taxaPendenciaRegularizacaoPct`
-- `mttrRegularizacaoDias`
-- `coberturaContagemPct`
-
-Observacoes:
-
-- exclui bens de terceiros e bens baixados;
-- referencia temporal do filtro: `COALESCE(encerrado_em, iniciado_em)`;
-- semaforo operacional e retornado em `resumo.semaforo`.
-
-## Regularização pós-inventário (fluxo formal de transferência)
-
-### POST `/inventario/regularizacoes`
+### GET `/inserviveis/marcacoes`
 
 Uso:
 
-- regularização unitária da divergência sem transferência direta.
+- listar a fila operacional de candidatos à destinação.
 
-Importante:
+Filtros:
 
-- `TRANSFERIR_CARGA` retorna `422 ACAO_EXIGE_FLUXO_MOVIMENTACOES`.
+- `tipoInservivel`
+- `destinacaoSugerida`
+- `statusFluxo`
+- `unidadeId`
+- `localId`
+- `q`
+- `limit`
+- `offset`
 
-### POST `/inventario/regularizacoes/lote`
+### POST `/inserviveis/marcacoes`
 
 Uso:
 
-- regulariza vários itens em lote.
+- criar ou atualizar a marcação atual do bem.
 
-Body:
+Body típico:
 
 ```json
 {
-  "contagemIds": ["uuid"],
-  "acao": "MANTER_CARGA|ATUALIZAR_LOCAL",
-  "regularizadoPorPerfilId": "uuid"
+  "bemId": "uuid",
+  "avaliacaoInservivelId": "uuid",
+  "tipoInservivel": "ANTIECONOMICO",
+  "destinacaoSugerida": "DOACAO",
+  "statusFluxo": "AGUARDANDO_DESTINACAO",
+  "observacoes": "Aguardar manifestação da unidade."
 }
 ```
 
-### POST `/inventario/regularizacoes/encaminhar-transferencia`
+### PATCH `/inserviveis/marcacoes/:id`
 
 Uso:
 
-- encaminha contagens para transferência formal em `Movimentações`, sem alterar carga aqui.
+- atualizar `statusFluxo`, `destinacaoSugerida` e `observacoes`.
 
-Body:
+## Baixa patrimonial
+
+### GET `/baixas-patrimoniais`
+
+Uso:
+
+- listar rascunhos e processos concluídos.
+
+Filtros:
+
+- `modalidadeBaixa`
+- `statusProcesso`
+- `q`
+- `limit`
+- `offset`
+
+### GET `/baixas-patrimoniais/:id`
+
+Uso:
+
+- detalhar processo, itens, documentos e dados da modalidade.
+
+### POST `/baixas-patrimoniais`
+
+Uso:
+
+- abrir rascunho de baixa a partir da fila ou por fluxo direto de `DESAPARECIMENTO`.
+
+Body típico:
 
 ```json
 {
-  "contagemIds": ["uuid"],
-  "encaminhadoPorPerfilId": "uuid"
+  "processoReferencia": "SEI-2026/000123",
+  "modalidadeBaixa": "DOACAO",
+  "marcacaoIds": ["uuid-1", "uuid-2"],
+  "dadosModalidade": {
+    "tipoDestinatario": "MUNICIPIO_CARENTE"
+  },
+  "observacoes": "Rascunho inicial do lote."
 }
 ```
 
-### GET `/inventario/regularizacoes/transferencias-pendentes`
+### PATCH `/baixas-patrimoniais/:id`
 
 Uso:
 
-- lista fila formal de transferência pendente da regularização.
+- atualizar referências formais, observações e dados específicos da modalidade.
 
-Query opcional:
+Campos relevantes:
 
-- `status`: `ENCAMINHADA|AGUARDANDO_APROVACAO|ERRO|CONCLUIDA|CANCELADA`
-- `limit`, `offset`
+- `manifestacaoSciReferencia`
+- `manifestacaoSciEm`
+- `atoDiretorGeralReferencia`
+- `atoDiretorGeralEm`
+- `presidenciaCienteEm`
+- `encaminhadoFinancasEm`
+- `notaLancamentoReferencia`
+- `dadosModalidade`
 
-### POST `/inventario/regularizacoes/concluir-transferencias`
+### POST `/baixas-patrimoniais/:id/concluir`
 
 Uso:
 
-- conclui regularização após movimentação executada.
+- validar regras legais e efetivar a baixa.
 
-Body:
+Validações por modalidade:
 
-```json
-{
-  "itens": [
-    { "contagemId": "uuid", "movimentacaoId": "uuid" }
-  ],
-  "regularizadoPorPerfilId": "uuid"
-}
-```
+- `VENDA`: exige avaliação prévia e licitação.
+- `DOACAO`: valida destinatário conforme a classe do bem.
+- `PERMUTA`: restringe destinatário à Administração Pública.
+- `INUTILIZACAO`: exige motivos estruturados.
+- `ABANDONO`: exige justificativa específica.
+- `DESAPARECIMENTO`: não exige avaliação de inservível.
 
+Efeito:
+
+- cria placeholders documentais;
+- atualiza bens para `BAIXADO`;
+- grava causa e data da baixa.
+
+### POST `/baixas-patrimoniais/:id/cancelar`
+
+Uso:
+
+- cancelar rascunho sem aplicar baixa nos bens.
+
+## Bens
+
+### GET `/bens/:id`
+
+Agora também retorna:
+
+- `motivoBaixaPatrimonial`
+- `baixadoEm`
+- `marcacaoAtual`
+- `baixaPatrimonialResumo`
+
+Esses campos permitem visualizar a situação do bem sem abrir a workspace inteira.
+
+## Documentos
+
+### GET `/documentos`
+
+Filtros adicionais:
+
+- `avaliacaoInservivelId`
+- `baixaPatrimonialId`
+
+### POST `/documentos`
+
+Uso:
+
+- registrar anexos, referências de Drive ou placeholders de processo.
+
+Tipos relevantes para Material Inservível / Baixa:
+
+- `PARECER_SCI`
+- `ATO_DIRETOR_GERAL`
+- `TERMO_ALIENACAO`
+- `TERMO_CESSAO`
+- `TERMO_DOACAO`
+- `TERMO_PERMUTA`
+- `TERMO_INUTILIZACAO`
+- `JUSTIFICATIVA_ABANDONO`
+- `NOTA_LANCAMENTO_SIAFI`
+
+## Aprovações
+
+Perfis sem permissão de `execute` continuam usando o mesmo fluxo administrativo:
+
+- `GET /aprovacoes/solicitacoes`
+- `POST /aprovacoes/solicitacoes/:id/aprovar`
+- `POST /aprovacoes/solicitacoes/:id/reprovar`

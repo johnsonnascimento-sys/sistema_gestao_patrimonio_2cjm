@@ -1,45 +1,74 @@
-# Sistema de Gestao Patrimonial - 2a CJM
+# Sistema de Gestão Patrimonial - 2ª CJM
 
 ## Cabecalho
 
 - Modulo: `repositorio`
 - Arquivo: `README.md`
 - Funcao no sistema: ponto de entrada para entender, rodar e operar o projeto localmente.
-- Objetivo: sistema deterministico (sem IA na execucao), auditavel e aderente ao ATN 303/2008.
+- Objetivo: sistema deterministico, auditavel e aderente ao ATN 303/2008.
 
-## O que voce precisa saber (em 60 segundos)
+## Visão rápida
 
-- O banco (Supabase/Postgres) e a fonte de verdade do patrimonio.
-- O backend (`/backend`) e uma API HTTP que aplica validacoes e grava no banco.
-- O frontend (`/frontend`) e um site React que chama a API.
-- O n8n e apenas automacao (geracao de PDF + upload), descrito em `/automations`.
+- O banco (Supabase/Postgres) é a fonte de verdade do patrimônio.
+- O backend (`/backend`) aplica validações legais, RBAC e auditoria.
+- O frontend (`/frontend`) oferece as telas operacionais.
+- O n8n permanece como automação opcional para PDFs e integrações externas.
 
 ## O que funciona hoje
 
-- Banco com schema, triggers e migracoes de compliance (ver `database/001_initial_schema.sql` e `database/002_history_and_rules.sql`).
-- Carga GEAFIN ja realizada no Supabase (3833 bens).
-- API backend:
-  - `GET /health` (saude)
-  - `GET /stats` (contagens basicas)
-  - `GET /bens` (consulta paginada de bens)
-  - `POST /importar-geafin` (importacao CSV Latin1)
-  - `POST /movimentar` (transferencia/cautela)
-  - `GET /inventario/eventos` (listar eventos)
-  - `POST /inventario/eventos` (abrir evento EM_ANDAMENTO)
-  - `PATCH /inventario/eventos/:id/status` (encerrar/cancelar)
-  - `POST /inventario/sync` (sincronizacao offline-first de contagens)
-  - `GET /docs` (Swagger)
-- Frontend:
-  - Aba `Consulta de Bens`: mostra dados reais via `/stats` e `/bens`
-  - Aba `Operacoes API`: testa `/health`, importa CSV, executa `/movimentar`
-  - Aba `Modo Inventario`: offline-first (fila em IndexedDB) + sync deterministico via `/inventario/sync`
-  - Aba `Wizard Art. 141`: UI de compliance (fluxo guiado) para classificar inserviveis
+### Backend
 
-## Como ver o site (local)
+- `GET /health`
+- `GET /stats`
+- `GET /bens` e `GET /bens/:id`
+- `POST /movimentar`
+- `GET/POST/PATCH /inventario/*`
+- `GET/POST/PATCH /inserviveis/avaliacoes`
+- `GET/POST/PATCH /inserviveis/marcacoes`
+- `GET/POST/PATCH /baixas-patrimoniais`
+- `POST /baixas-patrimoniais/:id/concluir`
+- `POST /baixas-patrimoniais/:id/cancelar`
+- `GET /documentos` e `POST /documentos`
 
-### 1) Subir o backend
+### Frontend
 
-Em PowerShell:
+- Consulta de Bens
+- Movimentações
+- Inventário - Contagem
+- Inventário - Administração
+- Material Inservível / Baixa
+- Material (SKU)
+- Classificação SIAFI
+- Wiki / Manual do Sistema
+
+### Compliance operacional
+
+- Art. 183: congelamento de movimentação durante inventário.
+- Art. 185: regularização posterior sem troca automática de carga.
+- Arts. 124 e 127: distinção entre transferência e cautela.
+- Arts. 141 a 152: triagem e destinação de material inservível.
+- Arts. 153 a 157: baixa patrimonial com causa formal, documentos e atualização do status do bem.
+
+## Material Inservível / Baixa
+
+A aba técnica `classificacao` passou a se chamar **Material Inservível / Baixa**.
+
+Ela reúne:
+
+- stepper de classificação de inservível;
+- fila de marcações atuais;
+- processos de baixa patrimonial;
+- fluxo direto de `DESAPARECIMENTO`;
+- placeholders documentais e resumo da baixa no detalhe do bem.
+
+Limite desta entrega:
+
+- sem integração automática com GEAFIN, SEI, SIAFI ou n8n;
+- a tela registra referências formais e anexos para instrução posterior.
+
+## Como rodar localmente
+
+### Backend
 
 ```powershell
 cd backend
@@ -53,14 +82,7 @@ $env:DATABASE_URL="postgresql://postgres:<SUA_SENHA>@db.<SEU_REF>.supabase.co:54
 npm run start
 ```
 
-Verifique:
-
-- Swagger: `http://localhost:3001/docs`
-- Saude: `http://localhost:3001/health`
-
-### 2) Subir o frontend
-
-Em outro terminal:
+### Frontend
 
 ```powershell
 cd frontend
@@ -68,57 +90,20 @@ npm install
 npm run dev
 ```
 
-Abra:
+## Gates locais obrigatórios
 
-- Site: `http://localhost:5173`
-- Comece pela aba `Consulta de Bens` (dados reais)
+```powershell
+npm --prefix backend run check
+npm --prefix backend test
+npm --prefix frontend test
+npm --prefix frontend run build
+python scripts/check_wiki_encoding.py
+node scripts/validate_governance.js
+```
 
-## Roteiro rapido (para entender na pratica)
+## Documentação de referência
 
-1. No site, abra `Consulta de Bens` e pesquise um tombamento (copie clicando no botao do tombo).
-2. Va em `Operacoes API` e clique em `Testar /health` (confirma que UI -> API -> DB esta OK).
-3. Ainda em `Operacoes API`, crie um `perfil` (isso preenche automaticamente os campos de autorizacao/executante).
-4. Em `Movimentar bem`, cole o tombamento, informe `termoReferencia`, escolha uma `unidade destino` e execute.
-5. Volte em `Consulta de Bens` e consulte o mesmo tombamento para ver a mudanca (unidade/status).
-
-## Rotas de API mais importantes (para entender o sistema)
-
-- `GET /stats`: quantos bens existem e distribuicao por unidade/status.
-- `GET /bens?limit=50&offset=0`: lista paginada.
-- `GET /bens?numeroTombamento=1290001788`: busca por tombamento exato.
-- `GET /bens?q=ARMARIO`: busca por texto parcial na descricao.
-- `POST /perfis`: cria perfil (necessario para autorizar/executar movimentacoes).
-
-## Regras legais (onde estao aplicadas)
-
-- Art. 183 (AN303_Art183): bloqueio de mudanca de `unidade_dona_id` durante inventario (trigger no DB).
-- Art. 185 (AN303_Art185): divergencias devem gerar ocorrencia/regularizacao sem troca automatica (constraints em `contagens`).
-- Arts. 124 e 127 (AN303_Art124 / AN303_Art127): cautela vs transferencia (constraints em `movimentacoes` e logica do endpoint `/movimentar`).
-- Art. 141 (AN303_Art141_*): wizard obrigatorio na UI para classificar inserviveis (frontend).
-
-## Onde ler as regras do projeto
-
-- Fonte de verdade: `PROJECT_RULES.md`
-
-## Onde ver o status do que ja foi feito
-
-- `docs/STATUS_ATUAL.md`
-
-## Fluxo de entrega recomendado
-
-Para reduzir divergencia entre repositorio e producao:
-
-1. validar gates locais:
-   - `npm --prefix backend run check`
-   - `npm --prefix backend test`
-   - `npm --prefix frontend run build`
-   - `npm --prefix frontend test`
-   - `python scripts/check_wiki_encoding.py`
-   - `node scripts/validate_governance.js`
-2. registrar wiki/log no mesmo ciclo;
-3. publicar por Git:
-   - `git push`
-   - na VPS: `git pull --ff-only`
-   - `./scripts/vps_deploy.sh all`
-
-Deploy por upload direto na VPS deve ser tratado apenas como contingencia operacional e precisa deixar rastro explicito no log geral e em `GET /health`.
+- Governança: `PROJECT_RULES.md`
+- Status atual: `docs/STATUS_ATUAL.md`
+- Log geral de alterações: `docs/LOG_GERAL_ALTERACOES.md`
+- Manual operacional: `frontend/src/wiki/*.md`

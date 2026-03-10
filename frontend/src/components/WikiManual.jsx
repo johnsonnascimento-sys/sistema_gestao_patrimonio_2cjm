@@ -54,7 +54,7 @@ const WIKI_PAGES = [
   { id: "gestao-normas", title: "Gestão de Normas", md: mdGestaoNormas },
   { id: "intrusos-terceiros", title: "Intrusos e bens de terceiros", md: mdIntrusosTerceiros },
   { id: "regularizacao", title: "Regularização pós-inventário", md: mdRegularizacaoPosInventario },
-  { id: "wizard-art141", title: "Wizard Art. 141 (inserviveis)", md: mdWizard141 },
+  { id: "wizard-art141", title: "Material Inservível / Baixa", md: mdWizard141 },
   { id: "relatorios-auditoria", title: "Relatórios e auditoria", md: mdRelatoriosAuditoria },
   { id: "troubleshooting", title: "Solução de problemas", md: mdTroubleshooting },
   { id: "checklist-migracoes", title: "Checklist de migrações (Supabase)", md: mdChecklistMigracoes },

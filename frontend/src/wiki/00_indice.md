@@ -6,18 +6,15 @@ Funcao no sistema: indice navegavel do manual/wiki self-hosted do patrimonio2cjm
 
 # Índice (Manual do Sistema)
 
-Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele foi feito para:
+Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o runtime. A entrega atual substituiu a antiga tela "Wizard Art. 141" pela workspace **Material Inservível / Baixa**, sem alterar o `tab id` técnico `classificacao`.
 
-- Usuários operacionais (inventário, consulta, cautela, transferências).
-- Administradores (importação GEAFIN, governança, auditoria, operação na VPS).
-- Auditoria/Compliance (rastreabilidade e regras ATN 303/2008).
+## Como usar este manual
 
-## Como usar o Wiki
+- Use a busca da lateral na aba **Wiki / Manual do Sistema**.
+- Abra a página operacional correspondente antes de executar um fluxo sensível.
+- Em caso de divergência entre interface e manual, trate como não conformidade e corrija a documentação no mesmo ciclo.
 
-- Use a busca na barra lateral para encontrar o tema.
-- Use o "Link desta página" para guardar um atalho (o ID fica no `#hash` do navegador).
-
-## Paginas
+## Páginas do manual
 
 - Visão geral do sistema
 - Dashboard
@@ -30,54 +27,32 @@ Este Wiki é o manual oficial do sistema `patrimonio2cjm.johnsontn.com.br`. Ele 
 - Material (SKU)
 - Classificação SIAFI
 - Normas
-- Intrusos e bens de terceiros ("bem de terceiro")
-- Regularização pós-inventário (forasteiros)
-- Wizard Art. 141 (inserviveis)
+- Intrusos e bens de terceiros
+- Regularização pós-inventário
+- Material Inservível / Baixa
 - Relatórios e auditoria
-- Solução de problemas (erros comuns)
+- Solução de problemas
 - Checklist de migrações (Supabase)
 - Glossário
 - Segurança e sigilo operacional
-- Compliance ATN 303/2008 (resumo operacional + citações)
+- Compliance ATN 303/2008
 - Matriz de compliance (ATN 303/2008)
-- Admin: operação na VPS (Docker/Nginx)
+- Admin: operação na VPS
 - Referência rápida da API
-- Analise de cobertura menu x wiki (faseada)
+- Análise de cobertura menu x wiki
 
-## Atualização 2026-02-26 - Navegação principal
+## Menu atual do sistema
 
-Estrutura principal da sidebar:
-
-- Dashboard
-- Operações Patrimoniais
-- Auditoria e Logs
-- Administração do Painel
-- Wiki / Manual do Sistema
-
-Submenus relevantes:
-
-- Operações Patrimoniais -> Cadastrar Bens por endereço
-- Operações Patrimoniais -> Inventário - Contagem
-- Operações Patrimoniais -> Inventário - Administração
-- Operações Patrimoniais -> Material (SKU)
-- Operações Patrimoniais -> Classificação SIAFI
-- Normas
-- Operações Patrimoniais -> Importação GEAFIN (CSV Latin1)
-- Administração do Painel -> Locais (endereços) cadastrados
-
-## Menu atual do sistema (referencia rapida)
-
-### Operações Patrimoniais
+### Operação diária
 
 - Consulta de Bens
 - Movimentações
-- Cadastrar Bens por endereço
+- Cadastrar bens por Endereço
 - Inventário - Contagem
 - Inventário - Administração
-- Wizard Art. 141
+- Material Inservível / Baixa
 - Material (SKU)
 - Classificação SIAFI
-- Normas
 - Importação GEAFIN (CSV Latin1)
 
 ### Auditoria e Logs
@@ -92,6 +67,18 @@ Submenus relevantes:
 - Backup e Restore
 - Conectividade Backend
 - Perfis e Acessos
+- Aprovações Pendentes
 
+### Referência e apoio
 
+- Wiki / Manual do Sistema
+- Normas
 
+## Destaque desta entrega
+
+Na página **Material Inservível / Baixa**, o sistema agora reúne no mesmo fluxo:
+
+- Triagem e marcação de bens potencialmente inservíveis, com classificação `OCIOSO`, `RECUPERÁVEL`, `ANTIECONÔMICO` e `IRRECUPERÁVEL`.
+- Fila operacional de candidatos à destinação.
+- Processos de baixa patrimonial com modalidades `VENDA`, `CESSÃO`, `DOAÇÃO`, `PERMUTA`, `INUTILIZAÇÃO`, `ABANDONO` e `DESAPARECIMENTO`.
+- Registro auditável da baixa, incluindo causa formal, data e placeholders documentais.

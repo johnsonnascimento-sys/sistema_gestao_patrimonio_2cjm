@@ -152,6 +152,10 @@ VALUES
   ('action.bem.alterar_localizacao.request', 'Solicitar alteracao de localizacao', 'ACTION', TRUE),
   ('action.bem.vincular_local_lote.execute', 'Executar vinculacao de local em lote', 'ACTION', TRUE),
   ('action.bem.vincular_local_lote.request', 'Solicitar vinculacao de local em lote', 'ACTION', TRUE),
+  ('action.inservivel.marcar.execute', 'Executar classificacao e marcacao de material inservivel', 'ACTION', TRUE),
+  ('action.inservivel.marcar.request', 'Solicitar classificacao e marcacao de material inservivel', 'ACTION', TRUE),
+  ('action.baixa.execute', 'Executar baixa patrimonial', 'ACTION', TRUE),
+  ('action.baixa.request', 'Solicitar baixa patrimonial', 'ACTION', TRUE),
   ('action.aprovacao.listar', 'Listar solicitacoes de aprovacao', 'ACTION', TRUE),
   ('action.aprovacao.aprovar', 'Aprovar solicitacoes pendentes', 'ACTION', TRUE),
   ('action.aprovacao.reprovar', 'Reprovar solicitacoes pendentes', 'ACTION', TRUE)
@@ -185,6 +189,8 @@ WITH matrix AS (
     ('OPERADOR_AVANCADO', 'action.bem.alterar_status.request'),
     ('OPERADOR_AVANCADO', 'action.bem.alterar_localizacao.request'),
     ('OPERADOR_AVANCADO', 'action.bem.vincular_local_lote.request'),
+    ('OPERADOR_AVANCADO', 'action.inservivel.marcar.request'),
+    ('OPERADOR_AVANCADO', 'action.baixa.request'),
 
     ('SUPERVISOR', 'menu.dashboard.view'),
     ('SUPERVISOR', 'menu.bens.view'),
@@ -201,6 +207,8 @@ WITH matrix AS (
     ('SUPERVISOR', 'action.bem.alterar_status.execute'),
     ('SUPERVISOR', 'action.bem.alterar_localizacao.execute'),
     ('SUPERVISOR', 'action.bem.vincular_local_lote.execute'),
+    ('SUPERVISOR', 'action.inservivel.marcar.execute'),
+    ('SUPERVISOR', 'action.baixa.request'),
 
     ('ADMIN_COMPLETO', 'menu.dashboard.view'),
     ('ADMIN_COMPLETO', 'menu.bens.view'),
@@ -228,6 +236,10 @@ WITH matrix AS (
     ('ADMIN_COMPLETO', 'action.bem.alterar_localizacao.request'),
     ('ADMIN_COMPLETO', 'action.bem.vincular_local_lote.execute'),
     ('ADMIN_COMPLETO', 'action.bem.vincular_local_lote.request'),
+    ('ADMIN_COMPLETO', 'action.inservivel.marcar.execute'),
+    ('ADMIN_COMPLETO', 'action.inservivel.marcar.request'),
+    ('ADMIN_COMPLETO', 'action.baixa.execute'),
+    ('ADMIN_COMPLETO', 'action.baixa.request'),
     ('ADMIN_COMPLETO', 'action.aprovacao.listar'),
     ('ADMIN_COMPLETO', 'action.aprovacao.aprovar'),
     ('ADMIN_COMPLETO', 'action.aprovacao.reprovar')

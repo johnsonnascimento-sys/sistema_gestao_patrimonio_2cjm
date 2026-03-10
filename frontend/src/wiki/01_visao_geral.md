@@ -1,105 +1,114 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/01_visao_geral.md
-Funcao no sistema: explicar objetivo, camadas e fluxo principal do sistema.
+Funcao no sistema: explicar objetivo, camadas e fluxos principais do sistema.
 -->
 
 # Visão geral do sistema
 
 ## Objetivo
 
-O sistema de Gestão Patrimonial da 2a CJM foi desenhado para ser:
+O sistema de Gestão Patrimonial da 2ª CJM foi desenhado para ser:
 
-- Determinístico: sem IA decidindo regras em runtime.
-- Auditável: todo ato relevante deixa rastros (importação, alterações, inventário, movimentações).
-- Aderente ao ATN 303/2008: regras de compliance implementadas como comportamento verificável.
+- Determinístico: sem IA decidindo regras de negócio em runtime.
+- Auditável: cada alteração relevante deixa trilha em banco, API, UI e documentação.
+- Aderente ao ATN 303/2008: a norma é implementada como regra verificável.
 
-## Conceitos base (em linguagem simples)
+## Conceitos centrais
 
-### Bem (item físico)
+### Bem
 
-Um **bem** é o objeto físico com tombamento (ex.: `1290001788`). Cada tombamento identifica um item único.
+Um **bem** é a instância física tombada. O número de tombamento identifica um item único e é a referência operacional mais comum na consulta e na triagem.
 
-### material (SKU)
+### Material (SKU)
 
-O **catálogo** descreve "o que é" (modelo/tipo), por exemplo:
+O **catálogo** representa o tipo/modelo do item. Vários bens podem apontar para o mesmo material, reduzindo duplicidade descritiva.
 
-- "Cadeira executiva marrom"
-- "Monitor Dell 24"
+### Unidade dona
 
-Vários bens (itens) podem apontar para o mesmo catálogo. Isso reduz duplicação de descrições (evita "Cadeira 1/10", "Cadeira 2/10"...).
+A unidade dona representa a **carga patrimonial** do bem.
 
-### Unidade (carga/dono)
+### Local físico
 
-No sistema, "unidade dona" representa a **carga** do bem (responsabilidade patrimonial).
+O local físico representa onde o item está no prédio. Inventário e triagem trabalham sempre com unidade e local para contextualizar a situação do bem.
 
-### Local físico (endereço/ambiente)
-
-Representa "onde o item está no prédio" (ex.: "endereço 101 - 1a Aud"). No inventário, o foco é comparar:
-
-- O que deveria estar (carga/unidade)
-- O que foi encontrado naquela endereço/unidade inventariada
-
-## Módulos principais do site
+## Módulos principais
 
 ### 1) Consulta de Bens
 
 Uso:
 
-- Pesquisar por tombamento (10 dígitos) ou texto na descrição.
-- Ver lista paginada e abrir "Detalhes" do bem (campos completos + historicos).
+- localizar bens por tombamento, descrição, material, unidade e filtros operacionais;
+- abrir detalhes completos, histórico e vínculos documentais.
 
-### 2) Modo Inventário
-
-Uso:
-
-- Registrar contagens por endereço (modo "endereço a endereço").
-- Trabalhar agrupado por material (SKU) para ganhar velocidade.
-- Registrar divergências ("intruso") sem transferir carga durante inventário.
-
-### 3) Wizard Art. 141
+### 2) Inventário
 
 Uso:
 
-- Classificar bens inservíveis (Ocioso/Recuperável/Antieconômico/Irrecuperável).
-- Esse fluxo deve ser guiado (questionário) e auditável.
+- registrar contagens por endereço;
+- tratar divergências sem trocar carga automaticamente;
+- manter regularização posterior em fluxo formal.
+
+### 3) Material Inservível / Baixa
+
+Uso:
+
+- classificar bens potencialmente inservíveis conforme os Arts. 141 a 152;
+- marcar bens para fila de destinação;
+- abrir e concluir processos de baixa patrimonial conforme os Arts. 153 a 157.
+
+Observação técnica:
+
+- o sistema preserva o `tab id` `classificacao` e a permissão `menu.classificacao.view` por compatibilidade;
+- a interface exibida ao usuário passou a se chamar **Material Inservível / Baixa**.
 
 ### 4) Administração do Painel
 
 Uso:
 
-- Testar conectividade com backend (`/health`).
-- Operar backups/restores e snapshots pre-GEAFIN.
-- Gerir perfis/acessos e locais (endereços) cadastrados.
-- Operar infraestrutura e seguranca do painel sem alterar regras de negocio.
+- gerenciar perfis, ACL, locais, conectividade, backup e aprovações;
+- operar o ambiente sem alterar regras legais do patrimônio.
 
-## Regras de compliance que afetam o usuário (resumo)
+### 5) Wiki / Manual do Sistema
 
-- **Congelamento de inventário**: durante inventário `EM_ANDAMENTO`, transferências (mudança de carga) ficam bloqueadas no banco.
-  - Regra legal: Art. 183 (AN303_Art183)
-- **Intrusos**: se um bem de outra unidade aparece na endereço inventariada, registra divergência e regulariza depois (com termo).
-  - Regra legal: Art. 185 (AN303_Art185)
-- **Cautela x Transferência**: cautela não muda carga; transferência muda carga e exige formalização.
-  - Regra legal: Art. 124 (AN303_Art124) e Art. 127 (AN303_Art127)
+Uso:
 
-## Atualização 2026-02-26 - Reorganização do menu
+- documentar telas, contratos de API, regras legais e procedimentos operacionais;
+- cumprir a política **Wiki-First** do projeto.
 
-O sistema agora abre no Dashboard Executivo Operacional.
+## Fluxo novo de Material Inservível / Baixa
 
-Distribuicao de modulos:
+### Triagem
 
-- Dashboard: abertura com KPIs, inventario ativo e atividade recente.
-- Operações Patrimoniais: consulta, movimentações, cadastro por endereço, inventario, wizard Art. 141, catálogo (material), gestao de normas e importação GEAFIN.
-- Auditoria e Logs: log geral, auditoria patrimonial global e erros runtime.
-- Administração do Painel: backup, conectividade, perfis e locais (endereços) cadastrados.
-- Topbar padronizada com status do inventario (status + evento), sem repetir titulo da aba no cabecalho.
+1. O operador localiza o bem.
+2. O stepper determina a classificação `OCIOSO`, `RECUPERÁVEL`, `ANTIECONÔMICO` ou `IRRECUPERÁVEL`.
+3. A avaliação vira histórico auditável.
+4. O bem recebe uma marcação atual na fila de candidatos.
 
-## Menu atual - inventario
+### Baixa patrimonial
 
-No grupo **Operações Patrimoniais**, o inventario esta dividido em dois menus:
+1. A fila alimenta um rascunho de processo.
+2. O processo define modalidade principal:
+   - `VENDA`
+   - `CESSÃO`
+   - `DOAÇÃO`
+   - `PERMUTA`
+   - `INUTILIZAÇÃO`
+   - `ABANDONO`
+   - `DESAPARECIMENTO`
+3. O backend valida exigências legais por modalidade.
+4. Ao concluir, o bem passa a `status = BAIXADO`, com causa formal, data e documentos vinculados.
 
-- `Inventário - Contagem`: execução operacional (leitura, contagens, divergências, offline-first).
-- `Inventário - Administração`: abertura/encerramento/reabertura de eventos, micro-ciclos e relatorios.
+## Regras legais que mais afetam o usuário
 
-Essa separação existe para evitar mistura de funcoes entre operador de endereço e administrador do evento.
+- Art. 141 (AN303_Art141_*): classificação obrigatória e guiada de inservíveis.
+- Art. 142 (AN303_Art142): só avançar para destinação quando permanência/remanejamento for desaconselhável ou inexequível.
+- Art. 143 (AN303_Art143): venda exige avaliação prévia e licitação.
+- Art. 144 (AN303_Art144): doação, permuta e venda para órgão público seguem elegibilidade por classe e tipo de destinatário.
+- Arts. 148 a 152 (AN303_Art148 a AN303_Art152): inutilização e abandono exigem justificativas, motivos estruturados e documentação própria.
+- Arts. 153 a 157 (AN303_Art153 a AN303_Art157): baixa patrimonial exige causa formal, manifestação da SCI, ato do Diretor-Geral e registro expresso no bem.
 
+## Escopo desta entrega
+
+- Não há integração automática com GEAFIN, SEI, SIAFI ou n8n para o fluxo de baixa.
+- O sistema registra referências formais, anexos e placeholders documentais para posterior instrução do processo.

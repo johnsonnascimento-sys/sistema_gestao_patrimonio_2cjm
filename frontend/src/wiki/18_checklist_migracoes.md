@@ -1,212 +1,101 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/18_checklist_migracoes.md
-Funcao no sistema: explicar o que e "migração" neste projeto e fornecer checklist operacional de aplicação/validação.
-Atualizado em: 2026-02-17  (gerenciado pelo wikiMeta.generated.js na UI)
+Funcao no sistema: orientar a aplicação e a validação das migrações SQL do projeto.
 -->
 
-# Checklist de migrações (Supabase) e o que isso significa
+# Checklist de migrações (Supabase)
 
-## 1) O que significa "migração" aqui
+## O que significa migração neste projeto
 
-Uma **migração** é um arquivo `.sql` em `database/` que faz **mudança controlada no banco** (Supabase/Postgres), como:
+Uma migração é um arquivo `.sql` em `database/` que altera estrutura, constraints, enums, índices ou tabelas necessárias ao runtime.
 
-- criar tabelas novas (ex.: `documentos`)
-- alterar tabelas existentes (ex.: permitir novo tipo de ocorrência)
-- criar/alterar views (ex.: `vw_forasteiros`)
-- criar índices/constraints para garantir coerência e auditoria
+Ela:
 
-Pontos importantes:
+- não substitui deploy de backend/frontend;
+- não é importação de dados;
+- precisa ser aplicada no banco antes de usar telas que dependem da mudança.
 
-- Migração **não é importação** de dados. Ela ajusta a **estrutura** e regras do banco.
-- Migração **não substitui** backend/frontend. Ela é a base para a aplicação funcionar.
-- Migração precisa ser aplicada **uma vez** no Supabase.
+## Ordem relevante para Material Inservível / Baixa
 
-Por que isso é obrigatório:
+### 010) `database/010_inserviveis_wizard_persistencia.sql`
 
-- O backend e o frontend assumem que certas tabelas/colunas/views existem.
-- Se a migração não foi aplicada, surgem erros como "coluna X não existe" ou recursos "somem".
+Cria a persistência base do histórico de avaliações de inservível.
 
-## 2) Onde aplicar
+Validação:
 
-No Supabase:
+- `SELECT to_regclass('public.avaliacoes_inserviveis');`
 
-- abra o **SQL Editor** do projeto;
-- cole o conteúdo do arquivo `.sql` e execute.
+### 013) `database/013_documentos_avaliacoes_inserviveis.sql`
 
-Ordem importa:
+Permite vincular documentos a avaliações de inservível.
 
-- aplique na ordem numérica (ex.: `007`, depois `008`, etc.).
+Validação:
 
-## 3) Checklist de migrações (ordem + o que muda + como validar)
+- verificar a coluna `documentos.avaliacao_inservivel_id`.
 
-### 007) `vw_forasteiros` só pós-inventário (fila real)
+### 022) `database/022_rbac_roles_permissions.sql`
 
-Arquivo:
+Consolida RBAC e aprovações administrativas. Nesta entrega, também precisa conter:
 
-- `database/007_forasteiros_queue_apenas_encerrado.sql`
+- `action.inservivel.marcar.request`
+- `action.inservivel.marcar.execute`
+- `action.baixa.request`
+- `action.baixa.execute`
 
-O que muda:
+Validação:
 
-- A view `vw_forasteiros` passa a listar apenas divergências pendentes de eventos com `status='ENCERRADO'`.
+- `SELECT codigo FROM permissoes WHERE codigo LIKE 'action.inservivel.%' OR codigo LIKE 'action.baixa.%';`
 
-Por quê:
+### 023) `database/023_material_inservivel_baixa.sql`
 
-- Regularização é fluxo **pós-inventário** (Art. 185 - AN303_Art185).
+Migração principal desta entrega.
 
-Como validar (SQL):
+Cria:
 
-- `SELECT to_regclass('public.vw_forasteiros');`
-- `SELECT * FROM public.vw_forasteiros LIMIT 1;` (ver `status_inventario`)
+- enum `status_fluxo_inservivel`
+- enum `destinacao_inservivel`
+- enum `modalidade_baixa_patrimonial`
+- enum `status_baixa_patrimonial`
+- tabela `marcacoes_inserviveis`
+- tabela `baixas_patrimoniais`
+- tabela `baixas_patrimoniais_itens`
 
-Como validar (UI):
+Também altera:
 
-- Aba **Regularização**:
-  - com evento `EM_ANDAMENTO`: a fila **não** deve aparecer.
-  - após encerrar o evento: a fila deve aparecer.
+- `bens` com `motivo_baixa_patrimonial` e `baixado_em`
+- `documentos` com `baixa_patrimonial_id`
+- enum de tipos documentais com os placeholders da baixa
 
-### 008) Evidências/documentos (Drive) sem armazenar PDF no banco
+Validação mínima:
 
-Arquivo:
-
-- `database/008_documentos_anexos.sql`
-
-O que muda:
-
-- Cria `documentos` para registrar metadados (Drive URL/ID/hash) vinculados a `movimentações` e/ou `contagens`.
-
-Por quê:
-
-- Transferência/cautela exigem formalização e rastreabilidade (Arts. 124/127 - AN303_Art124/AN303_Art127).
-
-Como validar (SQL):
-
-- `SELECT to_regclass('public.documentos');`
-
-Como validar (API):
-
-- `GET /api/documentos` deve retornar 200.
-
-### 009) Ocorrência `BEM_DE_TERCEIRO` no inventário (controle segregado)
-
-Arquivo:
-
-- `database/009_ocorrencia_bem_terceiro.sql`
-
-O que muda:
-
-- Adiciona o valor `BEM_DE_TERCEIRO` ao enum `tipo_ocorrencia_inventario`.
-
-Por quê:
-
-- Bens de terceiros devem ter controle segregado (Art. 99 / 110 VI / 175 IX).
-
-Como validar (SQL):
-
-- `SELECT enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='tipo_ocorrencia_inventario' ORDER BY 1;`
-- Deve aparecer `BEM_DE_TERCEIRO`.
-
-Como validar (UI):
-
-- Modo Inventário: bloco **Registrar bem de terceiro (segregado)** deve registrar sem tombamento.
-
-### 010) Persistência do Wizard Art. 141 (inservíveis)
-
-Arquivo:
-
-- `database/010_inserviveis_wizard_persistencia.sql`
-
-O que muda:
-
-- Cria `avaliações_inserviveis` (histórico) e permite persistir resultado do wizard.
-
-Por quê:
-
-- Classificação obrigatória e auditável (Art. 141 - AN303_Art141_*).
-
-Como validar (SQL):
-
-- `SELECT to_regclass('public.avaliações_inserviveis');`
-
-Como validar (UI):
-
-- Wizard: carregar bem por tombamento, executar wizard, salvar.
-- Reabrir aba e ver histórico.
-
-### 011) Fotos + locais (endereços) padronizados (camada operacional melhorada)
-
-Arquivo:
-
-- `database/011_fotos_e_locais.sql`
-
-O que muda:
-
-- `catálogo_bens.foto_referencia_url` (foto de referência do SKU)
-- `bens.foto_url` (foto do item, quando necessário)
-- tabela `locais` e `bens.local_id` (opcional, mantendo `local_fisico`)
-
-Por quê:
-
-- Melhorar operação sem perder compatibilidade com dados existentes.
-
-Como validar (SQL):
-
-- `SELECT to_regclass('public.locais');`
-- `SELECT foto_referencia_url FROM catálogo_bens LIMIT 1;`
-- `SELECT foto_url, local_id FROM bens LIMIT 1;`
-
-Como validar (API):
-
-- `GET /api/locais` deve responder 200.
-
-### 012) View de bens de terceiros no inventário (relatório segregado)
-
-Arquivo:
-
-- `database/012_view_terceiros_inventario.sql`
-
-O que muda:
-
-- Cria/atualiza a view `vw_bens_terceiros_inventario` (derivada de `contagens`).
-
-Por quê:
-
-- Facilitar auditoria/relatórios sem misturar com bens tombados STM.
-
-Como validar (SQL):
-
-- `SELECT to_regclass('public.vw_bens_terceiros_inventario');`
-
-Como validar (API):
-
-- `GET /api/inventario/bens-terceiros` deve responder 200 (pode retornar `items: []`).
-
-### 013) Documentos vinculados a avaliações (Wizard Art. 141)
-
-Arquivo:
-
-- `database/013_documentos_avaliações_inserviveis.sql`
-
-O que muda:
-
-- Adiciona `documentos.avaliacao_inservivel_id` (FK) para permitir anexar evidências do Drive a uma avaliação.
-
-Como validar (SQL):
-
-- `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='documentos' AND column_name='avaliacao_inservivel_id';`
-
-Como validar (API):
-
-- `GET /api/documentos?avaliacaoInservivelId=<uuid>` deve responder 200.
-
-## 4) Depois de aplicar migrações: deploy
-
-Após aplicar as migrações no Supabase, faça deploy na VPS para alinhar backend/frontend:
-
-```bash
-cd /opt/cjm-patrimonio/releases/cjm-patrimonio
-git pull --ff-only
-./scripts/vps_deploy.sh all
+```sql
+SELECT to_regclass('public.marcacoes_inserviveis');
+SELECT to_regclass('public.baixas_patrimoniais');
+SELECT to_regclass('public.baixas_patrimoniais_itens');
+SELECT column_name
+FROM information_schema.columns
+WHERE table_schema='public'
+  AND table_name='bens'
+  AND column_name IN ('motivo_baixa_patrimonial', 'baixado_em');
 ```
 
+## Checklist pós-migração
 
+1. Aplicar as migrações na ordem numérica.
+2. Subir backend e frontend atualizados.
+3. Validar os endpoints:
+   - `GET /inserviveis/marcacoes`
+   - `GET /baixas-patrimoniais`
+   - `GET /bens/:id`
+4. Executar os gates locais:
+   - `npm --prefix backend run check`
+   - `npm --prefix backend test`
+   - `npm --prefix frontend test`
+   - `npm --prefix frontend run build`
+   - `python scripts/check_wiki_encoding.py`
+   - `node scripts/validate_governance.js`
+
+## Observação operacional
+
+Sem a migration `023_material_inservivel_baixa.sql`, a nova workspace **Material Inservível / Baixa** não consegue listar fila, abrir processos ou efetivar `status = BAIXADO`.

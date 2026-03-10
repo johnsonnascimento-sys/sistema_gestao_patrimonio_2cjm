@@ -21,6 +21,16 @@ const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const sharp = require("sharp");
 const { generateTermoPdf, generateTablePdf } = require("./src/services/pdfReports");
+const {
+  DESTINACOES_INSERVIVEL,
+  MODALIDADES_BAIXA,
+  STATUS_FLUXO_INSERVIVEL,
+  TIPO_DESTINATARIO,
+  TIPOS_INSERVIVEL,
+  normalizeAvaliacaoInput,
+  normalizeMarcacaoInput,
+  validateConclusaoBaixaRules,
+} = require("./src/services/materialInservivelBaixa");
 
 const { setDbContext } = require("./src/services/dbContext");
 const { createInventarioController } = require("./src/controllers/inventarioController");
@@ -91,6 +101,10 @@ const ACL_ACTION_PERMISSIONS = Object.freeze([
   "action.bem.alterar_localizacao.request",
   "action.bem.vincular_local_lote.execute",
   "action.bem.vincular_local_lote.request",
+  "action.inservivel.marcar.execute",
+  "action.inservivel.marcar.request",
+  "action.baixa.execute",
+  "action.baixa.request",
   "action.aprovacao.listar",
   "action.aprovacao.aprovar",
   "action.aprovacao.reprovar",
@@ -109,6 +123,8 @@ const SOLICITACAO_TIPO_ACAO = Object.freeze({
   BEM_PATCH: "BEM_PATCH",
   BEM_VINCULAR_LOCAL_LOTE: "BEM_VINCULAR_LOCAL_LOTE",
   MOVIMENTACAO: "MOVIMENTACAO",
+  INSERVIVEL_MARCACAO: "INSERVIVEL_MARCACAO",
+  BAIXA_PATRIMONIAL: "BAIXA_PATRIMONIAL",
 });
 const GEAFIN_MODES = new Set(["INCREMENTAL", "TOTAL"]);
 const GEAFIN_SCOPE_TYPES = new Set(["GERAL", "UNIDADE"]);
@@ -146,6 +162,7 @@ const UNIT_MAP = new Map([
 // Cache simples de compatibilidade de schema: evita derrubar a API quando o backend sobe antes das migrations.
 let _documentosHasAvaliacaoInservivelId = null;
 let _aclSchemaCaps = null;
+let _materialBaixaSchemaCaps = null;
 
 async function documentosHasAvaliacaoInservivelIdColumn() {
   if (_documentosHasAvaliacaoInservivelId != null) return _documentosHasAvaliacaoInservivelId;
@@ -206,6 +223,50 @@ async function getAclSchemaCaps() {
     hasPerfilRoles: false,
     hasSolicitacoesAprovacao: false,
     hasSolicitacoesEventos: false,
+  };
+}
+
+async function getMaterialBaixaSchemaCaps() {
+  if (_materialBaixaSchemaCaps) return _materialBaixaSchemaCaps;
+  try {
+    const r = await pool.query(
+      `SELECT
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='marcacoes_inserviveis'
+         ) AS "hasMarcacoesInserviveis",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='baixas_patrimoniais'
+         ) AS "hasBaixasPatrimoniais",
+         EXISTS (
+           SELECT 1 FROM information_schema.tables
+           WHERE table_schema='public' AND table_name='baixas_patrimoniais_itens'
+         ) AS "hasBaixasPatrimoniaisItens",
+         EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='documentos' AND column_name='baixa_patrimonial_id'
+         ) AS "hasDocumentoBaixaPatrimonialId",
+         EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='bens' AND column_name='motivo_baixa_patrimonial'
+         ) AS "hasBemMotivoBaixaPatrimonial",
+         EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='bens' AND column_name='baixado_em'
+         ) AS "hasBemBaixadoEm";`,
+    );
+    _materialBaixaSchemaCaps = r.rows?.[0] || null;
+  } catch (_error) {
+    _materialBaixaSchemaCaps = null;
+  }
+  return _materialBaixaSchemaCaps || {
+    hasMarcacoesInserviveis: false,
+    hasBaixasPatrimoniais: false,
+    hasBaixasPatrimoniaisItens: false,
+    hasDocumentoBaixaPatrimonialId: false,
+    hasBemMotivoBaixaPatrimonial: false,
+    hasBemBaixadoEm: false,
   };
 }
 
@@ -1849,6 +1910,7 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
   try {
     const id = String(req.params?.id || "").trim();
     if (!UUID_RE.test(id)) throw new HttpError(400, "BEM_ID_INVALIDO", "id deve ser UUID valido.");
+    const materialCaps = await getMaterialBaixaSchemaCaps();
 
     const bem = await pool.query(
       `SELECT
@@ -1865,6 +1927,8 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
          b.local_id AS "localId",
          b.status::text AS "status",
          b.tipo_inservivel::text AS "tipoInservivel",
+         ${materialCaps.hasBemMotivoBaixaPatrimonial ? 'b.motivo_baixa_patrimonial::text AS "motivoBaixaPatrimonial",' : ""}
+         ${materialCaps.hasBemBaixadoEm ? 'b.baixado_em AS "baixadoEm",' : ""}
          b.eh_bem_terceiro AS "ehBemTerceiro",
          b.proprietario_externo AS "proprietarioExterno",
          b.contrato_referencia AS "contratoReferencia",
@@ -1962,6 +2026,45 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
       [id],
     );
 
+    let marcacaoAtual = null;
+    if (materialCaps.hasMarcacoesInserviveis) {
+      const marcQ = await pool.query(
+        `SELECT
+           m.id,
+           m.avaliacao_inservivel_id AS "avaliacaoInservivelId",
+           m.tipo_inservivel::text AS "tipoInservivel",
+           m.destinacao_sugerida::text AS "destinacaoSugerida",
+           m.status_fluxo::text AS "statusFluxo",
+           m.observacoes,
+           m.marcado_em AS "marcadoEm"
+         FROM marcacoes_inserviveis m
+         WHERE m.bem_id = $1
+         LIMIT 1;`,
+        [id],
+      );
+      marcacaoAtual = marcQ.rows[0] || null;
+    }
+
+    let baixaPatrimonialResumo = null;
+    if (materialCaps.hasBaixasPatrimoniais && materialCaps.hasBaixasPatrimoniaisItens) {
+      const baixaQ = await pool.query(
+        `SELECT
+           bp.id,
+           bp.processo_referencia AS "processoReferencia",
+           bp.modalidade_baixa::text AS "modalidadeBaixa",
+           bp.status_processo::text AS "statusProcesso",
+           bp.executado_em AS "executadoEm",
+           bp.created_at AS "createdAt"
+         FROM baixas_patrimoniais bp
+         JOIN baixas_patrimoniais_itens bpi ON bpi.baixa_patrimonial_id = bp.id
+         WHERE bpi.bem_id = $1
+         ORDER BY bp.created_at DESC
+         LIMIT 1;`,
+        [id],
+      );
+      baixaPatrimonialResumo = baixaQ.rows[0] || null;
+    }
+
     res.json({
       requestId: req.requestId,
       bem: {
@@ -1978,6 +2081,8 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         localId: row.localId,
         status: row.status,
         tipoInservivel: row.tipoInservivel,
+        motivoBaixaPatrimonial: row.motivoBaixaPatrimonial || null,
+        baixadoEm: row.baixadoEm || null,
         ehBemTerceiro: row.ehBemTerceiro,
         proprietarioExterno: row.proprietarioExterno,
         contratoReferencia: row.contratoReferencia,
@@ -2003,6 +2108,8 @@ app.get("/bens/:id", mustAuth, async (req, res, next) => {
         ? { id: row.responsavelId, matricula: row.responsavelMatricula, nome: row.responsavelNome }
         : null,
       divergenciaPendente: row.divergenciaPendente || null,
+      marcacaoAtual,
+      baixaPatrimonialResumo,
       movimentacoes: movimentacoes.rows,
       historicoTransferencias: historicoTransferencias.rows,
     });
@@ -3695,6 +3802,7 @@ app.post("/inventario/bens-nao-identificados", mustAuth, async (req, res, next) 
  * - movimentacaoId: UUID (opcional)
  * - contagemId: UUID (opcional)
  * - avaliacaoInservivelId: UUID (opcional; exige migration 013)
+ * - baixaPatrimonialId: UUID (opcional; exige migration 023)
  */
 app.get("/documentos", mustAuth, async (req, res, next) => {
   try {
@@ -3702,6 +3810,7 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
     const movimentacaoId = q.movimentacaoId != null ? String(q.movimentacaoId).trim() : "";
     const contagemId = q.contagemId != null ? String(q.contagemId).trim() : "";
     const avaliacaoInservivelId = q.avaliacaoInservivelId != null ? String(q.avaliacaoInservivelId).trim() : "";
+    const baixaPatrimonialId = q.baixaPatrimonialId != null ? String(q.baixaPatrimonialId).trim() : "";
 
     if (movimentacaoId && !UUID_RE.test(movimentacaoId)) {
       throw new HttpError(422, "MOVIMENTACAO_ID_INVALIDO", "movimentacaoId deve ser UUID.");
@@ -3711,6 +3820,9 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
     }
     if (avaliacaoInservivelId && !UUID_RE.test(avaliacaoInservivelId)) {
       throw new HttpError(422, "AVALIACAO_ID_INVALIDO", "avaliacaoInservivelId deve ser UUID.");
+    }
+    if (baixaPatrimonialId && !UUID_RE.test(baixaPatrimonialId)) {
+      throw new HttpError(422, "BAIXA_PATRIMONIAL_ID_INVALIDO", "baixaPatrimonialId deve ser UUID.");
     }
 
     const where = ["1=1"];
@@ -3729,9 +3841,15 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
     }
 
     const supportsAvaliacao = await documentosHasAvaliacaoInservivelIdColumn();
+    const materialCaps = await getMaterialBaixaSchemaCaps();
     if (supportsAvaliacao && avaliacaoInservivelId) {
       where.push(`avaliacao_inservivel_id = $${i} `);
       params.push(avaliacaoInservivelId);
+      i += 1;
+    }
+    if (materialCaps.hasDocumentoBaixaPatrimonialId && baixaPatrimonialId) {
+      where.push(`baixa_patrimonial_id = $${i} `);
+      params.push(baixaPatrimonialId);
       i += 1;
     }
 
@@ -3743,6 +3861,7 @@ app.get("/documentos", mustAuth, async (req, res, next) => {
         movimentacao_id AS "movimentacaoId",
           contagem_id AS "contagemId",
             ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
+            ${materialCaps.hasDocumentoBaixaPatrimonialId ? 'baixa_patrimonial_id AS "baixaPatrimonialId",' : ""}
          termo_referencia AS "termoReferencia",
       arquivo_nome AS "arquivoNome",
         mime,
@@ -3784,6 +3903,15 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
       "TERMO_CAUTELA",
       "TERMO_REGULARIZACAO",
       "RELATORIO_FORASTEIROS",
+      "PARECER_SCI",
+      "ATO_DIRETOR_GERAL",
+      "TERMO_ALIENACAO",
+      "TERMO_CESSAO",
+      "TERMO_DOACAO",
+      "TERMO_PERMUTA",
+      "TERMO_INUTILIZACAO",
+      "JUSTIFICATIVA_ABANDONO",
+      "NOTA_LANCAMENTO_SIAFI",
       "OUTRO",
     ]);
     if (!allowed.has(tipo)) throw new HttpError(422, "TIPO_INVALIDO", "tipo de documento invalido.");
@@ -3791,9 +3919,11 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
     const movimentacaoId = body.movimentacaoId != null ? String(body.movimentacaoId).trim() : "";
     const contagemId = body.contagemId != null ? String(body.contagemId).trim() : "";
     const avaliacaoInservivelId = body.avaliacaoInservivelId != null ? String(body.avaliacaoInservivelId).trim() : "";
+    const baixaPatrimonialId = body.baixaPatrimonialId != null ? String(body.baixaPatrimonialId).trim() : "";
     if (movimentacaoId && !UUID_RE.test(movimentacaoId)) throw new HttpError(422, "MOVIMENTACAO_ID_INVALIDO", "movimentacaoId deve ser UUID.");
     if (contagemId && !UUID_RE.test(contagemId)) throw new HttpError(422, "CONTAGEM_ID_INVALIDO", "contagemId deve ser UUID.");
     if (avaliacaoInservivelId && !UUID_RE.test(avaliacaoInservivelId)) throw new HttpError(422, "AVALIACAO_ID_INVALIDO", "avaliacaoInservivelId deve ser UUID.");
+    if (baixaPatrimonialId && !UUID_RE.test(baixaPatrimonialId)) throw new HttpError(422, "BAIXA_PATRIMONIAL_ID_INVALIDO", "baixaPatrimonialId deve ser UUID.");
 
     const termoReferencia = body.termoReferencia != null ? String(body.termoReferencia).trim().slice(0, 120) : null;
     const titulo = body.titulo != null ? String(body.titulo).trim().slice(0, 180) : null;
@@ -3812,6 +3942,7 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
     const observacoes = body.observacoes != null ? String(body.observacoes).trim().slice(0, 2000) : null;
 
     const supportsAvaliacao = await documentosHasAvaliacaoInservivelIdColumn();
+    const materialCaps = await getMaterialBaixaSchemaCaps();
     if (!supportsAvaliacao && avaliacaoInservivelId) {
       throw new HttpError(
         409,
@@ -3819,16 +3950,23 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
         "Banco de dados ainda nao tem avaliacaoInservivelId em documentos. Aplique a migration 013.",
       );
     }
+    if (!materialCaps.hasDocumentoBaixaPatrimonialId && baixaPatrimonialId) {
+      throw new HttpError(
+        409,
+        "SCHEMA_DESATUALIZADO",
+        "Banco de dados ainda nao tem baixaPatrimonialId em documentos. Aplique a migration 023.",
+      );
+    }
 
     const r = await pool.query(
       `INSERT INTO documentos(
-                  tipo, titulo, movimentacao_id, contagem_id, ${supportsAvaliacao ? "avaliacao_inservivel_id," : ""} termo_referencia,
+                  tipo, titulo, movimentacao_id, contagem_id, ${supportsAvaliacao ? "avaliacao_inservivel_id," : ""} ${materialCaps.hasDocumentoBaixaPatrimonialId ? "baixa_patrimonial_id," : ""} termo_referencia,
                   arquivo_nome, mime, bytes, sha256, drive_file_id, drive_url,
                   gerado_por_perfil_id, observacoes
                 ) VALUES(
-                  $1:: public.tipo_documento, $2, $3, $4, ${supportsAvaliacao ? "$5," : ""} $${supportsAvaliacao ? 6 : 5},
-                  $${supportsAvaliacao ? 7 : 6}, $${supportsAvaliacao ? 8 : 7}, $${supportsAvaliacao ? 9 : 8}, $${supportsAvaliacao ? 10 : 9}, $${supportsAvaliacao ? 11 : 10}, $${supportsAvaliacao ? 12 : 11},
-                  $${supportsAvaliacao ? 13 : 12}, $${supportsAvaliacao ? 14 : 13}
+                  $1:: public.tipo_documento, $2, $3, $4, ${supportsAvaliacao ? "$5," : ""} ${materialCaps.hasDocumentoBaixaPatrimonialId ? `$${supportsAvaliacao ? 6 : 5},` : ""} $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 7 : 6) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 6 : 5)},
+                  $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 8 : 7) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 7 : 6)}, $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 9 : 8) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 8 : 7)}, $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 10 : 9) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 9 : 8)}, $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 11 : 10) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 10 : 9)}, $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 12 : 11) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 11 : 10)}, $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 13 : 12) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 12 : 11)},
+                  $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 14 : 13) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 13 : 12)}, $${supportsAvaliacao ? (materialCaps.hasDocumentoBaixaPatrimonialId ? 15 : 14) : (materialCaps.hasDocumentoBaixaPatrimonialId ? 14 : 13)}
                 )
     RETURNING
     id,
@@ -3837,42 +3975,82 @@ app.post("/documentos", mustAdmin, async (req, res, next) => {
         movimentacao_id AS "movimentacaoId",
           contagem_id AS "contagemId",
             ${supportsAvaliacao ? 'avaliacao_inservivel_id AS "avaliacaoInservivelId",' : ""}
+            ${materialCaps.hasDocumentoBaixaPatrimonialId ? 'baixa_patrimonial_id AS "baixaPatrimonialId",' : ""}
          termo_referencia AS "termoReferencia",
       drive_file_id AS "driveFileId",
         drive_url AS "driveUrl",
           gerado_em AS "geradoEm"; `,
       supportsAvaliacao
-        ? [
-          tipo,
-          titulo,
-          movimentacaoId || null,
-          contagemId || null,
-          avaliacaoInservivelId || null,
-          termoReferencia,
-          arquivoNome,
-          mime,
-          bytes,
-          sha256,
-          driveFileId,
-          driveUrl,
-          req.user?.id || null,
-          observacoes,
-        ]
-        : [
-          tipo,
-          titulo,
-          movimentacaoId || null,
-          contagemId || null,
-          termoReferencia,
-          arquivoNome,
-          mime,
-          bytes,
-          sha256,
-          driveFileId,
-          driveUrl,
-          req.user?.id || null,
-          observacoes,
-        ],
+        ? (
+          materialCaps.hasDocumentoBaixaPatrimonialId
+            ? [
+              tipo,
+              titulo,
+              movimentacaoId || null,
+              contagemId || null,
+              avaliacaoInservivelId || null,
+              baixaPatrimonialId || null,
+              termoReferencia,
+              arquivoNome,
+              mime,
+              bytes,
+              sha256,
+              driveFileId,
+              driveUrl,
+              req.user?.id || null,
+              observacoes,
+            ]
+            : [
+              tipo,
+              titulo,
+              movimentacaoId || null,
+              contagemId || null,
+              avaliacaoInservivelId || null,
+              termoReferencia,
+              arquivoNome,
+              mime,
+              bytes,
+              sha256,
+              driveFileId,
+              driveUrl,
+              req.user?.id || null,
+              observacoes,
+            ]
+        )
+        : (
+          materialCaps.hasDocumentoBaixaPatrimonialId
+            ? [
+              tipo,
+              titulo,
+              movimentacaoId || null,
+              contagemId || null,
+              baixaPatrimonialId || null,
+              termoReferencia,
+              arquivoNome,
+              mime,
+              bytes,
+              sha256,
+              driveFileId,
+              driveUrl,
+              req.user?.id || null,
+              observacoes,
+            ]
+            : [
+              tipo,
+              titulo,
+              movimentacaoId || null,
+              contagemId || null,
+              termoReferencia,
+              arquivoNome,
+              mime,
+              bytes,
+              sha256,
+              driveFileId,
+              driveUrl,
+              req.user?.id || null,
+              observacoes,
+            ]
+        ),
     );
 
     res.status(201).json({ requestId: req.requestId, documento: r.rows[0] });
@@ -3948,44 +4126,72 @@ app.patch("/documentos/:id", mustAdmin, async (req, res, next) => {
  * Regra legal: classificacao obrigatoria de inserviveis.
  * Art. 141 (AN303_Art141_Cap / AN303_Art141_I / AN303_Art141_II / AN303_Art141_III / AN303_Art141_IV).
  */
-app.post("/inserviveis/avaliacoes", mustAdmin, async (req, res, next) => {
+app.post("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
   const client = await pool.connect();
   try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const canExecute = userHasPermission(req.user, "action.inservivel.marcar.execute");
+    const canRequest = userHasPermission(req.user, "action.inservivel.marcar.request");
+    if (!canExecute && !canRequest) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para classificar e marcar inserviveis.");
+    }
+
     const body = req.body || {};
-    const bemId = String(body.bemId || "").trim();
-    if (!UUID_RE.test(bemId)) throw new HttpError(422, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+    const bemId = assertUuidOrThrow(body.bemId, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+    const snapshotBefore = await fetchBemSnapshot(client, bemId);
+    if (!snapshotBefore) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
 
-    const tipo = String(body.tipoInservivel || body.classificacao || "").trim().toUpperCase();
-    const allowed = new Set(["OCIOSO", "RECUPERAVEL", "ANTIECONOMICO", "IRRECUPERAVEL"]);
-    if (!allowed.has(tipo)) throw new HttpError(422, "TIPO_INVALIDO", "tipoInservivel invalido.");
+    if (!canExecute) {
+      const caps = await getAclSchemaCaps();
+      if (!caps.hasSolicitacoesAprovacao || !caps.hasSolicitacoesEventos) {
+        throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+      }
+      const justificativaSolicitante = body?.justificativa != null
+        ? String(body.justificativa).trim().slice(0, 2000)
+        : "";
+      if (!justificativaSolicitante) {
+        throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+      }
+      await client.query("BEGIN");
+      const solicitacao = await createSolicitacaoAprovacao(client, {
+        tipoAcao: SOLICITACAO_TIPO_ACAO.INSERVIVEL_MARCACAO,
+        entidadeTipo: "BEM",
+        entidadeId: bemId,
+        payload: {
+          ...body,
+          bemId,
+          modo: "AVALIAR_MARCAR",
+        },
+        solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+        justificativaSolicitante,
+        snapshotBefore,
+        expiraEm: nowPlusDays(15),
+      });
+      await client.query("COMMIT");
+      res.status(202).json({
+        requestId: req.requestId,
+        status: "PENDENTE_APROVACAO",
+        solicitacaoId: solicitacao.id,
+        message: "Classificacao enviada para aprovacao administrativa.",
+      });
+      return;
+    }
 
-    const descricaoInformada = body.descricaoInformada != null ? String(body.descricaoInformada).trim().slice(0, 2000) : null;
-    const justificativa = body.justificativa != null ? String(body.justificativa).trim().slice(0, 4000) : null;
-    const criterios = body.criterios != null && typeof body.criterios === "object" ? body.criterios : null;
-
+    const preview = normalizeAvaliacaoInput(body);
     await client.query("BEGIN");
     await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id).trim() : null });
-
-    const bemR = await client.query(`SELECT id, numero_tombamento, status::text AS status FROM bens WHERE id = $1 FOR UPDATE; `, [bemId]);
-    if (!bemR.rowCount) throw new HttpError(404, "BEM_NAO_ENCONTRADO", "Bem nao encontrado.");
-
-    const ins = await client.query(
-      `INSERT INTO avaliacoes_inserviveis(
-                    bem_id, tipo_inservivel, descricao_informada, justificativa, criterios, avaliado_por_perfil_id
-                  ) VALUES(
-                    $1, $2:: public.tipo_inservivel, $3, $4, $5, $6
-                  )
-       RETURNING id, bem_id AS "bemId", tipo_inservivel::text AS "tipoInservivel", avaliado_em AS "avaliadoEm"; `,
-      [bemId, tipo, descricaoInformada, justificativa, criterios ? JSON.stringify(criterios) : null, req.user?.id || null],
-    );
-
-    await client.query(
-      `UPDATE bens SET tipo_inservivel = $2:: public.tipo_inservivel, updated_at = NOW() WHERE id = $1; `,
-      [bemId, tipo],
-    );
-
+    const out = await applyInservivelMarcacaoSolicitada(client, {
+      payload: { ...body, bemId, modo: "AVALIAR_MARCAR" },
+      actorPerfilId: req.user?.id ? String(req.user.id) : null,
+      solicitantePerfilId: null,
+    });
     await client.query("COMMIT");
-    res.status(201).json({ requestId: req.requestId, avaliacao: ins.rows[0] });
+    res.status(201).json({
+      requestId: req.requestId,
+      avaliacao: out.avaliacao,
+      marcacao: out.marcacao,
+      tipoInservivel: preview.tipoInservivel,
+    });
   } catch (error) {
     await safeRollback(client);
     next(error);
@@ -4022,6 +4228,653 @@ app.get("/inserviveis/avaliacoes", mustAuth, async (req, res, next) => {
     res.json({ requestId: req.requestId, items: r.rows });
   } catch (error) {
     next(error);
+  }
+});
+
+app.get("/inserviveis/marcacoes", mustAuth, async (req, res, next) => {
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const limit = Math.max(1, Math.min(500, parseIntOrDefault(req.query?.limit, 50)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+    const tipoInservivel = req.query?.tipoInservivel ? String(req.query.tipoInservivel).trim().toUpperCase() : "";
+    const destinacaoSugerida = req.query?.destinacaoSugerida ? String(req.query.destinacaoSugerida).trim().toUpperCase() : "";
+    const statusFluxo = req.query?.statusFluxo ? String(req.query.statusFluxo).trim().toUpperCase() : "";
+    const q = req.query?.q ? String(req.query.q).trim() : "";
+    const unidadeDonaId = req.query?.unidadeDonaId != null && String(req.query.unidadeDonaId).trim() !== ""
+      ? Number(req.query.unidadeDonaId)
+      : null;
+    const localFisico = req.query?.localFisico ? String(req.query.localFisico).trim() : "";
+
+    if (tipoInservivel && !TIPOS_INSERVIVEL.includes(tipoInservivel)) {
+      throw new HttpError(422, "TIPO_INSERVIVEL_INVALIDO", "tipoInservivel invalido.");
+    }
+    if (destinacaoSugerida && !DESTINACOES_INSERVIVEL.includes(destinacaoSugerida)) {
+      throw new HttpError(422, "DESTINACAO_INVALIDA", "destinacaoSugerida invalida.");
+    }
+    if (statusFluxo && !STATUS_FLUXO_INSERVIVEL.includes(statusFluxo)) {
+      throw new HttpError(422, "STATUS_FLUXO_INVALIDO", "statusFluxo invalido.");
+    }
+    if (unidadeDonaId != null && (!Number.isInteger(unidadeDonaId) || !VALID_UNIDADES.has(unidadeDonaId))) {
+      throw new HttpError(422, "UNIDADE_INVALIDA", "unidadeDonaId deve ser 1..4.");
+    }
+
+    const where = ["1=1"];
+    const params = [];
+    let i = 1;
+    if (tipoInservivel) {
+      where.push(`m.tipo_inservivel = $${i}::public.tipo_inservivel`);
+      params.push(tipoInservivel);
+      i += 1;
+    }
+    if (destinacaoSugerida) {
+      where.push(`m.destinacao_sugerida = $${i}::public.destinacao_inservivel`);
+      params.push(destinacaoSugerida);
+      i += 1;
+    }
+    if (statusFluxo) {
+      where.push(`m.status_fluxo = $${i}::public.status_fluxo_inservivel`);
+      params.push(statusFluxo);
+      i += 1;
+    }
+    if (unidadeDonaId != null) {
+      where.push(`b.unidade_dona_id = $${i}`);
+      params.push(unidadeDonaId);
+      i += 1;
+    }
+    if (localFisico) {
+      where.push(`b.local_fisico ILIKE $${i}`);
+      params.push(`%${localFisico}%`);
+      i += 1;
+    }
+    if (q) {
+      where.push(`(
+        b.numero_tombamento ILIKE $${i}
+        OR b.local_fisico ILIKE $${i}
+        OR cb.descricao ILIKE $${i}
+      )`);
+      params.push(`%${q}%`);
+      i += 1;
+    }
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+
+    const totalQ = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM marcacoes_inserviveis m
+       JOIN bens b ON b.id = m.bem_id
+       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+       ${whereSql};`,
+      params,
+    );
+
+    const listQ = await pool.query(
+      `SELECT
+         m.id,
+         m.bem_id AS "bemId",
+         m.avaliacao_inservivel_id AS "avaliacaoInservivelId",
+         m.tipo_inservivel::text AS "tipoInservivel",
+         m.destinacao_sugerida::text AS "destinacaoSugerida",
+         m.status_fluxo::text AS "statusFluxo",
+         m.observacoes,
+         m.marcado_em AS "marcadoEm",
+         b.numero_tombamento AS "numeroTombamento",
+         b.unidade_dona_id AS "unidadeDonaId",
+         b.local_fisico AS "localFisico",
+         b.status::text AS "statusBem",
+         cb.descricao AS "catalogoDescricao",
+         ai.avaliado_em AS "avaliadoEm",
+         ai.justificativa,
+         (
+           SELECT COUNT(*)::int
+           FROM documentos d
+           WHERE d.avaliacao_inservivel_id = m.avaliacao_inservivel_id
+         ) AS "totalEvidencias"
+       FROM marcacoes_inserviveis m
+       JOIN bens b ON b.id = m.bem_id
+       JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+       LEFT JOIN avaliacoes_inserviveis ai ON ai.id = m.avaliacao_inservivel_id
+       ${whereSql}
+       ORDER BY m.marcado_em DESC
+       LIMIT $${i} OFFSET $${i + 1};`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      paging: {
+        limit,
+        offset,
+        total: Number(totalQ.rows?.[0]?.total || 0),
+      },
+      items: listQ.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/inserviveis/marcacoes", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const canExecute = userHasPermission(req.user, "action.inservivel.marcar.execute");
+    const canRequest = userHasPermission(req.user, "action.inservivel.marcar.request");
+    if (!canExecute && !canRequest) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para marcar inserviveis.");
+    }
+    const body = req.body || {};
+    const bemId = assertUuidOrThrow(body.bemId, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+    const marcacao = normalizeMarcacaoInput(body);
+
+    if (!canExecute) {
+      const caps = await getAclSchemaCaps();
+      if (!caps.hasSolicitacoesAprovacao || !caps.hasSolicitacoesEventos) {
+        throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+      }
+      const justificativaSolicitante = body?.justificativaSolicitante != null
+        ? String(body.justificativaSolicitante).trim().slice(0, 2000)
+        : "";
+      if (!justificativaSolicitante) {
+        throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+      }
+      const snapshotBefore = await fetchBemSnapshot(client, bemId);
+      await client.query("BEGIN");
+      const solicitacao = await createSolicitacaoAprovacao(client, {
+        tipoAcao: SOLICITACAO_TIPO_ACAO.INSERVIVEL_MARCACAO,
+        entidadeTipo: "BEM",
+        entidadeId: bemId,
+        payload: {
+          ...body,
+          bemId,
+          tipoInservivel: marcacao.tipoInservivel,
+          destinacaoSugerida: marcacao.destinacaoSugerida,
+          statusFluxo: marcacao.statusFluxo,
+          observacoes: marcacao.observacoes,
+          modo: "MARCACAO_ONLY",
+        },
+        solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+        justificativaSolicitante,
+        snapshotBefore,
+        expiraEm: nowPlusDays(15),
+      });
+      await client.query("COMMIT");
+      res.status(202).json({
+        requestId: req.requestId,
+        status: "PENDENTE_APROVACAO",
+        solicitacaoId: solicitacao.id,
+        message: "Marcacao enviada para aprovacao administrativa.",
+      });
+      return;
+    }
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id) : null });
+    const out = await upsertMarcacaoInservivelInternal(client, {
+      bemId,
+      avaliacaoInservivelId: body.avaliacaoInservivelId && UUID_RE.test(String(body.avaliacaoInservivelId)) ? String(body.avaliacaoInservivelId) : null,
+      tipoInservivel: marcacao.tipoInservivel,
+      destinacaoSugerida: marcacao.destinacaoSugerida,
+      statusFluxo: marcacao.statusFluxo,
+      observacoes: marcacao.observacoes,
+      perfilId: req.user?.id ? String(req.user.id) : null,
+    });
+    await client.query("COMMIT");
+    res.status(201).json({ requestId: req.requestId, marcacao: out });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.patch("/inserviveis/marcacoes/:id", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const id = assertUuidOrThrow(req.params?.id, "MARCACAO_ID_INVALIDO", "id deve ser UUID.");
+    const canExecute = userHasPermission(req.user, "action.inservivel.marcar.execute");
+    if (!canExecute) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Somente perfis com execucao podem atualizar marcacoes existentes.");
+    }
+    const body = req.body || {};
+    const fields = [];
+    const params = [];
+    let i = 1;
+    if (Object.prototype.hasOwnProperty.call(body, "destinacaoSugerida")) {
+      const value = body.destinacaoSugerida ? String(body.destinacaoSugerida).trim().toUpperCase() : "";
+      if (value && !DESTINACOES_INSERVIVEL.includes(value)) {
+        throw new HttpError(422, "DESTINACAO_INVALIDA", "destinacaoSugerida invalida.");
+      }
+      fields.push(`destinacao_sugerida = $${i}::public.destinacao_inservivel`);
+      params.push(value || null);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "statusFluxo")) {
+      const value = body.statusFluxo ? String(body.statusFluxo).trim().toUpperCase() : "";
+      if (!STATUS_FLUXO_INSERVIVEL.includes(value)) {
+        throw new HttpError(422, "STATUS_FLUXO_INVALIDO", "statusFluxo invalido.");
+      }
+      fields.push(`status_fluxo = $${i}::public.status_fluxo_inservivel`);
+      params.push(value);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "observacoes")) {
+      fields.push(`observacoes = $${i}`);
+      params.push(body.observacoes != null ? String(body.observacoes).trim().slice(0, 4000) : null);
+      i += 1;
+    }
+    if (!fields.length) throw new HttpError(422, "PATCH_VAZIO", "Envie ao menos um campo para atualizar a marcacao.");
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id) : null });
+    const upd = await client.query(
+      `UPDATE marcacoes_inserviveis
+       SET ${fields.join(", ")},
+           marcado_por_perfil_id = $${i},
+           marcado_em = NOW(),
+           updated_at = NOW()
+       WHERE id = $${i + 1}
+       RETURNING
+         id,
+         bem_id AS "bemId",
+         avaliacao_inservivel_id AS "avaliacaoInservivelId",
+         tipo_inservivel::text AS "tipoInservivel",
+         destinacao_sugerida::text AS "destinacaoSugerida",
+         status_fluxo::text AS "statusFluxo",
+         observacoes,
+         marcado_em AS "marcadoEm",
+         updated_at AS "updatedAt";`,
+      [...params, req.user?.id ? String(req.user.id) : null, id],
+    );
+    if (!upd.rowCount) throw new HttpError(404, "MARCACAO_NAO_ENCONTRADA", "Marcacao nao encontrada.");
+    await client.query("COMMIT");
+    res.json({ requestId: req.requestId, marcacao: upd.rows[0] });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/baixas-patrimoniais", mustAuth, async (req, res, next) => {
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const limit = Math.max(1, Math.min(300, parseIntOrDefault(req.query?.limit, 50)));
+    const offset = Math.max(0, parseIntOrDefault(req.query?.offset, 0));
+    const statusProcesso = req.query?.statusProcesso ? String(req.query.statusProcesso).trim().toUpperCase() : "";
+    const modalidadeBaixa = req.query?.modalidadeBaixa ? String(req.query.modalidadeBaixa).trim().toUpperCase() : "";
+    const q = req.query?.q ? String(req.query.q).trim() : "";
+    if (statusProcesso && !["RASCUNHO", "CONCLUIDO", "CANCELADO"].includes(statusProcesso)) {
+      throw new HttpError(422, "STATUS_PROCESSO_INVALIDO", "statusProcesso invalido.");
+    }
+    if (modalidadeBaixa && !MODALIDADES_BAIXA.includes(modalidadeBaixa)) {
+      throw new HttpError(422, "MODALIDADE_BAIXA_INVALIDA", "modalidadeBaixa invalida.");
+    }
+    const where = ["1=1"];
+    const params = [];
+    let i = 1;
+    if (statusProcesso) {
+      where.push(`bp.status_processo = $${i}::public.status_baixa_patrimonial`);
+      params.push(statusProcesso);
+      i += 1;
+    }
+    if (modalidadeBaixa) {
+      where.push(`bp.modalidade_baixa = $${i}::public.modalidade_baixa_patrimonial`);
+      params.push(modalidadeBaixa);
+      i += 1;
+    }
+    if (q) {
+      where.push(`(
+        bp.processo_referencia ILIKE $${i}
+        OR bp.observacoes ILIKE $${i}
+      )`);
+      params.push(`%${q}%`);
+      i += 1;
+    }
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+
+    const totalQ = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM baixas_patrimoniais bp
+       ${whereSql};`,
+      params,
+    );
+    const listQ = await pool.query(
+      `SELECT
+         bp.id,
+         bp.processo_referencia AS "processoReferencia",
+         bp.modalidade_baixa::text AS "modalidadeBaixa",
+         bp.status_processo::text AS "statusProcesso",
+         bp.manifestacao_sci_referencia AS "manifestacaoSciReferencia",
+         bp.ato_diretor_geral_referencia AS "atoDiretorGeralReferencia",
+         bp.executado_em AS "executadoEm",
+         bp.created_at AS "createdAt",
+         COUNT(bpi.id)::int AS "totalItens"
+       FROM baixas_patrimoniais bp
+       LEFT JOIN baixas_patrimoniais_itens bpi ON bpi.baixa_patrimonial_id = bp.id
+       ${whereSql}
+       GROUP BY bp.id
+       ORDER BY bp.created_at DESC
+       LIMIT $${i} OFFSET $${i + 1};`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      requestId: req.requestId,
+      paging: {
+        limit,
+        offset,
+        total: Number(totalQ.rows?.[0]?.total || 0),
+      },
+      items: listQ.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/baixas-patrimoniais/:id", mustAuth, async (req, res, next) => {
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const id = assertUuidOrThrow(req.params?.id, "BAIXA_PATRIMONIAL_ID_INVALIDO", "id deve ser UUID.");
+    const detalhe = await fetchBaixaProcessoDetalhe(pool, id);
+    if (!detalhe) throw new HttpError(404, "BAIXA_PATRIMONIAL_NAO_ENCONTRADA", "Processo de baixa patrimonial nao encontrado.");
+    const docsCaps = await getMaterialBaixaSchemaCaps();
+    let documentos = [];
+    if (docsCaps.hasDocumentoBaixaPatrimonialId) {
+      const docsQ = await pool.query(
+        `SELECT
+           id,
+           tipo::text AS "tipo",
+           titulo,
+           baixa_patrimonial_id AS "baixaPatrimonialId",
+           termo_referencia AS "termoReferencia",
+           drive_url AS "driveUrl",
+           gerado_em AS "geradoEm",
+           observacoes
+         FROM documentos
+         WHERE baixa_patrimonial_id = $1
+         ORDER BY gerado_em DESC;`,
+        [id],
+      );
+      documentos = docsQ.rows;
+    }
+    res.json({ requestId: req.requestId, ...detalhe, documentos });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/baixas-patrimoniais", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const canWrite = userHasPermission(req.user, "action.baixa.execute") || userHasPermission(req.user, "action.baixa.request");
+    if (!canWrite) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para criar processo de baixa.");
+    }
+    const norm = normalizeBaixaDraftInput(req.body || {}, { allowPartial: false });
+    const items = await resolveBaixaItems(client, {
+      bemIds: norm.bemIds,
+      marcacaoIds: norm.marcacaoIds,
+      modalidadeBaixa: norm.modalidadeBaixa,
+    });
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id) : null });
+    const ins = await client.query(
+      `INSERT INTO baixas_patrimoniais (
+         processo_referencia, modalidade_baixa, status_processo,
+         manifestacao_sci_referencia, manifestacao_sci_em,
+         ato_diretor_geral_referencia, ato_diretor_geral_em,
+         presidencia_ciente_em, encaminhado_financas_em,
+         nota_lancamento_referencia, dados_modalidade, observacoes
+       ) VALUES (
+         $1, $2::public.modalidade_baixa_patrimonial, 'RASCUNHO'::public.status_baixa_patrimonial,
+         $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11
+       )
+       RETURNING id;`,
+      [
+        norm.processoReferencia,
+        norm.modalidadeBaixa,
+        norm.manifestacaoSciReferencia,
+        norm.manifestacaoSciEm ?? null,
+        norm.atoDiretorGeralReferencia,
+        norm.atoDiretorGeralEm ?? null,
+        norm.presidenciaCienteEm ?? null,
+        norm.encaminhadoFinancasEm ?? null,
+        norm.notaLancamentoReferencia,
+        JSON.stringify(norm.dadosModalidade || {}),
+        norm.observacoes,
+      ],
+    );
+    const baixaId = ins.rows[0].id;
+    await syncBaixaItems(client, baixaId, items);
+    await client.query("COMMIT");
+    const detalhe = await fetchBaixaProcessoDetalhe(pool, baixaId);
+    res.status(201).json({ requestId: req.requestId, ...detalhe });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.patch("/baixas-patrimoniais/:id", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const canWrite = userHasPermission(req.user, "action.baixa.execute") || userHasPermission(req.user, "action.baixa.request");
+    if (!canWrite) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para atualizar processo de baixa.");
+    }
+    const id = assertUuidOrThrow(req.params?.id, "BAIXA_PATRIMONIAL_ID_INVALIDO", "id deve ser UUID.");
+    const norm = normalizeBaixaDraftInput(req.body || {}, { allowPartial: true });
+    const body = req.body || {};
+    const current = await fetchBaixaProcessoDetalhe(client, id);
+    if (!current) throw new HttpError(404, "BAIXA_PATRIMONIAL_NAO_ENCONTRADA", "Processo de baixa patrimonial nao encontrado.");
+    if (current.baixa.statusProcesso !== "RASCUNHO") {
+      throw new HttpError(409, "STATUS_PROCESSO_INVALIDO", "Somente rascunhos podem ser editados.");
+    }
+
+    const fields = [];
+    const params = [];
+    let i = 1;
+    if (norm.processoReferencia != null && Object.prototype.hasOwnProperty.call(body, "processoReferencia")) {
+      fields.push(`processo_referencia = $${i}`);
+      params.push(norm.processoReferencia);
+      i += 1;
+    }
+    if (norm.modalidadeBaixa != null && Object.prototype.hasOwnProperty.call(body, "modalidadeBaixa")) {
+      fields.push(`modalidade_baixa = $${i}::public.modalidade_baixa_patrimonial`);
+      params.push(norm.modalidadeBaixa);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "manifestacaoSciReferencia")) {
+      fields.push(`manifestacao_sci_referencia = $${i}`);
+      params.push(norm.manifestacaoSciReferencia);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "manifestacaoSciEm")) {
+      fields.push(`manifestacao_sci_em = $${i}`);
+      params.push(norm.manifestacaoSciEm ?? null);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "atoDiretorGeralReferencia")) {
+      fields.push(`ato_diretor_geral_referencia = $${i}`);
+      params.push(norm.atoDiretorGeralReferencia);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "atoDiretorGeralEm")) {
+      fields.push(`ato_diretor_geral_em = $${i}`);
+      params.push(norm.atoDiretorGeralEm ?? null);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "presidenciaCienteEm")) {
+      fields.push(`presidencia_ciente_em = $${i}`);
+      params.push(norm.presidenciaCienteEm ?? null);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "encaminhadoFinancasEm")) {
+      fields.push(`encaminhado_financas_em = $${i}`);
+      params.push(norm.encaminhadoFinancasEm ?? null);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "notaLancamentoReferencia")) {
+      fields.push(`nota_lancamento_referencia = $${i}`);
+      params.push(norm.notaLancamentoReferencia);
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "dadosModalidade")) {
+      fields.push(`dados_modalidade = $${i}::jsonb`);
+      params.push(JSON.stringify(norm.dadosModalidade || {}));
+      i += 1;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "observacoes")) {
+      fields.push(`observacoes = $${i}`);
+      params.push(norm.observacoes);
+      i += 1;
+    }
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id) : null });
+    if (fields.length) {
+      await client.query(
+        `UPDATE baixas_patrimoniais
+         SET ${fields.join(", ")},
+             updated_at = NOW()
+         WHERE id = $${i};`,
+        [...params, id],
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "bemIds") || Object.prototype.hasOwnProperty.call(body, "marcacaoIds")) {
+      const items = await resolveBaixaItems(client, {
+        bemIds: norm.bemIds,
+        marcacaoIds: norm.marcacaoIds,
+        modalidadeBaixa: norm.modalidadeBaixa || current.baixa.modalidadeBaixa,
+      });
+      await syncBaixaItems(client, id, items);
+    }
+    await client.query("COMMIT");
+    const detalhe = await fetchBaixaProcessoDetalhe(pool, id);
+    res.json({ requestId: req.requestId, ...detalhe });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/baixas-patrimoniais/:id/concluir", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    const id = assertUuidOrThrow(req.params?.id, "BAIXA_PATRIMONIAL_ID_INVALIDO", "id deve ser UUID.");
+    const canExecute = userHasPermission(req.user, "action.baixa.execute");
+    const canRequest = userHasPermission(req.user, "action.baixa.request");
+    if (!canExecute && !canRequest) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Voce nao tem permissao para concluir a baixa patrimonial.");
+    }
+
+    if (!canExecute) {
+      const caps = await getAclSchemaCaps();
+      if (!caps.hasSolicitacoesAprovacao || !caps.hasSolicitacoesEventos) {
+        throw new HttpError(503, "APROVACAO_INDISPONIVEL", "Estrutura de aprovacao ainda nao foi migrada no banco.");
+      }
+      const justificativaSolicitante = req.body?.justificativaSolicitante != null
+        ? String(req.body.justificativaSolicitante).trim().slice(0, 2000)
+        : "";
+      if (!justificativaSolicitante) {
+        throw new HttpError(422, "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA", "Informe justificativa para solicitar aprovacao.");
+      }
+      const detalhe = await fetchBaixaProcessoDetalhe(client, id);
+      if (!detalhe) throw new HttpError(404, "BAIXA_PATRIMONIAL_NAO_ENCONTRADA", "Processo de baixa patrimonial nao encontrado.");
+      await client.query("BEGIN");
+      const solicitacao = await createSolicitacaoAprovacao(client, {
+        tipoAcao: SOLICITACAO_TIPO_ACAO.BAIXA_PATRIMONIAL,
+        entidadeTipo: "BAIXA_PATRIMONIAL",
+        entidadeId: id,
+        payload: { baixaPatrimonialId: id },
+        solicitantePerfilId: req.user?.id ? String(req.user.id) : null,
+        justificativaSolicitante,
+        snapshotBefore: detalhe,
+        expiraEm: nowPlusDays(15),
+      });
+      await client.query("COMMIT");
+      res.status(202).json({
+        requestId: req.requestId,
+        status: "PENDENTE_APROVACAO",
+        solicitacaoId: solicitacao.id,
+        message: "Conclusao enviada para aprovacao administrativa.",
+      });
+      return;
+    }
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id) : null });
+    const out = await concludeBaixaPatrimonialInternal(client, {
+      baixaId: id,
+      actorPerfilId: req.user?.id ? String(req.user.id) : null,
+    });
+    await client.query("COMMIT");
+    res.json({ requestId: req.requestId, ...out });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/baixas-patrimoniais/:id/cancelar", mustAuth, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await ensureMaterialBaixaSchemaOrThrow();
+    if (!userHasPermission(req.user, "action.baixa.execute")) {
+      throw new HttpError(403, "SEM_PERMISSAO", "Somente perfis com execucao podem cancelar processo de baixa.");
+    }
+    const id = assertUuidOrThrow(req.params?.id, "BAIXA_PATRIMONIAL_ID_INVALIDO", "id deve ser UUID.");
+    const detalhe = await fetchBaixaProcessoDetalhe(client, id);
+    if (!detalhe) throw new HttpError(404, "BAIXA_PATRIMONIAL_NAO_ENCONTRADA", "Processo de baixa patrimonial nao encontrado.");
+    if (detalhe.baixa.statusProcesso !== "RASCUNHO") {
+      throw new HttpError(409, "STATUS_PROCESSO_INVALIDO", "Somente rascunhos podem ser cancelados.");
+    }
+    const marcacoes = detalhe.itens.map((item) => item.marcacaoInservivelId).filter(Boolean);
+
+    await client.query("BEGIN");
+    await setDbContext(client, { changeOrigin: "APP", currentUserId: req.user?.id ? String(req.user.id) : null });
+    await client.query(
+      `UPDATE baixas_patrimoniais
+       SET status_processo = 'CANCELADO'::public.status_baixa_patrimonial,
+           updated_at = NOW()
+       WHERE id = $1;`,
+      [id],
+    );
+    if (marcacoes.length) {
+      await client.query(
+        `UPDATE marcacoes_inserviveis
+         SET status_fluxo = 'AGUARDANDO_DESTINACAO'::public.status_fluxo_inservivel,
+             updated_at = NOW()
+         WHERE id = ANY($1::uuid[])
+           AND status_fluxo = 'EM_PROCESSO_BAIXA'::public.status_fluxo_inservivel;`,
+        [marcacoes],
+      );
+    }
+    await client.query("COMMIT");
+    res.json({
+      requestId: req.requestId,
+      status: "CANCELADO",
+      baixaPatrimonialId: id,
+      message: "Processo de baixa cancelado.",
+    });
+  } catch (error) {
+    await safeRollback(client);
+    next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -5039,6 +5892,520 @@ async function applyMovimentacaoSolicitada(client, { payload, solicitantePerfilI
   return out;
 }
 
+async function ensureMaterialBaixaSchemaOrThrow() {
+  const caps = await getMaterialBaixaSchemaCaps();
+  if (!caps.hasMarcacoesInserviveis || !caps.hasBaixasPatrimoniais || !caps.hasBaixasPatrimoniaisItens) {
+    throw new HttpError(
+      503,
+      "MIGRACAO_PENDENTE_MATERIAL_BAIXA",
+      "Estrutura de Material Inservivel / Baixa ainda nao foi migrada. Aplique a migration database/023_material_inservivel_baixa.sql.",
+    );
+  }
+  return caps;
+}
+
+function assertUuidOrThrow(value, code, message) {
+  const id = String(value || "").trim();
+  if (!UUID_RE.test(id)) throw new HttpError(422, code, message);
+  return id;
+}
+
+function normalizeBaixaDraftInput(body = {}, { allowPartial = false } = {}) {
+  const processoReferencia = body.processoReferencia != null
+    ? String(body.processoReferencia).trim().slice(0, 120)
+    : "";
+  const modalidadeBaixa = body.modalidadeBaixa != null
+    ? String(body.modalidadeBaixa).trim().toUpperCase()
+    : "";
+  const manifestacaoSciReferencia = body.manifestacaoSciReferencia != null
+    ? String(body.manifestacaoSciReferencia).trim().slice(0, 120)
+    : null;
+  const manifestacaoSciEm = Object.prototype.hasOwnProperty.call(body, "manifestacaoSciEm")
+    ? parseDateTime(body.manifestacaoSciEm)
+    : undefined;
+  const atoDiretorGeralReferencia = body.atoDiretorGeralReferencia != null
+    ? String(body.atoDiretorGeralReferencia).trim().slice(0, 120)
+    : null;
+  const atoDiretorGeralEm = Object.prototype.hasOwnProperty.call(body, "atoDiretorGeralEm")
+    ? parseDateTime(body.atoDiretorGeralEm)
+    : undefined;
+  const presidenciaCienteEm = Object.prototype.hasOwnProperty.call(body, "presidenciaCienteEm")
+    ? parseDateTime(body.presidenciaCienteEm)
+    : undefined;
+  const encaminhadoFinancasEm = Object.prototype.hasOwnProperty.call(body, "encaminhadoFinancasEm")
+    ? parseDateTime(body.encaminhadoFinancasEm)
+    : undefined;
+  const notaLancamentoReferencia = body.notaLancamentoReferencia != null
+    ? String(body.notaLancamentoReferencia).trim().slice(0, 120)
+    : null;
+  const observacoes = body.observacoes != null
+    ? String(body.observacoes).trim().slice(0, 4000)
+    : null;
+  const dadosModalidade = body.dadosModalidade && typeof body.dadosModalidade === "object"
+    ? toSafeJson(body.dadosModalidade) || {}
+    : {};
+  const bemIds = Array.isArray(body.bemIds)
+    ? body.bemIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const marcacaoIds = Array.isArray(body.marcacaoIds)
+    ? body.marcacaoIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  if (!allowPartial || Object.prototype.hasOwnProperty.call(body, "processoReferencia")) {
+    if (!processoReferencia) throw new HttpError(422, "PROCESSO_REFERENCIA_OBRIGATORIO", "processoReferencia e obrigatorio.");
+  }
+  if (!allowPartial || Object.prototype.hasOwnProperty.call(body, "modalidadeBaixa")) {
+    if (!MODALIDADES_BAIXA.includes(modalidadeBaixa)) {
+      throw new HttpError(422, "MODALIDADE_BAIXA_INVALIDA", "modalidadeBaixa invalida.");
+    }
+  }
+  for (const id of bemIds) {
+    if (!UUID_RE.test(id)) throw new HttpError(422, "BEM_ID_INVALIDO", "bemIds deve conter UUIDs validos.");
+  }
+  for (const id of marcacaoIds) {
+    if (!UUID_RE.test(id)) throw new HttpError(422, "MARCACAO_ID_INVALIDO", "marcacaoIds deve conter UUIDs validos.");
+  }
+
+  return {
+    processoReferencia: processoReferencia || null,
+    modalidadeBaixa: modalidadeBaixa || null,
+    manifestacaoSciReferencia,
+    manifestacaoSciEm,
+    atoDiretorGeralReferencia,
+    atoDiretorGeralEm,
+    presidenciaCienteEm,
+    encaminhadoFinancasEm,
+    notaLancamentoReferencia,
+    observacoes,
+    dadosModalidade,
+    bemIds,
+    marcacaoIds,
+  };
+}
+
+async function fetchBemSnapshot(client, bemId) {
+  const r = await client.query(
+    `SELECT
+       b.id,
+       b.numero_tombamento AS "numeroTombamento",
+       b.unidade_dona_id AS "unidadeDonaId",
+       b.local_fisico AS "localFisico",
+       b.local_id AS "localId",
+       b.status::text AS status,
+       b.tipo_inservivel::text AS "tipoInservivel",
+       cb.descricao AS "catalogoDescricao"
+     FROM bens b
+     JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+     WHERE b.id = $1
+     LIMIT 1;`,
+    [bemId],
+  );
+  return r.rows[0] || null;
+}
+
+async function createAvaliacaoInservivelInternal(client, {
+  bemId,
+  tipoInservivel,
+  descricaoInformada,
+  justificativa,
+  criterios,
+  avaliadoPorPerfilId,
+}) {
+  const ins = await client.query(
+    `INSERT INTO avaliacoes_inserviveis (
+       bem_id, tipo_inservivel, descricao_informada, justificativa, criterios, avaliado_por_perfil_id
+     ) VALUES (
+       $1, $2::public.tipo_inservivel, $3, $4, $5::jsonb, $6
+     )
+     RETURNING
+       id,
+       bem_id AS "bemId",
+       tipo_inservivel::text AS "tipoInservivel",
+       descricao_informada AS "descricaoInformada",
+       justificativa,
+       criterios,
+       avaliado_por_perfil_id AS "avaliadoPorPerfilId",
+       avaliado_em AS "avaliadoEm";`,
+    [
+      bemId,
+      tipoInservivel,
+      descricaoInformada,
+      justificativa,
+      JSON.stringify(criterios || {}),
+      avaliadoPorPerfilId || null,
+    ],
+  );
+
+  await client.query(
+    `UPDATE bens
+     SET tipo_inservivel = $2::public.tipo_inservivel,
+         updated_at = NOW()
+     WHERE id = $1;`,
+    [bemId, tipoInservivel],
+  );
+
+  return ins.rows[0];
+}
+
+async function upsertMarcacaoInservivelInternal(client, {
+  bemId,
+  avaliacaoInservivelId = null,
+  tipoInservivel,
+  destinacaoSugerida = null,
+  statusFluxo = "MARCADO_TRIAGEM",
+  observacoes = null,
+  perfilId = null,
+}) {
+  const row = await client.query(
+    `INSERT INTO marcacoes_inserviveis (
+       bem_id, avaliacao_inservivel_id, tipo_inservivel, destinacao_sugerida, status_fluxo, observacoes, marcado_por_perfil_id, marcado_em
+     ) VALUES (
+       $1, $2, $3::public.tipo_inservivel, $4::public.destinacao_inservivel, $5::public.status_fluxo_inservivel, $6, $7, NOW()
+     )
+     ON CONFLICT (bem_id) DO UPDATE
+     SET avaliacao_inservivel_id = COALESCE(EXCLUDED.avaliacao_inservivel_id, marcacoes_inserviveis.avaliacao_inservivel_id),
+         tipo_inservivel = EXCLUDED.tipo_inservivel,
+         destinacao_sugerida = EXCLUDED.destinacao_sugerida,
+         status_fluxo = EXCLUDED.status_fluxo,
+         observacoes = EXCLUDED.observacoes,
+         marcado_por_perfil_id = EXCLUDED.marcado_por_perfil_id,
+         marcado_em = NOW(),
+         updated_at = NOW()
+     RETURNING
+       id,
+       bem_id AS "bemId",
+       avaliacao_inservivel_id AS "avaliacaoInservivelId",
+       tipo_inservivel::text AS "tipoInservivel",
+       destinacao_sugerida::text AS "destinacaoSugerida",
+       status_fluxo::text AS "statusFluxo",
+       observacoes,
+       marcado_por_perfil_id AS "marcadoPorPerfilId",
+       marcado_em AS "marcadoEm",
+       created_at AS "createdAt",
+       updated_at AS "updatedAt";`,
+    [
+      bemId,
+      avaliacaoInservivelId || null,
+      tipoInservivel,
+      destinacaoSugerida || null,
+      statusFluxo,
+      observacoes,
+      perfilId || null,
+    ],
+  );
+  return row.rows[0];
+}
+
+async function applyInservivelMarcacaoSolicitada(client, { payload, actorPerfilId, solicitantePerfilId }) {
+  await ensureMaterialBaixaSchemaOrThrow();
+  const body = payload && typeof payload === "object" ? payload : {};
+  const modo = String(body.modo || "AVALIAR_MARCAR").trim().toUpperCase();
+  const perfilFinal = actorPerfilId || solicitantePerfilId || null;
+
+  if (modo === "MARCACAO_ONLY") {
+    const bemId = assertUuidOrThrow(body.bemId, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+    const marcacao = normalizeMarcacaoInput(body);
+    return {
+      marcacao: await upsertMarcacaoInservivelInternal(client, {
+        bemId,
+        avaliacaoInservivelId: body.avaliacaoInservivelId && UUID_RE.test(String(body.avaliacaoInservivelId)) ? String(body.avaliacaoInservivelId) : null,
+        tipoInservivel: marcacao.tipoInservivel,
+        destinacaoSugerida: marcacao.destinacaoSugerida,
+        statusFluxo: marcacao.statusFluxo,
+        observacoes: marcacao.observacoes,
+        perfilId: perfilFinal,
+      }),
+      avaliacao: null,
+    };
+  }
+
+  const bemId = assertUuidOrThrow(body.bemId, "BEM_ID_INVALIDO", "bemId deve ser UUID.");
+  const avaliacaoNorm = normalizeAvaliacaoInput(body);
+  const avaliacao = await createAvaliacaoInservivelInternal(client, {
+    bemId,
+    tipoInservivel: avaliacaoNorm.tipoInservivel,
+    descricaoInformada: avaliacaoNorm.descricaoInformada,
+    justificativa: avaliacaoNorm.justificativa,
+    criterios: avaliacaoNorm.criterios,
+    avaliadoPorPerfilId: perfilFinal,
+  });
+  const marcacao = await upsertMarcacaoInservivelInternal(client, {
+    bemId,
+    avaliacaoInservivelId: avaliacao.id,
+    tipoInservivel: avaliacaoNorm.tipoInservivel,
+    destinacaoSugerida: avaliacaoNorm.destinacaoSugerida,
+    statusFluxo: avaliacaoNorm.statusFluxoPadrao,
+    observacoes: body.observacoes != null ? String(body.observacoes).trim().slice(0, 4000) : null,
+    perfilId: perfilFinal,
+  });
+  return { avaliacao, marcacao };
+}
+
+async function resolveBaixaItems(client, { bemIds, marcacaoIds, modalidadeBaixa }) {
+  const bemList = Array.isArray(bemIds) ? bemIds.map((item) => String(item || "").trim()).filter(Boolean) : [];
+  const marcList = Array.isArray(marcacaoIds) ? marcacaoIds.map((item) => String(item || "").trim()).filter(Boolean) : [];
+  const params = [];
+  const where = [];
+  let i = 1;
+
+  if (bemList.length) {
+    where.push(`b.id = ANY($${i}::uuid[])`);
+    params.push(bemList);
+    i += 1;
+  }
+  if (marcList.length) {
+    where.push(`m.id = ANY($${i}::uuid[])`);
+    params.push(marcList);
+    i += 1;
+  }
+  if (!where.length) return [];
+
+  const q = await client.query(
+    `SELECT DISTINCT
+       b.id AS "bemId",
+       b.numero_tombamento AS "numeroTombamento",
+       b.unidade_dona_id AS "unidadeDonaId",
+       b.status::text AS status,
+       b.tipo_inservivel::text AS "tipoInservivelAtual",
+       m.id AS "marcacaoId",
+       m.avaliacao_inservivel_id AS "avaliacaoInservivelId",
+       m.tipo_inservivel::text AS "tipoInservivel",
+       m.destinacao_sugerida::text AS "destinacaoSugerida",
+       m.status_fluxo::text AS "statusFluxo"
+     FROM bens b
+     LEFT JOIN marcacoes_inserviveis m ON m.bem_id = b.id
+     WHERE ${where.join(" OR ")}
+     ORDER BY b.numero_tombamento ASC;`,
+    params,
+  );
+
+  const items = q.rows || [];
+  if (!items.length) {
+    throw new HttpError(422, "ITENS_BAIXA_NAO_ENCONTRADOS", "Nenhum bem valido foi encontrado para o processo.");
+  }
+  if (modalidadeBaixa !== "DESAPARECIMENTO") {
+    const semMarcacao = items.find((item) => !item.marcacaoId);
+    if (semMarcacao) {
+      throw new HttpError(422, "MARCACAO_OBRIGATORIA", "Itens da baixa exigem marcacao previa de inservivel.");
+    }
+  }
+  return items;
+}
+
+async function syncBaixaItems(client, baixaId, items) {
+  await client.query(`DELETE FROM baixas_patrimoniais_itens WHERE baixa_patrimonial_id = $1;`, [baixaId]);
+  for (const item of items) {
+    await client.query(
+      `INSERT INTO baixas_patrimoniais_itens (
+         baixa_patrimonial_id, bem_id, marcacao_inservivel_id, avaliacao_inservivel_id, tipo_inservivel
+       ) VALUES ($1, $2, $3, $4, $5::public.tipo_inservivel);`,
+      [
+        baixaId,
+        item.bemId,
+        item.marcacaoId || null,
+        item.avaliacaoInservivelId || null,
+        item.tipoInservivel || null,
+      ],
+    );
+  }
+  const marcacoes = items.map((item) => item.marcacaoId).filter(Boolean);
+  if (marcacoes.length) {
+    await client.query(
+      `UPDATE marcacoes_inserviveis
+       SET status_fluxo = 'EM_PROCESSO_BAIXA'::public.status_fluxo_inservivel,
+           updated_at = NOW()
+       WHERE id = ANY($1::uuid[])
+         AND status_fluxo <> 'BAIXADO'::public.status_fluxo_inservivel;`,
+      [marcacoes],
+    );
+  }
+}
+
+async function fetchBaixaProcessoDetalhe(client, baixaId) {
+  const baixaQ = await client.query(
+    `SELECT
+       id,
+       processo_referencia AS "processoReferencia",
+       modalidade_baixa::text AS "modalidadeBaixa",
+       status_processo::text AS "statusProcesso",
+       manifestacao_sci_referencia AS "manifestacaoSciReferencia",
+       manifestacao_sci_em AS "manifestacaoSciEm",
+       ato_diretor_geral_referencia AS "atoDiretorGeralReferencia",
+       ato_diretor_geral_em AS "atoDiretorGeralEm",
+       presidencia_ciente_em AS "presidenciaCienteEm",
+       encaminhado_financas_em AS "encaminhadoFinancasEm",
+       nota_lancamento_referencia AS "notaLancamentoReferencia",
+       dados_modalidade AS "dadosModalidade",
+       observacoes,
+       executado_por_perfil_id AS "executadoPorPerfilId",
+       executado_em AS "executadoEm",
+       created_at AS "createdAt",
+       updated_at AS "updatedAt"
+     FROM baixas_patrimoniais
+     WHERE id = $1
+     LIMIT 1;`,
+    [baixaId],
+  );
+  const baixa = baixaQ.rows[0] || null;
+  if (!baixa) return null;
+
+  const itensQ = await client.query(
+    `SELECT
+       i.id,
+       i.bem_id AS "bemId",
+       i.marcacao_inservivel_id AS "marcacaoInservivelId",
+       i.avaliacao_inservivel_id AS "avaliacaoInservivelId",
+       i.tipo_inservivel::text AS "tipoInservivel",
+       m.status_fluxo::text AS "statusFluxo",
+        m.destinacao_sugerida::text AS "destinacaoSugerida",
+       b.numero_tombamento AS "numeroTombamento",
+       b.unidade_dona_id AS "unidadeDonaId",
+       b.status::text AS status,
+       cb.descricao AS "catalogoDescricao"
+     FROM baixas_patrimoniais_itens i
+     JOIN bens b ON b.id = i.bem_id
+     JOIN catalogo_bens cb ON cb.id = b.catalogo_bem_id
+     LEFT JOIN marcacoes_inserviveis m ON m.id = i.marcacao_inservivel_id
+     WHERE i.baixa_patrimonial_id = $1
+     ORDER BY b.numero_tombamento ASC;`,
+    [baixaId],
+  );
+
+  return { baixa, itens: itensQ.rows };
+}
+
+async function createBaixaDocumentPlaceholders(client, {
+  baixaId,
+  processoReferencia,
+  docTypes,
+  perfilId,
+  noteTitleSuffix = "",
+}) {
+  const seen = new Set();
+  for (const tipo of docTypes) {
+    if (!tipo || seen.has(tipo)) continue;
+    seen.add(tipo);
+    await client.query(
+      `INSERT INTO documentos (
+         tipo, titulo, baixa_patrimonial_id, termo_referencia, gerado_por_perfil_id, observacoes
+       ) VALUES (
+         $1::public.tipo_documento, $2, $3, $4, $5, $6
+       );`,
+      [
+        tipo,
+        `Processo de baixa ${processoReferencia}${noteTitleSuffix}`.slice(0, 180),
+        baixaId,
+        processoReferencia,
+        perfilId || null,
+        "PENDENTE: anexar URL/arquivo definitivo do processo de baixa patrimonial.",
+      ],
+    );
+  }
+}
+
+async function concludeBaixaPatrimonialInternal(client, {
+  baixaId,
+  actorPerfilId,
+}) {
+  const detalhe = await fetchBaixaProcessoDetalhe(client, baixaId);
+  if (!detalhe) throw new HttpError(404, "BAIXA_PATRIMONIAL_NAO_ENCONTRADA", "Processo de baixa patrimonial nao encontrado.");
+  if (detalhe.baixa.statusProcesso !== "RASCUNHO") {
+    throw new HttpError(409, "STATUS_PROCESSO_INVALIDO", "Somente rascunhos podem ser concluidos.");
+  }
+  if (!detalhe.itens.length) {
+    throw new HttpError(422, "ITENS_BAIXA_OBRIGATORIOS", "Adicione ao menos um bem ao processo.");
+  }
+  if (detalhe.baixa.modalidadeBaixa !== "DESAPARECIMENTO") {
+    const itemBloqueado = detalhe.itens.find((item) => {
+      const status = String(item?.statusFluxo || "");
+      return status && !["AGUARDANDO_DESTINACAO", "EM_PROCESSO_BAIXA"].includes(status);
+    });
+    if (itemBloqueado) {
+      throw new HttpError(
+        422,
+        "ITEM_AINDA_NAO_APTO_PARA_BAIXA",
+        "A baixa exige marcacao com permanencia desaconselhavel ou remanejamento inexequivel.",
+      );
+    }
+  }
+
+  const validacao = validateConclusaoBaixaRules({
+    modalidadeBaixa: detalhe.baixa.modalidadeBaixa,
+    itens: detalhe.itens,
+    dadosModalidade: detalhe.baixa.dadosModalidade || {},
+    presidenciaCienteEm: detalhe.baixa.presidenciaCienteEm,
+    manifestacaoSciReferencia: detalhe.baixa.manifestacaoSciReferencia,
+    atoDiretorGeralReferencia: detalhe.baixa.atoDiretorGeralReferencia,
+    notaLancamentoReferencia: detalhe.baixa.notaLancamentoReferencia,
+  });
+
+  const now = new Date();
+  const bemIds = detalhe.itens.map((item) => item.bemId);
+  await client.query(
+    `UPDATE bens
+     SET status = 'BAIXADO'::public.status_bem,
+         motivo_baixa_patrimonial = $2::public.modalidade_baixa_patrimonial,
+         baixado_em = $3,
+         updated_at = NOW()
+     WHERE id = ANY($1::uuid[]);`,
+    [bemIds, detalhe.baixa.modalidadeBaixa, now],
+  );
+
+  const marcacoes = detalhe.itens.map((item) => item.marcacaoInservivelId).filter(Boolean);
+  if (marcacoes.length) {
+    await client.query(
+      `UPDATE marcacoes_inserviveis
+       SET status_fluxo = 'BAIXADO'::public.status_fluxo_inservivel,
+           updated_at = NOW()
+       WHERE id = ANY($1::uuid[]);`,
+      [marcacoes],
+    );
+  }
+
+  await createBaixaDocumentPlaceholders(client, {
+    baixaId,
+    processoReferencia: detalhe.baixa.processoReferencia,
+    docTypes: validacao.placeholderDocumentTypes,
+    perfilId: actorPerfilId,
+  });
+
+  const upd = await client.query(
+    `UPDATE baixas_patrimoniais
+     SET status_processo = 'CONCLUIDO'::public.status_baixa_patrimonial,
+         executado_por_perfil_id = $2,
+         executado_em = $3,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING
+       id,
+       processo_referencia AS "processoReferencia",
+       modalidade_baixa::text AS "modalidadeBaixa",
+       status_processo::text AS "statusProcesso",
+       executado_por_perfil_id AS "executadoPorPerfilId",
+       executado_em AS "executadoEm";`,
+    [baixaId, actorPerfilId || null, now],
+  );
+
+  return {
+    baixa: upd.rows[0],
+    bensAtualizados: bemIds.length,
+    documentosPlaceholder: validacao.placeholderDocumentTypes,
+  };
+}
+
+async function applyBaixaPatrimonialSolicitada(client, { payload, solicitantePerfilId, aprovadorPerfilId }) {
+  await ensureMaterialBaixaSchemaOrThrow();
+  const baixaId = assertUuidOrThrow(
+    payload?.baixaPatrimonialId || payload?.id,
+    "BAIXA_PATRIMONIAL_ID_INVALIDO",
+    "baixaPatrimonialId deve ser UUID.",
+  );
+  return concludeBaixaPatrimonialInternal(client, {
+    baixaId,
+    actorPerfilId: aprovadorPerfilId || solicitantePerfilId || null,
+  });
+}
+
 async function applySolicitacaoByType(client, { solicitacao, aprovadorPerfilId }) {
   const payload = solicitacao?.payload && typeof solicitacao.payload === "object" ? solicitacao.payload : {};
   const tipoAcao = String(solicitacao?.tipoAcao || "").trim();
@@ -5076,6 +6443,24 @@ async function applySolicitacaoByType(client, { solicitacao, aprovadorPerfilId }
       aprovadorPerfilId,
     });
     return { tipoAcao, movimentacao: out.mov, bem: out.bem };
+  }
+
+  if (tipoAcao === SOLICITACAO_TIPO_ACAO.INSERVIVEL_MARCACAO) {
+    const out = await applyInservivelMarcacaoSolicitada(client, {
+      payload,
+      actorPerfilId: aprovadorPerfilId,
+      solicitantePerfilId: solicitacao?.solicitantePerfilId || null,
+    });
+    return { tipoAcao, avaliacao: out.avaliacao, marcacao: out.marcacao };
+  }
+
+  if (tipoAcao === SOLICITACAO_TIPO_ACAO.BAIXA_PATRIMONIAL) {
+    const out = await applyBaixaPatrimonialSolicitada(client, {
+      payload,
+      solicitantePerfilId: solicitacao?.solicitantePerfilId || null,
+      aprovadorPerfilId,
+    });
+    return { tipoAcao, baixa: out.baixa, bensAtualizados: out.bensAtualizados };
   }
 
   throw new HttpError(422, "SOLICITACAO_TIPO_INVALIDO", "Tipo de solicitacao nao suportado.");
