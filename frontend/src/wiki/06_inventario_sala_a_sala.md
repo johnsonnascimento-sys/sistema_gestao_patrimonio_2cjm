@@ -11,7 +11,8 @@ Funcao no sistema: orientar o fluxo de Inventario - Contagem (operacao por ender
 No grupo **Operações Patrimoniais**:
 
 - `Inventário - Contagem`: tela operacional de leitura e registro.
-- `Inventário - Administração`: tela de gestão de inventários e ciclos.
+- `Inventário - Administração`: abertura e gestão do ciclo.
+- `Inventário - Monitoramento`: retomada da contagem e faltantes por endereço.
 - `Cadastrar Bens por endereço`: regularização em lote de localização, sem transferir carga.
 
 ## Hierarquia operacional da tela
@@ -62,7 +63,7 @@ Evolucao desta fase:
 
 ## Abertura contextualizada pela Administração
 
-A tela `Inventário - Contagem` pode ser aberta a partir de `Inventário - Administração`, no painel `Bens não contados`.
+A tela `Inventário - Contagem` pode ser aberta a partir de `Inventário - Monitoramento`, no painel `Bens não contados`.
 
 Quando o operador usa `Abrir contagem do endereço`, o sistema já entra com:
 
@@ -79,7 +80,7 @@ Objetivo do banner:
 
 - lembrar de onde o operador veio;
 - confirmar que evento, unidade e endereço foram carregados automaticamente;
-- reduzir perda de contexto ao alternar entre administração, contagem e consulta.
+- reduzir perda de contexto ao alternar entre administração, monitoramento, contagem e consulta.
 
 ## Contexto da contagem
 

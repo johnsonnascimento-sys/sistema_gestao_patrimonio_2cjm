@@ -1,11 +1,11 @@
 # Sistema de Gestão Patrimonial - 2ª CJM
 
-## Cabecalho
+## Cabeçalho
 
 - Modulo: `repositorio`
 - Arquivo: `README.md`
 - Funcao no sistema: ponto de entrada para entender, rodar e operar o projeto localmente.
-- Objetivo: sistema deterministico, auditavel e aderente ao ATN 303/2008.
+- Objetivo: sistema determinístico, auditável e aderente ao ATN 303/2008.
 
 ## Visão rápida
 
@@ -36,6 +36,9 @@
 - Movimentações
 - Inventário - Contagem
 - Inventário - Administração
+- Inventário - Monitoramento
+- Inventário - Acuracidade
+- Inventário - Regularização
 - Material Inservível / Baixa
 - Material (SKU)
 - Classificação SIAFI
@@ -49,9 +52,24 @@
 - Arts. 141 a 152: triagem e destinação de material inservível.
 - Arts. 153 a 157: baixa patrimonial com causa formal, documentos e atualização do status do bem.
 
+## Inventário administrativo em submenus
+
+A antiga página única de `Inventário - Administração` foi separada em quatro subtelas:
+
+- `Inventário - Administração`: abertura de ciclos, evento ativo e ações críticas.
+- `Inventário - Monitoramento`: faltantes, cobertura e divergências interunidades.
+- `Inventário - Acuracidade`: histórico resumido e indicadores gerenciais.
+- `Inventário - Regularização`: fluxo pós-inventário para divergências.
+
+Compatibilidade preservada:
+
+- mesma permissão `menu.inventario_admin.view`;
+- mesmo backend e mesmas regras legais;
+- mudança concentrada em navegação e hierarquia visual.
+
 ## Material Inservível / Baixa
 
-A aba técnica `classificacao` passou a se chamar **Material Inservível / Baixa**.
+A aba técnica `classificacao` se chama **Material Inservível / Baixa**.
 
 Ela reúne:
 
@@ -61,7 +79,7 @@ Ela reúne:
 - fluxo direto de `DESAPARECIMENTO`;
 - placeholders documentais e resumo da baixa no detalhe do bem.
 
-Limite desta entrega:
+Limite atual:
 
 - sem integração automática com GEAFIN, SEI, SIAFI ou n8n;
 - a tela registra referências formais e anexos para instrução posterior.

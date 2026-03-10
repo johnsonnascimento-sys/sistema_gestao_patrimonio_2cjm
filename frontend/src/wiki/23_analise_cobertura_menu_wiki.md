@@ -1,7 +1,7 @@
 <!--
 Modulo: wiki
 Arquivo: frontend/src/wiki/23_analise_cobertura_menu_wiki.md
-Funcao no sistema: registrar a cobertura entre navegação real e páginas da wiki.
+Funcao no sistema: registrar a cobertura entre navegacao real e paginas da wiki.
 -->
 
 # Análise de cobertura menu x wiki
@@ -21,7 +21,10 @@ Funcao no sistema: registrar a cobertura entre navegação real e páginas da wi
 | Operação diária | Movimentações | `MovimentacoesPanel` | `05_movimentacoes.md` | OK |
 | Operação diária | Cadastrar bens por Endereço | `MovimentacoesPanel` (`section=cadastro-sala`) | `05_movimentacoes.md` | OK |
 | Operação diária | Inventário - Contagem | `InventoryRoomPanel` | `06_inventario_sala_a_sala.md` | OK |
-| Operação diária | Inventário - Administração | `InventoryAdminPanel` | `22_inventario_administracao.md` | OK |
+| Operação diária | Inventário - Administração | `InventoryAdminPanel` (`section=administracao`) | `22_inventario_administracao.md` | OK |
+| Operação diária | Inventário - Monitoramento | `InventoryAdminPanel` (`section=monitoramento`) | `22_inventario_administracao.md` | OK |
+| Operação diária | Inventário - Acuracidade | `InventoryAdminPanel` (`section=acuracidade`) | `22_inventario_administracao.md` | OK |
+| Operação diária | Inventário - Regularização | `InventoryAdminPanel` (`section=regularizacao`) | `22_inventario_administracao.md` | OK |
 | Operação diária | Material Inservível / Baixa | `MaterialInservivelBaixaPanel` | `08_wizard_art141.md` | OK |
 | Operação diária | Material (SKU) | `CatalogoAdminPanel` | `20_material_sku.md` | OK |
 | Operação diária | Classificação SIAFI | `ClassificacaoSiafiPanel` | `24_classificacao_siafi.md` | OK |
@@ -39,12 +42,13 @@ Funcao no sistema: registrar a cobertura entre navegação real e páginas da wi
 
 ## Observações desta entrega
 
-- a antiga tela "Wizard Art. 141" foi substituída por **Material Inservível / Baixa**;
-- o arquivo wiki principal permaneceu em `08_wizard_art141.md` por compatibilidade de histórico, mas o conteúdo e o título da página foram atualizados;
-- o `tab id` técnico continua `classificacao`, preservando navegação, RBAC e links internos.
+- a área administrativa do inventário deixou de ser uma página única e passou a operar com quatro submenus dedicados;
+- os quatro itens continuam documentados por uma única página operacional (`22_inventario_administracao.md`), porque pertencem ao mesmo fluxo administrativo;
+- a permissão `menu.inventario_admin.view` foi preservada para todos os submenus;
+- a workspace **Material Inservível / Baixa** continua publicada em `08_wizard_art141.md` por compatibilidade histórica do manual.
 
 ## Resultado esperado
 
 - toda tela navegável do menu principal possui página wiki correspondente;
-- toda mudança de UX, endpoint ou regra legal desta workspace agora está refletida no manual;
+- os novos submenus de inventário administrativo estão cobertos no mesmo ciclo em que a UI foi publicada;
 - desvios futuros podem ser auditados comparando `App.jsx`, `WikiManual.jsx` e esta página.

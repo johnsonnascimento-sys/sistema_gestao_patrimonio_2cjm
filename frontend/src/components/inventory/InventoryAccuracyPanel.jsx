@@ -6,6 +6,7 @@
 import { KpiSemaforoCard, StatusBadge, TrendListCard } from "./InventoryAdminUi.jsx";
 
 export default function InventoryAccuracyPanel({
+    isPrimaryView = false,
     hasActiveEvent,
     acuraciaDataInicio,
     setAcuraciaDataInicio,
@@ -28,8 +29,10 @@ export default function InventoryAccuracyPanel({
     topSalasCriticasAcuracia,
     formatUnidade,
 }) {
+    const primaryLabel = isPrimaryView || !hasActiveEvent ? "Painel principal" : "Área secundária";
+
     return (
-        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-5" open={!hasActiveEvent}>
+        <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-5" open={isPrimaryView || !hasActiveEvent}>
             <summary className="flex list-none cursor-pointer flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 className="font-[Space_Grotesk] text-xl font-semibold">Acuracidade de Inventario</h3>
@@ -38,8 +41,8 @@ export default function InventoryAccuracyPanel({
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge label="Leitura secundaria" tone="slate" />
-                    <StatusBadge label={hasActiveEvent ? "Area secundaria" : "Painel principal"} tone={hasActiveEvent ? "slate" : "violet"} />
+                    <StatusBadge label={isPrimaryView ? "Leitura gerencial" : "Leitura secundaria"} tone="slate" />
+                    <StatusBadge label={primaryLabel} tone={primaryLabel === "Painel principal" ? "violet" : "slate"} />
                     <button
                         type="button"
                         onClick={(event) => {

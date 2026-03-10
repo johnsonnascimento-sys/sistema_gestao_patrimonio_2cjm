@@ -6,6 +6,8 @@
 import { StatusBadge } from "./InventoryAdminUi.jsx";
 
 export default function InventoryAdminHeader({
+  sectionTitle,
+  sectionDescription,
   hasActiveEvent,
   eventoCodigo,
   activeEventScope,
@@ -23,9 +25,9 @@ export default function InventoryAdminHeader({
     <>
       <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Inventário - Administração</h2>
+          <h2 className="font-[Space_Grotesk] text-2xl font-semibold">{sectionTitle || "Inventário - Administração"}</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Cockpit operacional para evento ativo, retomada de contagem e monitoramento contínuo.
+            {sectionDescription || "Cockpit operacional para evento ativo, retomada de contagem e monitoramento contínuo."}
           </p>
         </div>
         <StatusBadge

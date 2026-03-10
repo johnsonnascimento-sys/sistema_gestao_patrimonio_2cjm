@@ -6,7 +6,7 @@ Funcao no sistema: indice navegavel do manual/wiki self-hosted do patrimonio2cjm
 
 # Índice (Manual do Sistema)
 
-Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o runtime. A entrega atual substituiu a antiga tela "Wizard Art. 141" pela workspace **Material Inservível / Baixa**, sem alterar o `tab id` técnico `classificacao`.
+Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o runtime. A entrega atual manteve a workspace **Material Inservível / Baixa** e reorganizou **Inventário - Administração** em quatro submenus operacionais.
 
 ## Como usar este manual
 
@@ -23,7 +23,7 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 - Importação GEAFIN (CSV)
 - Movimentações: cautela x transferência
 - Inventário - Contagem
-- Inventário - Administração
+- Inventário - Administração e submenus
 - Material (SKU)
 - Classificação SIAFI
 - Normas
@@ -50,6 +50,9 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 - Cadastrar bens por Endereço
 - Inventário - Contagem
 - Inventário - Administração
+- Inventário - Monitoramento
+- Inventário - Acuracidade
+- Inventário - Regularização
 - Material Inservível / Baixa
 - Material (SKU)
 - Classificação SIAFI
@@ -74,11 +77,23 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 - Wiki / Manual do Sistema
 - Normas
 
-## Destaque desta entrega
+## Destaques recentes
 
-Na página **Material Inservível / Baixa**, o sistema agora reúne no mesmo fluxo:
+### Inventário administrativo
 
-- Triagem e marcação de bens potencialmente inservíveis, com classificação `OCIOSO`, `RECUPERÁVEL`, `ANTIECONÔMICO` e `IRRECUPERÁVEL`.
-- Fila operacional de candidatos à destinação.
-- Processos de baixa patrimonial com modalidades `VENDA`, `CESSÃO`, `DOAÇÃO`, `PERMUTA`, `INUTILIZAÇÃO`, `ABANDONO` e `DESAPARECIMENTO`.
-- Registro auditável da baixa, incluindo causa formal, data e placeholders documentais.
+O bloco administrativo do inventário agora está separado em quatro subtelas:
+
+- administração do ciclo;
+- monitoramento operacional;
+- acuracidade e histórico;
+- regularização pós-inventário.
+
+### Material Inservível / Baixa
+
+Na página **Material Inservível / Baixa**, o sistema reúne:
+
+- triagem e marcação de bens potencialmente inservíveis;
+- fila operacional de candidatos à destinação;
+- processos de baixa patrimonial;
+- fluxo direto de `DESAPARECIMENTO`;
+- registro auditável da baixa, incluindo causa formal, data e placeholders documentais.

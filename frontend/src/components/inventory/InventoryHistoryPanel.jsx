@@ -6,6 +6,7 @@
 import { StatusBadge } from "./InventoryAdminUi.jsx";
 
 export default function InventoryHistoryPanel({
+    isPrimaryView = false,
     historicoEventos,
     hasActiveEvent,
     editingEventoId,
@@ -23,15 +24,19 @@ export default function InventoryHistoryPanel({
 }) {
     if (!historicoEventos.length) return null;
 
+    const panelLabel = isPrimaryView || !hasActiveEvent ? "Painel principal" : "Leitura secundária";
+
     return (
-        <details className="flex-1 rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4" open={!hasActiveEvent}>
+        <details className="flex-1 rounded-3xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm md:p-4" open={isPrimaryView || !hasActiveEvent}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                 <div>
                     <h4 className="text-sm font-semibold text-slate-900">Historico Resumido</h4>
-                    <p className="mt-1 text-[11px] text-slate-500">Consulta secundaria para revisao e reabertura.</p>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                        {isPrimaryView ? "Consulta histórica para revisão, edição e reabertura." : "Consulta secundaria para revisao e reabertura."}
+                    </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge label="Leitura secundaria" tone="slate" />
+                    <StatusBadge label={panelLabel} tone={panelLabel === "Painel principal" ? "violet" : "slate"} />
                     <StatusBadge label={`${historicoEventos.length} evento(s)`} tone="slate" />
                 </div>
             </summary>

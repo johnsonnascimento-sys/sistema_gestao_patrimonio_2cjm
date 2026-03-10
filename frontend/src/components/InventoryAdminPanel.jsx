@@ -3,14 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
     atualizarStatusEventoInventario,
-    baixarRelatorioEncerramentoInventarioCsv,
     buscarPerfisDetentor,
     criarEventoInventario,
     getBensNaoLocalizadosInventario,
     getMonitoramentoContagemInventario,
-    getFotoUrl,
     getIndicadoresAcuracidadeInventario,
-    getRelatorioEncerramentoInventario,
     listarDivergenciasInterunidades,
     listarEventosInventario,
     listarLocais,
@@ -19,16 +16,20 @@ import {
     atualizarEventoInventario
 } from "../services/apiClient.js";
 import RegularizationPanel from "./RegularizationPanel.jsx";
-import {
-    StatusBadge,
-} from "./inventory/InventoryAdminUi.jsx";
 import InventoryEventSetupPanel from "./inventory/InventoryEventSetupPanel.jsx";
 import InventoryAccuracyPanel from "./inventory/InventoryAccuracyPanel.jsx";
 import InventoryActiveEventPanel from "./inventory/InventoryActiveEventPanel.jsx";
 import InventorySecondarySetupSection from "./inventory/InventorySecondarySetupSection.jsx";
 import InventoryCriticalActionModal from "./inventory/InventoryCriticalActionModal.jsx";
 import InventoryAdminHeader from "./inventory/InventoryAdminHeader.jsx";
-import InventoryAdminOperationalColumn from "./inventory/InventoryAdminOperationalColumn.jsx";
+import InventoryAdminSectionTabs from "./inventory/InventoryAdminSectionTabs.jsx";
+import InventoryHistoryPanel from "./inventory/InventoryHistoryPanel.jsx";
+import InventoryInterunitDivergencesPanel from "./inventory/InventoryInterunitDivergencesPanel.jsx";
+import InventoryLiveMonitoringPanel from "./inventory/InventoryLiveMonitoringPanel.jsx";
+import {
+    getInventoryAdminSectionByKey,
+} from "./inventory/InventoryAdminSections.js";
+import InventoryUncountedAssetsPanel from "./inventory/InventoryUncountedAssetsPanel.jsx";
 import {
     calcTrend,
     formatDateTimeShort,
@@ -50,16 +51,20 @@ const INVENTARIO_PRESETS = [
     { key: "por-sala", label: "Por endereço", apply: { escopoTipo: "LOCAIS", tipoCiclo: "ADHOC" } },
 ];
 
-function semaforoClass(status) {
-    if (status === "VERDE") return "border-emerald-300 bg-emerald-50 text-emerald-700";
-    if (status === "AMARELO") return "border-amber-300 bg-amber-50 text-amber-700";
-    return "border-rose-300 bg-rose-50 text-rose-700";
-}
-
-export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpenAssetsExplorer = null }) {
+export default function InventoryAdminPanel({
+    section = "administracao",
+    onNavigateSection = null,
+    onOpenInventoryCount = null,
+    onOpenAssetsExplorer = null,
+}) {
     const qc = useQueryClient();
     const auth = useAuth();
     const isAdmin = auth?.perfil?.role === "ADMIN";
+    const sectionMeta = getInventoryAdminSectionByKey(section);
+    const isAdministracaoSection = sectionMeta.key === "administracao";
+    const isMonitoramentoSection = sectionMeta.key === "monitoramento";
+    const isAcuracidadeSection = sectionMeta.key === "acuracidade";
+    const isRegularizacaoSection = sectionMeta.key === "regularizacao";
 
     const [perfilId, setPerfilId] = useState("");
     const [selectedEventoId, setSelectedEventoId] = useState("");
@@ -87,9 +92,6 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
     const [uiInfo, setUiInfo] = useState(null);
     const [editingEventoId, setEditingEventoId] = useState(null);
     const [editForm, setEditForm] = useState({ codigoEvento: "", observacoes: "" });
-    const [relatorioEventoId, setRelatorioEventoId] = useState("");
-    const [showItemPhotoRelatorio, setShowItemPhotoRelatorio] = useState(false);
-    const [showCatalogPhotoRelatorio, setShowCatalogPhotoRelatorio] = useState(false);
     const [criticalModal, setCriticalModal] = useState({ open: false, status: "", eventoId: "", eventoCodigo: "" });
     const [criticalConfirmText, setCriticalConfirmText] = useState("");
     const [interStatusInventario, setInterStatusInventario] = useState("TODOS");
@@ -220,6 +222,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
     const locaisEscopoQuery = useQuery({
         queryKey: ["inventarioLocaisEscopo", unidadeInventariadaId],
+        enabled: isAdministracaoSection,
         queryFn: async () => {
             const unidade = unidadeInventariadaId ? Number(unidadeInventariadaId) : undefined;
             const data = await listarLocais(unidade ? { unidadeId: unidade } : {});
@@ -229,6 +232,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
 
     const sugestoesCicloQuery = useQuery({
         queryKey: ["inventarioSugestoesCiclo", unidadeInventariadaId],
+        enabled: isAdministracaoSection,
         queryFn: async () => {
             const unidade = unidadeInventariadaId ? Number(unidadeInventariadaId) : undefined;
             const data = await listarSugestoesCicloInventario({ unidadeId: unidade, limit: 20, offset: 0, somenteAtivos: true });
@@ -291,10 +295,9 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             }
 
             if (nextStatus === "ENCERRADO" && vars?.id) {
-                setRelatorioEventoId(String(vars.id));
-                setUiInfo("Inventário encerrado. Relatorio detalhado gerado abaixo.");
+                setSelectedEventoId(String(vars.id));
+                setUiInfo("Inventário encerrado com sucesso.");
             } else if (nextStatus === "EM_ANDAMENTO" && vars?.id) {
-                setRelatorioEventoId(String(vars.id));
                 setSelectedEventoId(String(vars.id));
                 setUiInfo("Inventário reaberto com sucesso.");
             }
@@ -327,35 +330,22 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
         },
     });
 
-    const relatorioEventoIdFinal = useMemo(() => {
-        if (relatorioEventoId) return relatorioEventoId;
-        if (selectedEventoIdFinal) return selectedEventoIdFinal;
-        const all = todosEventosQuery.data || [];
-        return all[0]?.id || "";
-    }, [relatorioEventoId, selectedEventoIdFinal, todosEventosQuery.data]);
-
-    const relatorioEncerramentoQuery = useQuery({
-        queryKey: ["inventarioRelatorioEncerramento", relatorioEventoIdFinal],
-        enabled: Boolean(relatorioEventoIdFinal),
-        queryFn: async () => getRelatorioEncerramentoInventario(relatorioEventoIdFinal),
-    });
-
     const monitoramentoQuery = useQuery({
         queryKey: ["inventarioMonitoramentoContagem", selectedEventoIdFinal],
-        enabled: Boolean(selectedEventoIdFinal && isAdmin),
+        enabled: isMonitoramentoSection && Boolean(selectedEventoIdFinal && isAdmin),
         refetchInterval: 5000,
         queryFn: async () => getMonitoramentoContagemInventario(selectedEventoIdFinal),
     });
 
     const naoLocalizadosQuery = useQuery({
         queryKey: ["inventarioNaoLocalizados", selectedEventoIdFinal],
-        enabled: Boolean(selectedEventoIdFinal),
+        enabled: isMonitoramentoSection && Boolean(selectedEventoIdFinal),
         queryFn: async () => getBensNaoLocalizadosInventario(selectedEventoIdFinal),
     });
 
     const divergenciasInterunidadesQuery = useQuery({
         queryKey: ["inventarioDivergenciasInterunidades", interStatusInventario, interUnidadeRelacionada || "ALL"],
-        enabled: Boolean(auth?.perfil?.id),
+        enabled: isMonitoramentoSection && Boolean(auth?.perfil?.id),
         refetchInterval: 7000,
         queryFn: async () =>
             listarDivergenciasInterunidades({
@@ -375,7 +365,7 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             acuraciaUnidadeId,
             acuraciaToleranciaPct,
         ],
-        enabled: Boolean(acuraciaDataInicio && acuraciaDataFim),
+        enabled: isAcuracidadeSection && Boolean(acuraciaDataInicio && acuraciaDataFim),
         queryFn: async () => {
             const tolerancia = Number(acuraciaToleranciaPct);
             return getIndicadoresAcuracidadeInventario({
@@ -387,49 +377,6 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
             });
         },
     });
-
-    const baixarCsvMut = useMutation({
-        mutationFn: async () => {
-            if (!relatorioEventoIdFinal) throw new Error("Selecione um evento para exportar.");
-            return baixarRelatorioEncerramentoInventarioCsv(relatorioEventoIdFinal);
-        },
-        onSuccess: ({ blob, filename }) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename || "relatorio_encerramento.csv";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        },
-        onError: (error) => {
-            setUiError(String(error?.message || "Falha ao baixar CSV do relatorio."));
-        },
-    });
-
-    const report = relatorioEncerramentoQuery.data || null;
-    const resumo = report?.resumo || {};
-    const totalDivergencias = Number(resumo.totalDivergencias || 0);
-    const totalContagens = Number(resumo.totalContagens || 0);
-    const conformidadePct = totalContagens > 0
-        ? Math.round(((Number(resumo.conformes || 0)) / totalContagens) * 100)
-        : 0;
-    const divergenciaTipoData = [
-        { k: "Unidade", v: Number(resumo.divergenciasUnidade || 0), color: "#f59e0b" },
-        { k: "Endereço", v: Number(resumo.divergenciasSala || 0), color: "#06b6d4" },
-        { k: "Unidade + Endereço", v: Number(resumo.divergenciasUnidadeESala || 0), color: "#fb7185" },
-    ];
-    const regularizacaoData = [
-        { k: "Pendentes", v: Number(resumo.regularizacoesPendentes || 0), color: "#f97316" },
-        { k: "Regularizadas", v: Math.max(0, totalDivergencias - Number(resumo.regularizacoesPendentes || 0)), color: "#22c55e" },
-    ];
-    const porSalaTop = useMemo(() => {
-        const rows = report?.porSala || [];
-        return [...rows]
-            .sort((a, b) => Number(b.divergencias || 0) - Number(a.divergencias || 0))
-            .slice(0, 10);
-    }, [report?.porSala]);
     const divergenciasInterItems = useMemo(() => {
         const all = divergenciasInterunidadesQuery.data?.items || [];
         const codigoFiltro = String(interCodigoFiltro || "").trim().toLowerCase();
@@ -828,7 +775,6 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                 value={selectedEventoIdFinal}
                 onChange={(e) => {
                     setSelectedEventoId(e.target.value);
-                    setRelatorioEventoId(e.target.value);
                 }}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
@@ -898,6 +844,8 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
         <div className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
                 <InventoryAdminHeader
+                    sectionTitle={sectionMeta.title}
+                    sectionDescription={sectionMeta.description}
                     hasActiveEvent={hasActiveEvent}
                     eventoCodigo={eventoAtivo?.codigoEvento || ""}
                     activeEventScope={activeEventScope}
@@ -911,91 +859,222 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                     uiInfo={uiInfo}
                     formatUnidade={formatUnidade}
                 />
-
-                <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(22rem,24rem)_minmax(0,1fr)]">
-                    <InventoryActiveEventPanel
-                        hasActiveEvent={hasActiveEvent}
-                        eventosQuery={eventosQuery}
-                        accountabilityBlock={accountabilityBlock}
-                        activeEventSelector={activeEventSelector}
-                        atualizarStatusMutPending={atualizarStatusMut.isPending}
-                        onUpdateStatus={onUpdateStatus}
-                        encerramentoObs={encerramentoObs}
-                        setEncerramentoObs={setEncerramentoObs}
-                        eventoAtivo={eventoAtivo}
-                        activeEventScope={activeEventScope}
-                        activeEventMode={activeEventMode}
-                        activeEventUnitLabel={activeEventUnitLabel}
-                        activeEventOpenedBy={activeEventOpenedBy}
-                        activeEventOpenedAt={activeEventOpenedAt}
-                        selectedEventoIdFinal={selectedEventoIdFinal}
-                        newInventoryAndSuggestions={newInventoryAndSuggestions}
-                    />
-
-                    <InventoryAdminOperationalColumn
-                        naoLocalizadosQuery={naoLocalizadosQuery}
-                        naoLocalizadosSummary={naoLocalizadosSummary}
-                        percentualCoberturaNaoLocalizados={percentualCoberturaNaoLocalizados}
-                        naoLocalizadosGroups={naoLocalizadosGroups}
-                        naoLocalizadosVisibleByGroup={naoLocalizadosVisibleByGroup}
-                        openInventoryCountForGroup={openInventoryCountForGroup}
-                        openAssetDetailFromRow={openAssetDetailFromRow}
-                        openAssetsExplorerBySku={openAssetsExplorerBySku}
-                        expandNaoLocalizadosGroup={expandNaoLocalizadosGroup}
-                        formatPercent={formatPercent}
-                        formatUnidade={formatUnidade}
-                        selectedEventoIdFinal={selectedEventoIdFinal}
-                        isAdmin={isAdmin}
-                        monitoramentoQuery={monitoramentoQuery}
-                        monitoramentoRows={monitoramentoRows}
-                        monitoramentoTotalA={monitoramentoTotalA}
-                        monitoramentoTotalB={monitoramentoTotalB}
-                        monitoramentoTotalEsperados={monitoramentoTotalEsperados}
-                        monitoramentoTotalDesempate={monitoramentoTotalDesempate}
-                        divergenciasInterunidadesQuery={divergenciasInterunidadesQuery}
-                        interDaMinhaUnidadeFora={interDaMinhaUnidadeFora}
-                        interOutrasNaMinha={interOutrasNaMinha}
-                        interPendentes={interPendentes}
-                        interRegularizadas={interRegularizadas}
-                        interEmAndamento={interEmAndamento}
-                        interEncerrado={interEncerrado}
-                        interStatusInventario={interStatusInventario}
-                        setInterStatusInventario={setInterStatusInventario}
-                        interUnidadeRelacionada={interUnidadeRelacionada}
-                        setInterUnidadeRelacionada={setInterUnidadeRelacionada}
-                        interCodigoFiltro={interCodigoFiltro}
-                        setInterCodigoFiltro={setInterCodigoFiltro}
-                        interSalaFiltro={interSalaFiltro}
-                        setInterSalaFiltro={setInterSalaFiltro}
-                        clearInterFilters={clearInterFilters}
-                        divergenciasInterTotal={divergenciasInterTotal}
-                        divergenciasInterItems={divergenciasInterItems}
-                        inventoryStatusPillClass={inventoryStatusPillClass}
-                        divergenceTypePillClass={divergenceTypePillClass}
-                        regularizacaoPillClass={regularizacaoPillClass}
-                        formatDateTimeShort={formatDateTimeShort}
-                        historicoEventos={historicoEventos}
-                        hasActiveEvent={hasActiveEvent}
-                        editingEventoId={editingEventoId}
-                        editForm={editForm}
-                        setEditForm={setEditForm}
-                        atualizarEventoMutPending={atualizarEventoMut.isPending}
-                        setEditingEventoId={setEditingEventoId}
-                        saveEditEvento={saveEditEvento}
-                        setSelectedEventoId={setSelectedEventoId}
-                        setRelatorioEventoId={setRelatorioEventoId}
-                        setUiInfo={setUiInfo}
-                        onUpdateStatus={onUpdateStatus}
-                        handleEditEvento={handleEditEvento}
-                        handleDeleteEvento={handleDeleteEvento}
+                <div className="mt-5">
+                    <InventoryAdminSectionTabs
+                        currentSectionKey={sectionMeta.key}
+                        onSelectSection={onNavigateSection}
                     />
                 </div>
             </section>
 
-            <InventorySecondarySetupSection
-                hasActiveEvent={hasActiveEvent}
-                content={newInventoryAndSuggestions}
-            />
+            {isAdministracaoSection ? (
+                <>
+                    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                        <div className="grid gap-4 xl:grid-cols-[minmax(22rem,24rem)_minmax(0,1fr)]">
+                            <InventoryActiveEventPanel
+                                hasActiveEvent={hasActiveEvent}
+                                eventosQuery={eventosQuery}
+                                accountabilityBlock={accountabilityBlock}
+                                activeEventSelector={activeEventSelector}
+                                atualizarStatusMutPending={atualizarStatusMut.isPending}
+                                onUpdateStatus={onUpdateStatus}
+                                encerramentoObs={encerramentoObs}
+                                setEncerramentoObs={setEncerramentoObs}
+                                eventoAtivo={eventoAtivo}
+                                activeEventScope={activeEventScope}
+                                activeEventMode={activeEventMode}
+                                activeEventUnitLabel={activeEventUnitLabel}
+                                activeEventOpenedBy={activeEventOpenedBy}
+                                activeEventOpenedAt={activeEventOpenedAt}
+                                selectedEventoIdFinal={selectedEventoIdFinal}
+                                newInventoryAndSuggestions={newInventoryAndSuggestions}
+                            />
+
+                            <div className="space-y-4">
+                                <section className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Coordenação do ciclo</p>
+                                    <h3 className="mt-2 font-[Space_Grotesk] text-xl font-semibold text-slate-900">Central administrativa do inventário</h3>
+                                    <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                                        Use esta área para abrir novos ciclos, acompanhar o evento ativo e executar ações críticas.
+                                        O acompanhamento contínuo, a análise gerencial e a regularização foram separados em submenus próprios.
+                                    </p>
+                                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Eventos ativos</p>
+                                            <p className="mt-2 text-2xl font-semibold text-slate-900">{eventosAtivos.length}</p>
+                                            <p className="mt-1 text-xs text-slate-500">
+                                                {hasActiveEvent ? "O ciclo atual segue bloqueando movimentações no escopo do Art. 183." : "Sem bloqueio ativo por inventário no momento."}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Histórico recente</p>
+                                            <p className="mt-2 text-2xl font-semibold text-slate-900">{historicoEventos.length}</p>
+                                            <p className="mt-1 text-xs text-slate-500">Eventos prontos para revisão e reabertura no submenu de acuracidade.</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Perfil operacional</p>
+                                            <p className="mt-2 text-lg font-semibold text-slate-900">{isAdmin ? "Execução administrativa" : "Consulta operacional"}</p>
+                                            <p className="mt-1 text-xs text-slate-500">Encerramento, cancelamento e reabertura continuam protegidos pelo perfil autenticado.</p>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </section>
+
+                    <InventorySecondarySetupSection
+                        hasActiveEvent={hasActiveEvent}
+                        content={newInventoryAndSuggestions}
+                    />
+                </>
+            ) : null}
+
+            {isMonitoramentoSection ? (
+                <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Acompanhamento operacional</p>
+                            <h3 className="mt-2 font-[Space_Grotesk] text-xl font-semibold text-slate-900">Retomada de contagem e vigilância contínua</h3>
+                            <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                                O foco desta subtela é reagir rápido: localizar faltantes, medir cobertura por endereço e acompanhar divergências interunidades sem voltar ao formulário de abertura do ciclo.
+                            </p>
+                        </div>
+                        <div className="grid min-w-[16rem] gap-2 sm:grid-cols-3">
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Pendências</p>
+                                <p className="mt-2 text-xl font-semibold text-slate-900">{Number(naoLocalizadosSummary.totalPendentes || 0)}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Cobertura</p>
+                                <p className="mt-2 text-xl font-semibold text-slate-900">{formatPercent(percentualCoberturaNaoLocalizados / 100)}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Divergências</p>
+                                <p className="mt-2 text-xl font-semibold text-slate-900">{divergenciasInterTotal}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            <InventoryUncountedAssetsPanel
+                                query={naoLocalizadosQuery}
+                                summary={naoLocalizadosSummary}
+                                percentualCobertura={percentualCoberturaNaoLocalizados}
+                                groups={naoLocalizadosGroups}
+                                visibleByGroup={naoLocalizadosVisibleByGroup}
+                                onRefresh={() => naoLocalizadosQuery.refetch()}
+                                onOpenInventoryCount={openInventoryCountForGroup}
+                                onOpenAssetDetail={openAssetDetailFromRow}
+                                onOpenAssetsExplorerBySku={openAssetsExplorerBySku}
+                                onExpandGroup={expandNaoLocalizadosGroup}
+                                formatPercent={formatPercent}
+                                formatUnidade={formatUnidade}
+                            />
+
+                            <InventoryLiveMonitoringPanel
+                                visible={selectedEventoIdFinal}
+                                isAdmin={isAdmin}
+                                query={monitoramentoQuery}
+                                rows={monitoramentoRows}
+                                totalA={monitoramentoTotalA}
+                                totalB={monitoramentoTotalB}
+                                totalEsperados={monitoramentoTotalEsperados}
+                                totalDesempate={monitoramentoTotalDesempate}
+                            />
+                        </div>
+
+                        <InventoryInterunitDivergencesPanel
+                            query={divergenciasInterunidadesQuery}
+                            interDaMinhaUnidadeFora={interDaMinhaUnidadeFora}
+                            interOutrasNaMinha={interOutrasNaMinha}
+                            interPendentes={interPendentes}
+                            interRegularizadas={interRegularizadas}
+                            interEmAndamento={interEmAndamento}
+                            interEncerrado={interEncerrado}
+                            interStatusInventario={interStatusInventario}
+                            setInterStatusInventario={setInterStatusInventario}
+                            interUnidadeRelacionada={interUnidadeRelacionada}
+                            setInterUnidadeRelacionada={setInterUnidadeRelacionada}
+                            interCodigoFiltro={interCodigoFiltro}
+                            setInterCodigoFiltro={setInterCodigoFiltro}
+                            interSalaFiltro={interSalaFiltro}
+                            setInterSalaFiltro={setInterSalaFiltro}
+                            clearInterFilters={clearInterFilters}
+                            isAdmin={isAdmin}
+                            formatUnidade={formatUnidade}
+                            divergenciasInterTotal={divergenciasInterTotal}
+                            divergenciasInterItems={divergenciasInterItems}
+                            inventoryStatusPillClass={inventoryStatusPillClass}
+                            divergenceTypePillClass={divergenceTypePillClass}
+                            regularizacaoPillClass={regularizacaoPillClass}
+                            formatDateTimeShort={formatDateTimeShort}
+                        />
+                    </div>
+                </section>
+            ) : null}
+
+            {isAcuracidadeSection ? (
+                <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                    <div className="mb-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Leitura gerencial</p>
+                        <h3 className="mt-2 font-[Space_Grotesk] text-xl font-semibold text-slate-900">Histórico resumido e indicadores do ciclo</h3>
+                        <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                            Esta visão consolida o retrospecto dos eventos e a medição de acuracidade do inventário, sem competir visualmente com a operação em andamento.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <InventoryHistoryPanel
+                            isPrimaryView
+                            historicoEventos={historicoEventos}
+                            hasActiveEvent={hasActiveEvent}
+                            editingEventoId={editingEventoId}
+                            editForm={editForm}
+                            setEditForm={setEditForm}
+                            isAdmin={isAdmin}
+                            atualizarEventoMutPending={atualizarEventoMut.isPending}
+                            setEditingEventoId={setEditingEventoId}
+                            onSaveEditEvento={saveEditEvento}
+                            onLoadRelatorio={(ev) => {
+                                setSelectedEventoId(ev.id);
+                                setUiInfo(`Evento ${ev.codigoEvento} selecionado para análise.`);
+                            }}
+                            onReopenEvento={(ev) => onUpdateStatus("EM_ANDAMENTO", ev.id)}
+                            onHandleEditEvento={handleEditEvento}
+                            onHandleDeleteEvento={handleDeleteEvento}
+                            formatUnidade={formatUnidade}
+                        />
+
+                        <InventoryAccuracyPanel
+                            isPrimaryView
+                            hasActiveEvent={hasActiveEvent}
+                            acuraciaDataInicio={acuraciaDataInicio}
+                            setAcuraciaDataInicio={setAcuraciaDataInicio}
+                            acuraciaDataFim={acuraciaDataFim}
+                            setAcuraciaDataFim={setAcuraciaDataFim}
+                            acuraciaStatusEvento={acuraciaStatusEvento}
+                            setAcuraciaStatusEvento={setAcuraciaStatusEvento}
+                            acuraciaUnidadeId={acuraciaUnidadeId}
+                            setAcuraciaUnidadeId={setAcuraciaUnidadeId}
+                            acuraciaToleranciaPct={acuraciaToleranciaPct}
+                            setAcuraciaToleranciaPct={setAcuraciaToleranciaPct}
+                            acuraciaQuery={acuraciaQuery}
+                            acuraciaResumo={acuraciaResumo}
+                            acuraciaSemaforo={acuraciaSemaforo}
+                            trendAcuracidadeExata={trendAcuracidadeExata}
+                            trendPendencia={trendPendencia}
+                            trendCobertura={trendCobertura}
+                            serieSemanalAcuracia={serieSemanalAcuracia}
+                            serieMensalAcuracia={serieMensalAcuracia}
+                            topSalasCriticasAcuracia={topSalasCriticasAcuracia}
+                            formatUnidade={formatUnidade}
+                        />
+                    </div>
+                </section>
+            ) : null}
+
+            {isRegularizacaoSection ? <RegularizationPanel /> : null}
 
             <InventoryCriticalActionModal
                 criticalModal={criticalModal}
@@ -1011,31 +1090,6 @@ export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpe
                 }}
                 onConfirm={onConfirmCriticalStatus}
             />
-            <InventoryAccuracyPanel
-                hasActiveEvent={hasActiveEvent}
-                acuraciaDataInicio={acuraciaDataInicio}
-                setAcuraciaDataInicio={setAcuraciaDataInicio}
-                acuraciaDataFim={acuraciaDataFim}
-                setAcuraciaDataFim={setAcuraciaDataFim}
-                acuraciaStatusEvento={acuraciaStatusEvento}
-                setAcuraciaStatusEvento={setAcuraciaStatusEvento}
-                acuraciaUnidadeId={acuraciaUnidadeId}
-                setAcuraciaUnidadeId={setAcuraciaUnidadeId}
-                acuraciaToleranciaPct={acuraciaToleranciaPct}
-                setAcuraciaToleranciaPct={setAcuraciaToleranciaPct}
-                acuraciaQuery={acuraciaQuery}
-                acuraciaResumo={acuraciaResumo}
-                acuraciaSemaforo={acuraciaSemaforo}
-                trendAcuracidadeExata={trendAcuracidadeExata}
-                trendPendencia={trendPendencia}
-                trendCobertura={trendCobertura}
-                serieSemanalAcuracia={serieSemanalAcuracia}
-                serieMensalAcuracia={serieMensalAcuracia}
-                topSalasCriticasAcuracia={topSalasCriticasAcuracia}
-                formatUnidade={formatUnidade}
-            />
-
-            <RegularizationPanel />
         </div>
     );
 }

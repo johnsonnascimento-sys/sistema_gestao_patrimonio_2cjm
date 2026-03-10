@@ -9,6 +9,11 @@ import frontendPackage from "../package.json";
 import AuthLogin from "./components/AuthLogin.jsx";
 import DashboardPanel from "./components/DashboardPanel.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
+import {
+  INVENTORY_ADMIN_SECTIONS,
+  INVENTORY_ADMIN_TAB_IDS,
+  getInventoryAdminSectionByTab,
+} from "./components/inventory/InventoryAdminSections.js";
 import { getHealth, listarEventosInventario } from "./services/apiClient.js";
 
 const AssetsExplorer = lazy(() => import("./components/AssetsExplorer.jsx"));
@@ -35,7 +40,11 @@ const NAV_STRUCTURE = [
       { id: "movimentacoes", label: "Movimentações", short: "Mov." },
       { id: "operacoes-cadastro-sala", label: "Cadastrar bens por Endereço", short: "Endereço" },
       { id: "inventario-contagem", label: "Inventário - Contagem", short: "Contagem" },
-      { id: "inventario-admin", label: "Inventário - Administração", short: "Inv. Admin" },
+      ...INVENTORY_ADMIN_SECTIONS.map((section) => ({
+        id: section.tabId,
+        label: section.label,
+        short: section.short,
+      })),
       { id: "classificacao", label: "Material Inservível / Baixa", short: "Inserv." },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
       { id: "classificacoes-siafi", label: "Classificação SIAFI", short: "SIAFI" },
@@ -89,6 +98,9 @@ const TAB_PERMISSION_MAP = Object.freeze({
   "operacoes-cadastro-sala": "menu.movimentacoes.view",
   "inventario-contagem": "menu.inventario_contagem.view",
   "inventario-admin": "menu.inventario_admin.view",
+  "inventario-admin-monitoramento": "menu.inventario_admin.view",
+  "inventario-admin-acuracidade": "menu.inventario_admin.view",
+  "inventario-admin-regularizacao": "menu.inventario_admin.view",
   classificacao: "menu.classificacao.view",
   "catalogo-material": "menu.catalogo_material.view",
   "classificacoes-siafi": "menu.classificacoes_siafi.view",
@@ -166,7 +178,7 @@ function NavIcon({ id }) {
     );
   }
 
-  if (id === "inventario-admin") {
+  if (INVENTORY_ADMIN_TAB_IDS.includes(id)) {
     return (
       <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="8" r="3" />
@@ -476,6 +488,7 @@ function AppShell() {
     setTab("inventario-contagem");
     setMobileMenuOpen(false);
   };
+  const inventoryAdminSection = useMemo(() => getInventoryAdminSectionByTab(tab), [tab]);
   const activeTabLabel = useMemo(() => {
     for (const entry of filteredNavStructure) {
       if (entry.type === "item" && entry.item.id === tab) return entry.item.label;
@@ -880,9 +893,11 @@ function AppShell() {
                 </SectionErrorBoundary>
               )}
 
-              {tab === "inventario-admin" && (
-                <Suspense fallback={<PanelLoadingFallback label="Carregando Inventário - Administração..." />}>
+              {INVENTORY_ADMIN_TAB_IDS.includes(tab) && (
+                <Suspense fallback={<PanelLoadingFallback label={`Carregando ${inventoryAdminSection.label}...`} />}>
                   <InventoryAdminPanel
+                    section={inventoryAdminSection.key}
+                    onNavigateSection={(section) => selectTab(section.tabId)}
                     onOpenInventoryCount={handleInventoryCountNavigate}
                     onOpenAssetsExplorer={handleAssetsExplorerNavigate}
                   />

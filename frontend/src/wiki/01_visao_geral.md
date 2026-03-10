@@ -10,19 +10,19 @@ Funcao no sistema: explicar objetivo, camadas e fluxos principais do sistema.
 
 O sistema de Gestão Patrimonial da 2ª CJM foi desenhado para ser:
 
-- Determinístico: sem IA decidindo regras de negócio em runtime.
-- Auditável: cada alteração relevante deixa trilha em banco, API, UI e documentação.
-- Aderente ao ATN 303/2008: a norma é implementada como regra verificável.
+- determinístico: sem IA decidindo regras de negócio em runtime;
+- auditável: cada alteração relevante deixa trilha em banco, API, UI e documentação;
+- aderente ao ATN 303/2008: a norma é implementada como regra verificável.
 
 ## Conceitos centrais
 
 ### Bem
 
-Um **bem** é a instância física tombada. O número de tombamento identifica um item único e é a referência operacional mais comum na consulta e na triagem.
+Um **bem** é a instância física tombada. O número de tombamento é a referência operacional mais comum na consulta, no inventário e na triagem de inservíveis.
 
 ### Material (SKU)
 
-O **catálogo** representa o tipo/modelo do item. Vários bens podem apontar para o mesmo material, reduzindo duplicidade descritiva.
+O **catálogo** representa o tipo ou modelo do item. Vários bens podem apontar para o mesmo material, reduzindo duplicidade descritiva.
 
 ### Unidade dona
 
@@ -30,7 +30,7 @@ A unidade dona representa a **carga patrimonial** do bem.
 
 ### Local físico
 
-O local físico representa onde o item está no prédio. Inventário e triagem trabalham sempre com unidade e local para contextualizar a situação do bem.
+O local físico representa onde o item está no prédio. Inventário, consulta e triagem sempre combinam unidade e local para contextualizar a situação do bem.
 
 ## Módulos principais
 
@@ -46,8 +46,22 @@ Uso:
 Uso:
 
 - registrar contagens por endereço;
-- tratar divergências sem trocar carga automaticamente;
-- manter regularização posterior em fluxo formal.
+- gerir eventos administrativos do inventário;
+- monitorar faltantes e divergências;
+- medir acuracidade;
+- tratar regularização em fluxo próprio.
+
+Estrutura atual da área administrativa:
+
+- `Inventário - Administração`
+- `Inventário - Monitoramento`
+- `Inventário - Acuracidade`
+- `Inventário - Regularização`
+
+Observação técnica:
+
+- a divisão em submenus não alterou a permissão `menu.inventario_admin.view`;
+- a mudança é de navegação e foco operacional.
 
 ### 3) Material Inservível / Baixa
 
@@ -60,7 +74,7 @@ Uso:
 Observação técnica:
 
 - o sistema preserva o `tab id` `classificacao` e a permissão `menu.classificacao.view` por compatibilidade;
-- a interface exibida ao usuário passou a se chamar **Material Inservível / Baixa**.
+- a interface exibida ao usuário se chama **Material Inservível / Baixa**.
 
 ### 4) Administração do Painel
 
@@ -76,39 +90,34 @@ Uso:
 - documentar telas, contratos de API, regras legais e procedimentos operacionais;
 - cumprir a política **Wiki-First** do projeto.
 
-## Fluxo novo de Material Inservível / Baixa
+## Fluxos operacionais em destaque
 
-### Triagem
+### Inventário administrativo
+
+1. `Inventário - Administração` abre e governa o ciclo.
+2. `Inventário - Monitoramento` acompanha pendências e divergências.
+3. `Inventário - Acuracidade` consolida histórico e indicadores.
+4. `Inventário - Regularização` trata o pós-inventário em fluxo formal.
+
+### Material Inservível / Baixa
 
 1. O operador localiza o bem.
 2. O stepper determina a classificação `OCIOSO`, `RECUPERÁVEL`, `ANTIECONÔMICO` ou `IRRECUPERÁVEL`.
 3. A avaliação vira histórico auditável.
 4. O bem recebe uma marcação atual na fila de candidatos.
-
-### Baixa patrimonial
-
-1. A fila alimenta um rascunho de processo.
-2. O processo define modalidade principal:
-   - `VENDA`
-   - `CESSÃO`
-   - `DOAÇÃO`
-   - `PERMUTA`
-   - `INUTILIZAÇÃO`
-   - `ABANDONO`
-   - `DESAPARECIMENTO`
-3. O backend valida exigências legais por modalidade.
-4. Ao concluir, o bem passa a `status = BAIXADO`, com causa formal, data e documentos vinculados.
+5. A fila alimenta um processo de baixa patrimonial.
+6. Ao concluir, o bem passa a `status = BAIXADO`, com causa formal, data e documentos vinculados.
 
 ## Regras legais que mais afetam o usuário
 
 - Art. 141 (AN303_Art141_*): classificação obrigatória e guiada de inservíveis.
-- Art. 142 (AN303_Art142): só avançar para destinação quando permanência/remanejamento for desaconselhável ou inexequível.
-- Art. 143 (AN303_Art143): venda exige avaliação prévia e licitação.
-- Art. 144 (AN303_Art144): doação, permuta e venda para órgão público seguem elegibilidade por classe e tipo de destinatário.
-- Arts. 148 a 152 (AN303_Art148 a AN303_Art152): inutilização e abandono exigem justificativas, motivos estruturados e documentação própria.
-- Arts. 153 a 157 (AN303_Art153 a AN303_Art157): baixa patrimonial exige causa formal, manifestação da SCI, ato do Diretor-Geral e registro expresso no bem.
+- Art. 142 (AN303_Art142): só avançar para destinação quando permanência ou remanejamento forem desaconselháveis ou inexequíveis.
+- Arts. 143 a 157 (AN303_Art143 a AN303_Art157): venda, doação, permuta, inutilização, abandono e baixa exigem formalização específica.
+- Art. 183 (AN303_Art183): inventário ativo bloqueia movimentação de carga.
+- Art. 185 (AN303_Art185): divergência de inventário não transfere carga automaticamente.
 
-## Escopo desta entrega
+## Limites atuais
 
-- Não há integração automática com GEAFIN, SEI, SIAFI ou n8n para o fluxo de baixa.
-- O sistema registra referências formais, anexos e placeholders documentais para posterior instrução do processo.
+- não há integração automática com GEAFIN, SEI, SIAFI ou n8n para o fluxo de baixa;
+- o sistema registra referências formais, anexos e placeholders documentais para posterior instrução do processo;
+- a área de inventário administrativo foi reorganizada visualmente, mas preserva o mesmo backend, os mesmos fluxos e as mesmas regras legais.

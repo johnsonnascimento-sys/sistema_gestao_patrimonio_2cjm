@@ -8,47 +8,41 @@
 | Arquivo | `docs/STATUS_ATUAL.md` |
 | Funcao no sistema | registro canonico do estado implementado do sistema, gaps e alinhamento de governanca |
 | Data | 2026-03-10 |
-| Versao | v1.4 |
+| Versao | v1.5 |
 | Fonte de verdade | `PROJECT_RULES.md` |
 
 ## 1. Resumo executivo
 
 - Sistema de Gestão Patrimonial da 2ª CJM com runtime ativo em backend e frontend.
-- Compliance operacional consolidado para inventário, movimentações, bens de terceiros e, agora, **Material Inservível / Baixa**.
+- Compliance operacional consolidado para inventário, movimentações, bens de terceiros, material inservível e baixa patrimonial.
+- Área administrativa do inventário agora publicada em submenus dedicados, com menor acoplamento visual e mesma base legal.
 - Execução determinística, auditável e com documentação Wiki-First atualizada no mesmo ciclo.
 
 ## 2. Mudança principal desta entrega
 
-A antiga aba "Wizard Art. 141" foi substituída pela workspace **Material Inservível / Baixa**, preservando:
+A área **Inventário - Administração** deixou de operar como página única e passou a ser distribuída em quatro submenus:
 
-- `tab id` técnico `classificacao`
-- permissão de menu `menu.classificacao.view`
+- `Inventário - Administração`
+- `Inventário - Monitoramento`
+- `Inventário - Acuracidade`
+- `Inventário - Regularização`
 
-Novas capacidades entregues:
+Compatibilidade preservada:
 
-- triagem guiada de inservível com histórico;
-- fila de marcações atuais;
-- processos de baixa patrimonial;
-- modalidades `VENDA`, `CESSÃO`, `DOAÇÃO`, `PERMUTA`, `INUTILIZAÇÃO`, `ABANDONO` e `DESAPARECIMENTO`;
-- efetivação da baixa no sistema com `status = BAIXADO`.
+- permissão `menu.inventario_admin.view`
+- regras de negócio do backend
+- fluxos de abertura, monitoramento, reabertura e regularização
 
 ## 3. Banco de dados
 
-Migrações relevantes no repositório:
+Sem mudança estrutural de banco nesta entrega.
+
+Migrações relevantes já presentes no repositório:
 
 - `010_inserviveis_wizard_persistencia.sql`
 - `013_documentos_avaliacoes_inserviveis.sql`
 - `022_rbac_roles_permissions.sql`
 - `023_material_inservivel_baixa.sql`
-
-Estruturas novas ou expandidas:
-
-- `marcacoes_inserviveis`
-- `baixas_patrimoniais`
-- `baixas_patrimoniais_itens`
-- `bens.motivo_baixa_patrimonial`
-- `bens.baixado_em`
-- `documentos.baixa_patrimonial_id`
 
 ## 4. Backend
 
@@ -56,85 +50,60 @@ Arquivo principal:
 
 - `backend/server.js`
 
-Serviço de regras:
+Estado desta entrega:
 
-- `backend/src/services/materialInservivelBaixa.js`
-
-Rotas novas:
-
-- `GET /inserviveis/marcacoes`
-- `POST /inserviveis/marcacoes`
-- `PATCH /inserviveis/marcacoes/:id`
-- `GET /baixas-patrimoniais`
-- `GET /baixas-patrimoniais/:id`
-- `POST /baixas-patrimoniais`
-- `PATCH /baixas-patrimoniais/:id`
-- `POST /baixas-patrimoniais/:id/concluir`
-- `POST /baixas-patrimoniais/:id/cancelar`
-
-Rotas ampliadas:
-
-- `POST /inserviveis/avaliacoes`
-- `GET /bens/:id`
-- `GET /documentos`
-- `POST /documentos`
-
-Autorização:
-
-- `action.inservivel.marcar.request`
-- `action.inservivel.marcar.execute`
-- `action.baixa.request`
-- `action.baixa.execute`
+- sem novos endpoints ou contratos de payload;
+- backend preservado para o inventário administrativo;
+- regras de Material Inservível / Baixa permanecem ativas e documentadas.
 
 ## 5. Frontend
 
-Componentes principais da nova workspace:
+Arquivos principais da reorganização do inventário administrativo:
 
-- `frontend/src/components/MaterialInservivelBaixaPanel.jsx`
-- `frontend/src/components/InservivelAssessmentWizard.jsx`
-- `frontend/src/components/InservivelQueueTable.jsx`
-- `frontend/src/components/BaixaProcessDrawer.jsx`
-- `frontend/src/components/BaixaProcessesList.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/components/InventoryAdminPanel.jsx`
+- `frontend/src/components/inventory/InventoryAdminSections.js`
+- `frontend/src/components/inventory/InventoryAdminSectionTabs.jsx`
+- `frontend/src/components/inventory/InventoryAdminHeader.jsx`
 
-Integração:
+Estrutura publicada:
 
-- `frontend/src/App.jsx` renderiza a nova workspace na aba `classificacao`
-- `frontend/src/services/apiClient.js` possui os clientes das novas rotas
+- `Inventário - Administração`: evento ativo, abertura de ciclos e ações críticas
+- `Inventário - Monitoramento`: bens não contados, monitoramento em tempo real e divergências interunidades
+- `Inventário - Acuracidade`: histórico resumido e indicadores gerenciais
+- `Inventário - Regularização`: fluxo pós-inventário para divergências
 
 ## 6. Testes e validações já cobertos
 
-Backend:
-
-- recuperável aceito até 50% e rejeitado acima disso;
-- venda bloqueada sem avaliação prévia/licitação;
-- doação bloqueada com destinatário incompatível;
-- inutilização e abandono com obrigatoriedades próprias;
-- desaparecimento permitido sem avaliação de inservível.
-
 Frontend:
 
-- stepper de classificação;
-- fila de marcações;
-- criação de rascunho de baixa a partir da seleção;
-- bloqueio de ação quando o perfil não possui permissão adequada.
+- build de produção com os novos submenus;
+- teste automatizado da navegação local entre as quatro subtelas;
+- preservação dos atalhos entre inventário, contagem e consulta de bens.
+
+Gates do ciclo:
+
+- `npm --prefix frontend test`
+- `npm --prefix frontend run build`
+- `python scripts/check_wiki_encoding.py`
+- `node scripts/validate_governance.js`
 
 ## 7. Situação de compliance
 
 Implementado:
 
-- Arts. 141 a 152
-- Arts. 153 a 157
+- Arts. 141 a 157
+- Art. 175
 - Art. 183
 - Art. 185
 - Arts. 124 e 127
 
-Limites atuais:
+Observação:
 
-- sem integração automática com GEAFIN, SEI, SIAFI ou n8n para o fluxo de baixa;
-- fluxos de apuração formal dos Arts. 158 a 168 continuam pendentes.
+- a entrega atual reorganiza navegação e hierarquia visual do inventário administrativo, sem alterar a base normativa já implementada.
 
 ## 8. Próximos passos recomendados
 
-1. Integrar geração documental automática por n8n, mantendo validação determinística no backend.
-2. Expandir testes de integração end-to-end para o processo completo de baixa em lote.
-3. Avaliar fluxo formal dos Arts. 158 a 168 para apuração de fatos e desaparecimento com sindicância.
+1. Expandir testes automatizados de navegação para validar handoff entre os quatro submenus e `Inventário - Contagem`.
+2. Revisar a documentação de perfis por submenu caso a área administrativa passe a ter segregação de permissões no futuro.
+3. Continuar a redução incremental do acoplamento do `InventoryAdminPanel`, preservando os contratos atuais da UI.

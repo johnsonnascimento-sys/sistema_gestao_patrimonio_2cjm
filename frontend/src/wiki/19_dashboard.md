@@ -35,6 +35,7 @@ Ele concentra:
 
 - abrir Inventário - Contagem
 - abrir Inventário - Administração
+- abrir Inventário - Monitoramento
 - abrir Consulta de Bens
 - abrir Movimentações
 
