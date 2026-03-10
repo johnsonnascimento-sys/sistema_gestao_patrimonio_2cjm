@@ -29,14 +29,16 @@ import InventorySecondarySetupSection from "./inventory/InventorySecondarySetupS
 import InventoryCriticalActionModal from "./inventory/InventoryCriticalActionModal.jsx";
 import InventoryAdminHeader from "./inventory/InventoryAdminHeader.jsx";
 import InventoryAdminOperationalColumn from "./inventory/InventoryAdminOperationalColumn.jsx";
-
-function formatUnidade(id) {
-    if (id === 1) return "1 (1a Aud)";
-    if (id === 2) return "2 (2a Aud)";
-    if (id === 3) return "3 (Foro)";
-    if (id === 4) return "4 (Almox)";
-    return String(id || "");
-}
+import {
+    calcTrend,
+    formatDateTimeShort,
+    formatPercent,
+    formatPerfilOption,
+    formatUnidade,
+    generateCodigoEvento,
+    shiftDays,
+    toIsoDateInput,
+} from "./inventory/InventoryAdminUtils.js";
 
 const PROFILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const INVENTARIO_PRESETS = [
@@ -48,68 +50,10 @@ const INVENTARIO_PRESETS = [
     { key: "por-sala", label: "Por endereço", apply: { escopoTipo: "LOCAIS", tipoCiclo: "ADHOC" } },
 ];
 
-function formatPerfilOption(perfil) {
-    const matricula = String(perfil?.matricula || "-");
-    const nome = String(perfil?.nome || "-");
-    const unidade = perfil?.unidadeId != null ? String(perfil.unidadeId) : "-";
-    return `${matricula} - ${nome} (unid. ${unidade})`;
-}
-
-function generateCodigoEvento(unidadeInventariadaId) {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    const u = Number(unidadeInventariadaId);
-    const suffix = u === 1 ? "1AUD" : u === 2 ? "2AUD" : u === 3 ? "FORO" : u === 4 ? "ALMOX" : "GERAL";
-    return `INV_${yyyy}_${mm}_${dd}_${hh}${min}_${suffix}`;
-}
-
-function formatDateTimeShort(value) {
-    const d = value ? new Date(value) : null;
-    if (!d || Number.isNaN(d.getTime())) return "-";
-    try {
-        return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d);
-    } catch {
-        return d.toISOString();
-    }
-}
-
-function formatPercent(value) {
-    const num = Number(value || 0);
-    if (!Number.isFinite(num)) return "0%";
-    return `${num.toFixed(num % 1 === 0 ? 0 : 2)}%`;
-}
-
-function toIsoDateInput(date) {
-    const d = new Date(date);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-}
-
-function shiftDays(date, deltaDays) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + deltaDays);
-    return d;
-}
-
 function semaforoClass(status) {
     if (status === "VERDE") return "border-emerald-300 bg-emerald-50 text-emerald-700";
     if (status === "AMARELO") return "border-amber-300 bg-amber-50 text-amber-700";
     return "border-rose-300 bg-rose-50 text-rose-700";
-}
-
-function calcTrend(points, field) {
-    const list = Array.isArray(points) ? points : [];
-    if (list.length < 2) return null;
-    const last = Number(list[list.length - 1]?.[field] || 0);
-    const prev = Number(list[list.length - 2]?.[field] || 0);
-    if (!Number.isFinite(last) || !Number.isFinite(prev)) return null;
-    return Number((last - prev).toFixed(2));
 }
 
 export default function InventoryAdminPanel({ onOpenInventoryCount = null, onOpenAssetsExplorer = null }) {
