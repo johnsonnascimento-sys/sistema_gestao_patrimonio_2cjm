@@ -1614,6 +1614,7 @@ app.get("/stats", mustAuth, async (req, res, next) => {
   try {
     const incluirTerceiros = parseBool(req.query?.incluirTerceiros, false);
     const where = incluirTerceiros ? "" : "WHERE eh_bem_terceiro = FALSE";
+    const materialCaps = await getMaterialBaixaSchemaCaps();
 
     const total = await pool.query(`SELECT COUNT(*)::int AS total FROM bens ${where};`);
     const porUnidade = await pool.query(
