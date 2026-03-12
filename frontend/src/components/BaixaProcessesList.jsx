@@ -13,6 +13,8 @@ export default function BaixaProcessesList({
   items,
   activeId,
   onOpen,
+  onExport,
+  exportingId,
   onCreateFromSelection,
   onOpenDesaparecimento,
   selectionCount,
@@ -51,26 +53,34 @@ export default function BaixaProcessesList({
         {items.map((item) => {
           const active = item.id === activeId;
           return (
-            <button
+            <div
               key={item.id}
-              type="button"
-              onClick={() => onOpen(item.id)}
-              className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+              className={`rounded-2xl border px-4 py-4 transition ${
                 active ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-slate-50 hover:border-violet-200"
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
+                <button type="button" onClick={() => onOpen(item.id)} className="min-w-0 flex-1 text-left">
                   <p className="text-sm font-semibold text-slate-900">{item.processoReferencia}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
                     {item.modalidadeBaixa} • {STATUS_LABELS[item.statusProcesso] || item.statusProcesso}
                   </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
-                  {item.totalItens || 0} item(ns)
+                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+                    {item.totalItens || 0} item(ns)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onExport(item.id)}
+                    disabled={exportingId === item.id}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-40"
+                  >
+                    {exportingId === item.id ? "Exportando..." : "Exportar CSV"}
+                  </button>
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
         {items.length === 0 && (

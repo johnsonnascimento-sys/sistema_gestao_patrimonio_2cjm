@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import BaixaProcessDrawer from "../components/BaixaProcessDrawer.jsx";
 import BaixaProcessesList from "../components/BaixaProcessesList.jsx";
 import InservivelQueueTable from "../components/InservivelQueueTable.jsx";
+import { buildBaixaProcessCsv } from "../components/baixaProcessCsv.js";
 
 describe("InservivelQueueTable", () => {
   it("lista itens da fila, permite selecao e bloqueia retirada sem permissao de edicao", async () => {
@@ -83,6 +84,7 @@ describe("InservivelQueueTable", () => {
 describe("Baixa workflow components", () => {
   it("habilita a abertura do processo pela lista quando ha itens selecionados", async () => {
     const onCreateFromSelection = vi.fn();
+    const onExport = vi.fn();
 
     render(
       <BaixaProcessesList
@@ -97,6 +99,8 @@ describe("Baixa workflow components", () => {
         ]}
         activeId={null}
         onOpen={vi.fn()}
+        onExport={onExport}
+        exportingId={null}
         onCreateFromSelection={onCreateFromSelection}
         onOpenDesaparecimento={vi.fn()}
         selectionCount={2}
@@ -106,6 +110,9 @@ describe("Baixa workflow components", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Abrir processo com 2 item\(ns\)/i }));
     expect(onCreateFromSelection).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: /Exportar CSV/i }));
+    expect(onExport).toHaveBeenCalledWith("bp-1");
   });
 
   it("envia os ids selecionados ao criar um rascunho pelo drawer", async () => {
@@ -126,6 +133,8 @@ describe("Baixa workflow components", () => {
           },
         ]}
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exportBusy={false}
         onCreateDraft={onCreateDraft}
         onUpdateDraft={vi.fn()}
         onConclude={vi.fn()}
@@ -145,5 +154,43 @@ describe("Baixa workflow components", () => {
         marcacaoIds: ["m1"],
       }),
     );
+  });
+
+  it("gera CSV com metadados do processo e linhas dos itens", () => {
+    const csv = buildBaixaProcessCsv({
+      baixa: {
+        processoReferencia: "12345678",
+        modalidadeBaixa: "DOACAO",
+        statusProcesso: "RASCUNHO",
+        createdAt: "2026-03-12T20:00:00.000Z",
+        updatedAt: "2026-03-12T20:10:00.000Z",
+        manifestacaoSciReferencia: "SCI-001",
+        observacoes: "Processo pronto para instrução.",
+        dadosModalidade: {
+          tipoDestinatario: "MUNICIPIO",
+          motivosInutilizacao: [],
+        },
+      },
+      itens: [
+        {
+          id: "i1",
+          bemId: "b1",
+          marcacaoInservivelId: "m1",
+          avaliacaoInservivelId: "a1",
+          numeroTombamento: "1290001217",
+          catalogoDescricao: "Armário de aço",
+          tipoInservivel: "ANTIECONOMICO",
+          statusFluxo: "EM_PROCESSO_BAIXA",
+          destinacaoSugerida: "DOACAO",
+          unidadeDonaId: 4,
+          status: "OK",
+        },
+      ],
+    });
+
+    expect(csv).toContain("processoReferencia");
+    expect(csv).toContain("12345678");
+    expect(csv).toContain("1290001217");
+    expect(csv).toContain("ANTIECONOMICO");
   });
 });

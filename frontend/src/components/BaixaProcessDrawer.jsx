@@ -116,6 +116,8 @@ export default function BaixaProcessDrawer({
   process,
   selectedItems,
   onClose,
+  onExport,
+  exportBusy = false,
   onCreateDraft,
   onUpdateDraft,
   onConclude,
@@ -400,6 +402,16 @@ export default function BaixaProcessDrawer({
         )}
 
         <div className="mt-6 flex flex-wrap justify-end gap-3">
+          {hasProcess && (
+            <button
+              type="button"
+              onClick={() => onExport(process.baixa.id)}
+              disabled={exportBusy}
+              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            >
+              {exportBusy ? "Exportando CSV..." : "Exportar CSV"}
+            </button>
+          )}
           {!hasProcess && (
             <button
               type="button"

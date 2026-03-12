@@ -26,6 +26,11 @@ import BaixaProcessDrawer from "./BaixaProcessDrawer.jsx";
 import BaixaProcessesList from "./BaixaProcessesList.jsx";
 import InservivelAssessmentWizard from "./InservivelAssessmentWizard.jsx";
 import InservivelQueueTable from "./InservivelQueueTable.jsx";
+import {
+  buildBaixaProcessCsv,
+  buildBaixaProcessCsvFilename,
+  triggerCsvDownload,
+} from "./baixaProcessCsv.js";
 
 const EMPTY_BUSCA = Object.freeze({
   numeroTombamento: "",
@@ -170,6 +175,7 @@ export default function MaterialInservivelBaixaPanel() {
   const [feedback, setFeedback] = useState({ type: "", text: "" });
   const [evidenciaUrl, setEvidenciaUrl] = useState("");
   const [drawer, setDrawer] = useState({ open: false, processId: null, mode: "" });
+  const [exportingProcessId, setExportingProcessId] = useState(null);
 
   const buscaQuery = useQuery({
     queryKey: ["material-baixa", "busca-bens", buscaAplicada],
@@ -474,6 +480,31 @@ export default function MaterialInservivelBaixaPanel() {
     cancelMutation.mutate(id);
   };
 
+  const handleExportDraft = async (processId) => {
+    if (!processId) return;
+    try {
+      setExportingProcessId(processId);
+      const detail =
+        drawer.processId === processId && processDetailQuery.data?.baixa?.id === processId
+          ? processDetailQuery.data
+          : await obterBaixaPatrimonial(processId);
+      const filename = buildBaixaProcessCsvFilename(detail);
+      const content = buildBaixaProcessCsv(detail);
+      triggerCsvDownload(filename, content);
+      setFeedback({
+        type: "success",
+        text: `CSV do processo ${detail?.baixa?.processoReferencia || processId} exportado para uso no SEI.`,
+      });
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        text: String(error?.message || "Falha ao exportar o CSV do processo."),
+      });
+    } finally {
+      setExportingProcessId(null);
+    }
+  };
+
   return (
     <section className="space-y-6">
       <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -774,6 +805,8 @@ export default function MaterialInservivelBaixaPanel() {
         items={processes}
         activeId={drawer.processId}
         onOpen={(id) => setDrawer({ open: true, processId: id, mode: "PROCESSO" })}
+        onExport={handleExportDraft}
+        exportingId={exportingProcessId}
         onCreateFromSelection={handleCreateDraftFromSelection}
         onOpenDesaparecimento={handleOpenDesaparecimento}
         selectionCount={selectedQueueIds.length}
@@ -786,6 +819,8 @@ export default function MaterialInservivelBaixaPanel() {
         process={processDetailQuery.data || null}
         selectedItems={drawerSelectedItems}
         onClose={() => setDrawer({ open: false, processId: null, mode: "" })}
+        onExport={handleExportDraft}
+        exportBusy={exportingProcessId === drawer.processId}
         onCreateDraft={(payload) => createDraftMutation.mutate(payload)}
         onUpdateDraft={(id, payload) => updateDraftMutation.mutate({ id, payload })}
         onConclude={handleConcludeDraft}

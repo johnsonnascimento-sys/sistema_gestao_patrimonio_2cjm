@@ -59,6 +59,24 @@ Lista as marcações atuais com filtros por:
 
 Mostra rascunhos e processos concluídos, além do atalho para o fluxo próprio de `DESAPARECIMENTO`.
 
+### 5) Exportação operacional do rascunho
+
+Cada rascunho pode ser exportado em `CSV` diretamente pela lista de processos ou pelo drawer do processo.
+
+Objetivo:
+
+- levar os dados do rascunho para instrução externa no SEI;
+- preservar uma linha por item, repetindo os metadados do processo no mesmo arquivo;
+- evitar digitação manual do número do processo, modalidade, tombos e destinações.
+
+Campos exportados:
+
+- referência do processo e modalidade;
+- status e datas principais do rascunho;
+- referências formais (SCI, ato, NL e observações);
+- dados de modalidade, quando existirem;
+- tombamento, descrição, tipo de inservível, destinação sugerida e status do bem/item.
+
 ## Como funciona a triagem
 
 O stepper embutido é determinístico. O usuário não escolhe livremente a classe final; a classificação resulta das respostas registradas.
