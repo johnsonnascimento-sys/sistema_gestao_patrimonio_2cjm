@@ -47,7 +47,7 @@ const WIKI_PAGES = [
   { id: "importacao-geafin", title: "Importação GEAFIN (CSV)", md: mdImportacaoGeafin },
   { id: "movimentacoes", title: "Movimentações: cautela x transferência", md: mdMovimentacoes },
   { id: "inventario-contagem", title: "Inventário - Contagem", md: mdInventario },
-  { id: "inventario-admin", title: "Inventário - Administração e Submenus", md: mdInventarioAdmin },
+  { id: "inventario-admin", title: "Inventário no menu principal", md: mdInventarioAdmin },
   { id: "analise-cobertura", title: "Análise de cobertura menu x wiki (faseada)", md: mdAnaliseCobertura },
   { id: "material-sku", title: "Material (SKU)", md: mdMaterialSku },
   { id: "classificacao-siafi", title: "Classificação SIAFI", md: mdClassificacaoSiafi },

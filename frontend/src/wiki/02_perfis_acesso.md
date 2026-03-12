@@ -47,6 +47,20 @@ Compatibilidade legada:
 4. `SUPERVISOR`
 5. `ADMIN_COMPLETO`
 
+## Menu Inventário
+
+No menu lateral, `Inventário` passou a ser o agrupador operacional das subtelas:
+
+- `Administração`
+- `Contagem`
+- `Acuracidade`
+- `Regularização`
+
+Na matriz de permissões por role:
+
+- `menu.inventario_contagem.view` libera `Inventário -> Contagem`;
+- `menu.inventario_admin.view` libera `Inventário -> Administração`, `Inventário -> Acuracidade` e `Inventário -> Regularização`.
+
 ## Material Inservível / Baixa
 
 O menu continua controlado por:

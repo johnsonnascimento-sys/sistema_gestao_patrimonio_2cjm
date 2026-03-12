@@ -20,12 +20,12 @@
 
 ## 2. Mudança principal desta entrega
 
-A área **Inventário - Administração** deixou de operar como página única e passou a ser distribuída em quatro submenus:
+A navegação principal agora publica o grupo **Inventário** com quatro submenus operacionais:
 
-- `Inventário - Administração`
-- `Inventário - Monitoramento`
-- `Inventário - Acuracidade`
-- `Inventário - Regularização`
+- `Administração`
+- `Contagem`
+- `Acuracidade`
+- `Regularização`
 
 Compatibilidade preservada:
 
@@ -68,10 +68,10 @@ Arquivos principais da reorganização do inventário administrativo:
 
 Estrutura publicada:
 
-- `Inventário - Administração`: evento ativo, abertura de ciclos e ações críticas
-- `Inventário - Monitoramento`: bens não contados, monitoramento em tempo real e divergências interunidades
-- `Inventário - Acuracidade`: histórico resumido e indicadores gerenciais
-- `Inventário - Regularização`: fluxo pós-inventário para divergências
+- `Inventário -> Administração`: evento ativo, abertura de ciclos, bens não contados, monitoramento em tempo real e divergências interunidades
+- `Inventário -> Contagem`: leitura operacional por endereço
+- `Inventário -> Acuracidade`: histórico resumido e indicadores gerenciais
+- `Inventário -> Regularização`: fluxo pós-inventário para divergências
 
 ## 6. Testes e validações já cobertos
 

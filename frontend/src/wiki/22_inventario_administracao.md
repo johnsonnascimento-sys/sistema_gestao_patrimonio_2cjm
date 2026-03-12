@@ -4,18 +4,18 @@ Arquivo: frontend/src/wiki/22_inventario_administracao.md
 Funcao no sistema: orientar a operação dos submenus de Inventário - Administração.
 -->
 
-# Inventário - Administração e Submenus
+# Inventário no Menu Principal
 
 ## Objetivo da área
 
-A antiga página única de **Inventário - Administração** foi reorganizada em quatro submenus dentro de `Operação diária`, preservando o mesmo `tab id` principal (`inventario-admin`) e a mesma permissão de menu `menu.inventario_admin.view`.
+A navegação principal agora publica um menu agrupador **Inventário** dentro de `Operação diária`, preservando os `tab ids` existentes e as permissões de menu já usadas pelo runtime.
 
-Submenus publicados:
+Submenus publicados no agrupador:
 
-1. `Inventário - Administração`
-2. `Inventário - Monitoramento`
-3. `Inventário - Acuracidade`
-4. `Inventário - Regularização`
+1. `Administração`
+2. `Contagem`
+3. `Acuracidade`
+4. `Regularização`
 
 Essa divisão reduz poluição visual e separa melhor:
 
@@ -28,12 +28,12 @@ Essa divisão reduz poluição visual e separa melhor:
 
 ### Sidebar
 
-No menu lateral, a área de inventário administrativo agora aparece em quatro entradas consecutivas:
+No menu lateral, a área aparece como um grupo expansível `Inventário`, com quatro subtelas:
 
-- `Inventário - Administração`
-- `Inventário - Monitoramento`
-- `Inventário - Acuracidade`
-- `Inventário - Regularização`
+- `Administração`
+- `Contagem`
+- `Acuracidade`
+- `Regularização`
 
 ### Navegação interna
 
@@ -44,7 +44,7 @@ Objetivo:
 - permitir troca rápida entre as subtelas sem depender só da sidebar;
 - manter contexto visual de que todas pertencem ao mesmo fluxo administrativo.
 
-## 1) Inventário - Administração
+## 1) Administração
 
 Foco:
 
@@ -69,28 +69,21 @@ Fluxos preservados:
 - ações críticas com confirmação forte;
 - bloqueio operacional do Art. 183 (AN303_Art183).
 
-## 2) Inventário - Monitoramento
+## 2) Contagem
 
 Foco:
 
-- localizar pendências de contagem;
-- medir cobertura por endereço;
-- abrir a contagem do endereço com um clique;
-- acompanhar divergências interunidades em tempo real.
-
-Blocos principais:
-
-- KPIs rápidos de pendências, cobertura e divergências;
-- painel `Bens não contados`;
-- painel `Monitoramento em tempo real`;
-- painel `Divergências interunidades`.
+- executar a contagem sala a sala;
+- operar scanner/câmera;
+- registrar exceções e divergências do endereço.
 
 Atalhos preservados:
 
-- `Abrir contagem do endereço` continua enviando o operador para `Inventário - Contagem` com o preset correto;
-- clique no `Tombo` ou no `Material (SKU)` continua abrindo a `Consulta de Bens` com contexto.
+- `Abrir contagem do endereço` continua enviando o operador para `Inventário -> Contagem` com o preset correto;
+- o bloqueio de navegação em modo cego continua fail-closed;
+- a regularização formal continua fora da contagem.
 
-## 3) Inventário - Acuracidade
+## 3) Acuracidade
 
 Foco:
 
@@ -106,7 +99,7 @@ Blocos principais:
 
 Nesta subtela, ambos passam a ser tratados como leitura principal do contexto analítico, sem competir com o monitoramento operacional.
 
-## 4) Inventário - Regularização
+## 4) Regularização
 
 Foco:
 
@@ -137,7 +130,7 @@ Comportamento preservado:
 
 Antes:
 
-- uma página única acumulava setup, monitoramento, histórico, acuracidade e regularização.
+- a navegação de inventário misturava páginas soltas e subtelas administrativas.
 
 Agora:
 
@@ -148,7 +141,7 @@ Agora:
 
 ## Resumo rápido de uso
 
-1. Use `Inventário - Administração` para abrir e governar o ciclo.
-2. Use `Inventário - Monitoramento` para reagir à operação em andamento.
-3. Use `Inventário - Acuracidade` para revisar histórico e indicadores.
-4. Use `Inventário - Regularização` para tratar pendências pós-inventário.
+1. Use `Inventário -> Administração` para abrir e governar o ciclo.
+2. Use `Inventário -> Contagem` para executar a leitura operacional por endereço.
+3. Use `Inventário -> Acuracidade` para revisar histórico e indicadores.
+4. Use `Inventário -> Regularização` para tratar pendências pós-inventário.

@@ -53,10 +53,10 @@ Uso:
 
 Estrutura atual da área administrativa:
 
-- `Inventário - Administração`
-- `Inventário - Monitoramento`
-- `Inventário - Acuracidade`
-- `Inventário - Regularização`
+- `Inventário -> Administração`
+- `Inventário -> Contagem`
+- `Inventário -> Acuracidade`
+- `Inventário -> Regularização`
 
 Observação técnica:
 
@@ -92,12 +92,12 @@ Uso:
 
 ## Fluxos operacionais em destaque
 
-### Inventário administrativo
+### Menu Inventário
 
-1. `Inventário - Administração` abre e governa o ciclo.
-2. `Inventário - Monitoramento` acompanha pendências e divergências.
-3. `Inventário - Acuracidade` consolida histórico e indicadores.
-4. `Inventário - Regularização` trata o pós-inventário em fluxo formal.
+1. `Inventário -> Administração` abre e governa o ciclo.
+2. `Inventário -> Contagem` executa a leitura operacional por endereço.
+3. `Inventário -> Acuracidade` consolida histórico e indicadores.
+4. `Inventário -> Regularização` trata o pós-inventário em fluxo formal.
 
 ### Material Inservível / Baixa
 

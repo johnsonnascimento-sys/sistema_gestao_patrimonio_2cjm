@@ -33,9 +33,8 @@ Ele concentra:
 
 ### Atalhos
 
-- abrir Inventário - Contagem
-- abrir Inventário - Administração
-- abrir Inventário - Monitoramento
+- abrir Inventário -> Contagem
+- abrir Inventário -> Administração
 - abrir Consulta de Bens
 - abrir Movimentações
 

@@ -46,6 +46,8 @@ function buildCargoValue(form) {
 }
 
 const PERMISSION_LABEL_OVERRIDES = {
+  "menu.inventario_admin.view": "Ver menu Inventário -> Administração, Acuracidade e Regularização",
+  "menu.inventario_contagem.view": "Ver menu Inventário -> Contagem",
   "action.bem.alterar_responsavel.execute":
     "Executar ação com responsável patrimonial (modal do bem; também usado em Transferência/Cautela)",
   "action.bem.alterar_responsavel.request":
@@ -721,7 +723,8 @@ export default function AdminPerfisPanel({ canAdmin }) {
           <div>
             <h4 className="text-sm font-semibold text-slate-900">Matriz de permissoes por role</h4>
             <p className="mt-1 text-[11px] text-slate-500">
-              Defina visualmente o que cada role pode ver (menus) e executar (acoes). Alteracao exige senha do admin.
+              Defina visualmente o que cada role pode ver e executar. No menu Inventário, Contagem usa permissão própria e
+              Administração/Acuracidade/Regularização compartilham a permissão administrativa. Alteração exige senha do admin.
             </p>
           </div>
           <button

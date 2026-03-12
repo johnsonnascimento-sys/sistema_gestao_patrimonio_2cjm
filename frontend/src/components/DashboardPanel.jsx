@@ -241,7 +241,7 @@ export default function DashboardPanel({ onNavigate }) {
     { id: "bens", label: "Consulta de Bens" },
     { id: "movimentacoes", label: "Movimentações" },
     { id: "operacoes-cadastro-sala", label: "Cadastrar bens por Endereço" },
-    { id: "inventario-contagem", label: "Inventário - Contagem" },
+    { id: "inventario-contagem", label: "Inventário -> Contagem" },
     { id: "importacoes-geafin", label: "Importacao GEAFIN" },
   ];
   const activeFloor = hoveredFloor || selectedFloor;
@@ -397,7 +397,7 @@ export default function DashboardPanel({ onNavigate }) {
                 onClick={() => onNavigate?.("inventario-admin")}
                 className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
-                Abrir Inventário - Administração
+                Abrir Inventário / Administração
               </button>
             </div>
           ) : (

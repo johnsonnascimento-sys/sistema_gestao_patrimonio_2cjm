@@ -15,9 +15,9 @@ Esta é a tela do dia a dia para:
 - Ver unidade (carga), local físico e status.
 - Abrir detalhes completos quando precisar auditar/entender o histórico.
 
-## Atalhos vindos do Inventário - Monitoramento
+## Atalhos vindos do menu Inventário
 
-O painel `Bens não contados` em `Inventário - Monitoramento` usa esta tela como atalho operacional.
+O painel `Bens não contados` em `Inventário -> Administração` usa esta tela como atalho operacional.
 
 Comportamento:
 
@@ -97,7 +97,7 @@ Quando a `Consulta de Bens` for aberta a partir de atalhos operacionais, a próp
 
 Exemplos:
 
-- origem em `Inventário - Monitoramento`;
+- origem em `Inventário -> Administração`;
 - abertura pelo `Tombo` no painel `Bens não contados`;
 - abertura por `Material (SKU)` no mesmo painel.
 

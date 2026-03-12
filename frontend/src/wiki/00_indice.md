@@ -6,7 +6,7 @@ Funcao no sistema: indice navegavel do manual/wiki self-hosted do patrimonio2cjm
 
 # Índice (Manual do Sistema)
 
-Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o runtime. A entrega atual manteve a workspace **Material Inservível / Baixa** e reorganizou **Inventário - Administração** em quatro submenus operacionais.
+Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o runtime. A entrega atual manteve a workspace **Material Inservível / Baixa** e reorganizou a navegação principal para publicar o grupo **Inventário** com quatro submenus operacionais.
 
 ## Como usar este manual
 
@@ -23,7 +23,7 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 - Importação GEAFIN (CSV)
 - Movimentações: cautela x transferência
 - Inventário - Contagem
-- Inventário - Administração e submenus
+- Inventário no menu principal
 - Material (SKU)
 - Classificação SIAFI
 - Normas
@@ -48,11 +48,10 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 - Consulta de Bens
 - Movimentações
 - Cadastrar bens por Endereço
-- Inventário - Contagem
-- Inventário - Administração
-- Inventário - Monitoramento
-- Inventário - Acuracidade
-- Inventário - Regularização
+- Inventário -> Administração
+- Inventário -> Contagem
+- Inventário -> Acuracidade
+- Inventário -> Regularização
 - Material Inservível / Baixa
 - Material (SKU)
 - Classificação SIAFI

@@ -39,12 +39,18 @@ const NAV_STRUCTURE = [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
       { id: "movimentacoes", label: "Movimentações", short: "Mov." },
       { id: "operacoes-cadastro-sala", label: "Cadastrar bens por Endereço", short: "Endereço" },
-      { id: "inventario-contagem", label: "Inventário - Contagem", short: "Contagem" },
-      ...INVENTORY_ADMIN_SECTIONS.map((section) => ({
-        id: section.tabId,
-        label: section.label,
-        short: section.short,
-      })),
+      {
+        type: "submenu",
+        id: "inventario",
+        label: "Inventário",
+        short: "Invent.",
+        items: [
+          { id: "inventario-admin", label: "Administração", short: "Adm." },
+          { id: "inventario-contagem", label: "Contagem", short: "Cont." },
+          { id: "inventario-admin-acuracidade", label: "Acuracidade", short: "Acur." },
+          { id: "inventario-admin-regularizacao", label: "Regularização", short: "Reg." },
+        ],
+      },
       { id: "classificacao", label: "Material Inservível / Baixa", short: "Inserv." },
       { id: "catalogo-material", label: "Material (SKU)", short: "Material" },
       { id: "classificacoes-siafi", label: "Classificação SIAFI", short: "SIAFI" },
@@ -89,6 +95,7 @@ const NAV_GROUP_HELPERS = Object.freeze({
   auditoria: "Trilhas formais, conferência histórica e diagnóstico de alterações.",
   admin: "Cadastros sensíveis, conectividade e gestão do ambiente operacional.",
   referencia: "Manual, normas e apoio de consulta. Não é o fluxo principal do turno.",
+  inventario: "Agrupa administração, contagem, acuracidade e regularização do inventário.",
 });
 
 const TAB_PERMISSION_MAP = Object.freeze({
@@ -119,6 +126,11 @@ const TAB_PERMISSION_MAP = Object.freeze({
 
 const DEFAULT_OPEN_GROUPS = NAV_STRUCTURE.reduce((acc, entry) => {
   if (entry.type === "group") acc[entry.id] = true;
+  if (entry.type === "group") {
+    for (const item of entry.items || []) {
+      if (item?.type === "submenu") acc[item.id] = true;
+    }
+  }
   return acc;
 }, {});
 const FRONTEND_VERSION_LABEL = `Versao do sistema v${frontendPackage.version}`;
@@ -142,6 +154,37 @@ function PanelLoadingFallback({ label = "Carregando painel..." }) {
       <p className="text-sm text-slate-600">{label}</p>
     </section>
   );
+}
+
+function hasNestedActiveItem(items, currentTab) {
+  return items.some((item) => {
+    if (item?.type === "submenu") return hasNestedActiveItem(item.items || [], currentTab);
+    return item?.id === currentTab;
+  });
+}
+
+function firstNavigableItemId(items) {
+  for (const item of items || []) {
+    if (item?.type === "submenu") {
+      const nestedId = firstNavigableItemId(item.items || []);
+      if (nestedId) return nestedId;
+      continue;
+    }
+    if (item?.id) return item.id;
+  }
+  return null;
+}
+
+function findNavItemByTab(items, currentTab) {
+  for (const item of items || []) {
+    if (item?.type === "submenu") {
+      const found = findNavItemByTab(item.items || [], currentTab);
+      if (found) return found;
+      continue;
+    }
+    if (item?.id === currentTab) return item;
+  }
+  return null;
 }
 
 function NavIcon({ id }) {
@@ -174,6 +217,18 @@ function NavIcon({ id }) {
         <path d="M4 12h10" />
         <path d="M4 18h10" />
         <path d="M17 12l2 2 3-4" />
+      </svg>
+    );
+  }
+
+  if (id === "inventario") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
+        <path d="M18 9h2" />
+        <path d="M18 15h2" />
       </svg>
     );
   }
@@ -399,7 +454,16 @@ function AppShell() {
         if (isTabAllowed(entry.item.id)) out.push(entry);
         continue;
       }
-      const items = entry.items.filter((item) => isTabAllowed(item.id));
+      const items = entry.items
+        .map((item) => {
+          if (item?.type === "submenu") {
+            const subItems = (item.items || []).filter((subItem) => isTabAllowed(subItem.id));
+            if (!subItems.length) return null;
+            return { ...item, items: subItems };
+          }
+          return isTabAllowed(item.id) ? item : null;
+        })
+        .filter(Boolean);
       if (!items.length) continue;
       out.push({ ...entry, items });
     }
@@ -488,12 +552,111 @@ function AppShell() {
     setTab("inventario-contagem");
     setMobileMenuOpen(false);
   };
+  const renderDesktopNavItem = (item, level = 0) => {
+    if (item?.type === "submenu") {
+      const isOpen = Boolean(openNavGroups[item.id]);
+      const hasActiveChild = hasNestedActiveItem(item.items || [], tab);
+      return (
+        <div key={item.id} className="space-y-1">
+          <button
+            type="button"
+            onClick={() => toggleNavGroup(item.id)}
+            className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider transition ${
+              hasActiveChild ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-100"
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
+                <NavIcon id={item.id} />
+              </span>
+              <span>{item.label}</span>
+            </span>
+            <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
+          </button>
+          <p className="px-3 text-[11px] leading-5 text-slate-500">
+            {NAV_GROUP_HELPERS[item.id] || "Subgrupo de navegação operacional."}
+          </p>
+          {isOpen ? <div className="space-y-1 pl-3">{(item.items || []).map((child) => renderDesktopNavItem(child, level + 1))}</div> : null}
+        </div>
+      );
+    }
+
+    const active = tab === item.id;
+    const navLocked = navReducedMode && item.id !== "inventario-contagem";
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          if (navLocked) return;
+          setTab(item.id);
+        }}
+        disabled={navLocked}
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
+          active
+            ? "bg-violet-50 text-violet-700"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        } ${navLocked ? "cursor-not-allowed opacity-45" : ""} ${level > 0 ? "ml-2" : ""}`}
+      >
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
+          <NavIcon id={item.id} />
+        </span>
+        <span>{item.label}</span>
+      </button>
+    );
+  };
+  const renderMobileNavItem = (item, level = 0) => {
+    if (item?.type === "submenu") {
+      const isOpen = Boolean(openNavGroups[item.id]);
+      const hasActiveChild = hasNestedActiveItem(item.items || [], tab);
+      return (
+        <div key={item.id} className="space-y-1">
+          <button
+            type="button"
+            onClick={() => toggleNavGroup(item.id)}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
+              hasActiveChild ? "bg-violet-50 text-violet-700" : "text-slate-500 hover:bg-slate-100"
+            }`}
+          >
+            <span>{item.label}</span>
+            <span className={`transition ${isOpen ? "rotate-180" : ""}`}>v</span>
+          </button>
+          <p className="px-3 text-[11px] leading-5 text-slate-500">
+            {NAV_GROUP_HELPERS[item.id] || "Subgrupo de navegação operacional."}
+          </p>
+          {isOpen ? <div className="space-y-1 pl-3">{(item.items || []).map((child) => renderMobileNavItem(child, level + 1))}</div> : null}
+        </div>
+      );
+    }
+
+    const active = tab === item.id;
+    const navLocked = navReducedMode && item.id !== "inventario-contagem";
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          if (navLocked) return;
+          selectTab(item.id);
+        }}
+        disabled={navLocked}
+        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
+          active
+            ? "bg-violet-50 text-violet-700"
+            : "text-slate-700 hover:bg-slate-100"
+        } ${navLocked ? "cursor-not-allowed opacity-45" : ""} ${level > 0 ? "ml-2" : ""}`}
+      >
+        <span>{item.label}</span>
+        <span>{item.short}</span>
+      </button>
+    );
+  };
   const inventoryAdminSection = useMemo(() => getInventoryAdminSectionByTab(tab), [tab]);
   const activeTabLabel = useMemo(() => {
     for (const entry of filteredNavStructure) {
       if (entry.type === "item" && entry.item.id === tab) return entry.item.label;
       if (entry.type === "group") {
-        const found = entry.items.find((it) => it.id === tab);
+        const found = findNavItemByTab(entry.items || [], tab);
         if (found) return found.label;
       }
     }
@@ -502,7 +665,7 @@ function AppShell() {
   const activeTabGroupLabel = useMemo(() => {
     for (const entry of filteredNavStructure) {
       if (entry.type === "item" && entry.item.id === tab) return "Acesso direto";
-      if (entry.type === "group" && entry.items.some((item) => item.id === tab)) {
+      if (entry.type === "group" && hasNestedActiveItem(entry.items || [], tab)) {
         return entry.label;
       }
     }
@@ -545,7 +708,7 @@ function AppShell() {
         break;
       }
       if (entry.type === "group" && entry.items.length) {
-        fallback = entry.items[0].id;
+        fallback = firstNavigableItemId(entry.items) || fallback;
         break;
       }
     }
@@ -619,7 +782,7 @@ function AppShell() {
               }
 
               const isOpen = Boolean(openNavGroups[entry.id]);
-              const hasActiveChild = entry.items.some((item) => item.id === tab);
+              const hasActiveChild = hasNestedActiveItem(entry.items || [], tab);
               return (
                 <div key={entry.id} className="space-y-1">
                   <button
@@ -637,31 +800,7 @@ function AppShell() {
                   </p>
                   {isOpen ? (
                     <div className="space-y-1 pl-2">
-                      {entry.items.map((item) => {
-                        const active = tab === item.id;
-                        const navLocked = navReducedMode && item.id !== "inventario-contagem";
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                              if (navLocked) return;
-                              setTab(item.id);
-                            }}
-                            disabled={navLocked}
-                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
-                              active
-                                ? "bg-violet-50 text-violet-700"
-                                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                            } ${navLocked ? "cursor-not-allowed opacity-45" : ""}`}
-                          >
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded text-[12px]">
-                              <NavIcon id={item.id} />
-                            </span>
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
+                      {entry.items.map((item) => renderDesktopNavItem(item))}
                       {entry.id === "referencia" ? (
                         <div className="px-3 py-2">
                           <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Versao publicada</p>
@@ -796,7 +935,7 @@ function AppShell() {
                     }
 
                     const isOpen = Boolean(openNavGroups[entry.id]);
-                    const hasActiveChild = entry.items.some((item) => item.id === tab);
+                    const hasActiveChild = hasNestedActiveItem(entry.items || [], tab);
                     return (
                       <div key={entry.id} className="space-y-1">
                         <button
@@ -814,29 +953,7 @@ function AppShell() {
                         </p>
                         {isOpen ? (
                           <div className="space-y-1 pl-2">
-                            {entry.items.map((item) => {
-                              const active = tab === item.id;
-                              const navLocked = navReducedMode && item.id !== "inventario-contagem";
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => {
-                                    if (navLocked) return;
-                                    selectTab(item.id);
-                                  }}
-                                  disabled={navLocked}
-                                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
-                                    active
-                                      ? "bg-violet-50 text-violet-700"
-                                      : "text-slate-700 hover:bg-slate-100"
-                                  } ${navLocked ? "cursor-not-allowed opacity-45" : ""}`}
-                                >
-                                  <span>{item.label}</span>
-                                  <span>{item.short}</span>
-                                </button>
-                              );
-                            })}
+                            {entry.items.map((item) => renderMobileNavItem(item))}
                             {entry.id === "referencia" ? (
                               <div className="px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Versao publicada</p>
