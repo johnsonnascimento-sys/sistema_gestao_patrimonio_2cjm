@@ -43,7 +43,7 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 
 ## Menu atual do sistema
 
-### Operação diária
+### Operações
 
 - Consulta de Bens
 - Movimentações
@@ -69,6 +69,9 @@ Este Wiki é o manual oficial do sistema e precisa permanecer sincronizado com o
 - Backup e Restore
 - Conectividade Backend
 - Perfis e Acessos
+
+### Aprovações
+
 - Aprovações Pendentes
 
 ### Referência e apoio

@@ -186,7 +186,7 @@ Mensagens esperadas na UI:
 
 Fluxo de decisao:
 
-- Menu: `Administração do Painel -> Aprovações Pendentes`.
+- Menu: `Aprovações -> Aprovações Pendentes`.
 - Admin decide com senha (aprovar/reprovar).
 
 ## Regra de permissão para `/movimentar` (incidente 2026-03-04)

@@ -65,7 +65,7 @@ Fluxo:
 
 1. informar `justificativaSolicitante`;
 2. enviar solicitação;
-3. admin decide em `Aprovações Pendentes`.
+3. admin decide em `Aprovações -> Aprovações Pendentes`.
 
 ## "JUSTIFICATIVA_SOLICITANTE_OBRIGATORIA"
 

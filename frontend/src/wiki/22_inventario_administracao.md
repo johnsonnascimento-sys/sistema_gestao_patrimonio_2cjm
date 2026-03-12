@@ -8,7 +8,7 @@ Funcao no sistema: orientar a operação dos submenus de Inventário - Administr
 
 ## Objetivo da área
 
-A navegação principal agora publica um menu agrupador **Inventário** dentro de `Operação diária`, preservando os `tab ids` existentes e as permissões de menu já usadas pelo runtime.
+A navegação principal agora publica um menu agrupador **Inventário** dentro de `Operações`, preservando os `tab ids` existentes e as permissões de menu já usadas pelo runtime.
 
 Submenus publicados no agrupador:
 

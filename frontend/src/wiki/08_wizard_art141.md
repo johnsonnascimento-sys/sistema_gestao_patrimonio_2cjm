@@ -8,7 +8,7 @@ Funcao no sistema: manual operacional da workspace Material Inservível / Baixa.
 
 ## Onde acessar no menu
 
-- `Operação diária -> Material Inservível / Baixa`
+- `Operações -> Material Inservível / Baixa`
 
 ## Base legal coberta nesta tela
 

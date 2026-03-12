@@ -42,11 +42,13 @@ export default function OperationsPanel({ section = "admin-backup" }) {
     || String(auth.role || "").toUpperCase() === "ADMIN";
   const normalizedSection = SECTION_META[section] ? section : "admin-backup";
   const meta = SECTION_META[normalizedSection];
+  const panelTitle =
+    normalizedSection === "admin-aprovacoes" ? "Aprovações" : "Administração do Painel";
 
   return (
     <section className="mt-6 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <header>
-        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">Administração do Painel</h2>
+        <h2 className="font-[Space_Grotesk] text-2xl font-semibold">{panelTitle}</h2>
         <p className="mt-2 text-sm text-slate-600">{meta.description}</p>
       </header>
 

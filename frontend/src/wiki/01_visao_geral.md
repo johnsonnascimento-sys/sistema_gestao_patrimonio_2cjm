@@ -80,10 +80,17 @@ Observação técnica:
 
 Uso:
 
-- gerenciar perfis, ACL, locais, conectividade, backup e aprovações;
+- gerenciar perfis, ACL, locais, conectividade e backup;
 - operar o ambiente sem alterar regras legais do patrimônio.
 
-### 5) Wiki / Manual do Sistema
+### 5) Aprovações
+
+Uso:
+
+- revisar solicitações administrativas sensíveis pendentes;
+- aprovar ou reprovar ações que dependem de etapa formal.
+
+### 6) Wiki / Manual do Sistema
 
 Uso:
 

@@ -34,7 +34,7 @@ const NAV_STRUCTURE = [
   {
     type: "group",
     id: "operacoes",
-    label: "Operacao diaria",
+    label: "Operações",
     items: [
       { id: "bens", label: "Consulta de Bens", short: "Bens" },
       { id: "movimentacoes", label: "Movimentações", short: "Mov." },
@@ -76,6 +76,13 @@ const NAV_STRUCTURE = [
       { id: "admin-backup", label: "Backup e Restore", short: "Backup" },
       { id: "admin-health", label: "Conectividade Backend", short: "Health" },
       { id: "admin-perfis", label: "Perfis e Acessos", short: "Perfis" },
+    ],
+  },
+  {
+    type: "group",
+    id: "aprovacoes",
+    label: "Aprovações",
+    items: [
       { id: "admin-aprovacoes", label: "Aprovações Pendentes", short: "Aprov." },
     ],
   },
@@ -94,6 +101,7 @@ const NAV_GROUP_HELPERS = Object.freeze({
   operacoes: "Consultas, movimentações e inventário para execução do turno.",
   auditoria: "Trilhas formais, conferência histórica e diagnóstico de alterações.",
   admin: "Cadastros sensíveis, conectividade e gestão do ambiente operacional.",
+  aprovacoes: "Fila administrativa para decisão de solicitações sensíveis pendentes.",
   referencia: "Manual, normas e apoio de consulta. Não é o fluxo principal do turno.",
   inventario: "Agrupa administração, contagem, acuracidade e regularização do inventário.",
 });

@@ -17,17 +17,17 @@ Funcao no sistema: registrar a cobertura entre navegacao real e paginas da wiki.
 | Grupo | Item de menu real | Componente/tela real | Página wiki principal | Status |
 |---|---|---|---|---|
 | Raiz | Dashboard | `DashboardPanel` | `19_dashboard.md` | OK |
-| Operação diária | Consulta de Bens | `AssetsExplorer` | `03_consulta_bens.md` | OK |
-| Operação diária | Movimentações | `MovimentacoesPanel` | `05_movimentacoes.md` | OK |
-| Operação diária | Cadastrar bens por Endereço | `MovimentacoesPanel` (`section=cadastro-sala`) | `05_movimentacoes.md` | OK |
-| Operação diária | Inventário -> Administração | `InventoryAdminPanel` (`section=administracao`) | `22_inventario_administracao.md` | OK |
-| Operação diária | Inventário -> Contagem | `InventoryRoomPanel` | `06_inventario_sala_a_sala.md` | OK |
-| Operação diária | Inventário -> Acuracidade | `InventoryAdminPanel` (`section=acuracidade`) | `22_inventario_administracao.md` | OK |
-| Operação diária | Inventário -> Regularização | `InventoryAdminPanel` (`section=regularizacao`) | `22_inventario_administracao.md` | OK |
-| Operação diária | Material Inservível / Baixa | `MaterialInservivelBaixaPanel` | `08_wizard_art141.md` | OK |
-| Operação diária | Material (SKU) | `CatalogoAdminPanel` | `20_material_sku.md` | OK |
-| Operação diária | Classificação SIAFI | `ClassificacaoSiafiPanel` | `24_classificacao_siafi.md` | OK |
-| Operação diária | Importação GEAFIN (CSV Latin1) | `ImportacoesPanel` | `04_importacao_geafin.md` | OK |
+| Operações | Consulta de Bens | `AssetsExplorer` | `03_consulta_bens.md` | OK |
+| Operações | Movimentações | `MovimentacoesPanel` | `05_movimentacoes.md` | OK |
+| Operações | Cadastrar bens por Endereço | `MovimentacoesPanel` (`section=cadastro-sala`) | `05_movimentacoes.md` | OK |
+| Operações | Inventário -> Administração | `InventoryAdminPanel` (`section=administracao`) | `22_inventario_administracao.md` | OK |
+| Operações | Inventário -> Contagem | `InventoryRoomPanel` | `06_inventario_sala_a_sala.md` | OK |
+| Operações | Inventário -> Acuracidade | `InventoryAdminPanel` (`section=acuracidade`) | `22_inventario_administracao.md` | OK |
+| Operações | Inventário -> Regularização | `InventoryAdminPanel` (`section=regularizacao`) | `22_inventario_administracao.md` | OK |
+| Operações | Material Inservível / Baixa | `MaterialInservivelBaixaPanel` | `08_wizard_art141.md` | OK |
+| Operações | Material (SKU) | `CatalogoAdminPanel` | `20_material_sku.md` | OK |
+| Operações | Classificação SIAFI | `ClassificacaoSiafiPanel` | `24_classificacao_siafi.md` | OK |
+| Operações | Importação GEAFIN (CSV Latin1) | `ImportacoesPanel` | `04_importacao_geafin.md` | OK |
 | Auditoria e Logs | Log Geral de Alterações | `AuditoriaLogsPanel` | `09_relatorios_auditoria.md` | OK |
 | Auditoria e Logs | Auditoria Patrimonial (Global) | `AuditoriaLogsPanel` | `09_relatorios_auditoria.md` | OK |
 | Auditoria e Logs | Log de Erros Runtime | `AuditoriaLogsPanel` | `09_relatorios_auditoria.md` + `10_solucao_problemas.md` | OK |
@@ -35,13 +35,15 @@ Funcao no sistema: registrar a cobertura entre navegacao real e paginas da wiki.
 | Administração do Painel | Backup e Restore | `OperationsPanel` | `14_admin_operacao_vps.md` | OK |
 | Administração do Painel | Conectividade Backend | `OperationsPanel` | `14_admin_operacao_vps.md` | OK |
 | Administração do Painel | Perfis e Acessos | `OperationsPanel` | `02_perfis_acesso.md` | OK |
-| Administração do Painel | Aprovações Pendentes | `OperationsPanel` | `02_perfis_acesso.md` + `15_referencia_api.md` | OK |
+| Aprovações | Aprovações Pendentes | `OperationsPanel` | `02_perfis_acesso.md` + `15_referencia_api.md` | OK |
 | Referência e apoio | Wiki / Manual do Sistema | `WikiManual` | `00_indice.md` | OK |
 | Referência e apoio | Normas | `NormsPage` | `21_gestao_normas.md` | OK |
 
 ## Observações desta entrega
 
 - o menu principal passou a expor um agrupador `Inventário` com quatro submenus operacionais;
+- a área `Operação diária` foi renomeada para `Operações`;
+- `Aprovações Pendentes` saiu de `Administração do Painel` e passou a compor o grupo dedicado `Aprovações`;
 - os quatro itens continuam documentados por uma única página operacional (`22_inventario_administracao.md`), porque pertencem ao mesmo fluxo;
 - a permissão `menu.inventario_admin.view` foi preservada para `Administração`, `Acuracidade` e `Regularização`, enquanto `Contagem` continua usando `menu.inventario_contagem.view`;
 - a workspace **Material Inservível / Baixa** continua publicada em `08_wizard_art141.md` por compatibilidade histórica do manual.

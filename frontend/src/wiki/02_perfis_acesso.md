@@ -9,6 +9,7 @@ Funcao no sistema: orientar criação e uso de perfis, roles e permissões opera
 ## Onde acessar
 
 - `Administração do Painel -> Perfis e Acessos`
+- `Aprovações -> Aprovações Pendentes`
 
 ## O que é um perfil
 
