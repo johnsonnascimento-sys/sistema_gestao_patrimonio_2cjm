@@ -161,6 +161,9 @@ Campos típicos no resumo:
 - Catálogo (SKU)
 - Status (OK/EM_CAUTELA/BAIXADO/AGUARDANDO_RECEBIMENTO quando aplicavel)
 
+Quando o bem já estiver com **processo de baixa patrimonial aberto**, a grade passa a destacar o status visual
+`Em processo de baixa`, mesmo que o status base do bem ainda não tenha virado `BAIXADO`.
+
 Na grade de resultados, você pode habilitar:
 
 - Foto do item
@@ -182,6 +185,14 @@ Use isso quando precisar:
 - Confirmar que um bem mudou de unidade (auditoria).
 - Entender se está em cautela e com quem.
 - Checar o que aconteceu em datas anteriores.
+- Ver rapidamente se já existe processo de baixa em andamento para aquele bem.
+
+Se houver baixa em andamento, o modal destaca um bloco próprio com:
+
+- processo de referência;
+- modalidade de baixa;
+- situação do processo;
+- status base atual do bem.
 Quando o status do bem for `EM_CAUTELA`, o modal mostra o bloco **Cautela atual** com:
 
 - `detentorTemporarioPerfilId`

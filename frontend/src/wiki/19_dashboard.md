@@ -22,6 +22,7 @@ Ele concentra:
 ### KPIs
 
 - total de bens
+- bens em processo de baixa
 - distribuicao por unidade
 - estado geral de processamento da base
 
@@ -37,6 +38,12 @@ Ele concentra:
 - abrir Inventário -> Administração
 - abrir Consulta de Bens
 - abrir Movimentações
+
+### Bens em processo de baixa
+
+- card dedicado para bens com baixa patrimonial aberta;
+- leitura direta do fluxo iniciado em `Material Inservível / Baixa`;
+- objetivo: evitar movimentação indevida ou leitura ambígua de bem ainda não baixado, mas já em tratamento formal.
 
 ## Uso recomendado
 

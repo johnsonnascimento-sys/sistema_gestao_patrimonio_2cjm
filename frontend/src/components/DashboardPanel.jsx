@@ -27,8 +27,21 @@ function statusLabel(status) {
   if (s === "OK") return "Prontos";
   if (s === "EM_CAUTELA") return "Em cautela";
   if (s === "BAIXADO") return "Baixados";
+  if (s === "EM_PROCESSO_BAIXA") return "Em processo de baixa";
   if (s === "AGUARDANDO_RECEBIMENTO") return "Aguardando";
   return s || "Outro";
+}
+
+function statusCardClass(status) {
+  const s = String(status || "").toUpperCase();
+  if (s === "EM_PROCESSO_BAIXA") return "border-rose-300 bg-rose-50 shadow-sm shadow-rose-100";
+  return "border-slate-200 bg-white";
+}
+
+function statusValueClass(status) {
+  const s = String(status || "").toUpperCase();
+  if (s === "EM_PROCESSO_BAIXA") return "text-rose-700";
+  return "text-slate-900";
 }
 
 function CjmBuildingMapIllustration({
@@ -230,9 +243,14 @@ export default function DashboardPanel({ onNavigate }) {
     for (const row of statsQuery.data?.bens?.porStatus || []) {
       byStatus.set(String(row.status || "").toUpperCase(), Number(row.total || 0));
     }
-    const keys = ["OK", "EM_CAUTELA", "BAIXADO", "AGUARDANDO_RECEBIMENTO"];
-    return keys.map((key) => ({ key, total: byStatus.get(key) || 0 }));
-  }, [statsQuery.data?.bens?.porStatus]);
+    return [
+      { key: "OK", total: byStatus.get("OK") || 0 },
+      { key: "EM_CAUTELA", total: byStatus.get("EM_CAUTELA") || 0 },
+      { key: "EM_PROCESSO_BAIXA", total: Number(statsQuery.data?.bens?.emProcessoBaixa || 0) },
+      { key: "BAIXADO", total: byStatus.get("BAIXADO") || 0 },
+      { key: "AGUARDANDO_RECEBIMENTO", total: byStatus.get("AGUARDANDO_RECEBIMENTO") || 0 },
+    ];
+  }, [statsQuery.data?.bens?.emProcessoBaixa, statsQuery.data?.bens?.porStatus]);
 
   const eventosAtivos = eventosAtivosQuery.data || [];
   const recentRows = canAdmin ? (recentAuditQuery.data || []) : (recentEventosQuery.data || []);
@@ -364,9 +382,14 @@ export default function DashboardPanel({ onNavigate }) {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (
-          <article key={kpi.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <article key={kpi.key} className={`rounded-xl border p-4 shadow-sm ${statusCardClass(kpi.key)}`}>
             <p className="text-xs uppercase tracking-widest text-slate-500">{statusLabel(kpi.key)}</p>
-            <p className="mt-1 font-[Space_Grotesk] text-2xl font-semibold text-slate-900">{kpi.total}</p>
+            <p className={`mt-1 font-[Space_Grotesk] text-2xl font-semibold ${statusValueClass(kpi.key)}`}>{kpi.total}</p>
+            {kpi.key === "EM_PROCESSO_BAIXA" ? (
+              <p className="mt-2 text-xs font-semibold text-rose-700">
+                Bens com baixa patrimonial aberta em Material Inservível / Baixa.
+              </p>
+            ) : null}
           </article>
         ))}
       </div>

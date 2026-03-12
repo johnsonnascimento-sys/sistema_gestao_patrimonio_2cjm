@@ -11,7 +11,7 @@ export default function AssetsExplorerSummary({
   onApplyUnidadeFilter,
 }) {
   return (
-    <article className="grid gap-3 md:grid-cols-3">
+    <article className="grid gap-3 md:grid-cols-4">
       <button
         type="button"
         onClick={() => onApplyUnidadeFilter(null)}
@@ -31,6 +31,21 @@ export default function AssetsExplorerSummary({
           </p>
         )}
       </button>
+      <div className="rounded-xl border border-rose-300 bg-rose-50 p-4">
+        <p className="text-xs uppercase tracking-widest text-rose-700">Em processo de baixa</p>
+        {stats.loading && <p className="mt-2 text-sm text-rose-700">Carregando...</p>}
+        {stats.error && <p className="mt-2 text-sm text-rose-700">{stats.error}</p>}
+        {stats.data && (
+          <>
+            <p className="mt-2 font-[Space_Grotesk] text-3xl font-bold text-rose-700">
+              {Number(stats.data?.bens?.emProcessoBaixa || 0)}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-rose-700">
+              Bens com processo de baixa aberto no fluxo formal.
+            </p>
+          </>
+        )}
+      </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4 md:col-span-2">
         <p className="text-xs uppercase tracking-widest text-slate-500">Bens por unidade</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

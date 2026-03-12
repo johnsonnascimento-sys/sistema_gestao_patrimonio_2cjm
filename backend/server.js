@@ -1630,6 +1630,15 @@ app.get("/stats", mustAuth, async (req, res, next) => {
        GROUP BY 1
        ORDER BY 1;`,
     );
+    const emProcessoBaixa = materialCaps.hasMarcacoesInserviveis
+      ? await pool.query(
+          `SELECT COUNT(DISTINCT m.bem_id)::int AS total
+             FROM marcacoes_inserviveis m
+             JOIN bens b ON b.id = m.bem_id
+             WHERE m.status_fluxo = 'EM_PROCESSO_BAIXA'::public.status_fluxo_inservivel
+               ${incluirTerceiros ? "" : "AND b.eh_bem_terceiro = FALSE"};`,
+        )
+      : { rows: [{ total: 0 }] };
 
     res.json({
       requestId: req.requestId,
@@ -1637,6 +1646,7 @@ app.get("/stats", mustAuth, async (req, res, next) => {
         total: total.rows[0]?.total ?? 0,
         porUnidade: porUnidade.rows,
         porStatus: porStatus.rows,
+        emProcessoBaixa: Number(emProcessoBaixa.rows?.[0]?.total || 0),
       },
     });
   } catch (error) {
@@ -1752,6 +1762,20 @@ app.get("/bens", mustAuth, async (req, res, next) => {
         b.foto_url AS "fotoUrl",
         b.status::text AS "status",
         b.eh_bem_terceiro AS "ehBemTerceiro",
+        EXISTS (
+          SELECT 1
+          FROM marcacoes_inserviveis mi
+          WHERE mi.bem_id = b.id
+            AND mi.status_fluxo = 'EM_PROCESSO_BAIXA'::public.status_fluxo_inservivel
+        ) AS "emProcessoBaixa",
+        (
+          SELECT bp.processo_referencia
+          FROM baixas_patrimoniais bp
+          JOIN baixas_patrimoniais_itens bpi ON bpi.baixa_patrimonial_id = bp.id
+          WHERE bpi.bem_id = b.id
+          ORDER BY bp.created_at DESC
+          LIMIT 1
+        ) AS "baixaProcessoReferencia",
         EXISTS (
           SELECT 1 FROM contagens c 
           WHERE c.bem_id = b.id AND c.regularizacao_pendente = TRUE

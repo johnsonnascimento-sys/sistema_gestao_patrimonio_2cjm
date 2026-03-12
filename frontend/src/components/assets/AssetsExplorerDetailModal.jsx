@@ -16,6 +16,7 @@ import {
   reverterBemAuditoria,
   uploadFoto,
 } from "../../services/apiClient.js";
+import { getBemStatusMeta } from "./assetStatusPresentation.js";
 
 function formatUnidade(id) {
   if (id === 1) return "1 (1a Aud)";
@@ -29,7 +30,13 @@ export default function AssetsExplorerDetailModal({ state, onClose, onReload, is
   const imp = state?.data?.bem || null;
   const catalogo = state?.data?.catalogo || null;
   const movs = state?.data?.movimentacoes || [];
+  const baixaPatrimonialResumo = state?.data?.baixaPatrimonialResumo || null;
   const divergenciaPendente = imp?.divergenciaPendente || state?.data?.divergenciaPendente || null;
+  const statusMeta = getBemStatusMeta({
+    ...imp,
+    baixaPatrimonialResumo,
+    marcacaoAtual: state?.data?.marcacaoAtual || null,
+  });
   const cautelaAtual = useMemo(() => {
     if (String(imp?.status || "").toUpperCase() !== "EM_CAUTELA") return null;
     return movs.find((m) => String(m?.tipoMovimentacao || "").toUpperCase() === "CAUTELA_SAIDA") || null;
@@ -476,7 +483,7 @@ export default function AssetsExplorerDetailModal({ state, onClose, onReload, is
             <p className="text-xs uppercase tracking-widest text-slate-500">Detalhes do bem</p>
             <p className="mt-1 truncate font-[Space_Grotesk] text-lg font-semibold text-slate-900">
               {imp?.numeroTombamento ? `Tombo ${imp.numeroTombamento}` : "Bem"}
-              {imp?.status ? <span className="text-slate-500"> {" "}({imp.status})</span> : null}
+              {statusMeta?.label ? <span className="text-slate-500"> {" "}({statusMeta.label})</span> : null}
             </p>
           </div>
           <button
@@ -494,6 +501,48 @@ export default function AssetsExplorerDetailModal({ state, onClose, onReload, is
 
           {!state.loading && !state.error && imp && (
             <div className="space-y-4">
+              {statusMeta.label === "Em processo de baixa" ? (
+                <section className="rounded-xl border border-rose-300 bg-rose-50 p-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Status crítico</p>
+                      <h3 className="mt-1 text-lg font-semibold text-rose-900">Em processo de baixa</h3>
+                      <p className="mt-2 text-sm text-rose-800">
+                        Este bem já entrou no fluxo formal de baixa patrimonial pelo menu Material Inservível / Baixa e
+                        deve ser tratado com atenção operacional.
+                      </p>
+                    </div>
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusMeta.badgeClass}`}>
+                      {statusMeta.label}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                    <div className="rounded-lg border border-rose-200 bg-white/70 px-3 py-2">
+                      <dt className="text-[11px] uppercase tracking-wider text-rose-700">Status base do bem</dt>
+                      <dd className="mt-1 font-semibold text-slate-900">{statusMeta.statusLabel}</dd>
+                    </div>
+                    <div className="rounded-lg border border-rose-200 bg-white/70 px-3 py-2">
+                      <dt className="text-[11px] uppercase tracking-wider text-rose-700">Processo</dt>
+                      <dd className="mt-1 font-semibold text-slate-900">
+                        {baixaPatrimonialResumo?.processoReferencia || "Rascunho sem referência"}
+                      </dd>
+                    </div>
+                    <div className="rounded-lg border border-rose-200 bg-white/70 px-3 py-2">
+                      <dt className="text-[11px] uppercase tracking-wider text-rose-700">Modalidade</dt>
+                      <dd className="mt-1 font-semibold text-slate-900">
+                        {baixaPatrimonialResumo?.modalidadeBaixa || "Não informada"}
+                      </dd>
+                    </div>
+                    <div className="rounded-lg border border-rose-200 bg-white/70 px-3 py-2">
+                      <dt className="text-[11px] uppercase tracking-wider text-rose-700">Situação do processo</dt>
+                      <dd className="mt-1 font-semibold text-slate-900">
+                        {baixaPatrimonialResumo?.statusProcesso || "Em processo"}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              ) : null}
+
               {divergenciaPendente && (
                 <div className="rounded-xl border border-rose-300 bg-rose-50 p-4">
                   <div className="flex items-center gap-3 text-rose-700">
@@ -624,9 +673,15 @@ export default function AssetsExplorerDetailModal({ state, onClose, onReload, is
 
                     <label className="space-y-1">
                       <span className="text-xs text-slate-600">Status do bem</span>
-                      <p className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-                        {String(imp?.status || "-")}
-                      </p>
+                      <div className={`rounded-lg border px-3 py-2 text-sm ${statusMeta.toneClass}`}>
+                        <p className="font-semibold">{statusMeta.label}</p>
+                        <p className="mt-1 text-[11px] opacity-80">Status base: {statusMeta.statusLabel}</p>
+                        {statusMeta.label === "Em processo de baixa" ? (
+                          <p className="mt-2 text-[11px] font-semibold">
+                            {statusMeta.helper}
+                          </p>
+                        ) : null}
+                      </div>
                       <p className="text-[11px] text-slate-500">
                         Alteracao de status nao e permitida aqui. Use o procedimento proprio em Movimentacoes (ex.: Cautela).
                       </p>
@@ -1106,7 +1161,4 @@ function Row({ k, v, mono }) {
     </div>
   );
 }
-
-
-
 

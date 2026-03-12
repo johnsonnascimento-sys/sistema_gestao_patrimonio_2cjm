@@ -3,6 +3,7 @@
  * Arquivo: AssetsExplorerResultsTable.jsx
  * Funcao no sistema: renderizar resultados, paginação e atalhos da Consulta de Bens.
  */
+import { getBemStatusMeta } from "./assetStatusPresentation.js";
 export default function AssetsExplorerResultsTable({
   items,
   paging,
@@ -107,8 +108,10 @@ export default function AssetsExplorerResultsTable({
                 </td>
               </tr>
             ) : null}
-            {items.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50">
+            {items.map((item) => {
+              const statusMeta = getBemStatusMeta(item);
+              return (
+              <tr key={item.id} className={item.emProcessoBaixa ? "bg-rose-50/40 hover:bg-rose-50" : "hover:bg-slate-50"}>
                 <td className="px-3 py-2 font-mono text-xs">
                   <button
                     type="button"
@@ -186,9 +189,17 @@ export default function AssetsExplorerResultsTable({
                     : "-"}
                 </td>
                 <td className="px-3 py-2">
-                  <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs">
-                    {item.status}
-                  </span>
+                  <div className="space-y-1">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusMeta.badgeClass}`}>
+                      {statusMeta.label}
+                    </span>
+                    {statusMeta.label !== statusMeta.statusLabel ? (
+                      <p className="text-[11px] text-slate-500">Status base: {statusMeta.statusLabel}</p>
+                    ) : null}
+                    {item.emProcessoBaixa ? (
+                      <p className="text-[11px] font-semibold text-rose-700">{statusMeta.helper}</p>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-center">
                   {item.temDivergenciaPendente ? (
@@ -212,7 +223,8 @@ export default function AssetsExplorerResultsTable({
                   </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>
