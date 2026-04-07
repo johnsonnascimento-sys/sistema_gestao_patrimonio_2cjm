@@ -590,13 +590,16 @@ export default function CatalogoAdminPanel({ canAdmin }) {
             </label>
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Descricao</span>
-              <input
+              <textarea
                 value={form.descricao}
                 onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                className="min-h-[132px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                 placeholder="Descricao canonica do item"
                 disabled={!canAdmin && auth.authEnabled}
               />
+              <p className="text-[11px] text-slate-500">
+                Campo preparado para descricoes longas de Material (SKU).
+              </p>
             </label>
             <label className="space-y-1">
               <span className="text-xs text-slate-600">Classificacao SIAFI (obrigatorio)</span>

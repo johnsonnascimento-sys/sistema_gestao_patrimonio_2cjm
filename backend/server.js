@@ -303,6 +303,7 @@ const BACKUP_KEEP_DAYS_DEFAULT = Number(process.env.BACKUP_KEEP_DAYS_DEFAULT || 
 const BACKUP_MEDIA_SOURCE = process.env.BACKUP_MEDIA_SOURCE || FOTOS_DIR;
 const BACKUP_REMOTE_DB_DIR = `${BACKUP_REMOTE_BASE}/database`;
 const BACKUP_REMOTE_MEDIA_DIR = `${BACKUP_REMOTE_BASE}/media`;
+const CATALOGO_DESCRICAO_MAX_LENGTH = Math.max(500, parseInt(process.env.CATALOGO_DESCRICAO_MAX_LENGTH || "4000", 10));
 fs.mkdirSync(RUNTIME_LOG_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_LOCAL_DB_DIR, { recursive: true });
 fs.mkdirSync(BACKUP_LOCAL_MEDIA_DIR, { recursive: true });
@@ -5129,7 +5130,7 @@ app.post("/catalogo-bens", mustAdmin, async (req, res, next) => {
   try {
     const body = req.body || {};
     const codigoCatalogo = String(body.codigoCatalogo || "").trim().slice(0, 120);
-    const descricao = String(body.descricao || "").trim().slice(0, 500);
+    const descricao = String(body.descricao || "").trim().slice(0, CATALOGO_DESCRICAO_MAX_LENGTH);
     const grupo = body.grupo != null ? String(body.grupo).trim().slice(0, 120) : "";
     const materialPermanente = Object.prototype.hasOwnProperty.call(body, "materialPermanente")
       ? parseBool(body.materialPermanente, false)
@@ -5211,7 +5212,7 @@ app.patch("/catalogo-bens/:id", mustAdmin, async (req, res, next) => {
       i += 1;
     }
     if (Object.prototype.hasOwnProperty.call(body, "descricao")) {
-      const descricao = String(body.descricao || "").trim().slice(0, 500);
+      const descricao = String(body.descricao || "").trim().slice(0, CATALOGO_DESCRICAO_MAX_LENGTH);
       if (!descricao) throw new HttpError(422, "DESCRICAO_OBRIGATORIA", "descricao e obrigatoria.");
       fields.push(`descricao = $${i}`);
       params.push(descricao);
