@@ -7,6 +7,22 @@
 
 const { buildHealthPayload } = require("../services/runtimeMetadata");
 
+const DEEP_DATABASE_CHECKS = [
+  "public.perfis",
+  "public.locais",
+  "public.catalogo_bens",
+  "public.bens",
+  "public.eventos_inventario",
+  "public.movimentacoes",
+  "public.solicitacoes_aprovacao",
+];
+
+async function runDeepDatabaseChecks(pool) {
+  for (const tableName of DEEP_DATABASE_CHECKS) {
+    await pool.query(`SELECT 1 FROM ${tableName} LIMIT 1;`);
+  }
+}
+
 function registerHealthRoute(app, deps) {
   const pool = deps?.pool;
   const authEnabled = Boolean(deps?.authEnabled);
@@ -22,12 +38,14 @@ function registerHealthRoute(app, deps) {
   app.get("/health", async (req, res, next) => {
     try {
       await pool.query("SELECT 1");
+      await runDeepDatabaseChecks(pool);
       res.json(
         buildHealthPayload({
           requestId: req.requestId,
           authEnabled,
           runtimeMetadata,
           databaseStatus: "ok",
+          deepDatabaseStatus: "ok",
         }),
       );
     } catch (error) {
@@ -36,4 +54,4 @@ function registerHealthRoute(app, deps) {
   });
 }
 
-module.exports = { registerHealthRoute };
+module.exports = { registerHealthRoute, runDeepDatabaseChecks, DEEP_DATABASE_CHECKS };

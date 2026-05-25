@@ -54,6 +54,7 @@ test("buildHealthPayload preserva authEnabled, requestId e checks", () => {
       APP_BUILD_SOURCE: "scripts/vps_deploy.sh",
     }),
     databaseStatus: "ok",
+    deepDatabaseStatus: "ok",
   });
 
   assert.equal(payload.status, "ok");
@@ -61,5 +62,5 @@ test("buildHealthPayload preserva authEnabled, requestId e checks", () => {
   assert.equal(payload.authEnabled, true);
   assert.equal(payload.git.commit, "abc123def456");
   assert.equal(payload.deploy.method, "git_pull");
-  assert.deepEqual(payload.checks, { database: "ok" });
+  assert.deepEqual(payload.checks, { database: "ok", deepDatabase: "ok" });
 });

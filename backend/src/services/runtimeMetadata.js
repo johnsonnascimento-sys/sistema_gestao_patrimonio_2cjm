@@ -62,8 +62,22 @@ function readRuntimeMetadata(env = process.env) {
   };
 }
 
-function buildHealthPayload({ requestId, authEnabled, runtimeMetadata, databaseStatus = "ok" }) {
+function buildHealthPayload({
+  requestId,
+  authEnabled,
+  runtimeMetadata,
+  databaseStatus = "ok",
+  deepDatabaseStatus = null,
+}) {
   const metadata = runtimeMetadata || readRuntimeMetadata();
+  const checks = {
+    database: databaseStatus,
+  };
+
+  if (deepDatabaseStatus != null) {
+    checks.deepDatabase = deepDatabaseStatus;
+  }
+
   return {
     status: "ok",
     requestId: requestId || null,
@@ -71,9 +85,7 @@ function buildHealthPayload({ requestId, authEnabled, runtimeMetadata, databaseS
     git: metadata.git,
     deploy: metadata.deploy,
     build: metadata.build,
-    checks: {
-      database: databaseStatus,
-    },
+    checks,
   };
 }
 

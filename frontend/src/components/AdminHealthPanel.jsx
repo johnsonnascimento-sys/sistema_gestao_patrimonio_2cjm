@@ -43,6 +43,7 @@ function readHealthLog() {
         status: entry?.status === "ok" ? "ok" : "fail",
         requestId: String(entry?.requestId || ""),
         database: String(entry?.database || ""),
+        deepDatabase: String(entry?.deepDatabase || ""),
         error: String(entry?.error || ""),
       }))
       .filter((entry) => entry.id && entry.at);
@@ -77,6 +78,7 @@ function makeLogEntry({ status, data, error }) {
     status,
     requestId: String(data?.requestId || ""),
     database: String(data?.checks?.database || ""),
+    deepDatabase: String(data?.checks?.deepDatabase || ""),
     error: String(error || ""),
   };
 }
@@ -228,6 +230,9 @@ export default function AdminHealthPanel({ canAdmin }) {
               <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-slate-600">
                 database={renderValue(healthState.data.checks?.database)}
               </span>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-slate-600">
+                deepDatabase={renderValue(healthState.data.checks?.deepDatabase)}
+              </span>
             </div>
           </div>
         ) : null}
@@ -270,6 +275,11 @@ export default function AdminHealthPanel({ canAdmin }) {
                       {entry.database ? (
                         <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
                           database={entry.database}
+                        </span>
+                      ) : null}
+                      {entry.deepDatabase ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
+                          deepDatabase={entry.deepDatabase}
                         </span>
                       ) : null}
                     </div>

@@ -25,7 +25,7 @@ function buildHealthResponse(requestId) {
     git: { commit: "abc123def456", branch: "main" },
     deploy: { method: "git_pull", source: "scripts/vps_deploy.sh" },
     build: { timestamp: "2026-03-07T23:59:59Z", source: "scripts/vps_deploy.sh", version: "1.0.0" },
-    checks: { database: "ok" },
+    checks: { database: "ok", deepDatabase: "ok" },
   };
 }
 
@@ -40,6 +40,7 @@ function buildSeedEntry(index) {
     status: "ok",
     requestId: `seed-${index}`,
     database: "ok",
+    deepDatabase: "ok",
     error: "",
   };
 }
@@ -83,6 +84,7 @@ describe("AdminHealthPanel", () => {
     expect(within(historyList).getByText("requestId=req-11")).toBeInTheDocument();
     expect(within(historyList).getByText("requestId=req-10")).toBeInTheDocument();
     expect(within(historyList).queryByText("requestId=seed-1")).not.toBeInTheDocument();
+    expect(within(historyList).getAllByText("deepDatabase=ok")).toHaveLength(10);
 
     const storedLog = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
     expect(storedLog).toHaveLength(10);
@@ -98,5 +100,6 @@ describe("AdminHealthPanel", () => {
     expect(screen.getByText("1.0.0")).toBeInTheDocument();
     expect(within(historyList).getByText("requestId=req-11")).toBeInTheDocument();
     expect(screen.getByText(/Atualiza[cç][aã]o autom[aá]tica a cada 120 horas/i)).toBeInTheDocument();
+    expect(screen.getAllByText("deepDatabase=ok")).toHaveLength(11);
   });
 });

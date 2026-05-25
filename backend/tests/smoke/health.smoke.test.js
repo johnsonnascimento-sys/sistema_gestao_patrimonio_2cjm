@@ -24,5 +24,7 @@ test(
     assert.ok(Object.prototype.hasOwnProperty.call(payload, "git"));
     assert.ok(Object.prototype.hasOwnProperty.call(payload, "deploy"));
     assert.ok(Object.prototype.hasOwnProperty.call(payload, "build"));
+    assert.equal(payload.checks?.database, "ok");
+    assert.equal(payload.checks?.deepDatabase, "ok");
   },
 );
