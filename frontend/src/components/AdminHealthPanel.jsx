@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE_URL, getHealth } from "../services/apiClient.js";
 
 const AUTO_REFRESH_MS = 120 * 60 * 60 * 1000;
+const HEALTH_LOG_STORAGE_KEY = "cjm.adminHealthPanel.healthLog.v1";
+const MAX_HEALTH_LOG_ENTRIES = 10;
 
 function formatApiError(error) {
   const msg = String(error?.message || "Falha na requisicao.");
@@ -26,12 +28,66 @@ function renderValue(value) {
   return normalized || "unknown";
 }
 
+function readHealthLog() {
+  if (typeof window === "undefined" || !window.localStorage) return [];
+
+  try {
+    const raw = window.localStorage.getItem(HEALTH_LOG_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => ({
+        id: String(entry?.id || ""),
+        at: String(entry?.at || ""),
+        status: entry?.status === "ok" ? "ok" : "fail",
+        requestId: String(entry?.requestId || ""),
+        database: String(entry?.database || ""),
+        error: String(entry?.error || ""),
+      }))
+      .filter((entry) => entry.id && entry.at);
+  } catch {
+    return [];
+  }
+}
+
+function writeHealthLog(entries) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+
+  try {
+    window.localStorage.setItem(HEALTH_LOG_STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // Ignore storage failures, the panel must keep working even without persistence.
+  }
+}
+
+function formatLogTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(date);
+}
+
+function makeLogEntry({ status, data, error }) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    at: new Date().toISOString(),
+    status,
+    requestId: String(data?.requestId || ""),
+    database: String(data?.checks?.database || ""),
+    error: String(error || ""),
+  };
+}
+
 export default function AdminHealthPanel({ canAdmin }) {
   const [healthState, setHealthState] = useState({
     loading: false,
     data: null,
     error: null,
   });
+  const [healthLog, setHealthLog] = useState(() => readHealthLog());
   const isMountedRef = useRef(false);
 
   useEffect(() => {
@@ -41,6 +97,17 @@ export default function AdminHealthPanel({ canAdmin }) {
     };
   }, []);
 
+  useEffect(() => {
+    writeHealthLog(healthLog);
+  }, [healthLog]);
+
+  const appendHealthLog = useCallback((entry) => {
+    setHealthLog((currentEntries) => {
+      const nextEntries = [entry, ...currentEntries].slice(0, MAX_HEALTH_LOG_ENTRIES);
+      return nextEntries;
+    });
+  }, []);
+
   const onHealth = useCallback(async () => {
     if (!canAdmin) return;
     setHealthState({ loading: true, data: null, error: null });
@@ -48,15 +115,18 @@ export default function AdminHealthPanel({ canAdmin }) {
       const data = await getHealth();
       if (!isMountedRef.current) return;
       setHealthState({ loading: false, data, error: null });
+      appendHealthLog(makeLogEntry({ status: "ok", data }));
     } catch (error) {
       if (!isMountedRef.current) return;
+      const formattedError = formatApiError(error);
       setHealthState({
         loading: false,
         data: null,
-        error: formatApiError(error),
+        error: formattedError,
       });
+      appendHealthLog(makeLogEntry({ status: "fail", error: formattedError }));
     }
-  }, [canAdmin]);
+  }, [appendHealthLog, canAdmin]);
 
   useEffect(() => {
     if (!canAdmin) return undefined;
@@ -162,6 +232,61 @@ export default function AdminHealthPanel({ canAdmin }) {
           </div>
         ) : null}
       </div>
+
+      {canAdmin ? (
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-slate-800">Historico dos ultimos 10 testes</h4>
+            <span className="text-xs text-slate-500">
+              Persistido localmente nesta navegacao.
+            </span>
+          </div>
+          <ol className="mt-3 space-y-2" aria-label="Historico dos ultimos 10 testes">
+            {healthLog.length ? (
+              healthLog.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 md:flex-row md:items-start md:justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-semibold ${
+                          entry.status === "ok"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-rose-50 text-rose-700"
+                        }`}
+                      >
+                        {entry.status === "ok" ? "OK" : "Falha"}
+                      </span>
+                      <span className="font-mono text-slate-500">{formatLogTimestamp(entry.at)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {entry.requestId ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
+                          requestId={entry.requestId}
+                        </span>
+                      ) : null}
+                      {entry.database ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
+                          database={entry.database}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  {entry.error ? (
+                    <div className="max-w-2xl text-rose-700">{entry.error}</div>
+                  ) : null}
+                </li>
+              ))
+            ) : (
+              <li className="list-none rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
+                Nenhum teste registrado ainda.
+              </li>
+            )}
+          </ol>
+        </div>
+      ) : null}
     </article>
   );
 }

@@ -290,6 +290,7 @@ No card de `Conectividade backend (/health)`:
 - o teste manual permanece disponível no botão `Testar /health`;
 - a verificação é executada automaticamente ao abrir a tela e repetida a cada 120 horas enquanto a seção permanecer aberta;
 - o retorno continua trazendo `requestId`, metadados de build/deploy e `checks.database=ok` quando o Supabase responde.
+- a tela exibe um histórico local com os últimos 10 testes, incluindo data/hora, status e `requestId` quando disponível.
 
 Importação GEAFIN permanece operacional em menu proprio:
 
