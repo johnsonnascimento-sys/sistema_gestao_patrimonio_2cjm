@@ -285,6 +285,12 @@ A Administração do Painel concentra operações administrativas e cadastros de
 - Perfis e acessos
 - Locais (endereços) cadastrados
 
+No card de `Conectividade backend (/health)`:
+
+- o teste manual permanece disponível no botão `Testar /health`;
+- a verificação é executada automaticamente ao abrir a tela e repetida a cada 120 horas enquanto a seção permanecer aberta;
+- o retorno continua trazendo `requestId`, metadados de build/deploy e `checks.database=ok` quando o Supabase responde.
+
 Importação GEAFIN permanece operacional em menu proprio:
 
 - Operações Patrimoniais -> Importação GEAFIN (CSV Latin1)

@@ -17,7 +17,7 @@ const SECTION_META = {
   },
   "admin-health": {
     title: "Conectividade Backend",
-    description: "Validacao operacional de disponibilidade da API e requestId.",
+    description: "Validacao operacional da API, do banco e do requestId com autoatualizacao a cada 120 horas.",
   },
   "admin-perfis": {
     title: "Perfis e Acessos",

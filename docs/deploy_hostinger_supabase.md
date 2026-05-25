@@ -134,3 +134,26 @@ npm --prefix frontend test
 python scripts/check_wiki_encoding.py
 node scripts/validate_governance.js
 ```
+
+## 11. Healthcheck do Supabase em 120h
+
+Para validar a saude do banco a cada 120 horas na VPS, use o `systemd timer`:
+
+1. Garantir que o `.env` do deploy tenha `DATABASE_URL` apontando para o Supabase.
+2. Garantir permissao de execucao para os scripts:
+   - `chmod +x scripts/check_supabase_health.sh`
+   - `chmod +x scripts/install_supabase_healthcheck_timer.sh`
+3. Instalar o timer como root na VPS:
+   - `sudo APP_DIR=/opt/cjm-patrimonio/current ./scripts/install_supabase_healthcheck_timer.sh`
+4. Verificar o agendamento:
+   - `systemctl list-timers cjm-supabase-healthcheck.timer`
+5. Verificar logs:
+   - `journalctl -u cjm-supabase-healthcheck.service -f`
+6. Execucao manual, quando necessario:
+   - `ENV_FILE=/opt/cjm-patrimonio/current/.env ./scripts/check_supabase_health.sh`
+
+Observacao:
+
+- O healthcheck faz apenas uma conexao e `SELECT 1`.
+- `systemd timer` e o unico mecanismo aqui que garante intervalo exato de 120 horas.
+- O instalador de `cron` permanece apenas como alternativa aproximada, nao recomendada para esse requisito.

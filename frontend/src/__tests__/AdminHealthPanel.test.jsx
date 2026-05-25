@@ -1,11 +1,11 @@
 /**
  * Modulo: frontend/tests
  * Arquivo: AdminHealthPanel.test.jsx
- * Funcao no sistema: validar exibicao dos metadados operacionais do /health na UI admin.
+ * Funcao no sistema: validar exibicao e autoatualizacao dos metadados operacionais do /health na UI admin.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../services/apiClient.js", () => ({
   API_BASE_URL: "http://localhost:3001",
@@ -18,9 +18,14 @@ import { getHealth } from "../services/apiClient.js";
 describe("AdminHealthPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window, "setInterval");
   });
 
-  it("exibe commit, branch e metodo de deploy retornados pelo /health", async () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("executa o health automaticamente e preserva o teste manual", async () => {
     getHealth.mockResolvedValue({
       status: "ok",
       requestId: "req-1",
@@ -32,10 +37,17 @@ describe("AdminHealthPanel", () => {
     });
 
     render(<AdminHealthPanel canAdmin />);
+
+    await waitFor(() => {
+      expect(getHealth).toHaveBeenCalledTimes(1);
+    });
+
+    expect(window.setInterval).toHaveBeenCalledWith(expect.any(Function), 432000000);
+
     await userEvent.click(screen.getByRole("button", { name: "Testar /health" }));
 
     await waitFor(() => {
-      expect(screen.getByText(/requestId=req-1/i)).toBeInTheDocument();
+      expect(getHealth).toHaveBeenCalledTimes(2);
     });
 
     expect(screen.getByText(/Commit/i)).toBeInTheDocument();
@@ -44,5 +56,7 @@ describe("AdminHealthPanel", () => {
     expect(screen.getByText("git_pull")).toBeInTheDocument();
     expect(screen.getByText(/Versão backend/i)).toBeInTheDocument();
     expect(screen.getByText("1.0.0")).toBeInTheDocument();
+    expect(screen.getByText(/requestId=req-1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Atualização automática a cada 120 horas/i)).toBeInTheDocument();
   });
 });

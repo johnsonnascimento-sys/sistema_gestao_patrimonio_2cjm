@@ -1,10 +1,12 @@
 /**
  * Modulo: frontend/components
  * Arquivo: AdminHealthPanel.jsx
- * Funcao no sistema: exibir conectividade backend (/health) para operacao administrativa.
+ * Funcao no sistema: exibir e atualizar automaticamente a conectividade backend (/health) para operacao administrativa.
  */
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE_URL, getHealth } from "../services/apiClient.js";
+
+const AUTO_REFRESH_MS = 120 * 60 * 60 * 1000;
 
 function formatApiError(error) {
   const msg = String(error?.message || "Falha na requisicao.");
@@ -30,20 +32,44 @@ export default function AdminHealthPanel({ canAdmin }) {
     data: null,
     error: null,
   });
+  const isMountedRef = useRef(false);
 
-  const onHealth = async () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const onHealth = useCallback(async () => {
+    if (!canAdmin) return;
     setHealthState({ loading: true, data: null, error: null });
     try {
       const data = await getHealth();
+      if (!isMountedRef.current) return;
       setHealthState({ loading: false, data, error: null });
     } catch (error) {
+      if (!isMountedRef.current) return;
       setHealthState({
         loading: false,
         data: null,
         error: formatApiError(error),
       });
     }
-  };
+  }, [canAdmin]);
+
+  useEffect(() => {
+    if (!canAdmin) return undefined;
+
+    void onHealth();
+    const timerId = window.setInterval(() => {
+      void onHealth();
+    }, AUTO_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [canAdmin, onHealth]);
 
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -76,6 +102,11 @@ export default function AdminHealthPanel({ canAdmin }) {
         </button>
         {healthState.error ? (
           <span className="text-sm text-rose-700">{healthState.error}</span>
+        ) : null}
+        {canAdmin ? (
+          <span className="text-xs text-slate-500">
+            Atualização automática a cada 120 horas enquanto a tela estiver aberta.
+          </span>
         ) : null}
         {healthState.data ? (
           <div className="flex flex-col gap-3 text-sm text-slate-700">

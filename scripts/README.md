@@ -83,3 +83,31 @@
   - Uso:
     - `./scripts/restore_db_backup.sh --remote-file db_20260226T120000Z_pre-geafin.sql.gz --yes-i-know`
     - `./scripts/restore_db_backup.sh --local-file /tmp/db_backup.sql.gz --yes-i-know`
+
+## Scripts de saude do Supabase
+
+- `scripts/check_supabase_health.sh`:
+  - Faz apenas uma consulta `SELECT 1` no Supabase para validar conectividade, SSL e resposta basica do banco.
+  - Usa `DATABASE_URL` do ambiente ou do arquivo `.env` informado.
+  - Se `psql` nao existir no host, usa um container temporario `postgres:16-alpine` como fallback.
+  - Uso:
+    - `ENV_FILE=/opt/cjm-patrimonio/current/.env ./scripts/check_supabase_health.sh`
+    - `LOG_FILE=/var/log/cjm_supabase_health.log ./scripts/check_supabase_health.sh`
+
+- `scripts/install_supabase_healthcheck_cron.sh`:
+  - Instala um job `cron` com wrapper protegido por `flock`.
+  - Usa `0 3 */5 * *` como aproximacao nativa de "a cada 120 horas" em dias corridos.
+  - Uso:
+    - `sudo APP_DIR=/opt/cjm-patrimonio/current ./scripts/install_supabase_healthcheck_cron.sh`
+  - Verificacao:
+    - `cat /etc/cron.d/cjm-supabase-healthcheck`
+    - `tail -f /var/log/cjm_supabase_health.log`
+
+- `scripts/install_supabase_healthcheck_timer.sh`:
+  - Instala e habilita um timer `systemd` para executar o healthcheck a cada 120 horas com intervalo exato.
+  - Cria os arquivos `cjm-supabase-healthcheck.service` e `cjm-supabase-healthcheck.timer` em `/etc/systemd/system/`.
+  - Uso:
+    - `sudo APP_DIR=/opt/cjm-patrimonio/current ./scripts/install_supabase_healthcheck_timer.sh`
+  - Verificacao:
+    - `systemctl list-timers cjm-supabase-healthcheck.timer`
+    - `journalctl -u cjm-supabase-healthcheck.service -f`
